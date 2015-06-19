@@ -1,0 +1,24 @@
+group 'org.mongodb'
+version '1.0-SNAPSHOT'
+
+def configDir = new File(rootDir, 'config')
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+apply plugin: 'java'
+apply plugin: 'checkstyle'
+
+sourceCompatibility = 1.8
+
+dependencies {
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+    compile 'org.mongodb:mongo-java-driver:3.0.2'
+}
+
+checkstyle {
+    toolVersion = "6.2"
+    configFile = new File("$configDir/checkstyle.xml")
+}
