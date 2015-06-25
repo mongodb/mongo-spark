@@ -1,0 +1,41 @@
+*~
+.#*
+.git
+*#
+*.sh
+
+# os x stuff
+*Thumbs.db*
+*.DS_Store
+
+# Build artifacts
+build
+out
+mongo*.jar
+
+# Eclipse files
+.classpath
+.project
+.settings
+
+# Intellij IDEA files
+*.ipr
+*.iws
+*.iml
+*.idea
+workspace.xml
+atlassian-ide-plugin.xml
+
+# gradle
+.gradle
+
+# code review
+codereview.rc
+
+# local settings
+**/gradle.properties
+
+# doc settings
+docs/reference/public
+docs/landing/public
+docs/hugo*
