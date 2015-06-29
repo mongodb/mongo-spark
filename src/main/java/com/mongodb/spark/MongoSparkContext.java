@@ -19,12 +19,14 @@ package com.mongodb.spark;
 
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
+import com.mongodb.MongoClientURI;
 import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.spark.SparkConf;
@@ -50,7 +52,7 @@ public class MongoSparkContext extends JavaSparkContext {
      *
      * @return the mongo client credentials
      */
-    public List<MongoCredential> getClientCredentials() {
+    private List<MongoCredential> getClientCredentials() {
         if (this.clientCredentials == null) {
             this.clientCredentials = new ArrayList<>();
         }
@@ -62,7 +64,7 @@ public class MongoSparkContext extends JavaSparkContext {
      *
      * @return the mongo client hosts
      */
-    public List<String> getClientHosts() {
+    private List<String> getClientHosts() {
         if (this.clientHosts == null) {
             this.clientHosts = new ArrayList<>();
         }
@@ -74,7 +76,7 @@ public class MongoSparkContext extends JavaSparkContext {
      *
      * @return the mongo client options
      */
-    public MongoClientOptions getClientOptions() {
+    private MongoClientOptions getClientOptions() {
         if (this.clientOptions == null) {
             this.clientOptions = new MongoClientOptions.Builder().build();
         }
@@ -237,6 +239,26 @@ public class MongoSparkContext extends JavaSparkContext {
                              final MongoClientOptions clientOptions) {
         this(new SparkContext(new SparkConf().setMaster(master).setAppName(appName).setSparkHome(sparkHome).setJars(jars)),
                 clientCredentials, clientHosts, clientOptions);
+    }
+
+    /**
+     * Constructs a new instance.
+     *
+     * @param sc the spark context
+     * @param uri the mongo client connection string uri
+     */
+    public MongoSparkContext(final SparkContext sc, final MongoClientURI uri) {
+        this(sc, Collections.singletonList(uri.getCredentials()), uri.getHosts(), uri.getOptions());
+    }
+
+    /**
+     * Constructs a new instance.
+     *
+     * @param conf the spark configuration
+     * @param uri the mongo client connection string uri
+     */
+    public MongoSparkContext(final SparkConf conf, final MongoClientURI uri) {
+        this(new SparkContext(conf), Collections.singletonList(uri.getCredentials()), uri.getHosts(), uri.getOptions());
     }
 
     /**

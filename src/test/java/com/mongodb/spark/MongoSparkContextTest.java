@@ -19,6 +19,7 @@ package com.mongodb.spark;
 
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
+import com.mongodb.MongoClientURI;
 import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 
@@ -45,10 +46,12 @@ public class MongoSparkContextTest {
 
     private String host = "localhost:27017";
     private String database = "test";
-    private String collection = "test-auth";
+    private String collection = "test";
 
     private SparkConf sparkConf = new SparkConf().setMaster(master).setAppName(appName);
     private SparkContext sc;
+
+    private MongoClientURI clientUri = new MongoClientURI("mongodb://test:password@" + host + "/" + database);
 
     private MongoCredential credential =
             MongoCredential.createCredential(database, collection, new char[] {'p', 'a', 's', 's', 'w', 'o', 'r', 'd'});
@@ -180,6 +183,29 @@ public class MongoSparkContextTest {
     @Test
     public void shouldConstructMSCWithMasterAppNameSparkHomeJarsCredentialsHostsOptions() {
         msc = new MongoSparkContext(master, appName, sparkHome, new String[] {jarFile}, credentials, hosts, options);
+
+        JavaRDD<Document> rdd = msc.parallelize(database, collection);
+
+        Assert.assertEquals(documents.size(), rdd.collect().size());
+        Assert.assertEquals(master, msc.sc().master());
+        Assert.assertEquals(appName, msc.sc().appName());
+    }
+
+    @Test
+    public void shouldConstructMSCWithSparkContextURI() {
+        sc = new SparkContext(sparkConf);
+        msc = new MongoSparkContext(sc, clientUri);
+
+        JavaRDD<Document> rdd = msc.parallelize(database, collection);
+
+        Assert.assertEquals(documents.size(), rdd.collect().size());
+        Assert.assertEquals(master, msc.sc().master());
+        Assert.assertEquals(appName, msc.sc().appName());
+    }
+
+    @Test
+    public void shouldConstructMSCWithSparkConfURI() {
+        msc = new MongoSparkContext(sparkConf, clientUri);
 
         JavaRDD<Document> rdd = msc.parallelize(database, collection);
 
