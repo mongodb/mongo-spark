@@ -17,162 +17,40 @@
 
 package com.mongodb.spark;
 
-import com.mongodb.MongoClient;
-import com.mongodb.MongoClientOptions;
 import com.mongodb.MongoClientURI;
-import com.mongodb.MongoCredential;
-import com.mongodb.ServerAddress;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.api.java.JavaRDD;
-
-import org.bson.Document;
 
 /**
  * An extension of the [[org.apache.spark.api.java.JavaSparkContext]] that
  * that works with MongoDB collections.
  */
 public class MongoSparkContext extends JavaSparkContext {
-    private final SparkContext          sc;
-    private       MongoClient           client;
-    private       List<MongoCredential> clientCredentials;
-    private       List<String>          clientHosts;
-    private       MongoClientOptions    clientOptions;
-
-    /**
-     * Gets the list of mongo client credentials.
-     *
-     * @return the mongo client credentials
-     */
-    private List<MongoCredential> getClientCredentials() {
-        if (this.clientCredentials == null) {
-            this.clientCredentials = new ArrayList<>();
-        }
-        return clientCredentials;
-    }
-
-    /**
-     * Gets the list of mongo client hosts.
-     *
-     * @return the mongo client hosts
-     */
-    private List<String> getClientHosts() {
-        if (this.clientHosts == null) {
-            this.clientHosts = new ArrayList<>();
-        }
-        return clientHosts;
-    }
-
-    /**
-     * Gets the mongo client options.
-     *
-     * @return the mongo client options
-     */
-    private MongoClientOptions getClientOptions() {
-        if (this.clientOptions == null) {
-            this.clientOptions = new MongoClientOptions.Builder().build();
-        }
-        return clientOptions;
-    }
-
-    /**
-     * Gets the mongo client.
-     *
-     * @return the mongo client
-     */
-    public MongoClient getClient() {
-        if (this.client == null) {
-            List<MongoCredential> credentials = getClientCredentials();
-            List<String> hosts = getClientHosts();
-            MongoClientOptions options = getClientOptions();
-
-            List<ServerAddress> serverAddresses = new ArrayList<>();
-            if (hosts.isEmpty()) {
-                serverAddresses.add(new ServerAddress());
-            }
-            else {
-                hosts.forEach(host -> serverAddresses.add(new ServerAddress(host)));
-            }
-            this.client = new MongoClient(serverAddresses, credentials, options);
-        }
-        return client;
-    }
-
-    /**
-     * Constructs a new instance.
-     *
-     * @param conf the spark configuration
-     */
-    public MongoSparkContext(final SparkConf conf) {
-        this(new SparkContext(conf), null, null, null);
-    }
+    private SparkContext   sc;
+    private MongoClientURI uri;
 
     /**
      * Constructs a new instance.
      *
      * @param sc the spark context
+     * @param uri the mongo client uri
      */
-    public MongoSparkContext(final SparkContext sc) {
-        this(sc, null, null, null);
-    }
-
-    /**
-     * Constructs a new instance.
-     *
-     * @param sc the spark context
-     * @param clientCredentials the mongo client credentials
-     */
-    public MongoSparkContext(final SparkContext sc, final List<MongoCredential> clientCredentials) {
-        this(sc, clientCredentials, null, null);
-    }
-
-    /**
-     * Constructs a new instance.
-     *
-     * @param sc the spark context
-     * @param clientCredentials the mongo client credentials
-     * @param clientHosts the mongo client hosts
-     */
-    public MongoSparkContext(final SparkContext sc, final List<MongoCredential> clientCredentials, final List<String> clientHosts) {
-        this(sc, clientCredentials, clientHosts, null);
-    }
-
-    /**
-     * Constructs a new instance.
-     *
-     * @param sc the spark context
-     * @param clientCredentials the mongo client credentials
-     * @param clientHosts the mongo client hosts
-     * @param clientOptions the mongo client options
-     */
-    public MongoSparkContext(final SparkContext sc, final List<MongoCredential> clientCredentials, final List<String> clientHosts,
-                             final MongoClientOptions clientOptions) {
+    public MongoSparkContext(final SparkContext sc, final MongoClientURI uri) {
         super(sc);
         this.sc = sc;
-        this.clientCredentials = clientCredentials;
-        this.clientHosts = clientHosts;
-        this.clientOptions = clientOptions;
+        this.uri = uri;
     }
 
     /**
      * Constructs a new instance.
      *
      * @param conf the spark configuration
-     * @param clientCredentials the mongo client credentials
-     * @param clientHosts the mongo client hosts
-     * @param clientOptions the mongo client options
+     * @param uri the mongo client uri
      */
-    public MongoSparkContext(final SparkConf conf, final List<MongoCredential> clientCredentials, final List<String> clientHosts,
-                             final MongoClientOptions clientOptions) {
-        this(new SparkContext(conf), clientCredentials, clientHosts, clientOptions);
+    public MongoSparkContext(final SparkConf conf, final MongoClientURI uri) {
+        this(new SparkContext(conf), uri);
     }
 
     /**
@@ -180,13 +58,10 @@ public class MongoSparkContext extends JavaSparkContext {
      *
      * @param master the spark cluster manager to connect to
      * @param appName the application name
-     * @param clientCredentials the mongo client credentials
-     * @param clientHosts the mongo client hosts
-     * @param clientOptions the mongo client options
+     * @param uri the mongo client uri
      */
-    public MongoSparkContext(final String master, final String appName, final List<MongoCredential> clientCredentials,
-                             final List<String> clientHosts, final MongoClientOptions clientOptions) {
-        this(new SparkContext(master, appName), clientCredentials, clientHosts, clientOptions);
+    public MongoSparkContext(final String master, final String appName, final MongoClientURI uri) {
+        this(new SparkContext(master, appName), uri);
     }
 
     /**
@@ -195,13 +70,10 @@ public class MongoSparkContext extends JavaSparkContext {
      * @param master the spark cluster manager to connect to
      * @param appName the application name
      * @param conf the spark configuration
-     * @param clientCredentials the mongo client credentials
-     * @param clientHosts the mongo client hosts
-     * @param clientOptions the mongo client options
+     * @param uri the mongo client uri
      */
-    public MongoSparkContext(final String master, final String appName, final SparkConf conf, final List<MongoCredential> clientCredentials,
-                             final List<String> clientHosts, final MongoClientOptions clientOptions) {
-        this(new SparkContext(master, appName, conf), clientCredentials, clientHosts, clientOptions);
+    public MongoSparkContext(final String master, final String appName, final SparkConf conf, final MongoClientURI uri) {
+        this(new SparkContext(master, appName, conf), uri);
     }
 
     /**
@@ -211,16 +83,12 @@ public class MongoSparkContext extends JavaSparkContext {
      * @param appName the application name
      * @param sparkHome the path where spark is installed on cluster nodes
      * @param jarFile the path of a JAR dependency for all tasks to be executed on this mongo spark context in the future
-     * @param clientCredentials the mongo client credentials
-     * @param clientHosts the mongo client hosts
-     * @param clientOptions the mongo client options
+     * @param uri the mongo client uri
      */
     public MongoSparkContext(final String master, final String appName, final String sparkHome, final String jarFile,
-                             final List<MongoCredential> clientCredentials, final List<String> clientHosts,
-                             final MongoClientOptions clientOptions) {
+                             final MongoClientURI uri) {
         this(new SparkContext(
-                        new SparkConf().setMaster(master).setAppName(appName).setSparkHome(sparkHome).setJars(new String[] {jarFile})),
-             clientCredentials, clientHosts, clientOptions);
+                     new SparkConf().setMaster(master).setAppName(appName).setSparkHome(sparkHome).setJars(new String[] {jarFile})), uri);
     }
 
     /**
@@ -230,72 +98,57 @@ public class MongoSparkContext extends JavaSparkContext {
      * @param appName the application name
      * @param sparkHome the location where spark is installed on cluster nodes
      * @param jars the paths of JAR dependencies for all tasks to be executed on this mongo spark context in the future
-     * @param clientCredentials the mongo client credentials
-     * @param clientHosts the mongo client hosts
-     * @param clientOptions the mongo client options
+     * @param uri the mongo client uri
      */
     public MongoSparkContext(final String master, final String appName, final String sparkHome, final String[] jars,
-                             final List<MongoCredential> clientCredentials, final List<String> clientHosts,
-                             final MongoClientOptions clientOptions) {
-        this(new SparkContext(new SparkConf().setMaster(master).setAppName(appName).setSparkHome(sparkHome).setJars(jars)),
-                clientCredentials, clientHosts, clientOptions);
-    }
-
-    /**
-     * Constructs a new instance.
-     *
-     * @param sc the spark context
-     * @param uri the mongo client connection string uri
-     */
-    public MongoSparkContext(final SparkContext sc, final MongoClientURI uri) {
-        this(sc, Collections.singletonList(uri.getCredentials()), uri.getHosts(), uri.getOptions());
-    }
-
-    /**
-     * Constructs a new instance.
-     *
-     * @param conf the spark configuration
-     * @param uri the mongo client connection string uri
-     */
-    public MongoSparkContext(final SparkConf conf, final MongoClientURI uri) {
-        this(new SparkContext(conf), Collections.singletonList(uri.getCredentials()), uri.getHosts(), uri.getOptions());
+                             final MongoClientURI uri) {
+        this(new SparkContext(new SparkConf().setMaster(master).setAppName(appName).setSparkHome(sparkHome).setJars(jars)), uri);
     }
 
     /**
      * Parallelizes a mongo collection.
      *
-     * @param databaseName the name of the database for the collection
-     * @param collectionName the name of the collection to parallelize
-     * @param partitions the number of partitions
+     * @param partitions the number of RDD partitions
+     * @param lower the minKey value of the collection
+     * @param upper the maxKey value of the collection
+     * @param key the key to partition on
      * @return the RDD
+     * @throws IllegalArgumentException if partitions is not nonnegative
+     * @throws IllegalArgumentException if key is null
+     * @throws IllegalArgumentException if mongo client uri does not contain a database name
+     * @throws IllegalArgumentException if mongo client uri does not contain a collection name
      */
-    public JavaRDD<Document> parallelize(final String databaseName, final String collectionName, final int partitions) {
-        if (collectionName == null) {
-            throw new IllegalArgumentException("collectionName must not be null");
-        }
+    public MongoRDD parallelize(final int partitions, final long lower, final long upper, final String key)
+            throws IllegalArgumentException {
         if (partitions < 0) {
             throw new IllegalArgumentException("partitions must be > 0");
         }
+        if (key == null) {
+            throw new IllegalArgumentException("key must not be null");
+        }
+        if (this.uri.getDatabase() == null) {
+            throw new IllegalArgumentException("uri must specify a database");
+        }
+        if (this.uri.getCollection() == null) {
+            throw new IllegalArgumentException("uri must specify a collection");
+        }
 
-        MongoClient mongoClient = getClient();
-        MongoDatabase database = mongoClient.getDatabase(databaseName);
-        MongoCollection<Document> collection = database.getCollection(collectionName);
-
-        List<Document> documents = new ArrayList<>();
-        collection.find().into(documents);
-
-        return super.parallelize(documents, partitions);
+        return new MongoRDD(this.sc(), partitions, lower, upper, key, this.uri.getURI(), this.uri.getDatabase(), this.uri.getCollection());
     }
 
     /**
-     * Parallelizes a mongo collection.
+     * Parallelizes a mongo collection. Defaults number of partitions to 1.
      *
-     * @param databaseName the name of the database for the collection
-     * @param collectionName the collection to parallelize
+     * @param lower the minKey value of the collection
+     * @param upper the maxKey value of the collection
+     * @param key the key to partition on
      * @return the RDD
+     * @throws IllegalArgumentException if key is null
+     * @throws IllegalArgumentException if mongo client uri does not contain a database name
+     * @throws IllegalArgumentException if mongo client uri does not contain a collection name
      */
-    public JavaRDD<Document> parallelize(final String databaseName, final String collectionName) {
-        return parallelize(databaseName, collectionName, 1);
+    public MongoRDD parallelize(final long lower, final long upper, final String key) throws IllegalArgumentException {
+        return parallelize(1, lower, upper, key);
     }
 
     @Override
