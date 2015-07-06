@@ -46,8 +46,6 @@ public class MongoRDD<TDocument> extends RDD {
     private int    numPartitions;
     private String partitionKey;
     private String uri;
-    private String database;
-    private String collection;
 
     /**
      * Constructs a new instance.
@@ -55,18 +53,13 @@ public class MongoRDD<TDocument> extends RDD {
      * @param sc the spark context the RDD belongs to
      * @param partitions the number of RDD partitions
      * @param key the key to split the collection on
-     * @param mongoUri the mongo client connection string uri
-     * @param databaseName the database that contains the mongo collection
-     * @param collectionName the mongo collection name
+     * @param uri the mongo client connection string uri
      */
-    public MongoRDD(final SparkContext sc, final int partitions, final String key,
-                    final String mongoUri, final String databaseName, final String collectionName) {
+    public MongoRDD(final SparkContext sc, final int partitions, final String key, final String uri) {
         super(sc, new ArrayBuffer<>(), ClassTag$.MODULE$.apply(Document.class));
         this.numPartitions = partitions;
         this.partitionKey = key;
-        this.uri = mongoUri;
-        this.database = databaseName;
-        this.collection = collectionName;
+        this.uri = uri;
     }
 
     /**
@@ -74,13 +67,10 @@ public class MongoRDD<TDocument> extends RDD {
      *
      * @param sc the spark context the RDD belongs to
      * @param key the key to split the collection on
-     * @param mongoUri the mongo client connection string uri
-     * @param databaseName the database that contains the mongo collection
-     * @param collectionName the mongo collection name
+     * @param uri the mongo client connection string uri
      */
-    public MongoRDD(final SparkContext sc, final String key,
-                    final String mongoUri, final String databaseName, final String collectionName) {
-        this(sc, 1, key, mongoUri, databaseName, collectionName);
+    public MongoRDD(final SparkContext sc, final String key, final String uri) {
+        this(sc, 1, key, uri);
     }
 
     @Override
@@ -90,8 +80,10 @@ public class MongoRDD<TDocument> extends RDD {
 
         Document partitionQuery = new Document(this.partitionKey, new Document("$gte", partitionMinKey).append("$lt", partitionMaxKey));
 
-        MongoCursor<Document> cursor = new MongoClient(new MongoClientURI(this.uri)).getDatabase(this.database)
-                                           .getCollection(this.collection).find(partitionQuery).iterator();
+        MongoClientURI mongoClientURI = new MongoClientURI(this.uri);
+
+        MongoCursor<Document> cursor = new MongoClient(mongoClientURI).getDatabase(mongoClientURI.getDatabase())
+                                           .getCollection(mongoClientURI.getCollection()).find(partitionQuery).iterator();
 
         return asScalaIteratorConverter(cursor).asScala();
     }

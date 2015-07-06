@@ -133,8 +133,7 @@ public class MongoSparkContext<TDocument> extends JavaSparkContext {
             throw new IllegalArgumentException("uri must specify a collection");
         }
 
-        return new MongoJavaRDD<>(new MongoRDD<>(this.sc(), partitions, key, this.uri.getURI(), this.uri.getDatabase(),
-                                                 this.uri.getCollection()));
+        return new MongoJavaRDD<>(new MongoRDD<>(this.sc(), partitions, key, this.uri.getURI()));
     }
 
     /**
