@@ -44,7 +44,8 @@ public class MongoRDDTest {
         new MongoClientURI("mongodb://test:password@" + host + "/" + database + "." + collection);
     private MongoClient client = new MongoClient(uri);
 
-    private List<Document> documents = Arrays.asList(new Document("key", 0), new Document("key", 1), new Document("key", 2));
+    private String key = "a";
+    private List<Document> documents = Arrays.asList(new Document(key, 0), new Document(key, 1), new Document(key, 2));
 
     @Before
     public void setUp() {
@@ -63,7 +64,7 @@ public class MongoRDDTest {
         SparkContext sc = new SparkContext(master, appName);
         msc = new MongoSparkContext(sc, uri);
 
-        MongoRDD mongoRdd = new MongoRDD(sc, "key", uri.getURI());
+        MongoRDD mongoRdd = new MongoRDD(sc, uri.getURI());
 
         Assert.assertEquals(documents.size(), mongoRdd.count());
         Assert.assertEquals(documents.get(0), mongoRdd.first());

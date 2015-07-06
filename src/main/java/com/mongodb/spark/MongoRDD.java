@@ -26,9 +26,9 @@ import org.apache.spark.SparkContext;
 import org.apache.spark.TaskContext;
 import org.apache.spark.rdd.RDD;
 
+import org.bson.BsonDocument;
 import org.bson.BsonMinKey;
 import org.bson.BsonMaxKey;
-import org.bson.BsonValue;
 import org.bson.Document;
 
 import scala.collection.Iterator;
@@ -43,47 +43,55 @@ import static scala.collection.JavaConverters.asScalaIteratorConverter;
  * @param <TDocument> document type parameter
  */
 public class MongoRDD<TDocument> extends RDD {
-    private int    numPartitions;
-    private String partitionKey;
-    private String uri;
+    private int          partitions;
+    private BsonDocument query;
+    private String       uri;
 
     /**
      * Constructs a new instance.
      *
      * @param sc the spark context the RDD belongs to
-     * @param partitions the number of RDD partitions
-     * @param key the key to split the collection on
      * @param uri the mongo client connection string uri
+     * @param partitions the number of RDD partitions
+     * @param query the database query
      */
-    public MongoRDD(final SparkContext sc, final int partitions, final String key, final String uri) {
+    public MongoRDD(final SparkContext sc, final String uri, final int partitions, final BsonDocument query) {
         super(sc, new ArrayBuffer<>(), ClassTag$.MODULE$.apply(Document.class));
-        this.numPartitions = partitions;
-        this.partitionKey = key;
         this.uri = uri;
+        this.partitions = partitions;
+        this.query = query;
     }
 
     /**
      * Constructs a new instance.
      *
      * @param sc the spark context the RDD belongs to
-     * @param key the key to split the collection on
+     * @param uri the mongo client connection string uri
+     * @param partitions the number of RDD partitions
+     */
+    public MongoRDD(final SparkContext sc, final String uri, final int partitions) {
+        this(sc, uri, partitions, new BsonDocument());
+    }
+
+    /**
+     * Constructs a new instance. Uses default level of parallelism from the spark context.
+     *
+     * @param sc the spark context the RDD belongs to
      * @param uri the mongo client connection string uri
      */
-    public MongoRDD(final SparkContext sc, final String key, final String uri) {
-        this(sc, 1, key, uri);
+    public MongoRDD(final SparkContext sc, final String uri) {
+        this(sc, uri, sc.defaultParallelism(), new BsonDocument());
     }
 
     @Override
     public Iterator compute(final Partition split, final TaskContext context) {
-        BsonValue partitionMinKey = ((MongoPartition) split).getLower();
-        BsonValue partitionMaxKey = ((MongoPartition) split).getUpper();
-
-        Document partitionQuery = new Document(this.partitionKey, new Document("$gte", partitionMinKey).append("$lt", partitionMaxKey));
-
         MongoClientURI mongoClientURI = new MongoClientURI(this.uri);
 
-        MongoCursor<Document> cursor = new MongoClient(mongoClientURI).getDatabase(mongoClientURI.getDatabase())
-                                           .getCollection(mongoClientURI.getCollection()).find(partitionQuery).iterator();
+        MongoCursor<Document> cursor = new MongoClient(mongoClientURI)
+                                           .getDatabase(mongoClientURI.getDatabase())
+                                           .getCollection(mongoClientURI.getCollection())
+                                           .find(query)
+                                           .iterator();
 
         return asScalaIteratorConverter(cursor).asScala();
     }

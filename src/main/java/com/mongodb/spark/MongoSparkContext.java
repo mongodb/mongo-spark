@@ -22,6 +22,10 @@ import com.mongodb.MongoClientURI;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.bson.BsonDocument;
+
+import static com.mongodb.assertions.Assertions.notNull;
+import static com.mongodb.assertions.Assertions.isTrueArgument;
 
 /**
  * An extension of the [[org.apache.spark.api.java.JavaSparkContext]] that
@@ -41,8 +45,10 @@ public class MongoSparkContext<TDocument> extends JavaSparkContext {
      */
     public MongoSparkContext(final SparkContext sc, final MongoClientURI uri) {
         super(sc);
-        this.sc = sc;
-        this.uri = uri;
+        this.sc = notNull("sc", sc);
+        this.uri = notNull("uri", uri);
+        isTrueArgument("uri database not null", this.uri.getDatabase() != null);
+        isTrueArgument("uri collection not null", this.uri.getCollection() != null);
     }
 
     /**
@@ -108,45 +114,55 @@ public class MongoSparkContext<TDocument> extends JavaSparkContext {
     }
 
     /**
-     * Parallelizes a mongo collection.
+     * Parallelizes a mongo collection. Querying may be performaed by passing
+     * a BsonDocument to query the database with before parallelizing results.
      *
      * @param partitions the number of RDD partitions
-     * @param key the key to partition on
+     * @param query the database query
      * @return the RDD
      * @throws IllegalArgumentException if partitions is not nonnegative
-     * @throws IllegalArgumentException if key is null
-     * @throws IllegalArgumentException if mongo client uri does not contain a database name
-     * @throws IllegalArgumentException if mongo client uri does not contain a collection name
      */
-    public MongoJavaRDD<TDocument> parallelize(final int partitions, final String key)
-            throws IllegalArgumentException {
+    public MongoJavaRDD<TDocument> parallelize(final int partitions, final BsonDocument query) throws IllegalArgumentException {
         if (partitions < 0) {
             throw new IllegalArgumentException("partitions must be > 0");
         }
-        if (key == null) {
-            throw new IllegalArgumentException("key must not be null");
-        }
-        if (this.uri.getDatabase() == null) {
-            throw new IllegalArgumentException("uri must specify a database");
-        }
-        if (this.uri.getCollection() == null) {
-            throw new IllegalArgumentException("uri must specify a collection");
+        if (query == null) {
+            throw new IllegalArgumentException("query must not be null");
         }
 
-        return new MongoJavaRDD<>(new MongoRDD<>(this.sc(), partitions, key, this.uri.getURI()));
+        return new MongoJavaRDD<>(new MongoRDD<>(this.sc, this.uri.getURI(), partitions, query));
     }
 
     /**
-     * Parallelizes a mongo collection. Defaults number of partitions to 1.
+     * Parallelizes a mongo collection.
      *
-     * @param key the key to partition on
+     * @param partitions the number of RDD partitions
      * @return the RDD
-     * @throws IllegalArgumentException if key is null
-     * @throws IllegalArgumentException if mongo client uri does not contain a database name
-     * @throws IllegalArgumentException if mongo client uri does not contain a collection name
+     * @throws IllegalArgumentException if partitions is not nonnegative
      */
-    public MongoJavaRDD<TDocument> parallelize(final String key) throws IllegalArgumentException {
-        return parallelize(1, key);
+    public MongoJavaRDD<TDocument> parallelize(final int partitions) throws IllegalArgumentException {
+        return parallelize(partitions, new BsonDocument());
+    }
+
+    /**
+     * Parallelizes a mongo collection. Uses default level of parallelism from the spark context.
+     *
+     * @param query the database query
+     * @return the RDD
+     * @throws IllegalArgumentException if partitions is not nonnegative
+     */
+    public MongoJavaRDD<TDocument> parallelize(final BsonDocument query) throws IllegalArgumentException {
+        return parallelize(this.sc.defaultParallelism(), query);
+    }
+
+    /**
+     * Parallelizes a mongo collection.
+     *
+     * @return the RDD
+     * @throws IllegalArgumentException if partitions is not nonnegative
+     */
+    public MongoJavaRDD<TDocument> parallelize() throws IllegalArgumentException {
+        return parallelize(this.sc.defaultParallelism(), new BsonDocument());
     }
 
     @Override

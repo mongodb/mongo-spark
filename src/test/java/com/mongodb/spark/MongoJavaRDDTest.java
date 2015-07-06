@@ -30,6 +30,8 @@ import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 
+import org.bson.BsonDocument;
+import org.bson.BsonInt32;
 import org.bson.Document;
 
 import org.junit.After;
@@ -42,7 +44,7 @@ import scala.Tuple2;
 class DocComp implements Serializable, Comparator {
     @Override
     public int compare(final Object d1, final Object d2) {
-        return Integer.compare((Integer) (((Document) d2).get("key")), (Integer) (((Document) d1).get("key")));
+        return Integer.compare((Integer) (((Document) d2).get("a")), (Integer) (((Document) d1).get("a")));
     }
 }
 
@@ -52,13 +54,15 @@ public class MongoJavaRDDTest {
     private String host = "localhost:27017";
     private String database = "test";
     private String collection = "rdd";
-    private String partitionKey = "_id";
 
     private MongoClientURI uri =
             new MongoClientURI("mongodb://test:password@" + host + "/" + database + "." + collection);
     private MongoClient client = new MongoClient(uri);
 
-    private List<Document> documents = Arrays.asList(new Document("key", 0), new Document("key", 2), new Document("key", 1));
+    private String key = "a";
+    private List<Document> documents = Arrays.asList(new Document(key, 0), new Document(key, 2), new Document(key, 1));
+
+    private BsonDocument query = new BsonDocument("b", new BsonInt32(0));
 
     @Before
     public void setUp() {
@@ -77,7 +81,7 @@ public class MongoJavaRDDTest {
         SparkContext sc = new SparkContext("local", "app");
         msc = new MongoSparkContext(sc, uri);
 
-        MongoJavaRDD mongoRdd = msc.parallelize(partitionKey);
+        MongoJavaRDD mongoRdd = msc.parallelize(1);
 
         Assert.assertEquals(documents.size(), mongoRdd.collect().size());
         Assert.assertEquals(mongoRdd.take(1).get(0), mongoRdd.first());
@@ -88,12 +92,13 @@ public class MongoJavaRDDTest {
         SparkContext sc = new SparkContext("local", "app");
         msc = new MongoSparkContext(sc, uri);
 
-        MongoJavaRDD mongoRdd = msc.parallelize(partitionKey);
+        MongoJavaRDD mongoRdd = msc.parallelize(1);
 
-        JavaPairRDD<String, Integer> rdd = mongoRdd.mapToPair(doc -> new Tuple2<>("key", (Integer) ((Document) doc).get("key") * 2));
+        String queryKey = key;
+        JavaPairRDD<String, Integer> rdd = mongoRdd.mapToPair(doc -> new Tuple2<>(queryKey, (Integer) ((Document) doc).get(queryKey) * 2));
 
         JavaRDD<?> jrdd = rdd.map(tuple -> new Document((String) ((Tuple2) tuple)._1(), ((Tuple2) tuple)._2()));
-        Assert.assertEquals(Arrays.asList(new Document("key", 0), new Document("key", 4), new Document("key", 2)), jrdd.collect());
+        Assert.assertEquals(Arrays.asList(new Document(key, 0), new Document(key, 4), new Document(key, 2)), jrdd.collect());
     }
 
     @Test
@@ -101,17 +106,16 @@ public class MongoJavaRDDTest {
         SparkContext sc = new SparkContext("local", "app");
         msc = new MongoSparkContext(sc, uri);
 
-        MongoJavaRDD rdd = msc.parallelize(partitionKey);
+        MongoJavaRDD rdd = msc.parallelize(1);
 
-        JavaRDD jrdd = rdd.map(doc -> new Tuple2<>("key", new Document("key", (Integer) ((Document) doc).get("key") * 2)));
+        String queryKey = key;
+        JavaRDD jrdd = rdd.map(doc -> new Tuple2<>(queryKey, new Document(queryKey, (Integer) ((Document) doc).get(queryKey) * 2)));
 
         JavaPairRDD<String, Document> jprdd = JavaPairRDD.fromJavaRDD(jrdd);
 
-        jprdd.reduceByKey((a, b) -> new Document("key", (Integer) a.get("key") + (Integer) b.get("key"))).collect()
-            .forEach(System.out::println);
-        Assert.assertEquals(new Tuple2<>("key", new Document("key", 6)),
-                            jprdd.reduceByKey((a, b) -> new Document("key", (Integer) a.get("key") + (Integer) b.get("key"))).collect()
-                                 .get(0));
+        Assert.assertEquals(new Tuple2<>(key, new Document(key, 6)),
+                               jprdd.reduceByKey((a, b) -> new Document(queryKey, (Integer) a.get(queryKey) + (Integer) b.get(queryKey)))
+                                   .collect().get(0));
     }
 
     @Test
@@ -119,11 +123,23 @@ public class MongoJavaRDDTest {
         SparkContext sc = new SparkContext("local", "app");
         msc = new MongoSparkContext(sc, uri);
 
-        MongoJavaRDD rdd = msc.parallelize(partitionKey);
+        MongoJavaRDD rdd = msc.parallelize(1);
 
         List<Document> results = rdd.takeOrdered(3, new DocComp());
         results.forEach(doc -> doc.remove("_id"));
 
-        Assert.assertEquals(Arrays.asList(new Document("key", 2), new Document("key", 1), new Document("key", 0)), results);
+        Assert.assertEquals(Arrays.asList(new Document(key, 2), new Document(key, 1), new Document(key, 0)), results);
+    }
+
+    @Test
+    public void shouldQuery() {
+        client.getDatabase(uri.getDatabase()).getCollection(uri.getCollection()).insertOne(new Document(key, 3).append("b", 0));
+
+        SparkContext sc = new SparkContext("local", "app");
+        msc = new MongoSparkContext(sc, uri);
+
+        MongoJavaRDD rdd = msc.parallelize(query);
+
+        Assert.assertEquals(1, rdd.count());
     }
 }
