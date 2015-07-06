@@ -31,6 +31,9 @@ import java.util.Arrays;
 import java.util.List;
 
 public class MongoRDDTest {
+    private String master = "local";
+    private String appName = "testApp";
+
     private MongoSparkContext msc;
 
     private String host = "localhost:27017";
@@ -38,10 +41,10 @@ public class MongoRDDTest {
     private String collection = "rdd";
 
     private MongoClientURI uri =
-            new MongoClientURI("mongodb://test:password@" + host + "/" + database + "." + collection);
+        new MongoClientURI("mongodb://test:password@" + host + "/" + database + "." + collection);
     private MongoClient client = new MongoClient(uri);
 
-    private List<Document> documents = Arrays.asList(new Document("id", 0), new Document("id", 1), new Document("id", 2));
+    private List<Document> documents = Arrays.asList(new Document("key", 0), new Document("key", 1), new Document("key", 2));
 
     @Before
     public void setUp() {
@@ -57,12 +60,13 @@ public class MongoRDDTest {
 
     @Test
     public void shouldMakeMongoRDD() {
-        SparkContext sc = new SparkContext("local", "app");
+        SparkContext sc = new SparkContext(master, appName);
         msc = new MongoSparkContext(sc, uri);
 
-        MongoRDD mongoRdd = msc.parallelize(0, 2, "id");
+        MongoRDD mongoRdd = new MongoRDD(sc, "key", uri.getURI(), database, collection);
 
-        Assert.assertEquals(documents.size(), mongoRdd.collect().length);
-        Assert.assertEquals(mongoRdd.take(1)[0], mongoRdd.first());
+        Assert.assertEquals(documents.size(), mongoRdd.count());
+        Assert.assertEquals(documents.get(0), mongoRdd.first());
+        Assert.assertEquals(1, mongoRdd.getPartitions().length);
     }
 }
