@@ -26,8 +26,10 @@ import org.apache.spark.api.java.JavaSparkContext;
 /**
  * An extension of the [[org.apache.spark.api.java.JavaSparkContext]] that
  * that works with MongoDB collections.
+ *
+ * @param <TDocument> document type parameter
  */
-public class MongoSparkContext extends JavaSparkContext {
+public class MongoSparkContext<TDocument> extends JavaSparkContext {
     private SparkContext   sc;
     private MongoClientURI uri;
 
@@ -109,8 +111,6 @@ public class MongoSparkContext extends JavaSparkContext {
      * Parallelizes a mongo collection.
      *
      * @param partitions the number of RDD partitions
-     * @param lower the minKey value of the collection
-     * @param upper the maxKey value of the collection
      * @param key the key to partition on
      * @return the RDD
      * @throws IllegalArgumentException if partitions is not nonnegative
@@ -118,7 +118,7 @@ public class MongoSparkContext extends JavaSparkContext {
      * @throws IllegalArgumentException if mongo client uri does not contain a database name
      * @throws IllegalArgumentException if mongo client uri does not contain a collection name
      */
-    public MongoRDD parallelize(final int partitions, final long lower, final long upper, final String key)
+    public MongoJavaRDD<TDocument> parallelize(final int partitions, final String key)
             throws IllegalArgumentException {
         if (partitions < 0) {
             throw new IllegalArgumentException("partitions must be > 0");
@@ -133,26 +133,25 @@ public class MongoSparkContext extends JavaSparkContext {
             throw new IllegalArgumentException("uri must specify a collection");
         }
 
-        return new MongoRDD(this.sc(), partitions, lower, upper, key, this.uri.getURI(), this.uri.getDatabase(), this.uri.getCollection());
+        return new MongoJavaRDD<>(new MongoRDD<>(this.sc(), partitions, key, this.uri.getURI(), this.uri.getDatabase(),
+                                                 this.uri.getCollection()));
     }
 
     /**
      * Parallelizes a mongo collection. Defaults number of partitions to 1.
      *
-     * @param lower the minKey value of the collection
-     * @param upper the maxKey value of the collection
      * @param key the key to partition on
      * @return the RDD
      * @throws IllegalArgumentException if key is null
      * @throws IllegalArgumentException if mongo client uri does not contain a database name
      * @throws IllegalArgumentException if mongo client uri does not contain a collection name
      */
-    public MongoRDD parallelize(final long lower, final long upper, final String key) throws IllegalArgumentException {
-        return parallelize(1, lower, upper, key);
+    public MongoJavaRDD<TDocument> parallelize(final String key) throws IllegalArgumentException {
+        return parallelize(1, key);
     }
 
     @Override
     public SparkContext sc() {
-        return sc;
+        return this.sc;
     }
 }
