@@ -25,7 +25,6 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.bson.BsonDocument;
 
 import static com.mongodb.assertions.Assertions.notNull;
-import static com.mongodb.assertions.Assertions.isTrueArgument;
 
 /**
  * An extension of the [[org.apache.spark.api.java.JavaSparkContext]] that
@@ -47,8 +46,8 @@ public class MongoSparkContext<TDocument> extends JavaSparkContext {
         super(sc);
         this.sc = notNull("sc", sc);
         this.uri = notNull("uri", uri);
-        isTrueArgument("uri database not null", this.uri.getDatabase() != null);
-        isTrueArgument("uri collection not null", this.uri.getCollection() != null);
+        notNull("uri database", this.uri.getDatabase());
+        notNull("uri collection", this.uri.getCollection());
     }
 
     /**
@@ -114,7 +113,7 @@ public class MongoSparkContext<TDocument> extends JavaSparkContext {
     }
 
     /**
-     * Parallelizes a mongo collection. Querying may be performaed by passing
+     * Parallelizes a mongo collection. Querying may be performed by passing
      * a BsonDocument to query the database with before parallelizing results.
      *
      * @param partitions the number of RDD partitions
