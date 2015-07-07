@@ -53,8 +53,6 @@ public class MongoSparkContextTest {
     private String key = "a";
     private List<Document> documents = Arrays.asList(new Document(key, 1), new Document(key, 2), new Document(key, 3));
 
-
-
     @Before
     public void setUp() {
         client.getDatabase(uri.getDatabase()).getCollection(uri.getCollection()).drop();
@@ -71,65 +69,88 @@ public class MongoSparkContextTest {
     public void shouldConstructMSCWithSparkConf() {
         msc = new MongoSparkContext(sparkConf, uri);
 
-        JavaRDD<Document> rdd = msc.parallelize(Document.class, 1);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class);
 
         Assert.assertEquals(documents.size(), rdd.collect().size());
-        Assert.assertEquals(master, msc.sc().master());
-        Assert.assertEquals(appName, msc.sc().appName());
     }
 
     @Test
     public void shouldConstructMSCWithSparkContext() {
         msc = new MongoSparkContext(new SparkContext(sparkConf), uri);
 
-        JavaRDD<Document> rdd = msc.parallelize(Document.class, 1);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class);
 
         Assert.assertEquals(documents.size(), rdd.collect().size());
-        Assert.assertEquals(master, msc.sc().master());
-        Assert.assertEquals(appName, msc.sc().appName());
     }
 
     @Test
     public void shouldConstructMSCWithMasterAppNameCredentialsHostsOptions() {
         msc = new MongoSparkContext(master, appName, uri);
 
-        JavaRDD<Document> rdd = msc.parallelize(Document.class, 1);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class);
 
         Assert.assertEquals(documents.size(), rdd.collect().size());
-        Assert.assertEquals(master, msc.sc().master());
-        Assert.assertEquals(appName, msc.sc().appName());
     }
 
     @Test
     public void shouldConstructMSCWithMasterAppNameConfCredentialsHostsOptions() {
         msc = new MongoSparkContext(master, appName, sparkConf, uri);
 
-        JavaRDD<Document> rdd = msc.parallelize(Document.class, 1);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class);
 
         Assert.assertEquals(documents.size(), rdd.collect().size());
-        Assert.assertEquals(master, msc.sc().master());
-        Assert.assertEquals(appName, msc.sc().appName());
     }
 
     @Test
     public void shouldConstructMSCWithMasterAppNameSparkHomeJarFileCredentialsHostsOptions() {
         msc = new MongoSparkContext(master, appName, sparkHome, jarFile, uri);
 
-        JavaRDD<Document> rdd = msc.parallelize(Document.class, 1);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class);
 
         Assert.assertEquals(documents.size(), rdd.collect().size());
-        Assert.assertEquals(master, msc.sc().master());
-        Assert.assertEquals(appName, msc.sc().appName());
     }
 
     @Test
     public void shouldConstructMSCWithMasterAppNameSparkHomeJarsCredentialsHostsOptions() {
         msc = new MongoSparkContext(master, appName, sparkHome, new String[] {jarFile}, uri);
 
-        JavaRDD<Document> rdd = msc.parallelize(Document.class, 1);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class);
 
         Assert.assertEquals(documents.size(), rdd.collect().size());
-        Assert.assertEquals(master, msc.sc().master());
-        Assert.assertEquals(appName, msc.sc().appName());
+    }
+
+    @Test
+    public void shouldParallelizeWithPartitions() {
+        msc = new MongoSparkContext(sparkConf, uri);
+
+        int partitions = 2;
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, partitions);
+
+        Assert.assertEquals(documents.size(), rdd.collect().size());
+        Assert.assertEquals(1, rdd.partitions().size()); // TODO: check actual num partitions once partitioning is implemented
+    }
+
+    @Test
+    public void shouldParallelizeWithDefaultParallelism() {
+        msc = new MongoSparkContext(sparkConf, uri);
+
+        JavaRDD<Document> rdd = msc.parallelize(Document.class);
+
+        Assert.assertEquals(documents.size(), rdd.collect().size());
+        Assert.assertEquals(msc.sc().defaultParallelism(), rdd.partitions().size());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void shouldFailNonnegativePartitions() {
+        msc = new MongoSparkContext(sparkConf, uri);
+
+        msc.parallelize(Document.class, 0);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void shouldFailNullQuery() {
+        msc = new MongoSparkContext(sparkConf, uri);
+
+        msc.parallelize(Document.class, null);
     }
 }

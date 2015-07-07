@@ -74,6 +74,18 @@ public class MongoRDD<T> extends RDD<T> {
     }
 
     /**
+     * Constructs a new instance.
+     *
+     * @param sc the spark context the RDD belongs to
+     * @param uri the mongo client connection string uri
+     * @param clazz the [[java.lang.Class]] of the elements in the RDD
+     * @param query the database query
+     */
+    public MongoRDD(final SparkContext sc, final String uri, final Class<T> clazz, final BsonDocument query) {
+        this(sc, uri, clazz, sc.defaultParallelism(), query);
+    }
+
+    /**
      * Constructs a new instance. Uses default level of parallelism from the spark context.
      *
      * @param sc the spark context the RDD belongs to

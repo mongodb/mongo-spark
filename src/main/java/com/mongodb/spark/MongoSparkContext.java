@@ -124,7 +124,7 @@ public class MongoSparkContext extends JavaSparkContext {
      */
     public <T> JavaRDD<T> parallelize(final Class<T> clazz, final int partitions, final BsonDocument query)
         throws IllegalArgumentException {
-        if (partitions < 0) {
+        if (partitions < 1) {
             throw new IllegalArgumentException("partitions must be > 0");
         }
         if (query == null) {

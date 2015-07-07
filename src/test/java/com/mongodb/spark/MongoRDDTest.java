@@ -20,7 +20,8 @@ package com.mongodb.spark;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientURI;
 import org.apache.spark.SparkContext;
-
+import org.bson.BsonDocument;
+import org.bson.BsonInt32;
 import org.bson.Document;
 import org.junit.After;
 import org.junit.Assert;
@@ -35,6 +36,7 @@ public class MongoRDDTest {
     private String appName = "testApp";
 
     private MongoSparkContext msc;
+    private int partitions = 2;
 
     private String host = "localhost:27017";
     private String database = "test";
@@ -46,6 +48,7 @@ public class MongoRDDTest {
 
     private String key = "a";
     private List<Document> documents = Arrays.asList(new Document(key, 0), new Document(key, 1), new Document(key, 2));
+    private BsonDocument query = new BsonDocument(key, new BsonInt32(0));
 
     @Before
     public void setUp() {
@@ -57,6 +60,42 @@ public class MongoRDDTest {
     public void tearDown() {
         msc.stop();
         msc = null;
+    }
+
+    @Test
+         public void shouldMakeMongoRDDWithPartitionsAndQuery() {
+        SparkContext sc = new SparkContext(master, appName);
+        msc = new MongoSparkContext(sc, uri);
+
+        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, uri.getURI(), Document.class, partitions, query);
+
+        Assert.assertEquals(1, mongoRdd.count());
+        Assert.assertEquals(documents.get(0), mongoRdd.first());
+        Assert.assertEquals(1, mongoRdd.getPartitions().length); // TODO: check actual num partitions once partitioning is implemented
+    }
+
+    @Test
+    public void shouldMakeMongoRDDWithPartitions() {
+        SparkContext sc = new SparkContext(master, appName);
+        msc = new MongoSparkContext(sc, uri);
+
+        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, uri.getURI(), Document.class, partitions);
+
+        Assert.assertEquals(documents.size(), mongoRdd.count());
+        Assert.assertEquals(documents.get(0), mongoRdd.first());
+        Assert.assertEquals(1, mongoRdd.getPartitions().length); // TODO: check actual num partitions once partitioning is implemented
+    }
+
+    @Test
+    public void shouldMakeMongoRDDWithQuery() {
+        SparkContext sc = new SparkContext(master, appName);
+        msc = new MongoSparkContext(sc, uri);
+
+        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, uri.getURI(), Document.class, query);
+
+        Assert.assertEquals(1, mongoRdd.count());
+        Assert.assertEquals(documents.get(0), mongoRdd.first());
+        Assert.assertEquals(1, mongoRdd.getPartitions().length);
     }
 
     @Test
