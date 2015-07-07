@@ -115,7 +115,7 @@ public class MongoSparkContext extends JavaSparkContext {
      * Parallelizes a mongo collection. Querying may be performed by passing
      * a BsonDocument to query the database with before parallelizing results.
      *
-     * @param <T> the type of the objects in the RDD</T>artitions the number of RDD partitions
+     * @param <T> the type of the objects in the RDD
      * @param clazz the [[java.lang.Class]] of the elements in the RDD
      * @param partitions the number of RDD partitions
      * @param query the database query
