@@ -90,10 +90,10 @@ public class MongoRDD<T> extends RDD<T> {
         MongoClientURI mongoClientURI = new MongoClientURI(this.uri);
 
         MongoCursor<T> cursor = new MongoClient(mongoClientURI)
-                                           .getDatabase(mongoClientURI.getDatabase())
-            .getCollection(mongoClientURI.getCollection())
-            .find(this.query, this.clazz)
-                                           .iterator();
+                                    .getDatabase(mongoClientURI.getDatabase())
+                                    .getCollection(mongoClientURI.getCollection())
+                                    .find(this.query, this.clazz)
+                                    .iterator();
 
         return asScalaIteratorConverter(cursor).asScala();
     }
