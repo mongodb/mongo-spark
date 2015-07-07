@@ -19,32 +19,27 @@ package com.mongodb.spark;
 
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientURI;
-
-import java.io.Serializable;
-
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
-
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
-
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
 import org.bson.Document;
-
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-
 import scala.Tuple2;
 
-class DocComp implements Serializable, Comparator {
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+
+class DocComp implements Serializable, Comparator<Document> {
     @Override
-    public int compare(final Object d1, final Object d2) {
-        return Integer.compare((Integer) (((Document) d2).get("a")), (Integer) (((Document) d1).get("a")));
+    public int compare(final Document d1, final Document d2) {
+        return Integer.compare((Integer) (d2.get("a")), (Integer) (d1.get("a")));
     }
 }
 
@@ -81,10 +76,10 @@ public class MongoJavaRDDTest {
         SparkContext sc = new SparkContext("local", "app");
         msc = new MongoSparkContext(sc, uri);
 
-        MongoJavaRDD mongoRdd = msc.parallelize(1);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, 1);
 
-        Assert.assertEquals(documents.size(), mongoRdd.collect().size());
-        Assert.assertEquals(mongoRdd.take(1).get(0), mongoRdd.first());
+        Assert.assertEquals(documents.size(), rdd.collect().size());
+        Assert.assertEquals(rdd.take(1).get(0), rdd.first());
     }
 
     @Test
@@ -92,12 +87,12 @@ public class MongoJavaRDDTest {
         SparkContext sc = new SparkContext("local", "app");
         msc = new MongoSparkContext(sc, uri);
 
-        MongoJavaRDD mongoRdd = msc.parallelize(1);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, 1);
 
         String queryKey = key;
-        JavaPairRDD<String, Integer> rdd = mongoRdd.mapToPair(doc -> new Tuple2<>(queryKey, (Integer) ((Document) doc).get(queryKey) * 2));
+        JavaPairRDD<String, Integer> prdd = rdd.mapToPair(doc -> new Tuple2<>(queryKey, (Integer) doc.get(queryKey) * 2));
 
-        JavaRDD<?> jrdd = rdd.map(tuple -> new Document((String) ((Tuple2) tuple)._1(), ((Tuple2) tuple)._2()));
+        JavaRDD<?> jrdd = prdd.map(tuple -> new Document((String) ((Tuple2) tuple)._1(), ((Tuple2) tuple)._2()));
         Assert.assertEquals(Arrays.asList(new Document(key, 0), new Document(key, 4), new Document(key, 2)), jrdd.collect());
     }
 
@@ -106,10 +101,11 @@ public class MongoJavaRDDTest {
         SparkContext sc = new SparkContext("local", "app");
         msc = new MongoSparkContext(sc, uri);
 
-        MongoJavaRDD rdd = msc.parallelize(1);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, 1);
 
         String queryKey = key;
-        JavaRDD jrdd = rdd.map(doc -> new Tuple2<>(queryKey, new Document(queryKey, (Integer) ((Document) doc).get(queryKey) * 2)));
+        JavaRDD<Tuple2<String, Document>> jrdd = rdd.map(doc -> new Tuple2<>(queryKey,
+                                                                             new Document(queryKey, (Integer) doc.get(queryKey) * 2)));
 
         JavaPairRDD<String, Document> jprdd = JavaPairRDD.fromJavaRDD(jrdd);
 
@@ -123,7 +119,7 @@ public class MongoJavaRDDTest {
         SparkContext sc = new SparkContext("local", "app");
         msc = new MongoSparkContext(sc, uri);
 
-        MongoJavaRDD rdd = msc.parallelize(1);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, 1);
 
         List<Document> results = rdd.takeOrdered(3, new DocComp());
         results.forEach(doc -> doc.remove("_id"));
@@ -138,7 +134,7 @@ public class MongoJavaRDDTest {
         SparkContext sc = new SparkContext("local", "app");
         msc = new MongoSparkContext(sc, uri);
 
-        MongoJavaRDD rdd = msc.parallelize(query);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, query);
 
         Assert.assertEquals(1, rdd.count());
     }

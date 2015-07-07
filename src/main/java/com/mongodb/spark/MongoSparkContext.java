@@ -18,21 +18,20 @@
 package com.mongodb.spark;
 
 import com.mongodb.MongoClientURI;
-
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.bson.BsonDocument;
+import scala.reflect.ClassTag$;
 
 import static com.mongodb.assertions.Assertions.notNull;
 
 /**
  * An extension of the [[org.apache.spark.api.java.JavaSparkContext]] that
  * that works with MongoDB collections.
- *
- * @param <TDocument> document type parameter
  */
-public class MongoSparkContext<TDocument> extends JavaSparkContext {
+public class MongoSparkContext extends JavaSparkContext {
     private SparkContext   sc;
     private MongoClientURI uri;
 
@@ -116,12 +115,15 @@ public class MongoSparkContext<TDocument> extends JavaSparkContext {
      * Parallelizes a mongo collection. Querying may be performed by passing
      * a BsonDocument to query the database with before parallelizing results.
      *
+     * @param <T> the type of the objects in the RDD</T>artitions the number of RDD partitions
+     * @param clazz the [[java.lang.Class]] of the elements in the RDD
      * @param partitions the number of RDD partitions
      * @param query the database query
      * @return the RDD
      * @throws IllegalArgumentException if partitions is not nonnegative
      */
-    public MongoJavaRDD<TDocument> parallelize(final int partitions, final BsonDocument query) throws IllegalArgumentException {
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final int partitions, final BsonDocument query)
+        throws IllegalArgumentException {
         if (partitions < 0) {
             throw new IllegalArgumentException("partitions must be > 0");
         }
@@ -129,39 +131,45 @@ public class MongoSparkContext<TDocument> extends JavaSparkContext {
             throw new IllegalArgumentException("query must not be null");
         }
 
-        return new MongoJavaRDD<>(new MongoRDD<>(this.sc, this.uri.getURI(), partitions, query));
+        return new JavaRDD<>(new MongoRDD<>(this.sc, this.uri.getURI(), clazz, partitions, query), ClassTag$.MODULE$.apply(clazz));
     }
 
     /**
      * Parallelizes a mongo collection.
      *
+     * @param <T> the type of the objects in the RDD
+     * @param clazz the [[java.lang.Class]] of the elements in the RDD
      * @param partitions the number of RDD partitions
      * @return the RDD
      * @throws IllegalArgumentException if partitions is not nonnegative
      */
-    public MongoJavaRDD<TDocument> parallelize(final int partitions) throws IllegalArgumentException {
-        return parallelize(partitions, new BsonDocument());
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final int partitions) throws IllegalArgumentException {
+        return parallelize(clazz, partitions, new BsonDocument());
     }
 
     /**
      * Parallelizes a mongo collection. Uses default level of parallelism from the spark context.
      *
+     * @param <T> the type of the objects in the RDD
+     * @param clazz the [[java.lang.Class]] of the elements in the RDD
      * @param query the database query
      * @return the RDD
      * @throws IllegalArgumentException if partitions is not nonnegative
      */
-    public MongoJavaRDD<TDocument> parallelize(final BsonDocument query) throws IllegalArgumentException {
-        return parallelize(this.sc.defaultParallelism(), query);
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final BsonDocument query) throws IllegalArgumentException {
+        return parallelize(clazz, this.sc.defaultParallelism(), query);
     }
 
     /**
      * Parallelizes a mongo collection.
      *
+     * @param <T> the type of the objects in the RDD
+     * @param clazz the [[java.lang.Class]] of the elements in the RDD
      * @return the RDD
      * @throws IllegalArgumentException if partitions is not nonnegative
      */
-    public MongoJavaRDD<TDocument> parallelize() throws IllegalArgumentException {
-        return parallelize(this.sc.defaultParallelism(), new BsonDocument());
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz) throws IllegalArgumentException {
+        return parallelize(clazz, this.sc.defaultParallelism(), new BsonDocument());
     }
 
     @Override

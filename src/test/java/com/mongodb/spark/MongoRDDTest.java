@@ -64,7 +64,7 @@ public class MongoRDDTest {
         SparkContext sc = new SparkContext(master, appName);
         msc = new MongoSparkContext(sc, uri);
 
-        MongoRDD mongoRdd = new MongoRDD(sc, uri.getURI());
+        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, uri.getURI(), Document.class);
 
         Assert.assertEquals(documents.size(), mongoRdd.count());
         Assert.assertEquals(documents.get(0), mongoRdd.first());

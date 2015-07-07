@@ -19,19 +19,17 @@ package com.mongodb.spark;
 
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientURI;
-
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
-
+import org.apache.spark.api.java.JavaRDD;
 import org.bson.Document;
-
-import java.util.Arrays;
-import java.util.List;
-
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.util.Arrays;
+import java.util.List;
 
 public class MongoSparkContextTest {
     private String master = "local";
@@ -73,7 +71,7 @@ public class MongoSparkContextTest {
     public void shouldConstructMSCWithSparkConf() {
         msc = new MongoSparkContext(sparkConf, uri);
 
-        MongoJavaRDD rdd = msc.parallelize(1);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, 1);
 
         Assert.assertEquals(documents.size(), rdd.collect().size());
         Assert.assertEquals(master, msc.sc().master());
@@ -84,7 +82,7 @@ public class MongoSparkContextTest {
     public void shouldConstructMSCWithSparkContext() {
         msc = new MongoSparkContext(new SparkContext(sparkConf), uri);
 
-        MongoJavaRDD rdd = msc.parallelize(1);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, 1);
 
         Assert.assertEquals(documents.size(), rdd.collect().size());
         Assert.assertEquals(master, msc.sc().master());
@@ -95,7 +93,7 @@ public class MongoSparkContextTest {
     public void shouldConstructMSCWithMasterAppNameCredentialsHostsOptions() {
         msc = new MongoSparkContext(master, appName, uri);
 
-        MongoJavaRDD rdd = msc.parallelize(1);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, 1);
 
         Assert.assertEquals(documents.size(), rdd.collect().size());
         Assert.assertEquals(master, msc.sc().master());
@@ -106,7 +104,7 @@ public class MongoSparkContextTest {
     public void shouldConstructMSCWithMasterAppNameConfCredentialsHostsOptions() {
         msc = new MongoSparkContext(master, appName, sparkConf, uri);
 
-        MongoJavaRDD rdd = msc.parallelize(1);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, 1);
 
         Assert.assertEquals(documents.size(), rdd.collect().size());
         Assert.assertEquals(master, msc.sc().master());
@@ -117,7 +115,7 @@ public class MongoSparkContextTest {
     public void shouldConstructMSCWithMasterAppNameSparkHomeJarFileCredentialsHostsOptions() {
         msc = new MongoSparkContext(master, appName, sparkHome, jarFile, uri);
 
-        MongoJavaRDD rdd = msc.parallelize(1);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, 1);
 
         Assert.assertEquals(documents.size(), rdd.collect().size());
         Assert.assertEquals(master, msc.sc().master());
@@ -128,7 +126,7 @@ public class MongoSparkContextTest {
     public void shouldConstructMSCWithMasterAppNameSparkHomeJarsCredentialsHostsOptions() {
         msc = new MongoSparkContext(master, appName, sparkHome, new String[] {jarFile}, uri);
 
-        MongoJavaRDD rdd = msc.parallelize(1);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, 1);
 
         Assert.assertEquals(documents.size(), rdd.collect().size());
         Assert.assertEquals(master, msc.sc().master());

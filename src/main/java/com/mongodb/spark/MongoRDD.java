@@ -20,17 +20,13 @@ package com.mongodb.spark;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientURI;
 import com.mongodb.client.MongoCursor;
-
 import org.apache.spark.Partition;
 import org.apache.spark.SparkContext;
 import org.apache.spark.TaskContext;
 import org.apache.spark.rdd.RDD;
-
 import org.bson.BsonDocument;
-import org.bson.BsonMinKey;
 import org.bson.BsonMaxKey;
-import org.bson.Document;
-
+import org.bson.BsonMinKey;
 import scala.collection.Iterator;
 import scala.collection.mutable.ArrayBuffer;
 import scala.reflect.ClassTag$;
@@ -40,9 +36,10 @@ import static scala.collection.JavaConverters.asScalaIteratorConverter;
 /**
  * An RDD that executes queries on a Mongo connection and reads results.
  *
- * @param <TDocument> document type parameter
+ * @param <T> the type of the objects in the RDD
  */
-public class MongoRDD<TDocument> extends RDD {
+public class MongoRDD<T> extends RDD<T> {
+    private Class<T>     clazz;
     private int          partitions;
     private BsonDocument query;
     private String       uri;
@@ -52,11 +49,13 @@ public class MongoRDD<TDocument> extends RDD {
      *
      * @param sc the spark context the RDD belongs to
      * @param uri the mongo client connection string uri
+     * @param clazz the [[java.lang.Class]] of the elements in the RDD
      * @param partitions the number of RDD partitions
      * @param query the database query
      */
-    public MongoRDD(final SparkContext sc, final String uri, final int partitions, final BsonDocument query) {
-        super(sc, new ArrayBuffer<>(), ClassTag$.MODULE$.apply(Document.class));
+    public MongoRDD(final SparkContext sc, final String uri, final Class<T> clazz, final int partitions, final BsonDocument query) {
+        super(sc, new ArrayBuffer<>(), ClassTag$.MODULE$.apply(clazz));
+        this.clazz = clazz;
         this.uri = uri;
         this.partitions = partitions;
         this.query = query;
@@ -67,10 +66,11 @@ public class MongoRDD<TDocument> extends RDD {
      *
      * @param sc the spark context the RDD belongs to
      * @param uri the mongo client connection string uri
+     * @param clazz the [[java.lang.Class]] of the elements in the RDD
      * @param partitions the number of RDD partitions
      */
-    public MongoRDD(final SparkContext sc, final String uri, final int partitions) {
-        this(sc, uri, partitions, new BsonDocument());
+    public MongoRDD(final SparkContext sc, final String uri, final Class<T> clazz, final int partitions) {
+        this(sc, uri, clazz, partitions, new BsonDocument());
     }
 
     /**
@@ -78,19 +78,21 @@ public class MongoRDD<TDocument> extends RDD {
      *
      * @param sc the spark context the RDD belongs to
      * @param uri the mongo client connection string uri
+     * @param clazz the [[java.lang.Class]] of the elements in the RDD
      */
-    public MongoRDD(final SparkContext sc, final String uri) {
-        this(sc, uri, sc.defaultParallelism(), new BsonDocument());
+    public MongoRDD(final SparkContext sc, final String uri, final Class<T> clazz) {
+        this(sc, uri, clazz, sc.defaultParallelism(), new BsonDocument());
     }
 
+    // TODO: currently, only supports single partitions
     @Override
-    public Iterator compute(final Partition split, final TaskContext context) {
+    public Iterator<T> compute(final Partition split, final TaskContext context) {
         MongoClientURI mongoClientURI = new MongoClientURI(this.uri);
 
-        MongoCursor<Document> cursor = new MongoClient(mongoClientURI)
+        MongoCursor<T> cursor = new MongoClient(mongoClientURI)
                                            .getDatabase(mongoClientURI.getDatabase())
-                                           .getCollection(mongoClientURI.getCollection())
-                                           .find(query)
+            .getCollection(mongoClientURI.getCollection())
+            .find(this.query, this.clazz)
                                            .iterator();
 
         return asScalaIteratorConverter(cursor).asScala();
