@@ -31,43 +31,46 @@ import org.junit.Test;
 import java.util.Arrays;
 import java.util.List;
 
+import static java.util.Collections.singletonList;
+
 public class MongoRDDTest {
-    private String master = "local";
-    private String appName = "testApp";
-
-    private MongoSparkContext msc;
-    private int partitions = 2;
-
+    private String root = "mongodb://";
     private String host = "localhost:27017";
+    private String credentials = "test:password@";
     private String database = "test";
     private String collection = "rdd";
 
     private MongoClientURI uri =
-        new MongoClientURI("mongodb://test:password@" + host + "/" + database + "." + collection);
+        new MongoClientURI(root + credentials + host + "/" + database + "." + collection);
     private MongoClient client = new MongoClient(uri);
+
+    private String master = "local";
+    private String appName = "testApp";
+
+    private SparkContext sc;
+    private int partitions = 2;
 
     private String key = "a";
     private List<Document> documents = Arrays.asList(new Document(key, 0), new Document(key, 1), new Document(key, 2));
     private BsonDocument query = new BsonDocument(key, new BsonInt32(0));
+    private List<BsonDocument> pipeline = singletonList(new BsonDocument("$project", new BsonDocument(key, new BsonInt32(1))));
 
     @Before
     public void setUp() {
         client.getDatabase(uri.getDatabase()).getCollection(uri.getCollection()).drop();
         client.getDatabase(uri.getDatabase()).getCollection(uri.getCollection()).insertMany(documents);
+        sc = new SparkContext(master, appName);
     }
 
     @After
     public void tearDown() {
-        msc.stop();
-        msc = null;
+        sc.stop();
+        sc = null;
     }
 
     @Test
-         public void shouldMakeMongoRDDWithPartitionsAndQuery() {
-        SparkContext sc = new SparkContext(master, appName);
-        msc = new MongoSparkContext(sc, uri);
-
-        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, uri.getURI(), Document.class, partitions, query);
+    public void shouldMakeMongoRDDWithPartitionsAndQuery() {
+        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, uri, Document.class, partitions, query);
 
         Assert.assertEquals(1, mongoRdd.count());
         Assert.assertEquals(documents.get(0), mongoRdd.first());
@@ -75,11 +78,17 @@ public class MongoRDDTest {
     }
 
     @Test
-    public void shouldMakeMongoRDDWithPartitions() {
-        SparkContext sc = new SparkContext(master, appName);
-        msc = new MongoSparkContext(sc, uri);
+    public void shouldMakeMongoRDDWithPartitionsAndAggregation() {
+        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, uri, Document.class, partitions, pipeline);
 
-        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, uri.getURI(), Document.class, partitions);
+        Assert.assertEquals(documents.size(), mongoRdd.count());
+        Assert.assertEquals(documents.get(0), mongoRdd.first());
+        Assert.assertEquals(1, mongoRdd.getPartitions().length); // TODO: check actual num partitions once partitioning is implemented
+    }
+
+    @Test
+    public void shouldMakeMongoRDDWithPartitions() {
+        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, uri, Document.class, partitions);
 
         Assert.assertEquals(documents.size(), mongoRdd.count());
         Assert.assertEquals(documents.get(0), mongoRdd.first());
@@ -88,25 +97,44 @@ public class MongoRDDTest {
 
     @Test
     public void shouldMakeMongoRDDWithQuery() {
-        SparkContext sc = new SparkContext(master, appName);
-        msc = new MongoSparkContext(sc, uri);
-
-        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, uri.getURI(), Document.class, query);
+        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, uri, Document.class, query);
 
         Assert.assertEquals(1, mongoRdd.count());
         Assert.assertEquals(documents.get(0), mongoRdd.first());
-        Assert.assertEquals(1, mongoRdd.getPartitions().length);
+        Assert.assertEquals(sc.defaultParallelism(), mongoRdd.getPartitions().length);
     }
 
     @Test
     public void shouldMakeMongoRDD() {
-        SparkContext sc = new SparkContext(master, appName);
-        msc = new MongoSparkContext(sc, uri);
-
-        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, uri.getURI(), Document.class);
+        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, uri, Document.class);
 
         Assert.assertEquals(documents.size(), mongoRdd.count());
         Assert.assertEquals(documents.get(0), mongoRdd.first());
-        Assert.assertEquals(1, mongoRdd.getPartitions().length);
+        Assert.assertEquals(sc.defaultParallelism(), mongoRdd.getPartitions().length);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void shouldFailNullClazz() {
+        new MongoRDD<>(sc, uri, null);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void shouldFailNullURI() {
+        new MongoRDD<>(sc, null, Document.class);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void shouldFailNullURIDatabase() {
+        new MongoRDD<>(sc, new MongoClientURI(root + credentials + host), Document.class).collect();
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void shouldFailNullURICollection() {
+        new MongoRDD<>(sc, new MongoClientURI(root + credentials + host + "/" + database), Document.class).collect();
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void shouldFailNonnegativePartitions() {
+        new MongoRDD<>(sc, uri, Document.class, 0);
     }
 }

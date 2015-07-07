@@ -25,6 +25,8 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.bson.BsonDocument;
 import scala.reflect.ClassTag$;
 
+import java.util.List;
+
 import static com.mongodb.assertions.Assertions.notNull;
 
 /**
@@ -45,8 +47,6 @@ public class MongoSparkContext extends JavaSparkContext {
         super(sc);
         this.sc = notNull("sc", sc);
         this.uri = notNull("uri", uri);
-        notNull("uri database", this.uri.getDatabase());
-        notNull("uri collection", this.uri.getCollection());
     }
 
     /**
@@ -124,14 +124,7 @@ public class MongoSparkContext extends JavaSparkContext {
      */
     public <T> JavaRDD<T> parallelize(final Class<T> clazz, final int partitions, final BsonDocument query)
         throws IllegalArgumentException {
-        if (partitions < 1) {
-            throw new IllegalArgumentException("partitions must be > 0");
-        }
-        if (query == null) {
-            throw new IllegalArgumentException("query must not be null");
-        }
-
-        return new JavaRDD<>(new MongoRDD<>(this.sc, this.uri.getURI(), clazz, partitions, query), ClassTag$.MODULE$.apply(clazz));
+        return new JavaRDD<>(new MongoRDD<>(this.sc, this.uri, clazz, partitions, query), ClassTag$.MODULE$.apply(clazz));
     }
 
     /**
@@ -144,7 +137,7 @@ public class MongoSparkContext extends JavaSparkContext {
      * @throws IllegalArgumentException if partitions is not nonnegative
      */
     public <T> JavaRDD<T> parallelize(final Class<T> clazz, final int partitions) throws IllegalArgumentException {
-        return parallelize(clazz, partitions, new BsonDocument());
+        return this.parallelize(clazz, partitions, new BsonDocument());
     }
 
     /**
@@ -157,7 +150,7 @@ public class MongoSparkContext extends JavaSparkContext {
      * @throws IllegalArgumentException if partitions is not nonnegative
      */
     public <T> JavaRDD<T> parallelize(final Class<T> clazz, final BsonDocument query) throws IllegalArgumentException {
-        return parallelize(clazz, this.sc.defaultParallelism(), query);
+        return this.parallelize(clazz, this.sc.defaultParallelism(), query);
     }
 
     /**
@@ -169,7 +162,38 @@ public class MongoSparkContext extends JavaSparkContext {
      * @throws IllegalArgumentException if partitions is not nonnegative
      */
     public <T> JavaRDD<T> parallelize(final Class<T> clazz) throws IllegalArgumentException {
-        return parallelize(clazz, this.sc.defaultParallelism(), new BsonDocument());
+        return this.parallelize(clazz, this.sc.defaultParallelism(), new BsonDocument());
+    }
+
+    /**
+     * Parallelizes a mongo collection. Aggregation may be performed by passing
+     * a pipeline to query the database before parallelizing the results.
+     *
+     * @param <T> the type of the objects in the RDD
+     * @param clazz the [[java.lang.Class]] of the elements in the RDD
+     * @param partitions the number of RDD partitions
+     * @param pipeline the aggregation pipeline
+     * @return the RDD
+     * @throws IllegalArgumentException if partitions is not nonnegative
+     * @throws IllegalArgumentException if aggregation pipeline is null
+     */
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final int partitions, final List<BsonDocument> pipeline)
+        throws IllegalArgumentException {
+        return new JavaRDD<>(new MongoRDD<>(this.sc, this.uri, clazz, partitions, pipeline), ClassTag$.MODULE$.apply(clazz));
+    }
+
+    /**
+     * Parallelizes a mongo collection.
+     *
+     * @param <T> the type of the objects in the RDD
+     * @param clazz the [[java.lang.Class]] of the elements in the RDD
+     * @param pipeline the aggregation pipeline
+     * @return the RDD
+     * @throws IllegalArgumentException if partitions is not nonnegative
+     * @throws IllegalArgumentException if aggregation pipeline is null
+     */
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final List<BsonDocument> pipeline) throws IllegalArgumentException {
+        return this.parallelize(clazz, sc.defaultParallelism(), pipeline);
     }
 
     @Override
