@@ -17,98 +17,74 @@
 
 package com.mongodb.spark;
 
-import com.mongodb.MongoClientURI;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.bson.BsonDocument;
+import org.bson.conversions.Bson;
 import scala.reflect.ClassTag$;
 
 import java.util.List;
-
-import static com.mongodb.assertions.Assertions.notNull;
 
 /**
  * An extension of the [[org.apache.spark.api.java.JavaSparkContext]] that
  * that works with MongoDB collections.
  */
 public class MongoSparkContext extends JavaSparkContext {
-    private SparkContext   sc;
-    private MongoClientURI uri;
+    private SparkContext       sc;
+    private MongoClientFactory clientFactory;
 
     /**
      * Constructs a new instance.
      *
      * @param sc the spark context
-     * @param uri the mongo client uri
      */
-    public MongoSparkContext(final SparkContext sc, final MongoClientURI uri) {
+    public MongoSparkContext(final SparkContext sc) {
         super(sc);
-        this.sc = notNull("sc", sc);
-        this.uri = notNull("uri", uri);
+        this.sc = sc;
+        this.clientFactory = new MongoSparkClientFactory(sc.getConf());
     }
 
     /**
      * Constructs a new instance.
      *
      * @param conf the spark configuration
-     * @param uri the mongo client uri
      */
-    public MongoSparkContext(final SparkConf conf, final MongoClientURI uri) {
-        this(new SparkContext(conf), uri);
+    public MongoSparkContext(final SparkConf conf) {
+        this(new SparkContext(conf));
     }
 
     /**
      * Constructs a new instance.
      *
-     * @param master the spark cluster manager to connect to
-     * @param appName the application name
-     * @param uri the mongo client uri
-     */
-    public MongoSparkContext(final String master, final String appName, final MongoClientURI uri) {
-        this(new SparkContext(master, appName), uri);
-    }
-
-    /**
-     * Constructs a new instance.
-     *
-     * @param master the spark cluster manager to connect to
-     * @param appName the application name
      * @param conf the spark configuration
-     * @param uri the mongo client uri
+     * @param sparkHome the location where spark is installed on cluster nodes
      */
-    public MongoSparkContext(final String master, final String appName, final SparkConf conf, final MongoClientURI uri) {
-        this(new SparkContext(master, appName, conf), uri);
+    public MongoSparkContext(final SparkConf conf, final String sparkHome) {
+        this(new SparkContext(conf.setSparkHome(sparkHome)));
     }
 
     /**
      * Constructs a new instance.
      *
-     * @param master the spark cluster manager to connect to
-     * @param appName the application name
-     * @param sparkHome the path where spark is installed on cluster nodes
+     * @param conf the spark configuration
+     * @param sparkHome the location where spark is installed on cluster nodes
      * @param jarFile the path of a JAR dependency for all tasks to be executed on this mongo spark context in the future
-     * @param uri the mongo client uri
      */
-    public MongoSparkContext(final String master, final String appName, final String sparkHome, final String jarFile,
-                             final MongoClientURI uri) {
-        this(new SparkContext(
-                     new SparkConf().setMaster(master).setAppName(appName).setSparkHome(sparkHome).setJars(new String[] {jarFile})), uri);
+    public MongoSparkContext(final SparkConf conf, final String sparkHome, final String jarFile) {
+        this(new SparkContext(conf.setSparkHome(sparkHome).setJars(new String[] {jarFile})));
     }
 
     /**
      * Constructs a new instance.
      *
-     * @param master the spark cluster manager to connect to
-     * @param appName the application name
+     * @param conf the spark configuration
      * @param sparkHome the location where spark is installed on cluster nodes
      * @param jars the paths of JAR dependencies for all tasks to be executed on this mongo spark context in the future
-     * @param uri the mongo client uri
      */
-    public MongoSparkContext(final String master, final String appName, final String sparkHome, final String[] jars,
-                             final MongoClientURI uri) {
-        this(new SparkContext(new SparkConf().setMaster(master).setAppName(appName).setSparkHome(sparkHome).setJars(jars)), uri);
+    public MongoSparkContext(final SparkConf conf, final String sparkHome, final String[] jars) {
+        this(new SparkContext(conf.setSparkHome(sparkHome).setJars(jars)));
     }
 
     /**
@@ -117,14 +93,18 @@ public class MongoSparkContext extends JavaSparkContext {
      *
      * @param <T> the type of the objects in the RDD
      * @param clazz the [[java.lang.Class]] of the elements in the RDD
+     * @param database the database name
+     * @param collection the collection name
      * @param partitions the number of RDD partitions
      * @param query the database query
      * @return the RDD
+     * @throws IllegalArgumentException if clazz is null
      * @throws IllegalArgumentException if partitions is not nonnegative
      */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final int partitions, final BsonDocument query)
-        throws IllegalArgumentException {
-        return new JavaRDD<>(new MongoRDD<>(this.sc, this.uri, clazz, partitions, query), ClassTag$.MODULE$.apply(clazz));
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final String database, final String collection, final int partitions,
+                                      final Bson query) throws IllegalArgumentException {
+        return this.parallelize(clazz, new MongoSparkCollectionFactory<>(clazz, this.clientFactory, database, collection), partitions, null,
+                                query);
     }
 
     /**
@@ -132,12 +112,17 @@ public class MongoSparkContext extends JavaSparkContext {
      *
      * @param <T> the type of the objects in the RDD
      * @param clazz the [[java.lang.Class]] of the elements in the RDD
+     * @param database the database name
+     * @param collection the collection name
      * @param partitions the number of RDD partitions
      * @return the RDD
+     * @throws IllegalArgumentException if clazz is null
      * @throws IllegalArgumentException if partitions is not nonnegative
      */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final int partitions) throws IllegalArgumentException {
-        return this.parallelize(clazz, partitions, new BsonDocument());
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final String database, final String collection, final int partitions)
+            throws IllegalArgumentException {
+        return this.parallelize(clazz, new MongoSparkCollectionFactory<>(clazz, this.clientFactory, database, collection), partitions, null,
+                                new BsonDocument());
     }
 
     /**
@@ -145,12 +130,17 @@ public class MongoSparkContext extends JavaSparkContext {
      *
      * @param <T> the type of the objects in the RDD
      * @param clazz the [[java.lang.Class]] of the elements in the RDD
+     * @param database the database name
+     * @param collection the collection name
      * @param query the database query
      * @return the RDD
+     * @throws IllegalArgumentException if clazz is null
      * @throws IllegalArgumentException if partitions is not nonnegative
      */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final BsonDocument query) throws IllegalArgumentException {
-        return this.parallelize(clazz, this.sc.defaultParallelism(), query);
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final String database, final String collection, final Bson query)
+            throws IllegalArgumentException {
+        return this.parallelize(clazz, new MongoSparkCollectionFactory<>(clazz, this.clientFactory, database, collection),
+                                this.sc.defaultParallelism(), null, query);
     }
 
     /**
@@ -158,11 +148,16 @@ public class MongoSparkContext extends JavaSparkContext {
      *
      * @param <T> the type of the objects in the RDD
      * @param clazz the [[java.lang.Class]] of the elements in the RDD
+     * @param database the database name
+     * @param collection the collection name
      * @return the RDD
+     * @throws IllegalArgumentException if clazz is null
      * @throws IllegalArgumentException if partitions is not nonnegative
      */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz) throws IllegalArgumentException {
-        return this.parallelize(clazz, this.sc.defaultParallelism(), new BsonDocument());
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final String database, final String collection)
+            throws IllegalArgumentException {
+        return this.parallelize(clazz, new MongoSparkCollectionFactory<>(clazz, this.clientFactory, database, collection),
+                                this.sc.defaultParallelism(), null, new BsonDocument());
     }
 
     /**
@@ -171,15 +166,18 @@ public class MongoSparkContext extends JavaSparkContext {
      *
      * @param <T> the type of the objects in the RDD
      * @param clazz the [[java.lang.Class]] of the elements in the RDD
+     * @param database the database name
+     * @param collection the collection name
      * @param partitions the number of RDD partitions
      * @param pipeline the aggregation pipeline
      * @return the RDD
+     * @throws IllegalArgumentException if clazz is null
      * @throws IllegalArgumentException if partitions is not nonnegative
-     * @throws IllegalArgumentException if aggregation pipeline is null
      */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final int partitions, final List<BsonDocument> pipeline)
-        throws IllegalArgumentException {
-        return new JavaRDD<>(new MongoRDD<>(this.sc, this.uri, clazz, partitions, pipeline), ClassTag$.MODULE$.apply(clazz));
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final String database, final String collection, final int partitions,
+                                      final List<Bson> pipeline) throws IllegalArgumentException {
+        return this.parallelize(clazz, new MongoSparkCollectionFactory<>(clazz, this.clientFactory, database, collection), partitions,
+                                pipeline, null);
     }
 
     /**
@@ -187,13 +185,35 @@ public class MongoSparkContext extends JavaSparkContext {
      *
      * @param <T> the type of the objects in the RDD
      * @param clazz the [[java.lang.Class]] of the elements in the RDD
+     * @param database the database name
+     * @param collection the collection name
      * @param pipeline the aggregation pipeline
      * @return the RDD
+     * @throws IllegalArgumentException if clazz is null
      * @throws IllegalArgumentException if partitions is not nonnegative
-     * @throws IllegalArgumentException if aggregation pipeline is null
      */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final List<BsonDocument> pipeline) throws IllegalArgumentException {
-        return this.parallelize(clazz, sc.defaultParallelism(), pipeline);
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final String database, final String collection, final List<Bson> pipeline)
+            throws IllegalArgumentException {
+        return this.parallelize(clazz, new MongoSparkCollectionFactory<>(clazz, this.clientFactory, database, collection),
+                                this.sc.defaultParallelism(), pipeline, null);
+    }
+
+    /**
+     * Parallelizes a mongo collection.
+     *
+     * @param clazz the [[java.lang.Class]] of the elements in the RDD
+     * @param factory a mongo collection factory
+     * @param partitions the number of RDD partitions
+     * @param pipeline the aggregation pipeline
+     * @param query the database query
+     * @param <T> the type of the objects in the RDD
+     * @return the RDD
+     * @throws IllegalArgumentException if clazz is null
+     * @throws IllegalArgumentException if partitions is not nonnegative
+     */
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final MongoCollectionFactory<T> factory, final int partitions,
+                                      final List<Bson> pipeline, final Bson query) throws IllegalArgumentException {
+        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, partitions, pipeline, query), ClassTag$.MODULE$.apply(clazz));
     }
 
     @Override
