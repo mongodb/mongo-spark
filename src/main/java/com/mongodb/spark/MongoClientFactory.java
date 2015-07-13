@@ -24,7 +24,15 @@ import java.io.Serializable;
  * Interface for a mongo client factory.
  */
 interface MongoClientFactory extends Serializable {
+    /**
+     * Gets a mongo client from the factory.
+     *
+     * @return a mongo client
+     */
     MongoClient getClient();
 
+    /**
+     * Cleans up the factory.
+     */
     void cleanUp();
 }

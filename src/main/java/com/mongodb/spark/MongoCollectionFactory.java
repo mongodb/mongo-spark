@@ -21,12 +21,20 @@ import com.mongodb.client.MongoCollection;
 import java.io.Serializable;
 
 /**
- * Interface for a mongo collection factory. Used when computing partitions for rdds.
+ * Interface for a mongo collection factory. Used when computing partitions for RDDs.
  *
  * @param <T> type of objects in the collection
  */
 interface MongoCollectionFactory<T> extends Serializable {
+    /**
+     * Gets a mongo collection from the factory.
+     *
+     * @return a mongo collection
+     */
     MongoCollection<T> getCollection();
 
+    /**
+     * Cleans up the factory.
+     */
     void cleanUp();
 }
