@@ -45,7 +45,7 @@ import static com.mongodb.assertions.Assertions.notNull;
 /**
  * Implementation of a client factory. Used to share a client amongst partitions in a worker node.
  */
-class MongoSparkClientFactory implements MongoClientFactory {
+public class MongoSparkClientFactory implements MongoClientFactory {
     private MongoClient                client;
     private List<ServerAddress>        hosts;
     private List<MongoCredential>      credentials;
