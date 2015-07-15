@@ -170,6 +170,18 @@ public class MongoSparkContext extends JavaSparkContext {
         return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, query), ClassTag$.MODULE$.apply(clazz));
     }
 
+    /**
+     * Writes a JavaRDD to the collection specified by the collection factory. Ensure that there exists a codec
+     * for {@code <T1>} when calling this method.
+     *
+     * @param rdd the RDD to write
+     * @param factory a mongo collection factory
+     * @param <T1> the type of the objects in the RDD
+     */
+    public static <T1> void toMongoCollection(final JavaRDD<T1> rdd, final MongoCollectionFactory<T1> factory) {
+        rdd.foreachPartition(p -> new MongoSimpleWriter<>(factory).write(p));
+    }
+
     @Override
     public SparkContext sc() {
         return this.sc;

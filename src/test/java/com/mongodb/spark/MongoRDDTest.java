@@ -144,5 +144,5 @@ public class MongoRDDTest {
     @Test(expected = IllegalArgumentException.class)
     public void shouldFailLessThanOnePartitions() {
         new MongoRDD<>(sc, collectionFactory, Document.class, 0);
-}
+    }
 }

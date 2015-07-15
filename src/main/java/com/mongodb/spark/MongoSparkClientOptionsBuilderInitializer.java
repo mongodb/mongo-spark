@@ -31,7 +31,7 @@ public class MongoSparkClientOptionsBuilderInitializer implements MongoClientOpt
     private Supplier<Builder> builderSupplier;
 
     /**
-     * Constructs an instance. Users should provide a {@code Serializable Supplier<Builder>} function, e.g.
+     * Constructs an instance. Users should provide a serializable builder supplier function, e.g.
      *
      * <pre>
      * {@code
@@ -41,6 +41,7 @@ public class MongoSparkClientOptionsBuilderInitializer implements MongoClientOpt
      *         builder.maxConnectionLifeTime(100);
      *         return builder;
      *     });
+     * }
      * </pre>
      *
      * @see com.mongodb.spark.SerializableSupplier

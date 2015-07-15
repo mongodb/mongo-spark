@@ -215,4 +215,19 @@ public class MongoSparkContextTest {
 
         assertEquals(documents.size(), rdd.count());
     }
+
+    /*
+     * Example of how one would write to a mongo collection
+     */
+    @Test
+    public void shouldWriteToMongo() {
+        msc = new MongoSparkContext(sparkConf);
+
+        String keyCopy = key;
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, collectionFactory).map(doc -> new Document(keyCopy, doc.get(keyCopy)));
+
+        MongoSparkContext.toMongoCollection(rdd, collectionFactory);
+
+        assertEquals(2 * documents.size(), collectionFactory.getCollection().count());
+    }
 }
