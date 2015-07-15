@@ -21,7 +21,6 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.bson.BsonDocument;
 import org.bson.conversions.Bson;
 import scala.reflect.ClassTag$;
 
@@ -32,8 +31,7 @@ import java.util.List;
  * that works with MongoDB collections.
  */
 public class MongoSparkContext extends JavaSparkContext {
-    private SparkContext       sc;
-    private MongoClientFactory clientFactory;
+    private SparkContext sc;
 
     /**
      * Constructs a new instance.
@@ -43,7 +41,6 @@ public class MongoSparkContext extends JavaSparkContext {
     public MongoSparkContext(final SparkContext sc) {
         super(sc);
         this.sc = sc;
-        this.clientFactory = new MongoSparkClientFactory(sc.getConf());
     }
 
     /**
@@ -88,132 +85,89 @@ public class MongoSparkContext extends JavaSparkContext {
     }
 
     /**
-     * Parallelizes a mongo collection. Querying may be performed by passing
-     * a BsonDocument to query the database with before parallelizing results.
+     * Parallelizes a mongo collection specified by the collection factory with the default
+     * parallelism of the spark context.
      *
+     * @param clazz the class of the elements in the rdd
+     * @param factory a mongo collection factory
      * @param <T> the type of the objects in the RDD
-     * @param clazz the [[java.lang.Class]] of the elements in the RDD
-     * @param database the database name
-     * @param collection the collection name
+     * @return the RDD
+     */
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final MongoCollectionFactory<T> factory) {
+        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz), ClassTag$.MODULE$.apply(clazz));
+    }
+
+    /**
+     * Parallelizes a mongo collection specified by the collection factory with the specified parallelism.
+     *
+     * @param clazz the class of the elements in the rdd
+     * @param factory a mongo collection factory
      * @param partitions the number of RDD partitions
-     * @param query the database query
-     * @return the RDD
-     * @throws IllegalArgumentException if clazz is null
-     * @throws IllegalArgumentException if partitions is not nonnegative
-     */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final String database, final String collection, final int partitions,
-                                      final Bson query) throws IllegalArgumentException {
-        return this.parallelize(clazz, new MongoSparkCollectionFactory<>(clazz, this.clientFactory, database, collection), partitions, null,
-                                query);
-    }
-
-    /**
-     * Parallelizes a mongo collection.
-     *
      * @param <T> the type of the objects in the RDD
-     * @param clazz the [[java.lang.Class]] of the elements in the RDD
-     * @param database the database name
-     * @param collection the collection name
-     * @param partitions the number of RDD partitions
      * @return the RDD
-     * @throws IllegalArgumentException if clazz is null
-     * @throws IllegalArgumentException if partitions is not nonnegative
      */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final String database, final String collection, final int partitions)
-            throws IllegalArgumentException {
-        return this.parallelize(clazz, new MongoSparkCollectionFactory<>(clazz, this.clientFactory, database, collection), partitions, null,
-                                new BsonDocument());
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final MongoCollectionFactory<T> factory, final int partitions) {
+        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, partitions), ClassTag$.MODULE$.apply(clazz));
     }
 
     /**
-     * Parallelizes a mongo collection. Uses default level of parallelism from the spark context.
+     * Parallelizes a mongo collection specified by the collection factory with the specified parallelism
+     * and aggregation pipeline to prefilter results.
      *
-     * @param <T> the type of the objects in the RDD
-     * @param clazz the [[java.lang.Class]] of the elements in the RDD
-     * @param database the database name
-     * @param collection the collection name
-     * @param query the database query
-     * @return the RDD
-     * @throws IllegalArgumentException if clazz is null
-     * @throws IllegalArgumentException if partitions is not nonnegative
-     */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final String database, final String collection, final Bson query)
-            throws IllegalArgumentException {
-        return this.parallelize(clazz, new MongoSparkCollectionFactory<>(clazz, this.clientFactory, database, collection),
-                                this.sc.defaultParallelism(), null, query);
-    }
-
-    /**
-     * Parallelizes a mongo collection.
-     *
-     * @param <T> the type of the objects in the RDD
-     * @param clazz the [[java.lang.Class]] of the elements in the RDD
-     * @param database the database name
-     * @param collection the collection name
-     * @return the RDD
-     * @throws IllegalArgumentException if clazz is null
-     * @throws IllegalArgumentException if partitions is not nonnegative
-     */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final String database, final String collection)
-            throws IllegalArgumentException {
-        return this.parallelize(clazz, new MongoSparkCollectionFactory<>(clazz, this.clientFactory, database, collection),
-                                this.sc.defaultParallelism(), null, new BsonDocument());
-    }
-
-    /**
-     * Parallelizes a mongo collection. Aggregation may be performed by passing
-     * a pipeline to query the database before parallelizing the results.
-     *
-     * @param <T> the type of the objects in the RDD
-     * @param clazz the [[java.lang.Class]] of the elements in the RDD
-     * @param database the database name
-     * @param collection the collection name
-     * @param partitions the number of RDD partitions
-     * @param pipeline the aggregation pipeline
-     * @return the RDD
-     * @throws IllegalArgumentException if clazz is null
-     * @throws IllegalArgumentException if partitions is not nonnegative
-     */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final String database, final String collection, final int partitions,
-                                      final List<Bson> pipeline) throws IllegalArgumentException {
-        return this.parallelize(clazz, new MongoSparkCollectionFactory<>(clazz, this.clientFactory, database, collection), partitions,
-                                pipeline, null);
-    }
-
-    /**
-     * Parallelizes a mongo collection.
-     *
-     * @param <T> the type of the objects in the RDD
-     * @param clazz the [[java.lang.Class]] of the elements in the RDD
-     * @param database the database name
-     * @param collection the collection name
-     * @param pipeline the aggregation pipeline
-     * @return the RDD
-     * @throws IllegalArgumentException if clazz is null
-     * @throws IllegalArgumentException if partitions is not nonnegative
-     */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final String database, final String collection, final List<Bson> pipeline)
-            throws IllegalArgumentException {
-        return this.parallelize(clazz, new MongoSparkCollectionFactory<>(clazz, this.clientFactory, database, collection),
-                                this.sc.defaultParallelism(), pipeline, null);
-    }
-
-    /**
-     * Parallelizes a mongo collection.
-     *
-     * @param clazz the [[java.lang.Class]] of the elements in the RDD
+     * @param clazz the class of the elements in the rdd
      * @param factory a mongo collection factory
      * @param partitions the number of RDD partitions
      * @param pipeline the aggregation pipeline
+     * @param <T> the type of the objects in the RDD
+     * @return the RDD
+     */
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final MongoCollectionFactory<T> factory, final int partitions,
+                                      final List<Bson> pipeline) {
+        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, partitions, pipeline), ClassTag$.MODULE$.apply(clazz));
+    }
+
+    /**
+     * Parallelizes a mongo collection specified by the collection factory with the specified parallelism
+     * and a query to prefilter results.
+     *
+     * @param clazz the class of the elements in the rdd
+     * @param factory a mongo collection factory
+     * @param partitions the number of RDD partitions
      * @param query the database query
      * @param <T> the type of the objects in the RDD
      * @return the RDD
-     * @throws IllegalArgumentException if clazz is null
-     * @throws IllegalArgumentException if partitions is not nonnegative
      */
     public <T> JavaRDD<T> parallelize(final Class<T> clazz, final MongoCollectionFactory<T> factory, final int partitions,
-                                      final List<Bson> pipeline, final Bson query) throws IllegalArgumentException {
-        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, partitions, pipeline, query), ClassTag$.MODULE$.apply(clazz));
+                                      final Bson query) {
+        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, partitions, query), ClassTag$.MODULE$.apply(clazz));
+    }
+
+    /**
+     * Parallelizes a mongo collection specified by the collection factory with the default parallelism of the
+     * spark context and an aggregation pipeline to prefilter results.
+     *
+     * @param clazz the class of the elements in the rdd
+     * @param factory a mongo collection factory
+     * @param pipeline the aggregation pipeline
+     * @param <T> the type of the objects in the RDD
+     * @return the RDD
+     */
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final MongoCollectionFactory<T> factory, final List<Bson> pipeline) {
+        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, pipeline), ClassTag$.MODULE$.apply(clazz));
+    }
+
+    /**
+     * Parallelizes a mongo collection specified by the collection factory with the default parallelism of the
+     * spark context and a query to prefilter results.
+     *
+     * @param clazz the class of the elements in the rdd
+     * @param factory a mongo collection factory
+     * @param query the database query
+     * @param <T> the type of the objects in the RDD
+     * @return the RDD
+     */
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final MongoCollectionFactory<T> factory, final Bson query) {
+        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, query), ClassTag$.MODULE$.apply(clazz));
     }
 
     @Override

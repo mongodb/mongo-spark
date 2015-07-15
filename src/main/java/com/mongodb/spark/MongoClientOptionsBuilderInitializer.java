@@ -16,19 +16,19 @@
 
 package com.mongodb.spark;
 
-import com.mongodb.MongoClient;
+import com.mongodb.MongoClientOptions.Builder;
 
-import java.io.Closeable;
 import java.io.Serializable;
 
 /**
- * Interface for a mongo client factory.
+ * Provides an interface to initialize non-serializable builders to configure client options
+ * not supported by a MongoClientURI on Spark worker node mongo clients.
  */
-public interface MongoClientFactory extends Serializable, Closeable {
+public interface MongoClientOptionsBuilderInitializer extends Serializable {
     /**
-     * Gets a mongo client from the factory. Users of this interface should not close the mongo client.
+     * Initializes a mongo client options builder.
      *
-     * @return a mongo client
+     * @return an initialized builder
      */
-    MongoClient getClient();
+    Builder initialize();
 }

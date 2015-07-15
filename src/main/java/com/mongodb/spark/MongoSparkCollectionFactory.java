@@ -26,16 +26,16 @@ import static com.mongodb.assertions.Assertions.notNull;
  * @param <T> type of objects in the collection
  */
 public class MongoSparkCollectionFactory<T> implements MongoCollectionFactory<T> {
-    private Class<T>           clazz;
-    private MongoClientFactory clientFactory;
-    private String             collection;
-    private String             database;
-    private MongoCollection<T> mongoCollection;
+    private Class<T>                     clazz;
+    private MongoClientFactory           clientFactory;
+    private String                       collection;
+    private String                       database;
+    private transient MongoCollection<T> mongoCollection;
 
     /**
      * Constructs a new instance.
      *
-     * @param clazz the [[java.lang.Class]] of the elements in the RDD
+     * @param clazz the java.lang.Class of the elements in the RDD
      * @param clientFactory the client factory
      * @param database the database name on the client
      * @param collection the collection name in the database
@@ -55,13 +55,5 @@ public class MongoSparkCollectionFactory<T> implements MongoCollectionFactory<T>
         }
 
         return this.mongoCollection;
-    }
-
-    @Override
-    public void cleanUp() {
-        if (this.mongoCollection != null) {
-            this.mongoCollection = null;
-            clientFactory.cleanUp();
-        }
     }
 }

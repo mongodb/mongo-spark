@@ -52,7 +52,7 @@ public class MongoRDD<T> extends RDD<T> {
      *
      * @param sc the spark context the RDD belongs to
      * @param factory the mongo collection factory for the RDD
-     * @param clazz the [[java.lang.Class]] of the elements in the RDD
+     * @param clazz the class of the elements in the RDD
      */
     public MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz) {
         this(sc, factory, clazz, sc.defaultParallelism(), null, null);
@@ -63,7 +63,7 @@ public class MongoRDD<T> extends RDD<T> {
      *
      * @param sc the spark context the RDD belongs to
      * @param factory the mongo collection factory for the RDD
-     * @param clazz the [[java.lang.Class]] of the elements in the RDD
+     * @param clazz the class of the elements in the RDD
      * @param partitions the number of RDD partitions
      */
     public MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz, final int partitions) {
@@ -75,7 +75,7 @@ public class MongoRDD<T> extends RDD<T> {
      *
      * @param sc the spark context the RDD belongs to
      * @param factory the mongo collection factory for the RDD
-     * @param clazz the [[java.lang.Class]] of the elements in the RDD
+     * @param clazz the class of the elements in the RDD
      * @param pipeline the aggregation pipeline
      */
     public MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz,
@@ -88,7 +88,7 @@ public class MongoRDD<T> extends RDD<T> {
      *
      * @param sc the spark context the RDD belongs to
      * @param factory the mongo collection factory for the RDD
-     * @param clazz the [[java.lang.Class]] of the elements in the RDD
+     * @param clazz the class of the elements in the RDD
      * @param partitions the number of RDD partitions
      * @param pipeline the aggregation pipeline
      */
@@ -102,20 +102,20 @@ public class MongoRDD<T> extends RDD<T> {
      *
      * @param sc the spark context the RDD belongs to
      * @param factory the mongo collection factory for the RDD
-     * @param clazz the [[java.lang.Class]] of the elements in the RDD
+     * @param clazz the class of the elements in the RDD
      * @param query the database query
      */
     public MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz,
-                     final Bson query) {
+                    final Bson query) {
         this(sc, factory, clazz, sc.defaultParallelism(), null, query);
     }
 
     /**
-     *
+     * Constructs a new instance
      *
      * @param sc the spark context the RDD belongs to
      * @param factory the mongo collection factory for the RDD
-     * @param clazz the [[java.lang.Class]] of the elements in the RDD
+     * @param clazz the class of the elements in the RDD
      * @param partitions the number of RDD partitions
      * @param query the database query
      */
@@ -125,17 +125,17 @@ public class MongoRDD<T> extends RDD<T> {
     }
 
     /**
-     * Package-private helper to construct a new instance. Since it is package-private, we can ensure that upon calling the
+     * Private helper to construct a new instance. Since it is private, we can ensure that upon calling the
      * constructor either pipeline, query, or both will be null.
      *
      * @param sc the spark context the RDD belongs to
      * @param factory the mongo collection factory for the RDD
-     * @param clazz the [[java.lang.Class]] of the elements in the RDD
+     * @param clazz the class of the elements in the RDD
      * @param partitions the number of RDD partitions
      * @param pipeline the aggregation pipeline
      * @param query the database query
      */
-    MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz, final int partitions,
+    private MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz, final int partitions,
                      final List<Bson> pipeline, final Bson query) {
         super(sc, new ArrayBuffer<>(), ClassTag$.MODULE$.apply(notNull("clazz", clazz)));
         this.clazz = clazz;
@@ -148,8 +148,6 @@ public class MongoRDD<T> extends RDD<T> {
 
     @Override
     public Iterator<T> compute(final Partition split, final TaskContext context) {
-        context.addTaskCompletionListener(new MongoTaskCompletionListener(this.collectionFactory));
-
         return asScalaIteratorConverter(this.getCursor(split)).asScala();
     }
 

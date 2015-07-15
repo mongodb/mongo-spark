@@ -43,22 +43,17 @@ public class MongoRDDTest {
     private String database = "test";
     private String collection = "rdd";
 
-    private MongoClientURI uri =
-            new MongoClientURI(root + username + ":" + password + "@" + host + "/" + database + "." + collection);
+    private String uri = root + username + ":" + password + "@" + host + "/" + database + "." + collection;
 
     private String master = "local";
     private String appName = "testApp";
 
     private SparkConf sparkConf = new SparkConf().setMaster(master)
-                                                 .setAppName(appName)
-                                                 .set("spark.mongo.auth.userName", username)
-                                                 .set("spark.mongo.auth.password", password)
-                                                 .set("spark.mongo.auth.source", database)
-                                                 .set("spark.mongo.hosts", host);
+                                                 .setAppName(appName);
     private SparkContext sc;
     private int partitions = 1;
 
-    private MongoClientFactory clientFactory = new MongoSparkClientFactory(sparkConf);
+    private MongoClientFactory clientFactory = new MongoSparkClientFactory(uri);
     private MongoCollectionFactory<Document> collectionFactory =
             new MongoSparkCollectionFactory<>(Document.class, clientFactory, database, collection);
 
@@ -69,9 +64,9 @@ public class MongoRDDTest {
 
     @Before
     public void setUp() {
-        MongoClient client = new MongoClient(uri);
-        client.getDatabase(uri.getDatabase()).getCollection(uri.getCollection()).drop();
-        client.getDatabase(uri.getDatabase()).getCollection(uri.getCollection()).insertMany(documents);
+        MongoClient client = new MongoClient(new MongoClientURI(uri));
+        client.getDatabase(database).getCollection(collection).drop();
+        client.getDatabase(database).getCollection(collection).insertMany(documents);
         client.close();
         sc = new SparkContext(sparkConf);
     }
@@ -147,7 +142,7 @@ public class MongoRDDTest {
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void shouldFailNonnegativePartitions() {
+    public void shouldFailLessThanOnePartitions() {
         new MongoRDD<>(sc, collectionFactory, Document.class, 0);
-    }
+}
 }

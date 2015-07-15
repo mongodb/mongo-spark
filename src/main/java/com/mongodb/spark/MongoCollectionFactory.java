@@ -25,16 +25,11 @@ import java.io.Serializable;
  *
  * @param <T> type of objects in the collection
  */
-interface MongoCollectionFactory<T> extends Serializable {
+public interface MongoCollectionFactory<T> extends Serializable {
     /**
      * Gets a mongo collection from the factory.
      *
      * @return a mongo collection
      */
     MongoCollection<T> getCollection();
-
-    /**
-     * Cleans up the factory.
-     */
-    void cleanUp();
 }

@@ -16,19 +16,16 @@
 
 package com.mongodb.spark;
 
-import com.mongodb.MongoClient;
-
-import java.io.Closeable;
 import java.io.Serializable;
+import java.util.function.Supplier;
 
 /**
- * Interface for a mongo client factory.
+ * A dummy interface to provide a friendlier way to instantiate a lambda as
+ * a serializable supplier by specifying the reference type and additional bound.
+ *
+ * See <a href="http://docs.oracle.com/javase/specs/jls/se8/html/jls-15.html#jls-15.16">Cast Expressions</a>
+ *
+ * @param <T> the type of results supplied by this supplier
  */
-public interface MongoClientFactory extends Serializable, Closeable {
-    /**
-     * Gets a mongo client from the factory. Users of this interface should not close the mongo client.
-     *
-     * @return a mongo client
-     */
-    MongoClient getClient();
+public interface SerializableSupplier<T> extends Supplier<T>, Serializable {
 }
