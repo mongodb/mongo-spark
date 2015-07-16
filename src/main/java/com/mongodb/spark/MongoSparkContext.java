@@ -170,29 +170,6 @@ public class MongoSparkContext extends JavaSparkContext {
         return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, query), ClassTag$.MODULE$.apply(clazz));
     }
 
-    /**
-     * Writes a JavaRDD to the collection specified by the collection factory.
-     *
-     * @param rdd the RDD to write
-     * @param factory a mongo collection factory
-     * @param mode the write mode
-     * @param <TDocument> the type of the objects in the RDD
-     */
-    public static <TDocument> void toMongoCollection(final JavaRDD<TDocument> rdd, final MongoCollectionFactory<TDocument> factory,
-                                                     final MongoWriter.WriteMode mode) {
-        switch (mode) {
-            case BULK_UNORDERED:
-                rdd.foreachPartition(p -> new MongoBulkWriter<>(factory).write(p));
-                break;
-            case BULK_ORDERED:
-                rdd.foreachPartition(p -> new MongoBulkWriter<>(factory, true).write(p));
-                break;
-            default:
-                // SIMPLE
-                rdd.foreachPartition(p -> new MongoSimpleWriter<>(factory).write(p));
-        }
-    }
-
     @Override
     public SparkContext sc() {
         return this.sc;

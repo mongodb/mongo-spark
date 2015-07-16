@@ -20,6 +20,7 @@ package com.mongodb.spark;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions.Builder;
 import com.mongodb.MongoClientURI;
+import com.mongodb.spark.MongoWriter.WriteMode;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaRDD;
@@ -226,7 +227,7 @@ public class MongoSparkContextTest {
         String keyCopy = key;
         JavaRDD<Document> rdd = msc.parallelize(Document.class, collectionFactory).map(doc -> new Document(keyCopy, doc.get(keyCopy)));
 
-        MongoSparkContext.toMongoCollection(rdd, collectionFactory, MongoWriter.WriteMode.SIMPLE);
+        MongoRDD.toMongoCollection(rdd, collectionFactory, WriteMode.SIMPLE);
 
         assertEquals(2 * documents.size(), collectionFactory.getCollection().count());
     }
