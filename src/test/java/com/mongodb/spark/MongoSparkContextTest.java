@@ -226,7 +226,7 @@ public class MongoSparkContextTest {
         String keyCopy = key;
         JavaRDD<Document> rdd = msc.parallelize(Document.class, collectionFactory).map(doc -> new Document(keyCopy, doc.get(keyCopy)));
 
-        MongoSparkContext.toMongoCollection(rdd, collectionFactory);
+        MongoSparkContext.toMongoCollection(rdd, collectionFactory, MongoWriter.WriteMode.SIMPLE);
 
         assertEquals(2 * documents.size(), collectionFactory.getCollection().count());
     }

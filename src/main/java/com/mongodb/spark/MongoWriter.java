@@ -25,6 +25,13 @@ import java.util.Iterator;
  */
 public interface MongoWriter<T> {
     /**
+     * Possible write modes (insert only).
+     */
+    enum WriteMode {
+        SIMPLE, BULK_UNORDERED, BULK_ORDERED
+    }
+
+    /**
      * Write the elements of the iterator to a location.
      *
      * @param iterator typically the elements of an RDD partition
