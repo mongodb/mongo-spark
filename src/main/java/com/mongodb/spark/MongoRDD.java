@@ -23,6 +23,7 @@ import org.apache.spark.SparkContext;
 import org.apache.spark.TaskContext;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.rdd.RDD;
+import org.bson.BsonDocument;
 import org.bson.BsonMaxKey;
 import org.bson.BsonMinKey;
 import org.bson.conversions.Bson;
@@ -31,6 +32,7 @@ import scala.collection.mutable.ArrayBuffer;
 import scala.reflect.ClassTag$;
 import scala.runtime.BoxedUnit;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.mongodb.assertions.Assertions.isTrueArgument;
@@ -207,7 +209,7 @@ public class MongoRDD<T> extends RDD<T> {
 
     @Override
     public Iterator<T> compute(final Partition split, final TaskContext context) {
-        return asScalaIteratorConverter(this.getCursor(split)).asScala();
+        return asScalaIteratorConverter(this.getCursor((MongoPartition) split)).asScala();
     }
 
     /**
@@ -215,16 +217,23 @@ public class MongoRDD<T> extends RDD<T> {
      *
      * @return the results of the
      */
-    // TODO: add support for partition min and max keys
-    private MongoCursor<T> getCursor(final Partition partition) {
+    // TODO: add support for query filters, limits, modifiers, projections, skips, sorts
+    private MongoCursor<T> getCursor(final MongoPartition partition) {
+        BsonDocument partitionKeys = new BsonDocument("_id", new BsonDocument("$gte", partition.getLower())
+                                                                      .append("$lt",  partition.getUpper()));
+
         if (this.query == null && this.pipeline == null) {
-            return this.collectionFactory.getCollection().find(this.clazz).iterator();
+            return this.collectionFactory.getCollection().find(partitionKeys, this.clazz).iterator();
         }
         if (this.query != null) {
-            return this.collectionFactory.getCollection().find(this.query, this.clazz).iterator();
+            return this.collectionFactory.getCollection().find(partitionKeys, this.clazz).filter(query).iterator();
         }
 
-        return this.collectionFactory.getCollection().aggregate(this.pipeline, this.clazz).iterator();
+        List<Bson> partitionPipeline = new ArrayList<>(1 + this.pipeline.size());
+        partitionPipeline.add(new BsonDocument("$match", partitionKeys));
+        partitionPipeline.addAll(this.pipeline);
+
+        return this.collectionFactory.getCollection().aggregate(partitionPipeline, this.clazz).iterator();
     }
 
     // TODO: currently, only supports DUPLICATED partitions
