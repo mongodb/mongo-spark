@@ -30,7 +30,7 @@ import java.util.Set;
 /**
  * A splitter for standalone mongo.
  */
-public class MongoStandaloneSplitter implements MongoSplitter {
+public class StandaloneMongoSplitter implements MongoSplitter {
     private MongoCollectionFactory factory;
     private Bson keyPattern;
 
@@ -41,7 +41,7 @@ public class MongoStandaloneSplitter implements MongoSplitter {
      * @param keyPattern the keys of the index to be used for splitting
      * @param <T> the type of documents in the collection
      */
-    public <T> MongoStandaloneSplitter(final MongoCollectionFactory<T> factory, final Bson keyPattern) {
+    public <T> StandaloneMongoSplitter(final MongoCollectionFactory<T> factory, final Bson keyPattern) {
         this.factory = factory;
         this.keyPattern = keyPattern == null ? new Document("_id", 1) : keyPattern;
     }
