@@ -16,7 +16,9 @@
 
 package com.mongodb.spark;
 
-import org.bson.BsonValue;
+import org.bson.conversions.Bson;
+
+import java.util.List;
 
 /**
  * A interface to split mongo collections for Spark partitioning.
@@ -26,7 +28,7 @@ public interface MongoSplitter {
      * Get the split keys for a collection.
      *
      * @param maxChunkSize the max chunk size of each split
-     * @return the split keys as documents
+     * @return the split bounds as documents
      */
-    BsonValue[] getSplitKeys(final int maxChunkSize);
+    List<Bson> getSplitBounds(final int maxChunkSize);
 }

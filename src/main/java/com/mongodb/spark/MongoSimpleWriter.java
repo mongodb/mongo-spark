@@ -25,7 +25,7 @@ import java.util.Iterator;
  *
  * @param <T> the class of the objects in the partition
  */
-public class MongoSimpleWriter<T> implements MongoWriter<T> {
+class MongoSimpleWriter<T> implements MongoWriter<T> {
     private MongoCollection<T> collection;
 
     /**

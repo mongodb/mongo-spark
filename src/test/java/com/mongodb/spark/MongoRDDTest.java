@@ -160,23 +160,39 @@ public class MongoRDDTest {
     }
 
     @Test
-    public void shouldWriteToMongoBulkUnordered() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class)
-                                     .map(new GetSingleKeyValueDocument(key), ClassTag$.MODULE$.apply(Document.class));
+    public void shouldWriteToMongoBulkUnorderedReplace() {
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class);
 
-        MongoRDD.toMongoCollection(mongoRdd, collectionFactory, WriteMode.BULK_UNORDERED);
+        MongoRDD.toMongoCollection(mongoRdd, collectionFactory, WriteMode.BULK_UNORDERED_REPLACE);
 
-        assertEquals(2 * documents.size(), collectionFactory.getCollection().count());
+        assertEquals(documents.size(), collectionFactory.getCollection().count());
     }
 
     @Test
-    public void shouldWriteToMongoBulkOrdered() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class)
-                                     .map(new GetSingleKeyValueDocument(key), ClassTag$.MODULE$.apply(Document.class));
+    public void shouldWriteToMongoBulkUnorderedUpdate() {
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class);
 
-        MongoRDD.toMongoCollection(mongoRdd, collectionFactory, WriteMode.BULK_ORDERED);
+        MongoRDD.toMongoCollection(mongoRdd, collectionFactory, WriteMode.BULK_UNORDERED_UPDATE);
 
-        assertEquals(2 * documents.size(), collectionFactory.getCollection().count());
+        assertEquals(documents.size(), collectionFactory.getCollection().count());
+    }
+
+    @Test
+    public void shouldWriteToMongoBulkOrderedReplace() {
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class);
+
+        MongoRDD.toMongoCollection(mongoRdd, collectionFactory, WriteMode.BULK_ORDERED_REPLACE);
+
+        assertEquals(documents.size(), collectionFactory.getCollection().count());
+    }
+
+    @Test
+    public void shouldWriteToMongoBulkOrderedUpdate() {
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class);
+
+        MongoRDD.toMongoCollection(mongoRdd, collectionFactory, WriteMode.BULK_ORDERED_UPDATE);
+
+        assertEquals(documents.size(), collectionFactory.getCollection().count());
     }
 }
 

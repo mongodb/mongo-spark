@@ -18,27 +18,24 @@
 package com.mongodb.spark;
 
 import org.apache.spark.Partition;
-import org.bson.BsonValue;
+import org.bson.conversions.Bson;
 
 /**
  * An identifier for a partition in a MongoRDD.
  */
 class MongoPartition implements Partition {
-    private int       index;
-    private BsonValue lower;
-    private BsonValue upper;
+    private int  index;
+    private Bson bounds;
 
     /**
      * Constructs a new instance.
      *
-     * @param indexValue index of the partition
-     * @param lowerValue minKey of the partition
-     * @param upperValue maxKey of the partition
+     * @param index index of the partition
+     * @param bounds the bounds of the partition with respect to the mongo collection
      */
-    public MongoPartition(final int indexValue, final BsonValue lowerValue, final BsonValue upperValue) {
-        index = indexValue;
-        lower = lowerValue;
-        upper = upperValue;
+    public MongoPartition(final int index, final Bson bounds) {
+        this.index = index;
+        this.bounds = bounds;
     }
 
     /**
@@ -51,20 +48,11 @@ class MongoPartition implements Partition {
     }
 
     /**
-     * Gets the minKey of the partition.
+     * Gets the bounds of the partition.
      *
-     * @return the minKey of the partition
+     * @return the bounds of the partition
      */
-    public BsonValue getLower() {
-        return this.lower;
-    }
-
-    /**
-     * Gets the maxKey of the partition.
-     *
-     * @return the maxKey of the partition
-     */
-    public BsonValue getUpper() {
-        return this.upper;
+    public Bson getBounds() {
+        return this.bounds;
     }
 }

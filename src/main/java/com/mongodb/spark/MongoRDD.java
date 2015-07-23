@@ -23,8 +23,7 @@ import org.apache.spark.SparkContext;
 import org.apache.spark.TaskContext;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.rdd.RDD;
-import org.bson.BsonDocument;
-import org.bson.BsonValue;
+import org.bson.Document;
 import org.bson.conversions.Bson;
 import scala.collection.Iterator;
 import scala.collection.mutable.ArrayBuffer;
@@ -176,20 +175,22 @@ public class MongoRDD<T> extends RDD<T> {
     public static <TDocument> void toMongoCollection(final RDD<TDocument> rdd, final MongoCollectionFactory<TDocument> factory,
                                                      final MongoWriter.WriteMode mode) {
         switch (mode) {
-            case BULK_UNORDERED:
+            case BULK_UNORDERED_REPLACE:
+            case BULK_UNORDERED_UPDATE:
                 rdd.foreachPartition(new SerializableAbstractFunction1<Iterator<TDocument>, BoxedUnit>() {
                     @Override
                     public BoxedUnit apply(final Iterator<TDocument> p) {
-                        new MongoBulkWriter<>(factory).write(asJavaIteratorConverter(p).asJava());
+                        new MongoBulkWriter<>(factory, mode, false).write(asJavaIteratorConverter(p).asJava());
                         return BoxedUnit.UNIT;
                     }
                 });
                 break;
-            case BULK_ORDERED:
+            case BULK_ORDERED_REPLACE:
+            case BULK_ORDERED_UPDATE:
                 rdd.foreachPartition(new SerializableAbstractFunction1<Iterator<TDocument>, BoxedUnit>() {
                     @Override
                     public BoxedUnit apply(final Iterator<TDocument> p) {
-                        new MongoBulkWriter<>(factory, true).write(asJavaIteratorConverter(p).asJava());
+                        new MongoBulkWriter<>(factory, mode, true).write(asJavaIteratorConverter(p).asJava());
                         return BoxedUnit.UNIT;
                     }
                 });
@@ -218,46 +219,48 @@ public class MongoRDD<T> extends RDD<T> {
      */
     // TODO: add support for query filters, limits, modifiers, projections, skips, sorts
     private MongoCursor<T> getCursor(final MongoPartition partition) {
-        BsonDocument partitionKeys = new BsonDocument("_id", new BsonDocument("$gte", partition.getLower())
-                                                                      .append("$lt", partition.getUpper()));
+        Bson partitionBounds = partition.getBounds();
 
         if (this.query == null && this.pipeline == null) {
-            return this.collectionFactory.getCollection().find(partitionKeys, this.clazz).iterator();
+            return this.collectionFactory.getCollection().find(partitionBounds, this.clazz).iterator();
         }
         if (this.query != null) {
-            return this.collectionFactory.getCollection().find(partitionKeys, this.clazz).filter(query).iterator();
+            return this.collectionFactory.getCollection().find(partitionBounds, this.clazz).filter(query).iterator();
         }
 
         List<Bson> partitionPipeline = new ArrayList<>(1 + this.pipeline.size());
-        partitionPipeline.add(new BsonDocument("$match", partitionKeys));
+        partitionPipeline.add(new Document("$match", partitionBounds));
         partitionPipeline.addAll(this.pipeline);
 
         return this.collectionFactory.getCollection().aggregate(partitionPipeline, this.clazz).iterator();
     }
 
     // TODO: currently, this.partitions actually means maxChunkSize
-    //       is there a way to make partitions mean partitions?
     @Override
     public Partition[] getPartitions() {
-        BsonValue[] splitKeys = this.getSplitKeys(this.partitions);
-        int numPartitions = splitKeys.length - 1;
+        List<Bson> splitBounds = this.getSplitBounds(this.partitions);
+        int numPartitions = splitBounds.size();
         MongoPartition[] mongoPartitions = new MongoPartition[numPartitions];
 
         for (int i = 0; i < numPartitions; i++) {
-            mongoPartitions[i] = new MongoPartition(i, splitKeys[i], splitKeys[i + 1]);
+            mongoPartitions[i] = new MongoPartition(i, splitBounds.get(i));
         }
 
         return mongoPartitions;
     }
 
-    private BsonValue[] getSplitKeys(final int maxChunkSize) {
-        BsonValue[] splitKeys;
+    /**
+     * Gets the split keys for the mongo collection to optimize RDD calculation.
+     *
+     * @param maxChunkSize the max chunk size desired for each partition
+     * @return the split keys
+     */
+    private List<Bson> getSplitBounds(final int maxChunkSize) {
+        List<Bson> splitBounds;
 
-        // TODO: get stats on the mongo
-        // standalone? shard? replica?
-        // mongo-hadoop
-        splitKeys = new MongoStandaloneSplitter(this.collectionFactory).getSplitKeys(maxChunkSize);
+        // TODO: get stats on the mongo - is it standalone? shard?
+        splitBounds = new MongoStandaloneSplitter(this.collectionFactory, null).getSplitBounds(maxChunkSize);
 
-        return splitKeys;
+        return splitBounds;
     }
 }

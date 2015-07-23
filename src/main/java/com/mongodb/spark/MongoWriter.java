@@ -25,10 +25,16 @@ import java.util.Iterator;
  */
 public interface MongoWriter<T> {
     /**
-     * Possible write modes (insert only).
+     * Possible write modes:
+     *
+     * SIMPLE:                 insertion
+     * BULK_ORDERED_REPLACE:   upsert with replacement
+     * BULK_ORDERED_UPDATE:    upsert with update
+     * BULK_UNORDERED_REPLACE: upsertion with replacement
+     * BULK_UNORDERED_UPDATE:  upsertion with update
      */
     enum WriteMode {
-        SIMPLE, BULK_UNORDERED, BULK_ORDERED
+        SIMPLE, BULK_ORDERED_REPLACE, BULK_ORDERED_UPDATE, BULK_UNORDERED_REPLACE, BULK_UNORDERED_UPDATE
     }
 
     /**
