@@ -24,8 +24,7 @@ import org.apache.spark.TaskContext;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.rdd.RDD;
 import org.bson.BsonDocument;
-import org.bson.BsonMaxKey;
-import org.bson.BsonMinKey;
+import org.bson.BsonValue;
 import org.bson.conversions.Bson;
 import scala.collection.Iterator;
 import scala.collection.mutable.ArrayBuffer;
@@ -220,7 +219,7 @@ public class MongoRDD<T> extends RDD<T> {
     // TODO: add support for query filters, limits, modifiers, projections, skips, sorts
     private MongoCursor<T> getCursor(final MongoPartition partition) {
         BsonDocument partitionKeys = new BsonDocument("_id", new BsonDocument("$gte", partition.getLower())
-                                                                      .append("$lt",  partition.getUpper()));
+                                                                      .append("$lt", partition.getUpper()));
 
         if (this.query == null && this.pipeline == null) {
             return this.collectionFactory.getCollection().find(partitionKeys, this.clazz).iterator();
@@ -236,15 +235,29 @@ public class MongoRDD<T> extends RDD<T> {
         return this.collectionFactory.getCollection().aggregate(partitionPipeline, this.clazz).iterator();
     }
 
-    // TODO: currently, only supports DUPLICATED partitions
+    // TODO: currently, this.partitions actually means maxChunkSize
+    //       is there a way to make partitions mean partitions?
     @Override
     public Partition[] getPartitions() {
-        MongoPartition[] mongoPartitions = new MongoPartition[this.partitions];
+        BsonValue[] splitKeys = this.getSplitKeys(this.partitions);
+        int numPartitions = splitKeys.length - 1;
+        MongoPartition[] mongoPartitions = new MongoPartition[numPartitions];
 
-        for (int i = 0; i < this.partitions; i++) {
-            mongoPartitions[i] = new MongoPartition(i, new BsonMinKey(), new BsonMaxKey());
+        for (int i = 0; i < numPartitions; i++) {
+            mongoPartitions[i] = new MongoPartition(i, splitKeys[i], splitKeys[i + 1]);
         }
 
         return mongoPartitions;
+    }
+
+    private BsonValue[] getSplitKeys(final int maxChunkSize) {
+        BsonValue[] splitKeys;
+
+        // TODO: get stats on the mongo
+        // standalone? shard? replica?
+        // mongo-hadoop
+        splitKeys = new MongoStandaloneSplitter(this.collectionFactory).getSplitKeys(maxChunkSize);
+
+        return splitKeys;
     }
 }

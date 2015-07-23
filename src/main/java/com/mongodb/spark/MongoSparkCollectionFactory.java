@@ -17,6 +17,7 @@
 package com.mongodb.spark;
 
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
 
 import static com.mongodb.assertions.Assertions.notNull;
 
@@ -55,5 +56,10 @@ public class MongoSparkCollectionFactory<T> implements MongoCollectionFactory<T>
         }
 
         return this.mongoCollection;
+    }
+
+    @Override
+    public MongoDatabase getDatabase() {
+        return clientFactory.getClient().getDatabase(database);
     }
 }

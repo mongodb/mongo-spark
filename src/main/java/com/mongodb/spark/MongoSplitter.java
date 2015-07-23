@@ -16,29 +16,17 @@
 
 package com.mongodb.spark;
 
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
-
-import java.io.Serializable;
+import org.bson.BsonValue;
 
 /**
- * Interface for a mongo collection factory. Used when computing partitions for RDDs.
- *
- * @param <T> type of objects in the collection
+ * A interface to split mongo collections for Spark partitioning.
  */
-public interface MongoCollectionFactory<T> extends Serializable {
+public interface MongoSplitter {
     /**
-     * Gets a mongo collection from the factory.
+     * Get the split keys for a collection.
      *
-     * @return a mongo collection
+     * @param maxChunkSize the max chunk size of each split
+     * @return the split keys as documents
      */
-    MongoCollection<T> getCollection();
-
-    /**
-     * Experimental
-     * Gets a mongo database from the factory.
-     *
-     * @return a mongo database
-     */
-    MongoDatabase getDatabase();
+    BsonValue[] getSplitKeys(final int maxChunkSize);
 }

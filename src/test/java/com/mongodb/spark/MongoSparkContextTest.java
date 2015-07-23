@@ -70,6 +70,7 @@ public class MongoSparkContextTest {
         MongoClient client = new MongoClient(new MongoClientURI(uri));
         client.getDatabase(database).getCollection(collection).drop();
         client.getDatabase(database).getCollection(collection).insertMany(documents);
+        client.getDatabase(database).getCollection(collection).createIndex(new Document(key, 1));
         client.close();
     }
 
