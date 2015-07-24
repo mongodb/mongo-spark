@@ -55,10 +55,10 @@ public class MongoSparkClientFactory implements MongoClientFactory {
     public MongoClient getClient() {
         if (this.client == null) {
             if (this.initializer != null) {
-                this.client = new MongoClient(new MongoClientURI(uri, this.initializer.initialize()));
+                this.client = new MongoClient(new MongoClientURI(this.uri, this.initializer.initialize()));
             }
             else {
-                this.client = new MongoClient(new MongoClientURI(uri));
+                this.client = new MongoClient(new MongoClientURI(this.uri));
             }
         }
 
