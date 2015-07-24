@@ -259,7 +259,7 @@ public class MongoRDD<T> extends RDD<T> {
         List<Bson> splitBounds;
 
         // TODO: get stats on the mongo - is it standalone? shard?
-        splitBounds = new StandaloneMongoSplitter(this.collectionFactory, null).getSplitBounds(maxChunkSize);
+        splitBounds = new StandaloneMongoSplitter(this.collectionFactory, null, maxChunkSize).getSplitBounds();
 
         return splitBounds;
     }

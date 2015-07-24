@@ -16,10 +16,7 @@
 
 package com.mongodb.spark;
 
-import com.mongodb.MongoException;
 import org.bson.BsonDocument;
-import org.bson.BsonMaxKey;
-import org.bson.BsonMinKey;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 
@@ -33,35 +30,24 @@ import java.util.Set;
 public class StandaloneMongoSplitter implements MongoSplitter {
     private MongoCollectionFactory factory;
     private Bson keyPattern;
+    private int maxChunkSize;
 
     /**
      * Constructs a new instance
      *
      * @param factory a mongo collection factory
      * @param keyPattern the keys of the index to be used for splitting
+     * @param maxChunkSize the max size (in MB) for each partition
      * @param <T> the type of documents in the collection
      */
-    public <T> StandaloneMongoSplitter(final MongoCollectionFactory<T> factory, final Bson keyPattern) {
+    public <T> StandaloneMongoSplitter(final MongoCollectionFactory<T> factory, final Bson keyPattern, final int maxChunkSize) {
         this.factory = factory;
         this.keyPattern = keyPattern == null ? new Document("_id", 1) : keyPattern;
+        this.maxChunkSize = maxChunkSize;
     }
 
-    // TODO: more robust - what if not ok?
     @Override
-    public List<Bson> getSplitBounds(final int maxChunkSize) {
-        String namespace = this.factory.getCollection().getNamespace().getFullName();
-        Document splitVectorCommand = new Document("splitVector", namespace)
-                                           .append("keyPattern", this.keyPattern)
-                                           .append("maxChunkSize", maxChunkSize)
-                                           .append("force", false);
-        Document result;
-        try {
-            result = this.factory.getDatabase().runCommand(splitVectorCommand, Document.class);
-        } catch (final MongoException e) {
-            // TODO: handle
-            return null;
-        }
-
+    public List<Bson> getSplitBounds() {
         Set<String> keys;
         if (this.keyPattern instanceof Document) {
             keys = ((Document) this.keyPattern).keySet();
@@ -70,59 +56,38 @@ public class StandaloneMongoSplitter implements MongoSplitter {
             keys = ((BsonDocument) this.keyPattern).keySet();
         }
         else {
-            // TODO: unsupported
-            return null;
+            throw new SplitException("keyPattern of class " + this.keyPattern.getClass() + " is not supported.");
         }
 
-        List<Document> splitKeys;
-        List<Bson> splitBounds;
+        String namespace = this.factory.getCollection().getNamespace().getFullName();
+        Document splitVectorCommand = new Document("splitVector", namespace)
+                                           .append("keyPattern", this.keyPattern)
+                                           .append("maxChunkSize", this.maxChunkSize)
+                                           .append("force", false);
+        Document result = this.factory.getDatabase().runCommand(splitVectorCommand, Document.class);
 
         if (result.get("ok").equals(1.0)) {
-            splitKeys = (List<Document>) result.get("splitKeys");
+            List<Document> splitKeys = (List<Document>) result.get("splitKeys");
 
-            // account for max/minKey
-            splitBounds = new ArrayList<>(splitKeys.size() + 1);
+            List<Bson> splitBounds = new ArrayList<>(splitKeys.size() + 1);
 
             if (splitKeys.size() == 0) {
-                splitBounds.add(this.keysToBounds(null, null, keys));
+                // no splits were calculated - this means that the RDD partition may be massive
+                splitBounds.add(MongoSplitter.keysToBounds(null, null, keys));
             }
             else {
-                // create first $minKey -> first split key
-                splitBounds.add(this.keysToBounds(null, splitKeys.get(0), keys));
+                splitBounds.add(MongoSplitter.keysToBounds(null, splitKeys.get(0), keys));
 
-                // create interior bounds
                 for (int i = 0; i < splitKeys.size() - 1; i++) {
-                    splitBounds.add(this.keysToBounds(splitKeys.get(i), splitKeys.get(i + 1), keys));
+                    splitBounds.add(MongoSplitter.keysToBounds(splitKeys.get(i), splitKeys.get(i + 1), keys));
                 }
 
-                // create last bounds - last split key -> $maxKey
-                splitBounds.add(this.keysToBounds(splitKeys.get(splitKeys.size() - 1), null, keys));
+                splitBounds.add(MongoSplitter.keysToBounds(splitKeys.get(splitKeys.size() - 1), null, keys));
             }
+
+            return splitBounds;
         } else {
-            // TODO: handle
-            splitBounds = null;
+            throw new SplitException("Could not calculate standalone splits. Server errmsg: " + result.get("errmsg"));
         }
-
-        return splitBounds;
-    }
-
-    /**
-     * Helper function to translate splitVector key:value pairs into partition boundaries.
-     *
-     * @param lower the lower boundary document
-     * @param upper the upper boundary document
-     * @param keys the keys used by splitVector; since splitVector requires an index, these keys must be
-     *             present in both lower and upper
-     * @return the document containing the partition bounds
-     */
-    private Document keysToBounds(final Document lower, final Document upper, final Set<String> keys) {
-        Document bounds = new Document();
-
-        for (String key : keys) {
-            bounds.append(key, new Document("$gte", lower == null ? new BsonMinKey() : lower.get(key))
-                                    .append("$lt", upper == null ? new BsonMaxKey() : upper.get(key)));
-        }
-
-        return bounds;
     }
 }

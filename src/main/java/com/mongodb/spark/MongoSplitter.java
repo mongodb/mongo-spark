@@ -16,9 +16,13 @@
 
 package com.mongodb.spark;
 
+import org.bson.BsonMaxKey;
+import org.bson.BsonMinKey;
+import org.bson.Document;
 import org.bson.conversions.Bson;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * A interface to split mongo collections for Spark partitioning.
@@ -27,8 +31,27 @@ public interface MongoSplitter {
     /**
      * Get the split keys for a collection.
      *
-     * @param maxChunkSize the max chunk size of each split
      * @return the split bounds as documents
      */
-    List<Bson> getSplitBounds(final int maxChunkSize);
+    List<Bson> getSplitBounds();
+
+    /**
+     * Helper function to translate splitVector key:value pairs into partition boundaries.
+     *
+     * @param lower the lower boundary document
+     * @param upper the upper boundary document
+     * @param keys the keys used by splitVector; since splitVector requires an index, these keys must be
+     *             present in both lower and upper
+     * @return the document containing the partition bounds
+     */
+    static Bson keysToBounds(final Document lower, final Document upper, final Set<String> keys) {
+        Document bounds = new Document();
+
+        for (String key : keys) {
+            bounds.append(key, new Document("$gte", lower == null ? new BsonMinKey() : lower.get(key))
+                                    .append("$lt", upper == null ? new BsonMaxKey() : upper.get(key)));
+        }
+
+        return bounds;
+    }
 }
