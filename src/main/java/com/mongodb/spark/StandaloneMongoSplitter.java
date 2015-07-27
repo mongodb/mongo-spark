@@ -20,6 +20,7 @@ import org.bson.BsonDocument;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -67,6 +68,11 @@ public class StandaloneMongoSplitter implements MongoSplitter {
                                            .append("keyPattern", this.keyPattern)
                                            .append("maxChunkSize", this.maxChunkSize);
         Document result = this.factory.getDatabase().runCommand(splitVectorCommand, Document.class);
+        try {
+            this.factory.closeClient();
+        } catch (IOException e) {
+            throw new SplitException("Could not close command client", e);
+        }
 
         if (result.get("ok").equals(1.0)) {
             List<Document> splitKeys = (List<Document>) result.get("splitKeys");

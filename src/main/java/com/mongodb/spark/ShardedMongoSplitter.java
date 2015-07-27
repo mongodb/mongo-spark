@@ -20,6 +20,7 @@ import org.bson.BsonDocument;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -64,6 +65,11 @@ public class ShardedMongoSplitter implements MongoSplitter {
         List<Document> chunks = new ArrayList<>();
         // may throw exception
         this.factory.getClient().getDatabase("config").getCollection("chunks").find().into(chunks);
+        try {
+            this.factory.closeClient();
+        } catch (IOException e) {
+            throw new SplitException("Could not close config client", e);
+        }
         String ns = this.factory.getCollection().getNamespace().getFullName();
         chunks.removeIf(doc -> !doc.get("ns").equals(ns));
 

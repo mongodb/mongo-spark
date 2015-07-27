@@ -30,4 +30,14 @@ public class SplitException extends MongoException {
     public SplitException(final String message) {
         super(message);
     }
+
+    /**
+     * Constructs a new instance.
+     *
+     * @param message the message
+     * @param cause the cause
+     */
+    public SplitException(final String message, final Throwable cause) {
+        super(message, cause);
+    }
 }

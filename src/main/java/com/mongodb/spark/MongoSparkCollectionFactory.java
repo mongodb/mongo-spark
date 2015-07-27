@@ -20,6 +20,8 @@ import com.mongodb.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 
+import java.io.IOException;
+
 import static com.mongodb.assertions.Assertions.notNull;
 
 /**
@@ -53,7 +55,7 @@ public class MongoSparkCollectionFactory<T> implements MongoCollectionFactory<T>
     @Override
     public MongoCollection<T> getCollection() {
         if (this.mongoCollection == null) {
-            this.mongoCollection = this.clientFactory.getClient().getDatabase(database).getCollection(collection, clazz);
+            this.mongoCollection = this.clientFactory.getClient().getDatabase(this.database).getCollection(this.collection, this.clazz);
         }
 
         return this.mongoCollection;
@@ -61,11 +63,16 @@ public class MongoSparkCollectionFactory<T> implements MongoCollectionFactory<T>
 
     @Override
     public MongoDatabase getDatabase() {
-        return this.clientFactory.getClient().getDatabase(database);
+        return this.clientFactory.getClient().getDatabase(this.database);
     }
 
     @Override
     public MongoClient getClient() {
         return this.clientFactory.getClient();
+    }
+
+    @Override
+    public void closeClient() throws IOException {
+        this.clientFactory.close();
     }
 }
