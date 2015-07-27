@@ -62,7 +62,7 @@ public class MongoRDD<T> extends RDD<T> {
     }
 
     /**
-     *
+     * Constructs a new instance.
      *
      * @param sc the spark context the RDD belongs to
      * @param factory the mongo collection factory for the RDD
@@ -87,7 +87,7 @@ public class MongoRDD<T> extends RDD<T> {
     }
 
     /**
-     *
+     * Constructs a new instance.
      *
      * @param sc the spark context the RDD belongs to
      * @param factory the mongo collection factory for the RDD
@@ -225,7 +225,7 @@ public class MongoRDD<T> extends RDD<T> {
             return this.collectionFactory.getCollection().find(partitionBounds, this.clazz).iterator();
         }
         if (this.query != null) {
-            return this.collectionFactory.getCollection().find(partitionBounds, this.clazz).filter(query).iterator();
+            return this.collectionFactory.getCollection().find(partitionBounds, this.clazz).filter(this.query).iterator();
         }
 
         List<Bson> partitionPipeline = new ArrayList<>(1 + this.pipeline.size());
@@ -256,11 +256,22 @@ public class MongoRDD<T> extends RDD<T> {
      * @return the split keys
      */
     private List<Bson> getSplitBounds(final int maxChunkSize) {
-        List<Bson> splitBounds;
+        Document collStatsCommand = new Document("collStats", this.collectionFactory.getCollection().getNamespace().getCollectionName());
+        Document result = this.collectionFactory.getDatabase().runCommand(collStatsCommand, Document.class);
 
-        // TODO: get stats on the mongo - is it standalone? shard?
-        splitBounds = new StandaloneMongoSplitter(this.collectionFactory, null, maxChunkSize).getSplitBounds();
+        // TODO: arg
+        Bson keyPattern = null;
 
-        return splitBounds;
+        if (result.get("ok").equals(1.0)) {
+            if (result.containsKey("sharded") && result.get("sharded").equals(true)) {
+                return new ShardedMongoSplitter(this.collectionFactory, keyPattern).getSplitBounds();
+            }
+            else {
+                return new StandaloneMongoSplitter(this.collectionFactory, keyPattern, maxChunkSize).getSplitBounds();
+            }
+        }
+        else {
+            throw new SplitException("Could not get collection statistics. Server errmsg: " + result.get("errmsg"));
+        }
     }
 }

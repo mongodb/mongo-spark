@@ -16,6 +16,7 @@
 
 package com.mongodb.spark;
 
+import com.mongodb.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 
@@ -41,4 +42,12 @@ public interface MongoCollectionFactory<T> extends Serializable {
      * @return a mongo database
      */
     MongoDatabase getDatabase();
+
+    /**
+     * Experimental
+     * Gets a mongo client from the factory.
+     *
+     * @return a mongo client
+     */
+    MongoClient getClient();
 }

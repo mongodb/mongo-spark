@@ -16,6 +16,7 @@
 
 package com.mongodb.spark;
 
+import com.mongodb.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 
@@ -52,7 +53,7 @@ public class MongoSparkCollectionFactory<T> implements MongoCollectionFactory<T>
     @Override
     public MongoCollection<T> getCollection() {
         if (this.mongoCollection == null) {
-            this.mongoCollection = clientFactory.getClient().getDatabase(database).getCollection(collection, clazz);
+            this.mongoCollection = this.clientFactory.getClient().getDatabase(database).getCollection(collection, clazz);
         }
 
         return this.mongoCollection;
@@ -60,6 +61,11 @@ public class MongoSparkCollectionFactory<T> implements MongoCollectionFactory<T>
 
     @Override
     public MongoDatabase getDatabase() {
-        return clientFactory.getClient().getDatabase(database);
+        return this.clientFactory.getClient().getDatabase(database);
+    }
+
+    @Override
+    public MongoClient getClient() {
+        return this.clientFactory.getClient();
     }
 }
