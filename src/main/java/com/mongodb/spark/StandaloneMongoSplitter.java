@@ -58,12 +58,14 @@ public class StandaloneMongoSplitter implements MongoSplitter {
         else {
             throw new SplitException("keyPattern of class " + this.keyPattern.getClass() + " is not supported.");
         }
+        if (keys.size() > 1) {
+            throw new SplitException("keyPattern must specify a single index key. keyPattern provided: " + this.keyPattern);
+        }
 
         String namespace = this.factory.getCollection().getNamespace().getFullName();
         Document splitVectorCommand = new Document("splitVector", namespace)
                                            .append("keyPattern", this.keyPattern)
-                                           .append("maxChunkSize", this.maxChunkSize)
-                                           .append("force", false);
+                                           .append("maxChunkSize", this.maxChunkSize);
         Document result = this.factory.getDatabase().runCommand(splitVectorCommand, Document.class);
 
         if (result.get("ok").equals(1.0)) {
