@@ -74,5 +74,6 @@ public class MongoSparkCollectionFactory<T> implements MongoCollectionFactory<T>
     @Override
     public void closeClient() throws IOException {
         this.clientFactory.close();
+        this.mongoCollection = null;
     }
 }
