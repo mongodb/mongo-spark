@@ -17,6 +17,9 @@
 group 'org.mongodb'
 version '1.0-SNAPSHOT'
 
+apply plugin: 'eclipse'
+apply plugin: 'idea'
+
 def configDir = new File(rootDir, 'config')
 
 repositories {
@@ -38,4 +41,9 @@ dependencies {
 checkstyle {
     toolVersion = "6.2"
     configFile = new File("$configDir/checkstyle.xml")
+}
+
+jar {
+    from { configurations.runtime.collect { it.isDirectory() ? it : zipTree(it) } }
+    exclude 'META-INF/MANIFEST.MF', 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
 }
