@@ -23,7 +23,7 @@ import com.mongodb.client.model.ReplaceOneModel;
 import com.mongodb.client.model.UpdateOneModel;
 import com.mongodb.client.model.WriteModel;
 import org.bson.BsonDocument;
-import org.bson.Document;
+import org.bson.conversions.Bson;
 
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -37,22 +37,20 @@ import static com.mongodb.assertions.Assertions.notNull;
  *
  * @param <T> the class of the objects in the partition
  */
-class MongoBulkWriter<T> implements MongoWriter<T> {
+class MongoBulkWriter<T extends Bson> implements MongoWriter<T> {
     private MongoCollection<T> collection;
-    private BulkWriteOptions options;
     private WriteMode mode;
 
     /**
      * Constructs a new instance.
      *
      * @param factory the collection factory
-     * @param ordered true if the writes should be ordered
+     * @param mode the write mode
      */
-    public MongoBulkWriter(final MongoCollectionFactory<T> factory, final WriteMode mode, final boolean ordered) {
+    public MongoBulkWriter(final MongoCollectionFactory<T> factory, final WriteMode mode) {
         notNull("factory", factory);
         this.collection = factory.getCollection();
         this.mode = mode;
-        this.options = new BulkWriteOptions().ordered(ordered);
     }
 
     @Override
@@ -60,43 +58,30 @@ class MongoBulkWriter<T> implements MongoWriter<T> {
         List<WriteModel<T>> elements = new LinkedList<>();
 
         while (iterator.hasNext()) {
-            elements.add(getWriteModel(iterator.next(), this.mode));
+            elements.add(getWriteModel(iterator.next()));
         }
 
-        this.collection.bulkWrite(elements, this.options);
+        boolean ordered = (this.mode == WriteMode.BULK_ORDERED_REPLACE || this.mode == WriteMode.BULK_ORDERED_UPDATE);
+
+        this.collection.bulkWrite(elements, new BulkWriteOptions().ordered(ordered));
     }
 
     /**
      * Creates a write model for a document based on the write mode.
      *
      * @param element the element from which to create the write model
-     * @param mode the write mode
      * @return the write model for the element
      */
-    private WriteModel<T> getWriteModel(final T element, final WriteMode mode) {
-        WriteModel<T> model = null;
+    private WriteModel<T> getWriteModel(final T element) {
+        WriteModel<T> model;
 
-        if (element instanceof BsonDocument) {
-            BsonDocument bsonDocument = (BsonDocument) element;
+        BsonDocument bsonDocument = element.toBsonDocument(this.collection.getDocumentClass(), this.collection.getCodecRegistry());
 
-            if (bsonDocument.containsKey("_id")) {
-                model = (mode == WriteMode.BULK_ORDERED_REPLACE || mode == WriteMode.BULK_UNORDERED_REPLACE)
-                        ? new ReplaceOneModel<>(new BsonDocument("_id", bsonDocument.get("_id")), element)
-                        : new UpdateOneModel<>(new BsonDocument("_id", bsonDocument.get("_id")), new BsonDocument("$set", bsonDocument));
-            }
-        }
-        else if (element instanceof Document) {
-            Document document = (Document) element;
-
-            if (document.containsKey("_id")) {
-                model = (mode == WriteMode.BULK_ORDERED_REPLACE || mode == WriteMode.BULK_UNORDERED_REPLACE)
-                        ? new ReplaceOneModel<>(new Document("_id", document.get("_id")), element)
-                        : new UpdateOneModel<>(new Document("_id", document.get("_id")), new Document("$set", document));
-            }
-        }
-
-        // catches non (bson) documents as well as (bson) documents that do not have a _id key
-        if (model == null) {
+        if (bsonDocument.containsKey("_id")) {
+            model = (this.mode == WriteMode.BULK_ORDERED_REPLACE || this.mode == WriteMode.BULK_UNORDERED_REPLACE)
+                    ? new ReplaceOneModel<>(new BsonDocument("_id", bsonDocument.get("_id")), element)
+                    : new UpdateOneModel<>(new BsonDocument("_id", bsonDocument.get("_id")), new BsonDocument("$set", bsonDocument));
+        } else {
             model = new InsertOneModel<>(element);
         }
 

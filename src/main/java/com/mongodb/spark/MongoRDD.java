@@ -158,8 +158,9 @@ public class MongoRDD<T> extends RDD<T> {
      * @param mode the write mode
      * @param <TDocument> the type of the objects in the RDD
      */
-    public static <TDocument> void toMongoCollection(final JavaRDD<TDocument> rdd, final MongoCollectionFactory<TDocument> factory,
-                                                     final MongoWriter.WriteMode mode) {
+    public static <TDocument extends Bson> void toMongoCollection(final JavaRDD<TDocument> rdd,
+                                                                  final MongoCollectionFactory<TDocument> factory,
+                                                                  final MongoWriter.WriteMode mode) {
         toMongoCollection(rdd.rdd(), factory, mode);
     }
 
@@ -172,7 +173,7 @@ public class MongoRDD<T> extends RDD<T> {
      * @param mode the write mode
      * @param <TDocument> the type of the objects in the RDD
      */
-    public static <TDocument> void toMongoCollection(final RDD<TDocument> rdd, final MongoCollectionFactory<TDocument> factory,
+    public static <TDocument extends Bson> void toMongoCollection(final RDD<TDocument> rdd, final MongoCollectionFactory<TDocument> factory,
                                                      final MongoWriter.WriteMode mode) {
         switch (mode) {
             case BULK_UNORDERED_REPLACE:
@@ -180,7 +181,7 @@ public class MongoRDD<T> extends RDD<T> {
                 rdd.foreachPartition(new SerializableAbstractFunction1<Iterator<TDocument>, BoxedUnit>() {
                     @Override
                     public BoxedUnit apply(final Iterator<TDocument> p) {
-                        new MongoBulkWriter<>(factory, mode, false).write(asJavaIteratorConverter(p).asJava());
+                        new MongoBulkWriter<>(factory, mode).write(asJavaIteratorConverter(p).asJava());
                         return BoxedUnit.UNIT;
                     }
                 });
@@ -190,7 +191,7 @@ public class MongoRDD<T> extends RDD<T> {
                 rdd.foreachPartition(new SerializableAbstractFunction1<Iterator<TDocument>, BoxedUnit>() {
                     @Override
                     public BoxedUnit apply(final Iterator<TDocument> p) {
-                        new MongoBulkWriter<>(factory, mode, true).write(asJavaIteratorConverter(p).asJava());
+                        new MongoBulkWriter<>(factory, mode).write(asJavaIteratorConverter(p).asJava());
                         return BoxedUnit.UNIT;
                     }
                 });

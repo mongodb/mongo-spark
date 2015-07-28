@@ -17,6 +17,7 @@
 package com.mongodb.spark;
 
 import com.mongodb.client.MongoCollection;
+import org.bson.conversions.Bson;
 
 import java.util.Iterator;
 
@@ -25,7 +26,7 @@ import java.util.Iterator;
  *
  * @param <T> the class of the objects in the partition
  */
-class MongoSimpleWriter<T> implements MongoWriter<T> {
+class MongoSimpleWriter<T extends Bson> implements MongoWriter<T> {
     private MongoCollection<T> collection;
 
     /**
