@@ -45,6 +45,7 @@ import static scala.collection.JavaConverters.asScalaIteratorConverter;
  */
 public class MongoRDD<T> extends RDD<T> {
     private Class<T>                  clazz;
+    private String                    splitKey;
     private int                       partitions;
     private List<Bson>                pipeline;
     private Bson                      query;
@@ -145,6 +146,7 @@ public class MongoRDD<T> extends RDD<T> {
         this.collectionFactory = notNull("factory", factory);
         isTrueArgument("partitions > 0", partitions > 0);
         this.partitions = partitions;
+        this.splitKey = "_id";
         this.pipeline = pipeline;
         this.query = query;
     }
@@ -236,10 +238,9 @@ public class MongoRDD<T> extends RDD<T> {
         return this.collectionFactory.getCollection().aggregate(partitionPipeline, this.clazz).iterator();
     }
 
-    // TODO: currently, this.partitions actually means maxChunkSize
     @Override
     public Partition[] getPartitions() {
-        List<Bson> splitBounds = this.getSplitBounds(this.partitions);
+        List<Document> splitBounds = this.getSplitBounds();
         int numPartitions = splitBounds.size();
         MongoPartition[] mongoPartitions = new MongoPartition[numPartitions];
 
@@ -253,22 +254,20 @@ public class MongoRDD<T> extends RDD<T> {
     /**
      * Gets the split keys for the mongo collection to optimize RDD calculation.
      *
-     * @param maxChunkSize the max chunk size desired for each partition
      * @return the split keys
      */
-    private List<Bson> getSplitBounds(final int maxChunkSize) {
+    private List<Document> getSplitBounds() {
         Document collStatsCommand = new Document("collStats", this.collectionFactory.getCollection().getNamespace().getCollectionName());
         Document result = this.collectionFactory.getDatabase().runCommand(collStatsCommand, Document.class);
 
-        // TODO: arg
-        Bson keyPattern = null;
-
+        // TODO: currently, this.keyPattern is always _id - need to add constructor arg
         if (result.get("ok").equals(1.0)) {
-            if (result.containsKey("sharded") && result.get("sharded").equals(true)) {
-                return new ShardedMongoSplitter(this.collectionFactory, keyPattern).getSplitBounds();
+            if (Boolean.TRUE.equals(result.get("sharded"))) {
+                return new ShardedMongoSplitter(this.collectionFactory, this.splitKey).getSplitBounds();
             }
             else {
-                return new StandaloneMongoSplitter(this.collectionFactory, keyPattern, maxChunkSize).getSplitBounds();
+                // TODO: currently, this.partitions actually means maxChunkSize
+                return new StandaloneMongoSplitter(this.collectionFactory, this.splitKey, this.partitions).getSplitBounds();
             }
         }
         else {

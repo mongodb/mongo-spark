@@ -16,66 +16,58 @@
 
 package com.mongodb.spark;
 
-import org.bson.BsonDocument;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.Projections;
 import org.bson.Document;
-import org.bson.conversions.Bson;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import static com.mongodb.assertions.Assertions.notNull;
+import static com.mongodb.spark.SplitterHelper.splitsToBounds;
 
 /**
  * A splitter for a sharded mongo.
  */
-public class ShardedMongoSplitter implements MongoSplitter {
+class ShardedMongoSplitter {
     private MongoCollectionFactory factory;
-    private Bson keyPattern;
+    private String key;
 
     /**
      * Constructs a new instance.
      *
      * @param factory the collection factory
+     * @param key the minimal prefix key of the index to be used for splitting
      * @param <T> the type of objects in the collection
      */
-    public <T> ShardedMongoSplitter(final MongoCollectionFactory<T> factory, final Bson keyPattern) {
-        this.factory = factory;
-        this.keyPattern = notNull("keyPattern", keyPattern);
+    <T> ShardedMongoSplitter(final MongoCollectionFactory<T> factory, final String key) {
+        this.factory = notNull("factory", factory);
+        this.key = notNull("key", key);
     }
 
-    @Override
-    public List<Bson> getSplitBounds() {
-        Set<String> keys;
-        if (this.keyPattern instanceof Document) {
-            keys = ((Document) this.keyPattern).keySet();
-        }
-        else if (this.keyPattern instanceof BsonDocument) {
-            keys = ((BsonDocument) this.keyPattern).keySet();
-        }
-        else {
-            throw new SplitException("keyPattern of class " + this.keyPattern.getClass() + " is not supported.");
-        }
-        if (keys.size() > 1) {
-            throw new SplitException("keyPattern must specify a single index key. keyPattern provided: " + this.keyPattern);
-        }
+    /**
+     * Get the split bounds for a sharded collection.
+     *
+     * @return the split bounds as documents
+     */
+    List<Document> getSplitBounds() {
+        MongoCollection collection = this.factory.getCollection();
 
         // get chunks for this namespace
-        List<Document> chunks = new ArrayList<>();
         // may throw exception
-        this.factory.getClient().getDatabase("config").getCollection("chunks").find().into(chunks);
-        try {
-            this.factory.closeClient();
-        } catch (IOException e) {
-            throw new SplitException("Could not close config client", e);
-        }
-        String ns = this.factory.getCollection().getNamespace().getFullName();
-        chunks.removeIf(doc -> !doc.get("ns").equals(ns));
+        String ns = collection.getNamespace().getFullName();
+        List<Document> chunks = this.factory.getClient()
+                                            .getDatabase("config")
+                                            .getCollection("chunks")
+                                            .find(Filters.eq("ns", ns))
+                                            .projection(Projections.include("min", "max"))
+                                            .into(new ArrayList<>());
 
-        // there will always be at least 1 chunk in a sharded collection e.g. {min: {key : {$minKey : 1}}, max : {key : {$maxKey : 1}}}
-        List<Bson> splitBounds = new ArrayList<>(chunks.size());
-        chunks.forEach(doc -> splitBounds.add(MongoSplitter.keysToBounds((Document) doc.get("min"), (Document) doc.get("max"), keys)));
+        // there will always be at least 1 chunk in a sharded collection
+        // e.g. {min: {key : {$minKey : 1}}, max : {key : {$maxKey : 1}}}
+        List<Document> splitBounds = new ArrayList<>(chunks.size());
+        chunks.forEach(doc -> splitBounds.add(splitsToBounds(doc.get("min", Document.class), doc.get("max", Document.class), this.key)));
 
         return splitBounds;
     }

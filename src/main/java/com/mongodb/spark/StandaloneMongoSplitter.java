@@ -16,81 +16,71 @@
 
 package com.mongodb.spark;
 
-import org.bson.BsonDocument;
+import com.mongodb.client.MongoCollection;
+import org.bson.BsonMaxKey;
+import org.bson.BsonMinKey;
 import org.bson.Document;
-import org.bson.conversions.Bson;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
+
+import static com.mongodb.assertions.Assertions.notNull;
+import static com.mongodb.spark.SplitterHelper.splitsToBounds;
 
 /**
  * A splitter for standalone mongo.
  */
-public class StandaloneMongoSplitter implements MongoSplitter {
+class StandaloneMongoSplitter {
     private MongoCollectionFactory factory;
-    private Bson keyPattern;
+    private String key;
     private int maxChunkSize;
 
     /**
      * Constructs a new instance
      *
      * @param factory a mongo collection factory
-     * @param keyPattern the keys of the index to be used for splitting
+     * @param key the minimal prefix key of the index to be used for splitting
      * @param maxChunkSize the max size (in MB) for each partition
      * @param <T> the type of documents in the collection
      */
-    public <T> StandaloneMongoSplitter(final MongoCollectionFactory<T> factory, final Bson keyPattern, final int maxChunkSize) {
-        this.factory = factory;
-        this.keyPattern = keyPattern == null ? new Document("_id", 1) : keyPattern;
+    <T> StandaloneMongoSplitter(final MongoCollectionFactory<T> factory, final String key, final int maxChunkSize) {
+        this.factory = notNull("factory", factory);
+        this.key = notNull("key", key);
         this.maxChunkSize = maxChunkSize;
     }
 
-    @Override
-    public List<Bson> getSplitBounds() {
-        Set<String> keys;
-        if (this.keyPattern instanceof Document) {
-            keys = ((Document) this.keyPattern).keySet();
-        }
-        else if (this.keyPattern instanceof BsonDocument) {
-            keys = ((BsonDocument) this.keyPattern).keySet();
-        }
-        else {
-            throw new SplitException("keyPattern of class " + this.keyPattern.getClass() + " is not supported.");
-        }
-        if (keys.size() > 1) {
-            throw new SplitException("keyPattern must specify a single index key. keyPattern provided: " + this.keyPattern);
-        }
+    /**
+     * Get the split keys for a non-sharded collection.
+     *
+     * @return the split bounds as documents
+     */
+    List<Document> getSplitBounds() {
+        MongoCollection collection = this.factory.getCollection();
 
-        String namespace = this.factory.getCollection().getNamespace().getFullName();
-        Document splitVectorCommand = new Document("splitVector", namespace)
-                                           .append("keyPattern", this.keyPattern)
+        String ns = collection.getNamespace().getFullName();
+        Document keyPattern = new Document(this.key, 1);
+        Document splitVectorCommand = new Document("splitVector", ns)
+                                           .append("keyPattern", keyPattern)
                                            .append("maxChunkSize", this.maxChunkSize);
         Document result = this.factory.getDatabase().runCommand(splitVectorCommand, Document.class);
-        try {
-            this.factory.closeClient();
-        } catch (IOException e) {
-            throw new SplitException("Could not close command client", e);
-        }
 
         if (result.get("ok").equals(1.0)) {
             List<Document> splitKeys = (List<Document>) result.get("splitKeys");
 
-            List<Bson> splitBounds = new ArrayList<>(splitKeys.size() + 1);
+            List<Document> splitBounds = new ArrayList<>(splitKeys.size() + 1);
 
             if (splitKeys.size() == 0) {
                 // no splits were calculated - this means that the RDD partition may be massive
-                splitBounds.add(MongoSplitter.keysToBounds(null, null, keys));
-            }
-            else {
-                splitBounds.add(MongoSplitter.keysToBounds(null, splitKeys.get(0), keys));
+                splitBounds.add(
+                        splitsToBounds(new Document(this.key, new BsonMinKey()), new Document(this.key, new BsonMaxKey()), this.key));
+            } else {
+                splitBounds.add(splitsToBounds(new Document(this.key, new BsonMinKey()), splitKeys.get(0), this.key));
 
                 for (int i = 0; i < splitKeys.size() - 1; i++) {
-                    splitBounds.add(MongoSplitter.keysToBounds(splitKeys.get(i), splitKeys.get(i + 1), keys));
+                    splitBounds.add(splitsToBounds(splitKeys.get(i), splitKeys.get(i + 1), this.key));
                 }
 
-                splitBounds.add(MongoSplitter.keysToBounds(splitKeys.get(splitKeys.size() - 1), null, keys));
+                splitBounds.add(splitsToBounds(splitKeys.get(splitKeys.size() - 1), new Document(this.key, new BsonMaxKey()), this.key));
             }
 
             return splitBounds;
