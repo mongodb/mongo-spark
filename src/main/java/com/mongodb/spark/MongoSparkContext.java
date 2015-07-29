@@ -90,6 +90,7 @@ public class MongoSparkContext extends JavaSparkContext {
      *
      * @param clazz the class of the elements in the rdd
      * @param factory a mongo collection factory
+     * @param splitKey the minimal prefix key of the index to be used for splitting
      * @param <T> the type of the objects in the RDD
      * @return the RDD
      */
@@ -102,6 +103,7 @@ public class MongoSparkContext extends JavaSparkContext {
      *
      * @param clazz the class of the elements in the rdd
      * @param factory a mongo collection factory
+     * @param splitKey the minimal prefix key of the index to be used for splitting
      * @param partitions the number of RDD partitions
      * @param <T> the type of the objects in the RDD
      * @return the RDD
@@ -117,6 +119,7 @@ public class MongoSparkContext extends JavaSparkContext {
      *
      * @param clazz the class of the elements in the rdd
      * @param factory a mongo collection factory
+     * @param splitKey the minimal prefix key of the index to be used for splitting
      * @param partitions the number of RDD partitions
      * @param pipeline the aggregation pipeline
      * @param <T> the type of the objects in the RDD
@@ -133,6 +136,7 @@ public class MongoSparkContext extends JavaSparkContext {
      *
      * @param clazz the class of the elements in the rdd
      * @param factory a mongo collection factory
+     * @param splitKey the minimal prefix key of the index to be used for splitting
      * @param pipeline the aggregation pipeline
      * @param <T> the type of the objects in the RDD
      * @return the RDD

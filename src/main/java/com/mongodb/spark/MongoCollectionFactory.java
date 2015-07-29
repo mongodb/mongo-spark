@@ -37,7 +37,6 @@ public interface MongoCollectionFactory<T> extends Serializable {
     MongoCollection<T> getCollection();
 
     /**
-     * Experimental
      * Gets a mongo database from the factory.
      *
      * @return a mongo database
@@ -45,12 +44,16 @@ public interface MongoCollectionFactory<T> extends Serializable {
     MongoDatabase getDatabase();
 
     /**
-     * Experimental
      * Gets a mongo client from the factory.
      *
      * @return a mongo client
      */
     MongoClient getClient();
 
+    /**
+     * Closes the client factory.
+     *
+     * @throws IOException if closing the client factory errors
+     */
     void closeClient() throws IOException;
 }

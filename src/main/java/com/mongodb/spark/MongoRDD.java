@@ -53,6 +53,7 @@ public class MongoRDD<T> extends RDD<T> {
      * @param sc the spark context the RDD belongs to
      * @param factory the mongo collection factory for the RDD
      * @param clazz the class of the elements in the RDD
+     * @param splitKey the minimal prefix key of the index to be used for splitting
      */
     public MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz, final String splitKey) {
         this(sc, factory, clazz, splitKey, sc.defaultParallelism(), null);
@@ -64,6 +65,7 @@ public class MongoRDD<T> extends RDD<T> {
      * @param sc the spark context the RDD belongs to
      * @param factory the mongo collection factory for the RDD
      * @param clazz the class of the elements in the RDD
+     * @param splitKey the minimal prefix key of the index to be used for splitting
      * @param partitions the number of RDD partitions
      */
     public MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz, final String splitKey,
@@ -77,6 +79,7 @@ public class MongoRDD<T> extends RDD<T> {
      * @param sc the spark context the RDD belongs to
      * @param factory the mongo collection factory for the RDD
      * @param clazz the class of the elements in the RDD
+     * @param splitKey the minimal prefix key of the index to be used for splitting
      * @param pipeline the aggregation pipeline
      */
     public MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz, final String splitKey,
@@ -90,6 +93,7 @@ public class MongoRDD<T> extends RDD<T> {
      * @param sc the spark context the RDD belongs to
      * @param factory the mongo collection factory for the RDD
      * @param clazz the class of the elements in the RDD
+     * @param splitKey the minimal prefix key of the index to be used for splitting
      * @param partitions the number of RDD partitions
      * @param pipeline the aggregation pipeline
      */
