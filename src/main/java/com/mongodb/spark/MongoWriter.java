@@ -16,31 +16,69 @@
 
 package com.mongodb.spark;
 
-import java.util.Iterator;
+import com.mongodb.client.model.BulkWriteOptions;
+import com.mongodb.client.model.InsertOneModel;
+import com.mongodb.client.model.ReplaceOneModel;
+import com.mongodb.client.model.UpdateOptions;
+import com.mongodb.client.model.WriteModel;
+import org.apache.spark.rdd.RDD;
+import org.bson.Document;
+import org.bson.codecs.Codec;
+import org.bson.codecs.CollectibleCodec;
+import scala.collection.Iterator;
+import scala.runtime.BoxedUnit;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Interface for classes writing partitions to mongo collections.
- *
- * @param <T> the class of objects in the partition
+ * Utility class for writing RDDs to Mongo collections.
  */
-public interface MongoWriter<T> {
+public final class MongoWriter {
     /**
-     * Possible write modes:
+     * Writes the given RDD to the collection specified in the collection factory.
+     * If there is a CollectibleCodec available for the documents and document ids
+     * exist, the writer will attempt to replace documents in the specified
+     * collection with documents in the RDD with the provided upsert option.
      *
-     * SIMPLE:                 insertion
-     * BULK_ORDERED_REPLACE:   upsert with replacement
-     * BULK_ORDERED_UPDATE:    upsert with update
-     * BULK_UNORDERED_REPLACE: upsertion with replacement
-     * BULK_UNORDERED_UPDATE:  upsertion with update
+     * @param rdd the rdd to write
+     * @param factory the collection factory
+     * @param upsert true if upsert
+     * @param ordered true if ordered
+     * @param <T> the type of documents in the collection
      */
-    enum WriteMode {
-        SIMPLE, BULK_ORDERED_REPLACE, BULK_ORDERED_UPDATE, BULK_UNORDERED_REPLACE, BULK_UNORDERED_UPDATE
+    public static <T> void writeToMongo(final RDD<T> rdd, final MongoCollectionFactory<T> factory, final Boolean upsert,
+                                        final Boolean ordered) {
+        rdd.foreachPartition(new SerializableAbstractFunction1<Iterator<T>, BoxedUnit>() {
+            @Override
+            public BoxedUnit apply(final Iterator<T> p) {
+                Codec<T> codec = factory.getCollection().getCodecRegistry().get(factory.getCollection().getDocumentClass());
+                List<WriteModel<T>> elements = new ArrayList<>();
+
+                if (codec instanceof CollectibleCodec) {
+                    T element;
+                    while (p.hasNext()) {
+                        element = p.next();
+                        if (((CollectibleCodec<T>) codec).documentHasId(element)) {
+                            elements.add(new ReplaceOneModel<>(new Document("_id", ((CollectibleCodec<T>) codec).getDocumentId(element)),
+                                                               element, new UpdateOptions().upsert(upsert)));
+                        } else {
+                            elements.add(new InsertOneModel<>(element));
+                        }
+                    }
+                } else {
+                    while (p.hasNext()) {
+                        elements.add(new InsertOneModel<>(p.next()));
+                    }
+                }
+
+                factory.getCollection().bulkWrite(elements, new BulkWriteOptions().ordered(ordered));
+
+                return BoxedUnit.UNIT;
+            }
+        });
     }
 
-    /**
-     * Write the elements of the iterator to a location.
-     *
-     * @param iterator typically the elements of an RDD partition
-     */
-    void write(final Iterator<T> iterator);
+    private MongoWriter() {
+    }
 }

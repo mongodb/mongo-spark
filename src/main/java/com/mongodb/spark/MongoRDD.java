@@ -21,21 +21,18 @@ import com.mongodb.client.MongoCursor;
 import org.apache.spark.Partition;
 import org.apache.spark.SparkContext;
 import org.apache.spark.TaskContext;
-import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.rdd.RDD;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import scala.collection.Iterator;
 import scala.collection.mutable.ArrayBuffer;
 import scala.reflect.ClassTag$;
-import scala.runtime.BoxedUnit;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.mongodb.assertions.Assertions.isTrueArgument;
 import static com.mongodb.assertions.Assertions.notNull;
-import static scala.collection.JavaConverters.asJavaIteratorConverter;
 import static scala.collection.JavaConverters.asScalaIteratorConverter;
 
 /**
@@ -149,65 +146,6 @@ public class MongoRDD<T> extends RDD<T> {
         this.splitKey = "_id";
         this.pipeline = pipeline;
         this.query = query;
-    }
-
-    /**
-     * Writes a JavaRDD to the collection specified by the collection factory. If inserting,
-     * it is recommended to remove the _id's from the Documents being inserted.
-     *
-     * @param rdd the RDD to write
-     * @param factory a mongo collection factory
-     * @param mode the write mode
-     * @param <TDocument> the type of the objects in the RDD
-     */
-    public static <TDocument extends Bson> void toMongoCollection(final JavaRDD<TDocument> rdd,
-                                                                  final MongoCollectionFactory<TDocument> factory,
-                                                                  final MongoWriter.WriteMode mode) {
-        toMongoCollection(rdd.rdd(), factory, mode);
-    }
-
-    /**
-     * Writes a RDD to the collection specified by the collection factory. If inserting,
-     * it is recommended to remove the _id's from the Documents being inserted.
-     *
-     * @param rdd the RDD to write
-     * @param factory a mongo collection factory
-     * @param mode the write mode
-     * @param <TDocument> the type of the objects in the RDD
-     */
-    public static <TDocument extends Bson> void toMongoCollection(final RDD<TDocument> rdd, final MongoCollectionFactory<TDocument> factory,
-                                                     final MongoWriter.WriteMode mode) {
-        switch (mode) {
-            case BULK_UNORDERED_REPLACE:
-            case BULK_UNORDERED_UPDATE:
-                rdd.foreachPartition(new SerializableAbstractFunction1<Iterator<TDocument>, BoxedUnit>() {
-                    @Override
-                    public BoxedUnit apply(final Iterator<TDocument> p) {
-                        new MongoBulkWriter<>(factory, mode).write(asJavaIteratorConverter(p).asJava());
-                        return BoxedUnit.UNIT;
-                    }
-                });
-                break;
-            case BULK_ORDERED_REPLACE:
-            case BULK_ORDERED_UPDATE:
-                rdd.foreachPartition(new SerializableAbstractFunction1<Iterator<TDocument>, BoxedUnit>() {
-                    @Override
-                    public BoxedUnit apply(final Iterator<TDocument> p) {
-                        new MongoBulkWriter<>(factory, mode).write(asJavaIteratorConverter(p).asJava());
-                        return BoxedUnit.UNIT;
-                    }
-                });
-                break;
-            default:
-                // SIMPLE
-                rdd.foreachPartition(new SerializableAbstractFunction1<Iterator<TDocument>, BoxedUnit>() {
-                    @Override
-                    public BoxedUnit apply(final Iterator<TDocument> p) {
-                        new MongoSimpleWriter<>(factory).write(asJavaIteratorConverter(p).asJava());
-                        return BoxedUnit.UNIT;
-                    }
-                });
-        }
     }
 
     @Override
