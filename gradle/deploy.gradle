@@ -25,12 +25,12 @@ configure(subprojects - project(':util')) {
     modifyPom {
         project {
 
-            url 'https://github.com/mongodb/mongo-java-driver'
+            url 'https://github.com/mongodbinc-interns/mongo-spark'
 
             scm {
-                url 'https://github.com/mongodb/mongo-java-driver'
-                connection 'scm:https://github.com/mongodb/mongo-java-driver.git'
-                developerConnection 'scm:git@github.com:mongodb/mongo-java-driver.git'
+                url 'https://github.com/mongodbinc-interns/mongo-spark'
+                connection 'scm:https://github.com/mongodbinc-interns/mongo-spark.git'
+                developerConnection 'scm:git@github.com:mongodb/mongodbinc-interns/mongo-spark.git'
             }
 
             licenses {
@@ -51,7 +51,6 @@ configure(subprojects - project(':util')) {
     }
 
     modifyPom { pom ->
-        pom.dependencies.findAll {dep -> dep.groupId == 'io.netty' || dep.groupId == 'org.slf4j' }.each { it.optional = true }
         // no need to publish test dependencies
         pom.dependencies.removeAll { it.scope == "test" }
     }
