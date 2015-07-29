@@ -18,14 +18,14 @@
 package com.mongodb.spark;
 
 import org.apache.spark.Partition;
-import org.bson.conversions.Bson;
+import org.bson.Document;
 
 /**
  * An identifier for a partition in a MongoRDD.
  */
 class MongoPartition implements Partition {
-    private int  index;
-    private Bson bounds;
+    private int index;
+    private Document bounds;
 
     /**
      * Constructs a new instance.
@@ -33,7 +33,7 @@ class MongoPartition implements Partition {
      * @param index index of the partition
      * @param bounds the bounds of the partition with respect to the mongo collection
      */
-    public MongoPartition(final int index, final Bson bounds) {
+    public MongoPartition(final int index, final Document bounds) {
         this.index = index;
         this.bounds = bounds;
     }
@@ -52,7 +52,7 @@ class MongoPartition implements Partition {
      *
      * @return the bounds of the partition
      */
-    public Bson getBounds() {
+    public Document getBounds() {
         return this.bounds;
     }
 }

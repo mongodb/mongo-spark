@@ -222,7 +222,7 @@ public class MongoRDD<T> extends RDD<T> {
      */
     // TODO: add support for query filters, limits, modifiers, projections, skips, sorts
     private MongoCursor<T> getCursor(final MongoPartition partition) {
-        Bson partitionBounds = partition.getBounds();
+        Document partitionBounds = partition.getBounds();
 
         if (this.query == null && this.pipeline == null) {
             return this.collectionFactory.getCollection().find(partitionBounds, this.clazz).iterator();
