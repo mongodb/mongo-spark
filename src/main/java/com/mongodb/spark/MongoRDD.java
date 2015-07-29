@@ -41,12 +41,11 @@ import static scala.collection.JavaConverters.asScalaIteratorConverter;
  * @param <T> the type of the objects in the RDD
  */
 public class MongoRDD<T> extends RDD<T> {
-    private Class<T>                  clazz;
-    private String                    splitKey;
-    private int                       partitions;
-    private List<Bson>                pipeline;
-    private Bson                      query;
+    private Class<T> clazz;
     private MongoCollectionFactory<T> collectionFactory;
+    private int partitions;
+    private List<Bson> pipeline;
+    private String splitKey;
 
     /**
      * Constructs a new instance.
@@ -55,8 +54,8 @@ public class MongoRDD<T> extends RDD<T> {
      * @param factory the mongo collection factory for the RDD
      * @param clazz the class of the elements in the RDD
      */
-    public MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz) {
-        this(sc, factory, clazz, sc.defaultParallelism(), null, null);
+    public MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz, final String splitKey) {
+        this(sc, factory, clazz, splitKey, sc.defaultParallelism(), null);
     }
 
     /**
@@ -67,8 +66,9 @@ public class MongoRDD<T> extends RDD<T> {
      * @param clazz the class of the elements in the RDD
      * @param partitions the number of RDD partitions
      */
-    public MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz, final int partitions) {
-        this(sc, factory, clazz, partitions, null, null);
+    public MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz, final String splitKey,
+                    final int partitions) {
+        this(sc, factory, clazz, splitKey, partitions, null);
     }
 
     /**
@@ -79,9 +79,9 @@ public class MongoRDD<T> extends RDD<T> {
      * @param clazz the class of the elements in the RDD
      * @param pipeline the aggregation pipeline
      */
-    public MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz,
+    public MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz, final String splitKey,
                     final List<Bson> pipeline) {
-        this(sc, factory, clazz, sc.defaultParallelism(), pipeline, null);
+        this(sc, factory, clazz, splitKey, sc.defaultParallelism(), pipeline);
     }
 
     /**
@@ -93,59 +93,15 @@ public class MongoRDD<T> extends RDD<T> {
      * @param partitions the number of RDD partitions
      * @param pipeline the aggregation pipeline
      */
-    public MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz, final int partitions,
-                    final List<Bson> pipeline) {
-        this(sc, factory, clazz, partitions, pipeline, null);
-    }
-
-    /**
-     * Constructs a new instance.
-     *
-     * @param sc the spark context the RDD belongs to
-     * @param factory the mongo collection factory for the RDD
-     * @param clazz the class of the elements in the RDD
-     * @param query the database query
-     */
-    public MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz,
-                    final Bson query) {
-        this(sc, factory, clazz, sc.defaultParallelism(), null, query);
-    }
-
-    /**
-     * Constructs a new instance
-     *
-     * @param sc the spark context the RDD belongs to
-     * @param factory the mongo collection factory for the RDD
-     * @param clazz the class of the elements in the RDD
-     * @param partitions the number of RDD partitions
-     * @param query the database query
-     */
-    public MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz, final int partitions,
-                    final Bson query) {
-        this(sc, factory, clazz, partitions, null, query);
-    }
-
-    /**
-     * Private helper to construct a new instance. Since it is private, we can ensure that upon calling the
-     * constructor either pipeline, query, or both will be null.
-     *
-     * @param sc the spark context the RDD belongs to
-     * @param factory the mongo collection factory for the RDD
-     * @param clazz the class of the elements in the RDD
-     * @param partitions the number of RDD partitions
-     * @param pipeline the aggregation pipeline
-     * @param query the database query
-     */
-    private MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz, final int partitions,
-                     final List<Bson> pipeline, final Bson query) {
+    public MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz, final String splitKey,
+                    final int partitions, final List<Bson> pipeline) {
         super(sc, new ArrayBuffer<>(), ClassTag$.MODULE$.apply(notNull("clazz", clazz)));
         this.clazz = clazz;
         this.collectionFactory = notNull("factory", factory);
+        this.splitKey = notNull("splitKey", splitKey);
         isTrueArgument("partitions > 0", partitions > 0);
         this.partitions = partitions;
-        this.splitKey = "_id";
         this.pipeline = pipeline;
-        this.query = query;
     }
 
     @Override
@@ -156,22 +112,16 @@ public class MongoRDD<T> extends RDD<T> {
     /**
      * Helper function to retrieve the results from the collection.
      *
-     * @return the results of the
+     * @return the cursor
      */
-    // TODO: add support for query filters, limits, modifiers, projections, skips, sorts
     private MongoCursor<T> getCursor(final MongoPartition partition) {
         Document partitionBounds = partition.getBounds();
 
-        if (this.query == null && this.pipeline == null) {
-            return this.collectionFactory.getCollection().find(partitionBounds, this.clazz).iterator();
-        }
-        if (this.query != null) {
-            return this.collectionFactory.getCollection().find(partitionBounds, this.clazz).filter(this.query).iterator();
-        }
-
-        List<Bson> partitionPipeline = new ArrayList<>(1 + this.pipeline.size());
+        List<Bson> partitionPipeline = new ArrayList<>();
         partitionPipeline.add(new Document("$match", partitionBounds));
-        partitionPipeline.addAll(this.pipeline);
+        if (this.pipeline != null) {
+            partitionPipeline.addAll(this.pipeline);
+        }
 
         return this.collectionFactory.getCollection().aggregate(partitionPipeline, this.clazz).iterator();
     }
@@ -198,7 +148,6 @@ public class MongoRDD<T> extends RDD<T> {
         Document collStatsCommand = new Document("collStats", this.collectionFactory.getCollection().getNamespace().getCollectionName());
         Document result = this.collectionFactory.getDatabase().runCommand(collStatsCommand, Document.class);
 
-        // TODO: currently, this.keyPattern is always _id - need to add constructor arg
         if (result.get("ok").equals(1.0)) {
             if (Boolean.TRUE.equals(result.get("sharded"))) {
                 return new ShardedMongoSplitter(this.collectionFactory, this.splitKey).getSplitBounds();

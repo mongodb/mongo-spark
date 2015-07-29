@@ -93,8 +93,8 @@ public class MongoSparkContext extends JavaSparkContext {
      * @param <T> the type of the objects in the RDD
      * @return the RDD
      */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final MongoCollectionFactory<T> factory) {
-        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz), ClassTag$.MODULE$.apply(clazz));
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final MongoCollectionFactory<T> factory, final String splitKey) {
+        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, splitKey), ClassTag$.MODULE$.apply(clazz));
     }
 
     /**
@@ -106,8 +106,9 @@ public class MongoSparkContext extends JavaSparkContext {
      * @param <T> the type of the objects in the RDD
      * @return the RDD
      */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final MongoCollectionFactory<T> factory, final int partitions) {
-        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, partitions), ClassTag$.MODULE$.apply(clazz));
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final MongoCollectionFactory<T> factory, final String splitKey,
+                                      final int partitions) {
+        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, splitKey, partitions), ClassTag$.MODULE$.apply(clazz));
     }
 
     /**
@@ -121,25 +122,9 @@ public class MongoSparkContext extends JavaSparkContext {
      * @param <T> the type of the objects in the RDD
      * @return the RDD
      */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final MongoCollectionFactory<T> factory, final int partitions,
-                                      final List<Bson> pipeline) {
-        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, partitions, pipeline), ClassTag$.MODULE$.apply(clazz));
-    }
-
-    /**
-     * Parallelizes a mongo collection specified by the collection factory with the specified parallelism
-     * and a query to prefilter results.
-     *
-     * @param clazz the class of the elements in the rdd
-     * @param factory a mongo collection factory
-     * @param partitions the number of RDD partitions
-     * @param query the database query
-     * @param <T> the type of the objects in the RDD
-     * @return the RDD
-     */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final MongoCollectionFactory<T> factory, final int partitions,
-                                      final Bson query) {
-        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, partitions, query), ClassTag$.MODULE$.apply(clazz));
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final MongoCollectionFactory<T> factory, final String splitKey,
+                                      final int partitions, final List<Bson> pipeline) {
+        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, splitKey, partitions, pipeline), ClassTag$.MODULE$.apply(clazz));
     }
 
     /**
@@ -152,22 +137,9 @@ public class MongoSparkContext extends JavaSparkContext {
      * @param <T> the type of the objects in the RDD
      * @return the RDD
      */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final MongoCollectionFactory<T> factory, final List<Bson> pipeline) {
-        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, pipeline), ClassTag$.MODULE$.apply(clazz));
-    }
-
-    /**
-     * Parallelizes a mongo collection specified by the collection factory with the default parallelism of the
-     * spark context and a query to prefilter results.
-     *
-     * @param clazz the class of the elements in the rdd
-     * @param factory a mongo collection factory
-     * @param query the database query
-     * @param <T> the type of the objects in the RDD
-     * @return the RDD
-     */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final MongoCollectionFactory<T> factory, final Bson query) {
-        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, query), ClassTag$.MODULE$.apply(clazz));
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final MongoCollectionFactory<T> factory, final String splitKey,
+                                      final List<Bson> pipeline) {
+        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, splitKey, pipeline), ClassTag$.MODULE$.apply(clazz));
     }
 
     @Override
