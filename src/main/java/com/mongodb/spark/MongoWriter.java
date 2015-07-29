@@ -72,7 +72,9 @@ public final class MongoWriter {
                     }
                 }
 
-                factory.getCollection().bulkWrite(elements, new BulkWriteOptions().ordered(ordered));
+                if (elements.size() > 0) {
+                    factory.getCollection().bulkWrite(elements, new BulkWriteOptions().ordered(ordered));
+                }
 
                 return BoxedUnit.UNIT;
             }
