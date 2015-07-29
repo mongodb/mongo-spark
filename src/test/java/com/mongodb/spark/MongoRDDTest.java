@@ -19,10 +19,8 @@ package com.mongodb.spark;
 
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientURI;
-import com.mongodb.spark.MongoWriter.WriteMode;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
-import org.apache.spark.rdd.RDD;
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
 import org.bson.Document;
@@ -30,7 +28,6 @@ import org.bson.conversions.Bson;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import scala.reflect.ClassTag$;
 
 import java.util.List;
 
@@ -44,7 +41,7 @@ public class MongoRDDTest {
     private String username = "test";
     private String password = "password";
     private String database = "test";
-    private String collection = "rdd";
+    private String collection = "test";
 
     private String uri = root + username + ":" + password + "@" + host + "/" + database + "." + collection;
 
@@ -52,7 +49,7 @@ public class MongoRDDTest {
     private String appName = "testApp";
 
     private SparkConf sparkConf = new SparkConf().setMaster(master)
-                                                 .setAppName(appName);
+            .setAppName(appName);
     private SparkContext sc;
     private int partitions = 1;
 
@@ -62,14 +59,14 @@ public class MongoRDDTest {
 
     private String key = "a";
     private List<Document> documents = asList(new Document(key, 0), new Document(key, 1), new Document(key, 2));
-    private Bson query = new BsonDocument(key, new BsonInt32(0));
-    private List<Bson> pipeline = singletonList(new BsonDocument("$project", new BsonDocument(key, new BsonInt32(1))));
+    private List<Bson> pipeline = singletonList(new BsonDocument("$match", new BsonDocument(key, new BsonInt32(0))));
 
     @Before
     public void setUp() {
         MongoClient client = new MongoClient(new MongoClientURI(uri));
         client.getDatabase(database).getCollection(collection).drop();
         client.getDatabase(database).getCollection(collection).insertMany(documents);
+        client.getDatabase(database).getCollection(collection).createIndex(new Document(key, 1));
         client.close();
         sc = new SparkContext(sparkConf);
     }
@@ -81,35 +78,27 @@ public class MongoRDDTest {
     }
 
     @Test
-    public void shouldMakeMongoRDDWithPartitionsAndQuery() {
-        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class, partitions, query);
+    public void shouldMakeMongoRDDWithPartitionsAndAggregation() {
+        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class, key, partitions, pipeline);
 
         assertEquals(1, mongoRdd.count());
-        assertEquals(documents.get(0), mongoRdd.first());
-        assertEquals(partitions, mongoRdd.getPartitions().length);
-    }
-
-    @Test
-    public void shouldMakeMongoRDDWithPartitionsAndAggregation() {
-        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class, partitions, pipeline);
-
-        assertEquals(documents.size(), mongoRdd.count());
         assertEquals(documents.get(0), mongoRdd.first());
         assertEquals(partitions, mongoRdd.getPartitions().length);
     }
 
     @Test
     public void shouldMakeMongoRDDWithPartitions() {
-        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class, partitions);
+        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class, key, partitions);
 
         assertEquals(documents.size(), mongoRdd.count());
         assertEquals(documents.get(0), mongoRdd.first());
         assertEquals(partitions, mongoRdd.getPartitions().length);
     }
 
+
     @Test
-    public void shouldMakeMongoRDDWithQuery() {
-        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class, query);
+    public void shouldMakeMongoRDDWithAggregation() {
+        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class, key, pipeline);
 
         assertEquals(1, mongoRdd.count());
         assertEquals(documents.get(0), mongoRdd.first());
@@ -117,17 +106,8 @@ public class MongoRDDTest {
     }
 
     @Test
-    public void shouldMakeMongoRDDWithAggregation() {
-        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class, pipeline);
-
-        assertEquals(documents.size(), mongoRdd.count());
-        assertEquals(documents.get(0), mongoRdd.first());
-        assertEquals(sc.defaultParallelism(), mongoRdd.getPartitions().length);
-    }
-
-    @Test
     public void shouldMakeMongoRDD() {
-        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class);
+        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class, key);
 
         assertEquals(documents.size(), mongoRdd.count());
         assertEquals(documents.get(0), mongoRdd.first());
@@ -136,76 +116,21 @@ public class MongoRDDTest {
 
     @Test(expected = IllegalArgumentException.class)
     public void shouldFailNullClazz() {
-        new MongoRDD<>(sc, collectionFactory, null);
+        new MongoRDD<>(sc, collectionFactory, null, key);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void shouldFailNullFactory() {
-        new MongoRDD<>(sc, null, Document.class);
+        new MongoRDD<>(sc, null, Document.class, key);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void shouldFailNullSplitKey() {
+        new MongoRDD<>(sc, collectionFactory, Document.class, null);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void shouldFailLessThanOnePartitions() {
-        new MongoRDD<>(sc, collectionFactory, Document.class, 0);
-    }
-
-    @Test
-    public void shouldWriteToMongoSimple() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class)
-                                     .map(new GetSingleKeyValueDocument(key), ClassTag$.MODULE$.apply(Document.class));
-
-        MongoRDD.toMongoCollection(mongoRdd, collectionFactory, WriteMode.SIMPLE);
-
-        assertEquals(2 * documents.size(), collectionFactory.getCollection().count());
-    }
-
-    @Test
-    public void shouldWriteToMongoBulkUnorderedReplace() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class);
-
-        MongoRDD.toMongoCollection(mongoRdd, collectionFactory, WriteMode.BULK_UNORDERED_REPLACE);
-
-        assertEquals(documents.size(), collectionFactory.getCollection().count());
-    }
-
-    @Test
-    public void shouldWriteToMongoBulkUnorderedUpdate() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class);
-
-        MongoRDD.toMongoCollection(mongoRdd, collectionFactory, WriteMode.BULK_UNORDERED_UPDATE);
-
-        assertEquals(documents.size(), collectionFactory.getCollection().count());
-    }
-
-    @Test
-    public void shouldWriteToMongoBulkOrderedReplace() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class);
-
-        MongoRDD.toMongoCollection(mongoRdd, collectionFactory, WriteMode.BULK_ORDERED_REPLACE);
-
-        assertEquals(documents.size(), collectionFactory.getCollection().count());
-    }
-
-    @Test
-    public void shouldWriteToMongoBulkOrderedUpdate() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class);
-
-        MongoRDD.toMongoCollection(mongoRdd, collectionFactory, WriteMode.BULK_ORDERED_UPDATE);
-
-        assertEquals(documents.size(), collectionFactory.getCollection().count());
-    }
-}
-
-// essentially removes _id from each document - JavaRDD can use lambdas instead of serializable abstract functions
-class GetSingleKeyValueDocument extends SerializableAbstractFunction1<Document, Document> {
-    private String key;
-
-    public GetSingleKeyValueDocument(final String key) {
-        this.key = key;
-    }
-
-    @Override
-    public Document apply(final Document document) {
-        return new Document(key, document.get(key));
+        new MongoRDD<>(sc, collectionFactory, Document.class, key, 0);
     }
 }
