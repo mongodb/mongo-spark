@@ -18,11 +18,11 @@
 package com.mongodb.spark;
 
 import com.mongodb.MongoClient;
-import com.mongodb.MongoClientOptions.Builder;
 import com.mongodb.MongoClientURI;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.broadcast.Broadcast;
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
 import org.bson.Document;
@@ -34,6 +34,7 @@ import org.junit.Test;
 import java.util.Arrays;
 import java.util.List;
 
+import static com.mongodb.MongoClientOptions.Builder;
 import static java.util.Collections.singletonList;
 import static org.junit.Assert.assertEquals;
 
@@ -53,6 +54,7 @@ public class MongoSparkContextTest {
     private SparkConf sparkConf = new SparkConf().setMaster(master)
                                                  .setAppName(appName);
     private MongoSparkContext msc;
+    private Broadcast<MongoCollectionFactory<Document>> broadcastCollectionFactory;
     private int partitions = 1;
 
     private MongoClientFactory clientFactory = new MongoSparkClientFactory(uri);
@@ -81,8 +83,9 @@ public class MongoSparkContextTest {
     @Test
     public void shouldConstructMSCWithSparkConf() {
         msc = new MongoSparkContext(sparkConf);
+        broadcastCollectionFactory = msc.broadcast(collectionFactory);
 
-        JavaRDD<Document> rdd = msc.parallelize(Document.class, collectionFactory, key);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, broadcastCollectionFactory, key);
 
         assertEquals(documents.size(), rdd.count());
         assertEquals(documents, rdd.collect());
@@ -91,8 +94,9 @@ public class MongoSparkContextTest {
     @Test
     public void shouldConstructMSCWithSparkContext() {
         msc = new MongoSparkContext(new SparkContext(sparkConf));
+        broadcastCollectionFactory = msc.broadcast(collectionFactory);
 
-        JavaRDD<Document> rdd = msc.parallelize(Document.class, collectionFactory, key);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, broadcastCollectionFactory, key);
 
         assertEquals(documents.size(), rdd.count());
         assertEquals(documents, rdd.collect());
@@ -101,8 +105,9 @@ public class MongoSparkContextTest {
     @Test
     public void shouldConstructMSCWithSparkConfSparkHome() {
         msc = new MongoSparkContext(sparkConf, sparkHome);
+        broadcastCollectionFactory = msc.broadcast(collectionFactory);
 
-        JavaRDD<Document> rdd = msc.parallelize(Document.class, collectionFactory, key);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, broadcastCollectionFactory, key);
 
         assertEquals(documents.size(), rdd.count());
         assertEquals(documents, rdd.collect());
@@ -111,8 +116,9 @@ public class MongoSparkContextTest {
     @Test
     public void shouldConstructMSCWithSparkConfSparkHomeJarFile() {
         msc = new MongoSparkContext(sparkConf, sparkHome, jarFile);
+        broadcastCollectionFactory = msc.broadcast(collectionFactory);
 
-        JavaRDD<Document> rdd = msc.parallelize(Document.class, collectionFactory, key);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, broadcastCollectionFactory, key);
 
         assertEquals(documents.size(), rdd.count());
         assertEquals(documents, rdd.collect());
@@ -121,8 +127,9 @@ public class MongoSparkContextTest {
     @Test
     public void shouldConstructMSCWithSparkConfSparkHomeJars() {
         msc = new MongoSparkContext(sparkConf, sparkHome, new String[] {jarFile});
+        broadcastCollectionFactory = msc.broadcast(collectionFactory);
 
-        JavaRDD<Document> rdd = msc.parallelize(Document.class, collectionFactory, key);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, broadcastCollectionFactory, key);
 
         assertEquals(documents.size(), rdd.count());
         assertEquals(documents, rdd.collect());
@@ -131,8 +138,9 @@ public class MongoSparkContextTest {
     @Test
     public void shouldParallelizeWithPartitions() {
         msc = new MongoSparkContext(sparkConf);
+        broadcastCollectionFactory = msc.broadcast(collectionFactory);
 
-        JavaRDD<Document> rdd = msc.parallelize(Document.class, collectionFactory, key, partitions);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, broadcastCollectionFactory, key, partitions);
 
         assertEquals(documents.size(), rdd.count());
         assertEquals(partitions, rdd.partitions().size());
@@ -142,8 +150,9 @@ public class MongoSparkContextTest {
     @Test
     public void shouldParallelizeWithPipeline() {
         msc = new MongoSparkContext(sparkConf);
+        broadcastCollectionFactory = msc.broadcast(collectionFactory);
 
-        JavaRDD<Document> rdd = msc.parallelize(Document.class, collectionFactory, key, pipeline);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, broadcastCollectionFactory, key, pipeline);
 
         assertEquals(1, rdd.count());
         assertEquals(msc.sc().defaultParallelism(), rdd.partitions().size());
@@ -153,8 +162,9 @@ public class MongoSparkContextTest {
     @Test
     public void shouldParallelizeWithPartitionsAndPipeline() {
         msc = new MongoSparkContext(sparkConf);
+        broadcastCollectionFactory = msc.broadcast(collectionFactory);
 
-        JavaRDD<Document> rdd = msc.parallelize(Document.class, collectionFactory, key, partitions, pipeline);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, broadcastCollectionFactory, key, partitions, pipeline);
 
         assertEquals(1, rdd.count());
         assertEquals(partitions, rdd.partitions().size());
@@ -164,8 +174,9 @@ public class MongoSparkContextTest {
     @Test
     public void shouldParallelizeWithDefaultParallelism() {
         msc = new MongoSparkContext(sparkConf);
+        broadcastCollectionFactory = msc.broadcast(collectionFactory);
 
-        JavaRDD<Document> rdd = msc.parallelize(Document.class, collectionFactory, key);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, broadcastCollectionFactory, key);
 
         assertEquals(documents.size(), rdd.count());
         assertEquals(msc.sc().defaultParallelism(), rdd.partitions().size());
@@ -175,8 +186,9 @@ public class MongoSparkContextTest {
     @Test(expected = IllegalArgumentException.class)
     public void shouldFailNonnegativePartitions() {
         msc = new MongoSparkContext(sparkConf);
+        broadcastCollectionFactory = msc.broadcast(collectionFactory);
 
-        msc.parallelize(Document.class, collectionFactory, key, 0);
+        msc.parallelize(Document.class, broadcastCollectionFactory, key, 0);
     }
 
     /*
@@ -187,7 +199,7 @@ public class MongoSparkContextTest {
         msc = new MongoSparkContext(sparkConf);
 
         MongoCollectionFactory<Document> collectionFactory =
-                new MongoSparkCollectionFactory<>(
+                        new MongoSparkCollectionFactory<>(
                         Document.class,
                         new MongoSparkClientFactory(
                                 uri,
@@ -200,7 +212,8 @@ public class MongoSparkContextTest {
                         database,
                         collection);
 
-        JavaRDD<Document> rdd = msc.parallelize(Document.class, collectionFactory, key);
+        broadcastCollectionFactory = msc.broadcast(collectionFactory);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, broadcastCollectionFactory, key);
 
         assertEquals(documents.size(), rdd.count());
         assertEquals(documents, rdd.collect());

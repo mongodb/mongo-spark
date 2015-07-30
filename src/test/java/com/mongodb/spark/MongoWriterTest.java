@@ -20,6 +20,7 @@ import com.mongodb.MongoClient;
 import com.mongodb.MongoClientURI;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
+import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.rdd.RDD;
 import org.bson.BsonMaxKey;
 import org.bson.BsonMinKey;
@@ -53,6 +54,7 @@ public class MongoWriterTest {
     private SparkConf sparkConf = new SparkConf().setMaster(master)
             .setAppName(appName);
     private SparkContext sc;
+    private Broadcast<MongoCollectionFactory<Document>> broadcastCollectionFactory;
 
     private MongoClientFactory clientFactory = new MongoSparkClientFactory(uri);
     private MongoCollectionFactory<Document> collectionFactory =
@@ -69,6 +71,7 @@ public class MongoWriterTest {
         client.getDatabase(database).getCollection(collection).createIndex(new Document(key, 1));
         client.close();
         sc = new SparkContext(sparkConf);
+        broadcastCollectionFactory = sc.broadcast(collectionFactory, ClassTag$.MODULE$.apply(MongoCollectionFactory.class));
     }
 
     @After
@@ -79,7 +82,7 @@ public class MongoWriterTest {
 
     @Test
     public void shouldInsertToMongo() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class, key)
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionFactory, Document.class, key)
                 .map(new GetSingleKeyValueDocument(key), ClassTag$.MODULE$.apply(Document.class));
 
         MongoWriter.writeToMongo(mongoRdd, collectionFactory, false, false);
@@ -89,7 +92,7 @@ public class MongoWriterTest {
 
     @Test
     public void shouldNotUpsertToMongoDueToUpsertOption() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class, key);
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionFactory, Document.class, key);
 
         assertEquals(documents.size(), mongoRdd.cache().count());
 
@@ -104,7 +107,7 @@ public class MongoWriterTest {
 
     @Test
     public void shouldUpsertToMongoDueToUpsertOption() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class, key)
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionFactory, Document.class, key)
                 .map(new GetSingleKeyValueDocument(key), ClassTag$.MODULE$.apply(Document.class));
 
         assertEquals(documents.size(), mongoRdd.cache().count());
@@ -124,7 +127,7 @@ public class MongoWriterTest {
 
     @Test
     public void shouldNotUpsertToMongoDocumentsAlreadyExist() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class, key);
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionFactory, Document.class, key);
 
         MongoWriter.writeToMongo(mongoRdd, collectionFactory, true, false);
 
@@ -134,7 +137,7 @@ public class MongoWriterTest {
 
     @Test
     public void shouldReplaceInMongo() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class, key)
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionFactory, Document.class, key)
                 .map(new ChangeNonIDValue(), ClassTag$.MODULE$.apply(Document.class));
 
         MongoWriter.writeToMongo(mongoRdd, collectionFactory, false, false);
@@ -148,7 +151,7 @@ public class MongoWriterTest {
 
     @Test
     public void shouldNotReplaceInMongo() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionFactory, Document.class, key)
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionFactory, Document.class, key)
                 .map(new ChangeIDValue(), ClassTag$.MODULE$.apply(Document.class));
 
         MongoWriter.writeToMongo(mongoRdd, collectionFactory, false, false);

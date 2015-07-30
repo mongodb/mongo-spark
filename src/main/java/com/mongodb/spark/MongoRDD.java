@@ -21,6 +21,7 @@ import com.mongodb.client.MongoCursor;
 import org.apache.spark.Partition;
 import org.apache.spark.SparkContext;
 import org.apache.spark.TaskContext;
+import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.rdd.RDD;
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -42,7 +43,7 @@ import static scala.collection.JavaConverters.asScalaIteratorConverter;
  */
 public class MongoRDD<T> extends RDD<T> {
     private Class<T> clazz;
-    private MongoCollectionFactory<T> collectionFactory;
+    private Broadcast<MongoCollectionFactory<T>> collectionFactory;
     private int partitions;
     private List<Bson> pipeline;
     private String splitKey;
@@ -55,7 +56,8 @@ public class MongoRDD<T> extends RDD<T> {
      * @param clazz the class of the elements in the RDD
      * @param splitKey the minimal prefix key of the index to be used for splitting
      */
-    public MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz, final String splitKey) {
+    public MongoRDD(final SparkContext sc, final Broadcast<MongoCollectionFactory<T>> factory, final Class<T> clazz,
+                    final String splitKey) {
         this(sc, factory, clazz, splitKey, sc.defaultParallelism(), null);
     }
 
@@ -68,7 +70,7 @@ public class MongoRDD<T> extends RDD<T> {
      * @param splitKey the minimal prefix key of the index to be used for splitting
      * @param partitions the number of RDD partitions
      */
-    public MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz, final String splitKey,
+    public MongoRDD(final SparkContext sc, final Broadcast<MongoCollectionFactory<T>> factory, final Class<T> clazz, final String splitKey,
                     final int partitions) {
         this(sc, factory, clazz, splitKey, partitions, null);
     }
@@ -82,7 +84,7 @@ public class MongoRDD<T> extends RDD<T> {
      * @param splitKey the minimal prefix key of the index to be used for splitting
      * @param pipeline the aggregation pipeline
      */
-    public MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz, final String splitKey,
+    public MongoRDD(final SparkContext sc, final Broadcast<MongoCollectionFactory<T>> factory, final Class<T> clazz, final String splitKey,
                     final List<Bson> pipeline) {
         this(sc, factory, clazz, splitKey, sc.defaultParallelism(), pipeline);
     }
@@ -97,7 +99,7 @@ public class MongoRDD<T> extends RDD<T> {
      * @param partitions the number of RDD partitions
      * @param pipeline the aggregation pipeline
      */
-    public MongoRDD(final SparkContext sc, final MongoCollectionFactory<T> factory, final Class<T> clazz, final String splitKey,
+    public MongoRDD(final SparkContext sc, final Broadcast<MongoCollectionFactory<T>> factory, final Class<T> clazz, final String splitKey,
                     final int partitions, final List<Bson> pipeline) {
         super(sc, new ArrayBuffer<>(), ClassTag$.MODULE$.apply(notNull("clazz", clazz)));
         this.clazz = clazz;
@@ -127,7 +129,7 @@ public class MongoRDD<T> extends RDD<T> {
             partitionPipeline.addAll(this.pipeline);
         }
 
-        return this.collectionFactory.getCollection().aggregate(partitionPipeline, this.clazz).iterator();
+        return this.collectionFactory.value().getCollection().aggregate(partitionPipeline, this.clazz).iterator();
     }
 
     @Override
@@ -149,16 +151,18 @@ public class MongoRDD<T> extends RDD<T> {
      * @return the split keys
      */
     private List<Document> getSplitBounds() {
-        Document collStatsCommand = new Document("collStats", this.collectionFactory.getCollection().getNamespace().getCollectionName());
-        Document result = this.collectionFactory.getDatabase().runCommand(collStatsCommand, Document.class);
+        Document collStatsCommand = new Document("collStats", this.collectionFactory.value()
+                                                                                    .getCollection()
+                                                                                    .getNamespace()
+                                                                                    .getCollectionName());
+        Document result = this.collectionFactory.value().getDatabase().runCommand(collStatsCommand, Document.class);
 
         if (result.get("ok").equals(1.0)) {
             if (Boolean.TRUE.equals(result.get("sharded"))) {
-                return new ShardedMongoSplitter(this.collectionFactory, this.splitKey).getSplitBounds();
-            }
-            else {
+                return new ShardedMongoSplitter(this.collectionFactory.value(), this.splitKey).getSplitBounds();
+            } else {
                 // TODO: currently, this.partitions actually means maxChunkSize
-                return new StandaloneMongoSplitter(this.collectionFactory, this.splitKey, this.partitions).getSplitBounds();
+                return new StandaloneMongoSplitter(this.collectionFactory.value(), this.splitKey, this.partitions).getSplitBounds();
             }
         }
         else {
