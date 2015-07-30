@@ -86,8 +86,9 @@ public class MongoSparkContext extends JavaSparkContext {
     }
 
     /**
-     * Parallelizes a mongo collection specified by the collection factory with the default
-     * parallelism of the spark context.
+     * Parallelizes a mongo collection specified by the collection factory. The number of partitions
+     * is determined by the number of chunks in a sharded collection, or the number of chunks
+     * calculated by a vectorSplit for non-sharded collections (default max chunk size 64 MB).
      *
      * @param clazz the class of the elements in the rdd
      * @param factory a mongo collection factory
@@ -100,40 +101,45 @@ public class MongoSparkContext extends JavaSparkContext {
     }
 
     /**
-     * Parallelizes a mongo collection specified by the collection factory with the specified parallelism.
+     * Parallelizes a mongo collection specified by the collection factory. Set maxChunkSize
+     * to determine the size of the partitions based on a vectorSplit. maxChunkSize only
+     * affects creating RDDs from non-sharded collections.
      *
      * @param clazz the class of the elements in the rdd
      * @param factory a mongo collection factory
      * @param splitKey the minimal prefix key of the index to be used for splitting
-     * @param partitions the number of RDD partitions
+     * @param maxChunkSize the max chunk size for partitions in MB
      * @param <T> the type of the objects in the RDD
      * @return the RDD
      */
     public <T> JavaRDD<T> parallelize(final Class<T> clazz, final Broadcast<MongoCollectionFactory<T>> factory, final String splitKey,
-                                      final int partitions) {
-        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, splitKey, partitions), ClassTag$.MODULE$.apply(clazz));
+                                      final int maxChunkSize) {
+        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, splitKey, maxChunkSize), ClassTag$.MODULE$.apply(clazz));
     }
 
     /**
-     * Parallelizes a mongo collection specified by the collection factory with the specified parallelism
-     * and aggregation pipeline to prefilter results.
+     * Parallelizes a mongo collection specified by the collection factory and prefiltered
+     * according to the aggregation pipeline. Set maxChunkSize to determine the size of the partitions
+     * based on a vectorSplit. maxChunkSize only affects creating RDDs from non-sharded collections.
      *
      * @param clazz the class of the elements in the rdd
      * @param factory a mongo collection factory
      * @param splitKey the minimal prefix key of the index to be used for splitting
-     * @param partitions the number of RDD partitions
+     * @param maxChunkSize the max chunk size for partitions in MB
      * @param pipeline the aggregation pipeline
      * @param <T> the type of the objects in the RDD
      * @return the RDD
      */
     public <T> JavaRDD<T> parallelize(final Class<T> clazz, final Broadcast<MongoCollectionFactory<T>> factory, final String splitKey,
-                                      final int partitions, final List<Bson> pipeline) {
-        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, splitKey, partitions, pipeline), ClassTag$.MODULE$.apply(clazz));
+                                      final int maxChunkSize, final List<Bson> pipeline) {
+        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, splitKey, maxChunkSize, pipeline), ClassTag$.MODULE$.apply(clazz));
     }
 
     /**
-     * Parallelizes a mongo collection specified by the collection factory with the default parallelism of the
-     * spark context and an aggregation pipeline to prefilter results.
+     * Parallelizes a mongo collection specified by the collection factory and an aggregation pipeline
+     * to prefilter results. The number of partitions is determined by the number of chunks in a
+     * sharded collection, or the number of chunks calculated by a vectorSplit for non-sharded
+     * collections (default max chunk size 64 MB).
      *
      * @param clazz the class of the elements in the rdd
      * @param factory a mongo collection factory

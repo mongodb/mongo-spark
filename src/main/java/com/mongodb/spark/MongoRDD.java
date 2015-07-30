@@ -44,12 +44,14 @@ import static scala.collection.JavaConverters.asScalaIteratorConverter;
 public class MongoRDD<T> extends RDD<T> {
     private Class<T> clazz;
     private Broadcast<MongoCollectionFactory<T>> collectionFactory;
-    private int partitions;
+    private int maxChunkSize;
     private List<Bson> pipeline;
     private String splitKey;
 
     /**
-     * Constructs a new instance.
+     * Constructs a new instance. The number of partitions is determined by the number of chunks in a
+     * sharded collection, or the number of chunks calculated by a vectorSplit for non-sharded
+     * collections (default max chunk size 64 MB).
      *
      * @param sc the spark context the RDD belongs to
      * @param factory the mongo collection factory for the RDD
@@ -58,25 +60,29 @@ public class MongoRDD<T> extends RDD<T> {
      */
     public MongoRDD(final SparkContext sc, final Broadcast<MongoCollectionFactory<T>> factory, final Class<T> clazz,
                     final String splitKey) {
-        this(sc, factory, clazz, splitKey, sc.defaultParallelism(), null);
+        this(sc, factory, clazz, splitKey, 64, null);
     }
 
     /**
-     * Constructs a new instance.
+     * Constructs a new instance. Set maxChunkSize to determine the size of the partitions
+     * based on a vectorSplit. maxChunkSize only affects creating RDDs from non-sharded
+     * collections.
      *
      * @param sc the spark context the RDD belongs to
      * @param factory the mongo collection factory for the RDD
      * @param clazz the class of the elements in the RDD
      * @param splitKey the minimal prefix key of the index to be used for splitting
-     * @param partitions the number of RDD partitions
+     * @param maxChunkSize the max chunk size for partitions in MB
      */
     public MongoRDD(final SparkContext sc, final Broadcast<MongoCollectionFactory<T>> factory, final Class<T> clazz, final String splitKey,
-                    final int partitions) {
-        this(sc, factory, clazz, splitKey, partitions, null);
+                    final int maxChunkSize) {
+        this(sc, factory, clazz, splitKey, maxChunkSize, null);
     }
 
     /**
-     * Constructs a new instance.
+     * Constructs a new instance. The number of partitions is determined by the number of chunks in a
+     * sharded collection, or the number of chunks calculated by a vectorSplit for non-sharded
+     * collections (default max chunk size 64 MB).
      *
      * @param sc the spark context the RDD belongs to
      * @param factory the mongo collection factory for the RDD
@@ -86,27 +92,29 @@ public class MongoRDD<T> extends RDD<T> {
      */
     public MongoRDD(final SparkContext sc, final Broadcast<MongoCollectionFactory<T>> factory, final Class<T> clazz, final String splitKey,
                     final List<Bson> pipeline) {
-        this(sc, factory, clazz, splitKey, sc.defaultParallelism(), pipeline);
+        this(sc, factory, clazz, splitKey, 64, pipeline);
     }
 
     /**
-     * Constructs a new instance.
+     * Constructs a new instance. Set maxChunkSize to determine the size of the partitions
+     * based on a vectorSplit. maxChunkSize only affects creating RDDs from non-sharded
+     * collections.
      *
      * @param sc the spark context the RDD belongs to
      * @param factory the mongo collection factory for the RDD
      * @param clazz the class of the elements in the RDD
      * @param splitKey the minimal prefix key of the index to be used for splitting
-     * @param partitions the number of RDD partitions
+     * @param maxChunkSize the max chunk size for partitions in MB
      * @param pipeline the aggregation pipeline
      */
     public MongoRDD(final SparkContext sc, final Broadcast<MongoCollectionFactory<T>> factory, final Class<T> clazz, final String splitKey,
-                    final int partitions, final List<Bson> pipeline) {
+                    final int maxChunkSize, final List<Bson> pipeline) {
         super(sc, new ArrayBuffer<>(), ClassTag$.MODULE$.apply(notNull("clazz", clazz)));
         this.clazz = clazz;
         this.collectionFactory = notNull("factory", factory);
         this.splitKey = notNull("splitKey", splitKey);
-        isTrueArgument("partitions > 0", partitions > 0);
-        this.partitions = partitions;
+        isTrueArgument("maxChunkSize in range [1, 1024]", maxChunkSize >= 1 && maxChunkSize <= 1024);
+        this.maxChunkSize = maxChunkSize;
         this.pipeline = pipeline;
     }
 
@@ -161,8 +169,7 @@ public class MongoRDD<T> extends RDD<T> {
             if (Boolean.TRUE.equals(result.get("sharded"))) {
                 return new ShardedMongoSplitter(this.collectionFactory.value(), this.splitKey).getSplitBounds();
             } else {
-                // TODO: currently, this.partitions actually means maxChunkSize
-                return new StandaloneMongoSplitter(this.collectionFactory.value(), this.splitKey, this.partitions).getSplitBounds();
+                return new StandaloneMongoSplitter(this.collectionFactory.value(), this.splitKey, this.maxChunkSize).getSplitBounds();
             }
         }
         else {
