@@ -20,8 +20,6 @@ import com.mongodb.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 
-import java.io.IOException;
-
 import static com.mongodb.assertions.Assertions.notNull;
 
 /**
@@ -69,11 +67,5 @@ public class MongoSparkCollectionFactory<T> implements MongoCollectionFactory<T>
     @Override
     public MongoClient getClient() {
         return this.clientFactory.getClient();
-    }
-
-    @Override
-    public void closeClient() throws IOException {
-        this.clientFactory.close();
-        this.mongoCollection = null;
     }
 }

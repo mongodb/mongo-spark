@@ -20,7 +20,6 @@ import com.mongodb.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 
-import java.io.IOException;
 import java.io.Serializable;
 
 /**
@@ -49,11 +48,4 @@ public interface MongoCollectionFactory<T> extends Serializable {
      * @return a mongo client
      */
     MongoClient getClient();
-
-    /**
-     * Closes the client factory.
-     *
-     * @throws IOException if closing the client factory errors
-     */
-    void closeClient() throws IOException;
 }
