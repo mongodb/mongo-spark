@@ -38,13 +38,15 @@ import static com.mongodb.MongoClientOptions.Builder;
 import static java.util.Collections.singletonList;
 import static org.junit.Assert.assertEquals;
 
+/*
+ * These tests assume a single mongod running on localhost:30000
+ * with authentication available for a user with name 'test' and password 'password'
+ * for the database 'test'
+ */
 public class MongoSparkContextTest {
-    private String username = "test";
-    private String password = "password";
-    private String host = "localhost";
     private String database = "test";
     private String collection = "test";
-    private String uri = "mongodb://" + username + ":" + password + "@" + host + "/" + database + "." + collection;
+    private String uri = "mongodb://test:password@localhost:30000/test.test";
 
     private String master = "local";
     private String appName = "testApp";

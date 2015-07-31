@@ -37,15 +37,16 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static org.junit.Assert.assertEquals;
 
+/*
+ * These tests assume a single mongod running on localhost:30000
+ * with authentication available for a user with name 'test' and password 'password'
+ * for the database 'test'
+ */
 public class MongoRDDTest {
-    private String root = "mongodb://";
-    private String host = "localhost:27017";
-    private String username = "test";
-    private String password = "password";
     private String database = "test";
     private String collection = "test";
 
-    private String uri = root + username + ":" + password + "@" + host + "/" + database + "." + collection;
+    private String uri = "mongodb://test:password@localhost:30000/test.test";
 
     private String master = "local";
     private String appName = "testApp";

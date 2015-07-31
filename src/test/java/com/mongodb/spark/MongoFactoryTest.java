@@ -24,16 +24,15 @@ import java.io.IOException;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+/*
+ * These tests assume a single mongod running on localhost:30000
+ */
 public class MongoFactoryTest {
-    private String database = "test";
-    private String collection = "test";
-    private String uri = "mongodb://test:password@localhost:27017/" + database + "." + collection;
-
     @Test
     public void testFactories() {
-        MongoClientFactory clientFactory = new MongoSparkClientFactory(uri);
+        MongoClientFactory clientFactory = new MongoSparkClientFactory("mongodb://localhost:30000/");
         MongoCollectionFactory<Document> collectionFactory =
-                new MongoSparkCollectionFactory<>(Document.class, clientFactory, database, collection);
+                new MongoSparkCollectionFactory<>(Document.class, clientFactory, "test", "test");
 
         collectionFactory.getCollection().drop();
         collectionFactory.getCollection().insertOne(new Document("test", "test"));

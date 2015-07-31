@@ -38,15 +38,16 @@ import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
 
+/*
+ * These tests assume a single mongod running on localhost:30000
+ * with authentication available for a user with name 'test' and password 'password'
+ * for the database 'test'
+ */
 public class MongoWriterTest {
-    private String root = "mongodb://";
-    private String host = "localhost:27017";
-    private String username = "test";
-    private String password = "password";
     private String database = "test";
     private String collection = "test";
 
-    private String uri = root + username + ":" + password + "@" + host + "/" + database + "." + collection;
+    private String uri = "mongodb://test:password@localhost:30000/test.test";
 
     private String master = "local";
     private String appName = "testApp";
@@ -138,7 +139,7 @@ public class MongoWriterTest {
     @Test
     public void shouldReplaceInMongo() {
         RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionFactory, Document.class, key)
-                .map(new ChangeNonIDValue(), ClassTag$.MODULE$.apply(Document.class));
+                .map(new ChangeNonIDKeyValue(), ClassTag$.MODULE$.apply(Document.class));
 
         MongoWriter.writeToMongo(mongoRdd, collectionFactory, false, false);
 
@@ -158,6 +159,18 @@ public class MongoWriterTest {
         assertEquals(documents.size(), collectionFactory.getCollection().count());
         assertEquals(documents, collectionFactory.getCollection().find().into(new ArrayList<>()));
     }
+
+    @Test
+    public void shouldCreateAndWriteToCollection() {
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionFactory, Document.class, key)
+                .map(new GetSingleKeyValueDocument(key), ClassTag$.MODULE$.apply(Document.class));
+
+        MongoCollectionFactory<Document> docFac = new MongoSparkCollectionFactory<>(Document.class, clientFactory, database, "no_one");
+        docFac.getCollection().drop();
+        assertEquals(0, docFac.getCollection().count());
+        MongoWriter.writeToMongo(mongoRdd, docFac, true, false);
+        assertEquals(documents.size(), docFac.getCollection().count());
+    }
 }
 
 // essentially removes _id from each document - JavaRDD can use lambdas instead of serializable abstract functions
@@ -174,7 +187,7 @@ class GetSingleKeyValueDocument extends SerializableAbstractFunction1<Document, 
     }
 }
 
-class ChangeNonIDValue extends SerializableAbstractFunction1<Document, Document> {
+class ChangeNonIDKeyValue extends SerializableAbstractFunction1<Document, Document> {
     @Override
     public Document apply(final Document document) {
         return new Document("_id", document.getObjectId("_id")).append("b", 0);
