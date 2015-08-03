@@ -51,32 +51,27 @@ public final class MongoWriter {
                                         final Boolean ordered) {
         rdd.foreachPartition(new SerializableAbstractFunction1<Iterator<T>, BoxedUnit>() {
             @Override
-            public BoxedUnit apply(final Iterator<T> p) {
+            public BoxedUnit apply(final Iterator<T> elements) {
                 Codec<T> codec = factory.getCollection().getCodecRegistry().get(factory.getCollection().getDocumentClass());
-                List<WriteModel<T>> elements = new ArrayList<>();
+                boolean isCollectibleCodec = codec instanceof CollectibleCodec;
+                List<WriteModel<T>> writeModels = new ArrayList<>();
+                T element;
 
-                if (codec instanceof CollectibleCodec) {
-                    T element;
-                    while (p.hasNext()) {
-                        element = p.next();
-                        if (((CollectibleCodec<T>) codec).documentHasId(element)) {
-                            elements.add(new ReplaceOneModel<>(new Document("_id", ((CollectibleCodec<T>) codec).getDocumentId(element)),
-                                                               element, new UpdateOptions().upsert(upsert)));
-                        } else {
-                            elements.add(new InsertOneModel<>(element));
-                        }
-                    }
-                } else {
-                    while (p.hasNext()) {
-                        elements.add(new InsertOneModel<>(p.next()));
+                while (elements.hasNext()) {
+                    element = elements.next();
+                    if (isCollectibleCodec && ((CollectibleCodec<T>) codec).documentHasId(element)) {
+                        writeModels.add(new ReplaceOneModel<>(new Document("_id", ((CollectibleCodec<T>) codec).getDocumentId(element)),
+                                        element, new UpdateOptions().upsert(upsert)));
+                    } else {
+                        writeModels.add(new InsertOneModel<>(element));
                     }
                 }
 
-                if (elements.size() > 0) {
-                    factory.getCollection().bulkWrite(elements, new BulkWriteOptions().ordered(ordered));
+                if (writeModels.size() > 0) {
+                    factory.getCollection().bulkWrite(writeModels, new BulkWriteOptions().ordered(ordered));
                 }
 
-                return BoxedUnit.UNIT;
+                return null;
             }
         });
     }

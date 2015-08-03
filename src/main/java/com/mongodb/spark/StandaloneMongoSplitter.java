@@ -54,6 +54,7 @@ class StandaloneMongoSplitter {
      *
      * @return the split bounds as documents
      */
+    @SuppressWarnings("unchecked")
     List<Document> getSplitBounds() {
         MongoCollection collection = this.factory.getCollection();
 
@@ -69,8 +70,7 @@ class StandaloneMongoSplitter {
 
             List<Document> splitBounds = new ArrayList<>(splitKeys.size() + 1);
 
-            if (splitKeys.size() == 0) {
-                // no splits were calculated - this means that the RDD partition may be massive
+            if (splitKeys.isEmpty()) {
                 splitBounds.add(
                         splitsToBounds(new Document(this.key, new BsonMinKey()), new Document(this.key, new BsonMaxKey()), this.key));
             } else {

@@ -36,11 +36,7 @@ public class MongoSparkClientOptionsBuilderInitializer implements MongoClientOpt
      * <pre>
      * {@code
      * MongoSparkClientOptionsBuilderInitializer initializer =
-     *     new MongoSparkClientOptionsBuilderInitializer(() -> {
-     *         Builder builder = new Builder();
-     *         builder.maxConnectionLifeTime(100);
-     *         return builder;
-     *     });
+     *     new MongoSparkClientOptionsBuilderInitializer(() -> new Builder().maxConnectionLifeTime(100));
      * }
      * </pre>
      *

@@ -56,11 +56,10 @@ class ShardedMongoSplitter {
 
         // get chunks for this namespace
         // may throw exception
-        String ns = collection.getNamespace().getFullName();
         List<Document> chunks = this.factory.getClient()
                                             .getDatabase("config")
                                             .getCollection("chunks")
-                                            .find(Filters.eq("ns", ns))
+                                            .find(Filters.eq("ns", collection.getNamespace().getFullName()))
                                             .projection(Projections.include("min", "max"))
                                             .into(new ArrayList<>());
 

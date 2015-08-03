@@ -28,10 +28,10 @@ import static com.mongodb.assertions.Assertions.notNull;
  * @param <T> type of objects in the collection
  */
 public class MongoSparkCollectionFactory<T> implements MongoCollectionFactory<T> {
-    private Class<T>                     clazz;
-    private MongoClientFactory           clientFactory;
-    private String                       collection;
-    private String                       database;
+    private Class<T> clazz;
+    private MongoClientFactory clientFactory;
+    private String collection;
+    private String database;
     private transient MongoCollection<T> mongoCollection;
 
     /**
@@ -53,7 +53,9 @@ public class MongoSparkCollectionFactory<T> implements MongoCollectionFactory<T>
     @Override
     public MongoCollection<T> getCollection() {
         if (this.mongoCollection == null) {
-            this.mongoCollection = this.clientFactory.getClient().getDatabase(this.database).getCollection(this.collection, this.clazz);
+            this.mongoCollection = this.clientFactory.getClient()
+                                                     .getDatabase(this.database)
+                                                     .getCollection(this.collection, this.clazz);
         }
 
         return this.mongoCollection;
@@ -61,7 +63,8 @@ public class MongoSparkCollectionFactory<T> implements MongoCollectionFactory<T>
 
     @Override
     public MongoDatabase getDatabase() {
-        return this.clientFactory.getClient().getDatabase(this.database);
+        return this.clientFactory.getClient()
+                                 .getDatabase(this.database);
     }
 
     @Override

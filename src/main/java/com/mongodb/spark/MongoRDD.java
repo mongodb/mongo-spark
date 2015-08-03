@@ -30,7 +30,9 @@ import scala.collection.mutable.ArrayBuffer;
 import scala.reflect.ClassTag$;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.mongodb.assertions.Assertions.isTrueArgument;
 import static com.mongodb.assertions.Assertions.notNull;
@@ -60,7 +62,7 @@ public class MongoRDD<T> extends RDD<T> {
      */
     public MongoRDD(final SparkContext sc, final Broadcast<MongoCollectionFactory<T>> factory, final Class<T> clazz,
                     final String splitKey) {
-        this(sc, factory, clazz, splitKey, 64, null);
+        this(sc, factory, clazz, splitKey, 64, Collections.emptyList());
     }
 
     /**
@@ -76,7 +78,7 @@ public class MongoRDD<T> extends RDD<T> {
      */
     public MongoRDD(final SparkContext sc, final Broadcast<MongoCollectionFactory<T>> factory, final Class<T> clazz, final String splitKey,
                     final int maxChunkSize) {
-        this(sc, factory, clazz, splitKey, maxChunkSize, null);
+        this(sc, factory, clazz, splitKey, maxChunkSize, Collections.emptyList());
     }
 
     /**
@@ -115,7 +117,7 @@ public class MongoRDD<T> extends RDD<T> {
         this.splitKey = notNull("splitKey", splitKey);
         isTrueArgument("maxChunkSize in range [1, 1024]", maxChunkSize >= 1 && maxChunkSize <= 1024);
         this.maxChunkSize = maxChunkSize;
-        this.pipeline = pipeline;
+        this.pipeline = pipeline == null ? Collections.emptyList() : pipeline;
     }
 
     @Override
@@ -133,24 +135,18 @@ public class MongoRDD<T> extends RDD<T> {
 
         List<Bson> partitionPipeline = new ArrayList<>();
         partitionPipeline.add(new Document("$match", partitionBounds));
-        if (this.pipeline != null) {
-            partitionPipeline.addAll(this.pipeline);
-        }
+        partitionPipeline.addAll(this.pipeline);
 
         return this.collectionFactory.value().getCollection().aggregate(partitionPipeline, this.clazz).iterator();
     }
 
     @Override
     public Partition[] getPartitions() {
-        List<Document> splitBounds = this.getSplitBounds();
-        int numPartitions = splitBounds.size();
-        MongoPartition[] mongoPartitions = new MongoPartition[numPartitions];
+        final AtomicInteger count = new AtomicInteger(0);
 
-        for (int i = 0; i < numPartitions; i++) {
-            mongoPartitions[i] = new MongoPartition(i, splitBounds.get(i));
-        }
-
-        return mongoPartitions;
+        return this.getSplitBounds().stream()
+                                    .map((document) -> new MongoPartition(count.getAndIncrement(), document))
+                                    .toArray(Partition[]::new);
     }
 
     /**
@@ -163,7 +159,9 @@ public class MongoRDD<T> extends RDD<T> {
                                                                                     .getCollection()
                                                                                     .getNamespace()
                                                                                     .getCollectionName());
-        Document result = this.collectionFactory.value().getDatabase().runCommand(collStatsCommand, Document.class);
+        Document result = this.collectionFactory.value()
+                                                .getDatabase()
+                                                .runCommand(collStatsCommand, Document.class);
 
         if (result.get("ok").equals(1.0)) {
             if (Boolean.TRUE.equals(result.get("sharded"))) {
