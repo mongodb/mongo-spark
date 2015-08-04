@@ -24,19 +24,19 @@ import java.io.IOException;
 import static com.mongodb.assertions.Assertions.notNull;
 
 /**
- * Implementation of a client factory. Used to share a client amongst partitions in a worker node.
+ * Implementation of a client provider. Used to share a client amongst partitions in a worker node.
  */
-public class MongoSparkClientFactory implements MongoClientFactory {
-    private transient MongoClient                client;
+public class MongoSparkClientProvider implements MongoClientProvider {
+    private transient MongoClient client;
     private MongoClientOptionsBuilderInitializer initializer;
-    private String                               uri;
+    private String uri;
 
     /**
      * Constructs an instance.
      *
      * @param uri the mongo client connection uri
      */
-    public MongoSparkClientFactory(final String uri) {
+    public MongoSparkClientProvider(final String uri) {
         this.uri = notNull("uri", uri);
     }
 
@@ -46,7 +46,7 @@ public class MongoSparkClientFactory implements MongoClientFactory {
      * @param uri the mongo client connection uri
      * @param initializer the mongo client options builder initializer
      */
-    public MongoSparkClientFactory(final String uri, final MongoClientOptionsBuilderInitializer initializer) {
+    public MongoSparkClientProvider(final String uri, final MongoClientOptionsBuilderInitializer initializer) {
         this.uri = notNull("uri", uri);
         this.initializer = notNull("initializer", initializer);
     }

@@ -44,10 +44,10 @@ import static org.junit.Assert.assertNotSame;
  * for the database 'test'
  */
 public class MongoWriterTest {
-    private String database = "test";
+    private String database = "spark_test";
     private String collection = "test";
 
-    private String uri = "mongodb://test:password@localhost:30000/test.test";
+    private String uri = "mongodb://spark_test:password@localhost:30000/spark_test";
 
     private String master = "local";
     private String appName = "testApp";
@@ -55,11 +55,11 @@ public class MongoWriterTest {
     private SparkConf sparkConf = new SparkConf().setMaster(master)
             .setAppName(appName);
     private SparkContext sc;
-    private Broadcast<MongoCollectionFactory<Document>> broadcastCollectionFactory;
+    private Broadcast<MongoCollectionProvider<Document>> broadcastCollectionProvider;
 
-    private MongoClientFactory clientFactory = new MongoSparkClientFactory(uri);
-    private MongoCollectionFactory<Document> collectionFactory =
-            new MongoSparkCollectionFactory<>(Document.class, clientFactory, database, collection);
+    private MongoClientProvider clientProvider = new MongoSparkClientProvider(uri);
+    private MongoCollectionProvider<Document> collectionProvider =
+            new MongoSparkCollectionProvider<>(Document.class, clientProvider, database, collection);
 
     private String key = "a";
     private List<Document> documents = asList(new Document(key, 0), new Document(key, 1), new Document(key, 2));
@@ -72,7 +72,7 @@ public class MongoWriterTest {
         client.getDatabase(database).getCollection(collection).createIndex(new Document(key, 1));
         client.close();
         sc = new SparkContext(sparkConf);
-        broadcastCollectionFactory = sc.broadcast(collectionFactory, ClassTag$.MODULE$.apply(MongoCollectionFactory.class));
+        broadcastCollectionProvider = sc.broadcast(collectionProvider, ClassTag$.MODULE$.apply(MongoCollectionProvider.class));
     }
 
     @After
@@ -83,93 +83,94 @@ public class MongoWriterTest {
 
     @Test
     public void shouldInsertToMongo() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionFactory, Document.class, key)
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionProvider, Document.class, key)
                 .map(new GetSingleKeyValueDocument(key), ClassTag$.MODULE$.apply(Document.class));
 
-        MongoWriter.writeToMongo(mongoRdd, collectionFactory, false, false);
+        MongoWriter.writeToMongo(mongoRdd, collectionProvider, false, false);
 
-        assertEquals(2 * documents.size(), collectionFactory.getCollection().count());
+        assertEquals(2 * documents.size(), collectionProvider.getCollection().count());
     }
 
     @Test
     public void shouldNotUpsertToMongoDueToUpsertOption() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionFactory, Document.class, key);
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionProvider, Document.class, key);
 
         assertEquals(documents.size(), mongoRdd.cache().count());
 
-        collectionFactory.getCollection()
+        collectionProvider.getCollection()
                 .deleteMany(new Document(key, new Document("$gt", new BsonMinKey()).append("$lt", new BsonMaxKey())));
-        assertEquals(0, collectionFactory.getCollection().count());
+        assertEquals(0, collectionProvider.getCollection().count());
 
-        MongoWriter.writeToMongo(mongoRdd, collectionFactory, false, false);
+        MongoWriter.writeToMongo(mongoRdd, collectionProvider, false, false);
 
-        assertEquals(0, collectionFactory.getCollection().count());
+        assertEquals(0, collectionProvider.getCollection().count());
     }
 
     @Test
     public void shouldUpsertToMongoDueToUpsertOption() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionFactory, Document.class, key)
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionProvider, Document.class, key)
                 .map(new GetSingleKeyValueDocument(key), ClassTag$.MODULE$.apply(Document.class));
 
         assertEquals(documents.size(), mongoRdd.cache().count());
 
-        collectionFactory.getCollection()
+        collectionProvider.getCollection()
                 .deleteMany(new Document(key, new Document("$gt", new BsonMinKey()).append("$lt", new BsonMaxKey())));
-        assertEquals(0, collectionFactory.getCollection().count());
+        assertEquals(0, collectionProvider.getCollection().count());
 
-        MongoWriter.writeToMongo(mongoRdd, collectionFactory, true, false);
+        MongoWriter.writeToMongo(mongoRdd, collectionProvider, true, false);
 
-        assertEquals(documents.size(), collectionFactory.getCollection().count());
-        assertNotSame(documents, collectionFactory.getCollection().find().into(new ArrayList<>()));
+        assertEquals(documents.size(), collectionProvider.getCollection().count());
+        assertNotSame(documents, collectionProvider.getCollection().find().into(new ArrayList<>()));
         List<Document> docs = new ArrayList<>();
         Collections.addAll(docs, (Document[]) mongoRdd.collect());
-        assertEquals(docs, collectionFactory.getCollection().find().into(new ArrayList<>()));
+        assertEquals(docs, collectionProvider.getCollection().find().into(new ArrayList<>()));
     }
 
     @Test
     public void shouldNotUpsertToMongoDocumentsAlreadyExist() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionFactory, Document.class, key);
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionProvider, Document.class, key);
 
-        MongoWriter.writeToMongo(mongoRdd, collectionFactory, true, false);
+        MongoWriter.writeToMongo(mongoRdd, collectionProvider, true, false);
 
-        assertEquals(documents.size(), collectionFactory.getCollection().count());
-        assertEquals(documents, collectionFactory.getCollection().find().into(new ArrayList<>()));
+        assertEquals(documents.size(), collectionProvider.getCollection().count());
+        assertEquals(documents, collectionProvider.getCollection().find().into(new ArrayList<>()));
     }
 
     @Test
     public void shouldReplaceInMongo() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionFactory, Document.class, key)
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionProvider, Document.class, key)
                 .map(new ChangeNonIDKeyValue(), ClassTag$.MODULE$.apply(Document.class));
 
-        MongoWriter.writeToMongo(mongoRdd, collectionFactory, false, false);
+        MongoWriter.writeToMongo(mongoRdd, collectionProvider, false, false);
 
-        assertEquals(documents.size(), collectionFactory.getCollection().count());
-        assertNotSame(documents, collectionFactory.getCollection().find().into(new ArrayList<>()));
+        assertEquals(documents.size(), collectionProvider.getCollection().count());
+        assertNotSame(documents, collectionProvider.getCollection().find().into(new ArrayList<>()));
         List<Document> docs = new ArrayList<>();
         Collections.addAll(docs, (Document[]) mongoRdd.collect());
-        assertEquals(docs, collectionFactory.getCollection().find().into(new ArrayList<>()));
+        assertEquals(docs, collectionProvider.getCollection().find().into(new ArrayList<>()));
     }
 
     @Test
     public void shouldNotReplaceInMongo() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionFactory, Document.class, key)
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionProvider, Document.class, key)
                 .map(new ChangeIDValue(), ClassTag$.MODULE$.apply(Document.class));
 
-        MongoWriter.writeToMongo(mongoRdd, collectionFactory, false, false);
-        assertEquals(documents.size(), collectionFactory.getCollection().count());
-        assertEquals(documents, collectionFactory.getCollection().find().into(new ArrayList<>()));
+        MongoWriter.writeToMongo(mongoRdd, collectionProvider, false, false);
+        assertEquals(documents.size(), collectionProvider.getCollection().count());
+        assertEquals(documents, collectionProvider.getCollection().find().into(new ArrayList<>()));
     }
 
     @Test
     public void shouldCreateAndWriteToCollection() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionFactory, Document.class, key)
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionProvider, Document.class, key)
                 .map(new GetSingleKeyValueDocument(key), ClassTag$.MODULE$.apply(Document.class));
 
-        MongoCollectionFactory<Document> docFac = new MongoSparkCollectionFactory<>(Document.class, clientFactory, database, "no_one");
-        docFac.getCollection().drop();
-        assertEquals(0, docFac.getCollection().count());
-        MongoWriter.writeToMongo(mongoRdd, docFac, true, false);
-        assertEquals(documents.size(), docFac.getCollection().count());
+        MongoCollectionProvider<Document> docProvider =
+                new MongoSparkCollectionProvider<>(Document.class, clientProvider, database, "spark_test_empty");
+        docProvider.getCollection().drop();
+        assertEquals(0, docProvider.getCollection().count());
+        MongoWriter.writeToMongo(mongoRdd, docProvider, true, false);
+        assertEquals(documents.size(), docProvider.getCollection().count());
     }
 }
 

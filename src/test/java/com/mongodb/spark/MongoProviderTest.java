@@ -27,20 +27,20 @@ import static org.junit.Assert.fail;
 /*
  * These tests assume a single mongod running on localhost:30000
  */
-public class MongoFactoryTest {
+public class MongoProviderTest {
     @Test
-    public void testFactories() {
-        MongoClientFactory clientFactory = new MongoSparkClientFactory("mongodb://localhost:30000/");
-        MongoCollectionFactory<Document> collectionFactory =
-                new MongoSparkCollectionFactory<>(Document.class, clientFactory, "test", "test");
+    public void testProviders() {
+        MongoClientProvider clientProvider = new MongoSparkClientProvider("mongodb://localhost:30000/");
+        MongoCollectionProvider<Document> collectionProvider =
+                new MongoSparkCollectionProvider<>(Document.class, clientProvider, "spark_test", "test");
 
-        collectionFactory.getCollection().drop();
-        collectionFactory.getCollection().insertOne(new Document("test", "test"));
+        collectionProvider.getCollection().drop();
+        collectionProvider.getCollection().insertOne(new Document("test", "test"));
 
-        assertEquals(1, collectionFactory.getCollection().count());
+        assertEquals(1, collectionProvider.getCollection().count());
 
         try {
-            clientFactory.close();
+            clientProvider.close();
         } catch (IOException e) {
             fail();
         }

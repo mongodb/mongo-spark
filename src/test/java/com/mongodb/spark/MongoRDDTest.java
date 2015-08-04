@@ -43,10 +43,10 @@ import static org.junit.Assert.assertEquals;
  * for the database 'test'
  */
 public class MongoRDDTest {
-    private String database = "test";
+    private String database = "spark_test";
     private String collection = "test";
 
-    private String uri = "mongodb://test:password@localhost:30000/test.test";
+    private String uri = "mongodb://spark_test:password@localhost:30000/spark_test";
 
     private String master = "local";
     private String appName = "testApp";
@@ -54,12 +54,12 @@ public class MongoRDDTest {
     private SparkConf sparkConf = new SparkConf().setMaster(master)
             .setAppName(appName);
     private SparkContext sc;
-    private Broadcast<MongoCollectionFactory<Document>> broadcastCollectionFactory;
+    private Broadcast<MongoCollectionProvider<Document>> broadcastCollectionProvider;
     private int partitions = 1;
 
-    private MongoClientFactory clientFactory = new MongoSparkClientFactory(uri);
-    private MongoCollectionFactory<Document> collectionFactory =
-            new MongoSparkCollectionFactory<>(Document.class, clientFactory, database, collection);
+    private MongoClientProvider clientFactory = new MongoSparkClientProvider(uri);
+    private MongoCollectionProvider<Document> collectionProvider =
+            new MongoSparkCollectionProvider<>(Document.class, clientFactory, database, collection);
 
     private String key = "a";
     private List<Document> documents = asList(new Document(key, 0), new Document(key, 1), new Document(key, 2));
@@ -73,7 +73,7 @@ public class MongoRDDTest {
         client.getDatabase(database).getCollection(collection).createIndex(new Document(key, 1));
         client.close();
         sc = new SparkContext(sparkConf);
-        broadcastCollectionFactory = sc.broadcast(collectionFactory, ClassTag$.MODULE$.apply(MongoCollectionFactory.class));
+        broadcastCollectionProvider = sc.broadcast(collectionProvider, ClassTag$.MODULE$.apply(MongoCollectionProvider.class));
     }
 
     @After
@@ -84,7 +84,7 @@ public class MongoRDDTest {
 
     @Test
     public void shouldMakeMongoRDDWithPartitionsAndAggregation() {
-        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionFactory, Document.class, key, partitions, pipeline);
+        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionProvider, Document.class, key, partitions, pipeline);
 
         assertEquals(1, mongoRdd.count());
         assertEquals(documents.get(0), mongoRdd.first());
@@ -93,7 +93,7 @@ public class MongoRDDTest {
 
     @Test
     public void shouldMakeMongoRDDWithPartitions() {
-        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionFactory, Document.class, key, partitions);
+        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionProvider, Document.class, key, partitions);
 
         assertEquals(documents.size(), mongoRdd.count());
         assertEquals(documents.get(0), mongoRdd.first());
@@ -103,7 +103,7 @@ public class MongoRDDTest {
 
     @Test
     public void shouldMakeMongoRDDWithAggregation() {
-        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionFactory, Document.class, key, pipeline);
+        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionProvider, Document.class, key, pipeline);
 
         assertEquals(1, mongoRdd.count());
         assertEquals(documents.get(0), mongoRdd.first());
@@ -112,7 +112,7 @@ public class MongoRDDTest {
 
     @Test
     public void shouldMakeMongoRDD() {
-        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionFactory, Document.class, key);
+        MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionProvider, Document.class, key);
 
         assertEquals(documents.size(), mongoRdd.count());
         assertEquals(documents.get(0), mongoRdd.first());
@@ -121,7 +121,7 @@ public class MongoRDDTest {
 
     @Test(expected = IllegalArgumentException.class)
     public void shouldFailNullClazz() {
-        new MongoRDD<>(sc, broadcastCollectionFactory, null, key);
+        new MongoRDD<>(sc, broadcastCollectionProvider, null, key);
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -131,11 +131,11 @@ public class MongoRDDTest {
 
     @Test(expected = IllegalArgumentException.class)
     public void shouldFailNullSplitKey() {
-        new MongoRDD<>(sc, broadcastCollectionFactory, Document.class, null);
+        new MongoRDD<>(sc, broadcastCollectionProvider, Document.class, null);
     }
 
     @Test(expected = IllegalArgumentException.class)
     public void shouldFailLessThanOnePartitions() {
-        new MongoRDD<>(sc, broadcastCollectionFactory, Document.class, key, 0);
+        new MongoRDD<>(sc, broadcastCollectionProvider, Document.class, key, 0);
     }
 }

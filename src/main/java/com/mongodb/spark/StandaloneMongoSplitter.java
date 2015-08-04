@@ -31,20 +31,20 @@ import static com.mongodb.spark.SplitterHelper.splitsToBounds;
  * A splitter for standalone mongo.
  */
 class StandaloneMongoSplitter {
-    private MongoCollectionFactory factory;
+    private MongoCollectionProvider provider;
     private String key;
     private int maxChunkSize;
 
     /**
      * Constructs a new instance
      *
-     * @param factory a mongo collection factory
+     * @param provider a mongo collection provider
      * @param key the minimal prefix key of the index to be used for splitting
      * @param maxChunkSize the max size (in MB) for each partition
      * @param <T> the type of documents in the collection
      */
-    <T> StandaloneMongoSplitter(final MongoCollectionFactory<T> factory, final String key, final int maxChunkSize) {
-        this.factory = notNull("factory", factory);
+    <T> StandaloneMongoSplitter(final MongoCollectionProvider<T> provider, final String key, final int maxChunkSize) {
+        this.provider = notNull("provider", provider);
         this.key = notNull("key", key);
         this.maxChunkSize = maxChunkSize;
     }
@@ -56,14 +56,15 @@ class StandaloneMongoSplitter {
      */
     @SuppressWarnings("unchecked")
     List<Document> getSplitBounds() {
-        MongoCollection collection = this.factory.getCollection();
+        MongoCollection collection = this.provider.getCollection();
 
         String ns = collection.getNamespace().getFullName();
         Document keyPattern = new Document(this.key, 1);
         Document splitVectorCommand = new Document("splitVector", ns)
                                            .append("keyPattern", keyPattern)
                                            .append("maxChunkSize", this.maxChunkSize);
-        Document result = this.factory.getDatabase().runCommand(splitVectorCommand, Document.class);
+        Document result = this.provider.getDatabase()
+                                       .runCommand(splitVectorCommand, Document.class);
 
         if (result.get("ok").equals(1.0)) {
             List<Document> splitKeys = (List<Document>) result.get("splitKeys");

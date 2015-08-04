@@ -86,71 +86,71 @@ public class MongoSparkContext extends JavaSparkContext {
     }
 
     /**
-     * Parallelizes a mongo collection specified by the collection factory. The number of partitions
+     * Parallelizes a mongo collection specified by the collection provider. The number of partitions
      * is determined by the number of chunks in a sharded collection, or the number of chunks
      * calculated by a vectorSplit for non-sharded collections (default max chunk size 64 MB).
      *
      * @param clazz the class of the elements in the rdd
-     * @param factory a mongo collection factory
+     * @param provider a mongo collection provider
      * @param splitKey the minimal prefix key of the index to be used for splitting
      * @param <T> the type of the objects in the RDD
      * @return the RDD
      */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final Broadcast<MongoCollectionFactory<T>> factory, final String splitKey) {
-        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, splitKey), ClassTag$.MODULE$.apply(clazz));
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final Broadcast<MongoCollectionProvider<T>> provider, final String splitKey) {
+        return new JavaRDD<>(new MongoRDD<>(this.sc, provider, clazz, splitKey), ClassTag$.MODULE$.apply(clazz));
     }
 
     /**
-     * Parallelizes a mongo collection specified by the collection factory. Set maxChunkSize
+     * Parallelizes a mongo collection specified by the collection provider. Set maxChunkSize
      * to determine the size of the partitions based on a vectorSplit. maxChunkSize only
      * affects creating RDDs from non-sharded collections.
      *
      * @param clazz the class of the elements in the rdd
-     * @param factory a mongo collection factory
+     * @param provider a mongo collection provider
      * @param splitKey the minimal prefix key of the index to be used for splitting
      * @param maxChunkSize the max chunk size for partitions in MB
      * @param <T> the type of the objects in the RDD
      * @return the RDD
      */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final Broadcast<MongoCollectionFactory<T>> factory, final String splitKey,
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final Broadcast<MongoCollectionProvider<T>> provider, final String splitKey,
                                       final int maxChunkSize) {
-        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, splitKey, maxChunkSize), ClassTag$.MODULE$.apply(clazz));
+        return new JavaRDD<>(new MongoRDD<>(this.sc, provider, clazz, splitKey, maxChunkSize), ClassTag$.MODULE$.apply(clazz));
     }
 
     /**
-     * Parallelizes a mongo collection specified by the collection factory and prefiltered
+     * Parallelizes a mongo collection specified by the collection provider and prefiltered
      * according to the aggregation pipeline. Set maxChunkSize to determine the size of the partitions
      * based on a vectorSplit. maxChunkSize only affects creating RDDs from non-sharded collections.
      *
      * @param clazz the class of the elements in the rdd
-     * @param factory a mongo collection factory
+     * @param provider a mongo collection provider
      * @param splitKey the minimal prefix key of the index to be used for splitting
      * @param maxChunkSize the max chunk size for partitions in MB
      * @param pipeline the aggregation pipeline
      * @param <T> the type of the objects in the RDD
      * @return the RDD
      */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final Broadcast<MongoCollectionFactory<T>> factory, final String splitKey,
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final Broadcast<MongoCollectionProvider<T>> provider, final String splitKey,
                                       final int maxChunkSize, final List<Bson> pipeline) {
-        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, splitKey, maxChunkSize, pipeline), ClassTag$.MODULE$.apply(clazz));
+        return new JavaRDD<>(new MongoRDD<>(this.sc, provider, clazz, splitKey, maxChunkSize, pipeline), ClassTag$.MODULE$.apply(clazz));
     }
 
     /**
-     * Parallelizes a mongo collection specified by the collection factory and an aggregation pipeline
+     * Parallelizes a mongo collection specified by the collection provider and an aggregation pipeline
      * to prefilter results. The number of partitions is determined by the number of chunks in a
      * sharded collection, or the number of chunks calculated by a vectorSplit for non-sharded
      * collections (default max chunk size 64 MB).
      *
      * @param clazz the class of the elements in the rdd
-     * @param factory a mongo collection factory
+     * @param provider a mongo collection provider
      * @param splitKey the minimal prefix key of the index to be used for splitting
      * @param pipeline the aggregation pipeline
      * @param <T> the type of the objects in the RDD
      * @return the RDD
      */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final Broadcast<MongoCollectionFactory<T>> factory, final String splitKey,
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final Broadcast<MongoCollectionProvider<T>> provider, final String splitKey,
                                       final List<Bson> pipeline) {
-        return new JavaRDD<>(new MongoRDD<>(this.sc, factory, clazz, splitKey, pipeline), ClassTag$.MODULE$.apply(clazz));
+        return new JavaRDD<>(new MongoRDD<>(this.sc, provider, clazz, splitKey, pipeline), ClassTag$.MODULE$.apply(clazz));
     }
 
     @Override

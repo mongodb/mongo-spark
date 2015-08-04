@@ -47,7 +47,7 @@ public final class MongoWriter {
      * @param ordered true if ordered
      * @param <T> the type of documents in the collection
      */
-    public static <T> void writeToMongo(final RDD<T> rdd, final MongoCollectionFactory<T> factory, final Boolean upsert,
+    public static <T> void writeToMongo(final RDD<T> rdd, final MongoCollectionProvider<T> factory, final Boolean upsert,
                                         final Boolean ordered) {
         rdd.foreachPartition(new SerializableAbstractFunction1<Iterator<T>, BoxedUnit>() {
             @Override

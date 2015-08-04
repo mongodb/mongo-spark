@@ -23,13 +23,13 @@ import com.mongodb.client.MongoDatabase;
 import static com.mongodb.assertions.Assertions.notNull;
 
 /**
- * Implementation of a collection factory.
+ * Implementation of a collection provider.
  *
  * @param <T> type of objects in the collection
  */
-public class MongoSparkCollectionFactory<T> implements MongoCollectionFactory<T> {
+public class MongoSparkCollectionProvider<T> implements MongoCollectionProvider<T> {
     private Class<T> clazz;
-    private MongoClientFactory clientFactory;
+    private MongoClientProvider clientProvider;
     private String collection;
     private String database;
     private transient MongoCollection<T> mongoCollection;
@@ -38,14 +38,14 @@ public class MongoSparkCollectionFactory<T> implements MongoCollectionFactory<T>
      * Constructs a new instance.
      *
      * @param clazz the java.lang.Class of the elements in the RDD
-     * @param clientFactory the client factory
+     * @param clientProvider the client provider
      * @param database the database name on the client
      * @param collection the collection name in the database
      */
-    public MongoSparkCollectionFactory(final Class<T> clazz, final MongoClientFactory clientFactory, final String database,
-                                       final String collection) {
+    public MongoSparkCollectionProvider(final Class<T> clazz, final MongoClientProvider clientProvider, final String database,
+                                        final String collection) {
         this.clazz = notNull("clazz", clazz);
-        this.clientFactory = notNull("clientFactory", clientFactory);
+        this.clientProvider = notNull("clientProvider", clientProvider);
         this.database = notNull("database", database);
         this.collection = notNull("collection", collection);
     }
@@ -53,9 +53,9 @@ public class MongoSparkCollectionFactory<T> implements MongoCollectionFactory<T>
     @Override
     public MongoCollection<T> getCollection() {
         if (this.mongoCollection == null) {
-            this.mongoCollection = this.clientFactory.getClient()
-                                                     .getDatabase(this.database)
-                                                     .getCollection(this.collection, this.clazz);
+            this.mongoCollection = this.clientProvider.getClient()
+                                                      .getDatabase(this.database)
+                                                      .getCollection(this.collection, this.clazz);
         }
 
         return this.mongoCollection;
@@ -63,12 +63,12 @@ public class MongoSparkCollectionFactory<T> implements MongoCollectionFactory<T>
 
     @Override
     public MongoDatabase getDatabase() {
-        return this.clientFactory.getClient()
-                                 .getDatabase(this.database);
+        return this.clientProvider.getClient()
+                                  .getDatabase(this.database);
     }
 
     @Override
     public MongoClient getClient() {
-        return this.clientFactory.getClient();
+        return this.clientProvider.getClient();
     }
 }

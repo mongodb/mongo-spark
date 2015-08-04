@@ -31,18 +31,18 @@ import static com.mongodb.spark.SplitterHelper.splitsToBounds;
  * A splitter for a sharded mongo.
  */
 class ShardedMongoSplitter {
-    private MongoCollectionFactory factory;
+    private MongoCollectionProvider provider;
     private String key;
 
     /**
      * Constructs a new instance.
      *
-     * @param factory the collection factory
+     * @param provider the collection provider
      * @param key the minimal prefix key of the index to be used for splitting
      * @param <T> the type of objects in the collection
      */
-    <T> ShardedMongoSplitter(final MongoCollectionFactory<T> factory, final String key) {
-        this.factory = notNull("factory", factory);
+    <T> ShardedMongoSplitter(final MongoCollectionProvider<T> provider, final String key) {
+        this.provider = notNull("provider", provider);
         this.key = notNull("key", key);
     }
 
@@ -52,16 +52,16 @@ class ShardedMongoSplitter {
      * @return the split bounds as documents
      */
     List<Document> getSplitBounds() {
-        MongoCollection collection = this.factory.getCollection();
+        MongoCollection collection = this.provider.getCollection();
 
         // get chunks for this namespace
         // may throw exception
-        List<Document> chunks = this.factory.getClient()
-                                            .getDatabase("config")
-                                            .getCollection("chunks")
-                                            .find(Filters.eq("ns", collection.getNamespace().getFullName()))
-                                            .projection(Projections.include("min", "max"))
-                                            .into(new ArrayList<>());
+        List<Document> chunks = this.provider.getClient()
+                                             .getDatabase("config")
+                                             .getCollection("chunks")
+                                             .find(Filters.eq("ns", collection.getNamespace().getFullName()))
+                                             .projection(Projections.include("min", "max"))
+                                             .into(new ArrayList<>());
 
         // there will always be at least 1 chunk in a sharded collection
         // e.g. {min: {key : {$minKey : 1}}, max : {key : {$maxKey : 1}}}

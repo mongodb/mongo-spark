@@ -21,6 +21,8 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.broadcast.Broadcast;
 import org.bson.Document;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -35,44 +37,52 @@ import static org.junit.Assert.assertEquals;
  * Modify the URIs as necessary.
  */
 public class MongoSplitterTest {
+    private MongoSparkContext msc;
+
+    @Before
+    public void setUp() {
+        msc = new MongoSparkContext(new SparkConf().setAppName("MongoSplitterTest").setMaster("local"));
+    }
+
+    @After
+    public void tearDown() {
+        msc.stop();
+        msc = null;
+    }
+
     @Test
     public void shouldSplitStandalone() {
-        MongoSparkContext msc = new MongoSparkContext(new SparkConf().setAppName("MongoSplitterTest").setMaster("local"));
-        MongoClientFactory clientFactory = new MongoSparkClientFactory("mongodb://localhost:30000");
-        Broadcast<MongoCollectionFactory<Document>> broadcastFactory =
-                msc.broadcast(new MongoSparkCollectionFactory<>(Document.class, clientFactory, "test", "part"));
+        MongoClientProvider clientProvider = new MongoSparkClientProvider("mongodb://localhost:30000");
+        Broadcast<MongoCollectionProvider<Document>> broadcastProvider =
+                msc.broadcast(new MongoSparkCollectionProvider<>(Document.class, clientProvider, "spark_test", "test"));
 
-        JavaRDD<Document> rdd = msc.parallelize(Document.class, broadcastFactory, "a");
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, broadcastProvider, "a");
 
-        assertEquals(((List) (clientFactory.getClient()
-                                           .getDatabase("test")
-                                           .runCommand(new Document("splitVector", "test.part")
-                                                            .append("keyPattern", new Document("a", 1))
-                                                            .append("maxChunkSize", 64))
-                                           .get("splitKeys"))).size() + 1,
+        assertEquals(clientProvider.getClient()
+                                   .getDatabase("spark_test")
+                                   .runCommand(new Document("splitVector", "spark_test.test")
+                                                    .append("keyPattern", new Document("a", 1))
+                                                    .append("maxChunkSize", 64))
+                                   .get("splitKeys", List.class)
+                                   .size() + 1,
                      rdd.partitions().size());
-
-        msc.stop();
     }
 
     @Test
     public void shouldSplitSharded() {
-        MongoSparkContext msc = new MongoSparkContext(new SparkConf().setAppName("MongoSplitterTest").setMaster("local"));
-        MongoClientFactory clientFactory = new MongoSparkClientFactory("mongodb://localhost:27017");
-        Broadcast<MongoCollectionFactory<Document>> broadcastFactory =
-                msc.broadcast(new MongoSparkCollectionFactory<>(Document.class, clientFactory, "test", "foo"));
+        MongoClientProvider clientProvider = new MongoSparkClientProvider("mongodb://localhost:27017");
+        Broadcast<MongoCollectionProvider<Document>> broadcastProvider =
+                msc.broadcast(new MongoSparkCollectionProvider<>(Document.class, clientProvider, "spark_test", "test"));
 
-        JavaRDD<Document> rdd = msc.parallelize(Document.class, broadcastFactory, "a");
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, broadcastProvider, "a");
 
-        assertEquals(clientFactory.getClient()
-                                  .getDatabase("config")
-                                  .getCollection("chunks")
-                                  .find()
-                                  .filter(Filters.eq("ns", "test.foo"))
-                                  .into(new ArrayList<>())
-                                  .size(),
+        assertEquals(clientProvider.getClient()
+                                   .getDatabase("config")
+                                   .getCollection("chunks")
+                                   .find()
+                                   .filter(Filters.eq("ns", "spark_test.test"))
+                                   .into(new ArrayList<>())
+                                   .size(),
                      rdd.partitions().size());
-
-        msc.stop();
     }
 }

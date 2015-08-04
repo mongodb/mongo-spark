@@ -45,7 +45,7 @@ import static scala.collection.JavaConverters.asScalaIteratorConverter;
  */
 public class MongoRDD<T> extends RDD<T> {
     private Class<T> clazz;
-    private Broadcast<MongoCollectionFactory<T>> collectionFactory;
+    private Broadcast<MongoCollectionProvider<T>> collectionProvider;
     private int maxChunkSize;
     private List<Bson> pipeline;
     private String splitKey;
@@ -56,13 +56,13 @@ public class MongoRDD<T> extends RDD<T> {
      * collections (default max chunk size 64 MB).
      *
      * @param sc the spark context the RDD belongs to
-     * @param factory the mongo collection factory for the RDD
+     * @param provider the mongo collection provider for the RDD
      * @param clazz the class of the elements in the RDD
      * @param splitKey the minimal prefix key of the index to be used for splitting
      */
-    public MongoRDD(final SparkContext sc, final Broadcast<MongoCollectionFactory<T>> factory, final Class<T> clazz,
+    public MongoRDD(final SparkContext sc, final Broadcast<MongoCollectionProvider<T>> provider, final Class<T> clazz,
                     final String splitKey) {
-        this(sc, factory, clazz, splitKey, 64, Collections.emptyList());
+        this(sc, provider, clazz, splitKey, 64, Collections.emptyList());
     }
 
     /**
@@ -71,14 +71,14 @@ public class MongoRDD<T> extends RDD<T> {
      * collections.
      *
      * @param sc the spark context the RDD belongs to
-     * @param factory the mongo collection factory for the RDD
+     * @param provider the mongo collection provider for the RDD
      * @param clazz the class of the elements in the RDD
      * @param splitKey the minimal prefix key of the index to be used for splitting
      * @param maxChunkSize the max chunk size for partitions in MB
      */
-    public MongoRDD(final SparkContext sc, final Broadcast<MongoCollectionFactory<T>> factory, final Class<T> clazz, final String splitKey,
-                    final int maxChunkSize) {
-        this(sc, factory, clazz, splitKey, maxChunkSize, Collections.emptyList());
+    public MongoRDD(final SparkContext sc, final Broadcast<MongoCollectionProvider<T>> provider, final Class<T> clazz,
+                    final String splitKey, final int maxChunkSize) {
+        this(sc, provider, clazz, splitKey, maxChunkSize, Collections.emptyList());
     }
 
     /**
@@ -87,14 +87,14 @@ public class MongoRDD<T> extends RDD<T> {
      * collections (default max chunk size 64 MB).
      *
      * @param sc the spark context the RDD belongs to
-     * @param factory the mongo collection factory for the RDD
+     * @param provider the mongo collection provider for the RDD
      * @param clazz the class of the elements in the RDD
      * @param splitKey the minimal prefix key of the index to be used for splitting
      * @param pipeline the aggregation pipeline
      */
-    public MongoRDD(final SparkContext sc, final Broadcast<MongoCollectionFactory<T>> factory, final Class<T> clazz, final String splitKey,
-                    final List<Bson> pipeline) {
-        this(sc, factory, clazz, splitKey, 64, pipeline);
+    public MongoRDD(final SparkContext sc, final Broadcast<MongoCollectionProvider<T>> provider, final Class<T> clazz,
+                    final String splitKey, final List<Bson> pipeline) {
+        this(sc, provider, clazz, splitKey, 64, pipeline);
     }
 
     /**
@@ -103,17 +103,17 @@ public class MongoRDD<T> extends RDD<T> {
      * collections.
      *
      * @param sc the spark context the RDD belongs to
-     * @param factory the mongo collection factory for the RDD
+     * @param provider the mongo collection provider for the RDD
      * @param clazz the class of the elements in the RDD
      * @param splitKey the minimal prefix key of the index to be used for splitting
      * @param maxChunkSize the max chunk size for partitions in MB
      * @param pipeline the aggregation pipeline
      */
-    public MongoRDD(final SparkContext sc, final Broadcast<MongoCollectionFactory<T>> factory, final Class<T> clazz, final String splitKey,
-                    final int maxChunkSize, final List<Bson> pipeline) {
+    public MongoRDD(final SparkContext sc, final Broadcast<MongoCollectionProvider<T>> provider, final Class<T> clazz,
+                    final String splitKey, final int maxChunkSize, final List<Bson> pipeline) {
         super(sc, new ArrayBuffer<>(), ClassTag$.MODULE$.apply(notNull("clazz", clazz)));
         this.clazz = clazz;
-        this.collectionFactory = notNull("factory", factory);
+        this.collectionProvider = notNull("provider", provider);
         this.splitKey = notNull("splitKey", splitKey);
         isTrueArgument("maxChunkSize in range [1, 1024]", maxChunkSize >= 1 && maxChunkSize <= 1024);
         this.maxChunkSize = maxChunkSize;
@@ -137,7 +137,7 @@ public class MongoRDD<T> extends RDD<T> {
         partitionPipeline.add(new Document("$match", partitionBounds));
         partitionPipeline.addAll(this.pipeline);
 
-        return this.collectionFactory.value().getCollection().aggregate(partitionPipeline, this.clazz).iterator();
+        return this.collectionProvider.value().getCollection().aggregate(partitionPipeline, this.clazz).iterator();
     }
 
     @Override
@@ -155,19 +155,19 @@ public class MongoRDD<T> extends RDD<T> {
      * @return the split keys
      */
     private List<Document> getSplitBounds() {
-        Document collStatsCommand = new Document("collStats", this.collectionFactory.value()
-                                                                                    .getCollection()
-                                                                                    .getNamespace()
-                                                                                    .getCollectionName());
-        Document result = this.collectionFactory.value()
-                                                .getDatabase()
-                                                .runCommand(collStatsCommand, Document.class);
+        Document collStatsCommand = new Document("collStats", this.collectionProvider.value()
+                                                                                     .getCollection()
+                                                                                     .getNamespace()
+                                                                                     .getCollectionName());
+        Document result = this.collectionProvider.value()
+                                                 .getDatabase()
+                                                 .runCommand(collStatsCommand, Document.class);
 
         if (result.get("ok").equals(1.0)) {
             if (Boolean.TRUE.equals(result.get("sharded"))) {
-                return new ShardedMongoSplitter(this.collectionFactory.value(), this.splitKey).getSplitBounds();
+                return new ShardedMongoSplitter(this.collectionProvider.value(), this.splitKey).getSplitBounds();
             } else {
-                return new StandaloneMongoSplitter(this.collectionFactory.value(), this.splitKey, this.maxChunkSize).getSplitBounds();
+                return new StandaloneMongoSplitter(this.collectionProvider.value(), this.splitKey, this.maxChunkSize).getSplitBounds();
             }
         }
         else {

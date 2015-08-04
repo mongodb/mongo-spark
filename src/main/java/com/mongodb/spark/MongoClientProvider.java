@@ -22,11 +22,11 @@ import java.io.Closeable;
 import java.io.Serializable;
 
 /**
- * Interface for a mongo client factory.
+ * Interface for a mongo client provider.
  */
-public interface MongoClientFactory extends Serializable, Closeable {
+public interface MongoClientProvider extends Serializable, Closeable {
     /**
-     * Gets a mongo client from the factory. Users of this interface should not close the mongo client.
+     * Gets a mongo client from the provider. Users of this interface should not close the mongo client.
      *
      * @return a mongo client
      */
