@@ -17,6 +17,8 @@
 group 'org.mongodb'
 version '1.0-SNAPSHOT'
 
+apply plugin: 'java'
+apply plugin: 'checkstyle'
 apply plugin: 'eclipse'
 apply plugin: 'idea'
 
@@ -26,9 +28,6 @@ repositories {
     mavenLocal()
     mavenCentral()
 }
-
-apply plugin: 'java'
-apply plugin: 'checkstyle'
 
 sourceCompatibility = 1.8
 
@@ -43,7 +42,8 @@ checkstyle {
     configFile = new File("$configDir/checkstyle.xml")
 }
 
-jar {
+task fatJar(type: Jar, dependsOn: 'compileJava') {
     from { configurations.runtime.collect { it.isDirectory() ? it : zipTree(it) } }
     exclude 'META-INF/MANIFEST.MF', 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
+    archiveName = 'mongo-spark-1.0-SNAPSHOT-fat.jar'
 }
