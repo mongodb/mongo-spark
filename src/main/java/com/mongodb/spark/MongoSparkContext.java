@@ -89,6 +89,8 @@ public class MongoSparkContext extends JavaSparkContext {
      * is determined by the number of chunks in a sharded collection, or the number of chunks
      * calculated by a vectorSplit for non-sharded collections (default max chunk size 64 MB).
      *
+     * Note: the collection provider will be broadcasted through the MongoSparkContext.
+     *
      * @param clazz the class of the elements in the rdd
      * @param provider a mongo collection provider
      * @param splitKey the minimal prefix key of the index to be used for splitting
@@ -103,6 +105,8 @@ public class MongoSparkContext extends JavaSparkContext {
      * Parallelizes a mongo collection specified by the collection provider. Set maxChunkSize
      * to determine the size of the partitions based on a vectorSplit. maxChunkSize only
      * affects creating RDDs from non-sharded collections.
+     *
+     * Note: the collection provider will be broadcasted through the MongoSparkContext.
      *
      * @param clazz the class of the elements in the rdd
      * @param provider a mongo collection provider
@@ -120,6 +124,8 @@ public class MongoSparkContext extends JavaSparkContext {
      * Parallelizes a mongo collection specified by the collection provider and prefiltered
      * according to the aggregation pipeline. Set maxChunkSize to determine the size of the partitions
      * based on a vectorSplit. maxChunkSize only affects creating RDDs from non-sharded collections.
+     *
+     * Note: the collection provider will be broadcasted through the MongoSparkContext.
      *
      * @param clazz the class of the elements in the rdd
      * @param provider a mongo collection provider
@@ -139,6 +145,8 @@ public class MongoSparkContext extends JavaSparkContext {
      * to prefilter results. The number of partitions is determined by the number of chunks in a
      * sharded collection, or the number of chunks calculated by a vectorSplit for non-sharded
      * collections (default max chunk size 64 MB).
+     *
+     * Note: the collection provider will be broadcasted through the MongoSparkContext.
      *
      * @param clazz the class of the elements in the rdd
      * @param provider a mongo collection provider

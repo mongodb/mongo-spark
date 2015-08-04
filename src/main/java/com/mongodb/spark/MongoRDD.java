@@ -55,6 +55,8 @@ public class MongoRDD<T> extends RDD<T> {
      * sharded collection, or the number of chunks calculated by a vectorSplit for non-sharded
      * collections (default max chunk size 64 MB).
      *
+     * Note: the collection provider will be broadcasted through the input SparkContext.
+     *
      * @param sc the spark context the RDD belongs to
      * @param provider the mongo collection provider for the RDD
      * @param clazz the class of the elements in the RDD
@@ -69,6 +71,8 @@ public class MongoRDD<T> extends RDD<T> {
      * Constructs a new instance. Set maxChunkSize to determine the size of the partitions
      * based on a vectorSplit. maxChunkSize only affects creating RDDs from non-sharded
      * collections.
+     *
+     * Note: the collection provider will be broadcasted through the input SparkContext.
      *
      * @param sc the spark context the RDD belongs to
      * @param provider the mongo collection provider for the RDD
@@ -86,6 +90,8 @@ public class MongoRDD<T> extends RDD<T> {
      * sharded collection, or the number of chunks calculated by a vectorSplit for non-sharded
      * collections (default max chunk size 64 MB).
      *
+     * Note: the collection provider will be broadcasted through the input SparkContext.
+     *
      * @param sc the spark context the RDD belongs to
      * @param provider the mongo collection provider for the RDD
      * @param clazz the class of the elements in the RDD
@@ -101,6 +107,8 @@ public class MongoRDD<T> extends RDD<T> {
      * Constructs a new instance. Set maxChunkSize to determine the size of the partitions
      * based on a vectorSplit. maxChunkSize only affects creating RDDs from non-sharded
      * collections.
+     *
+     * Note: the collection provider will be broadcasted through the input SparkContext.
      *
      * @param sc the spark context the RDD belongs to
      * @param provider the mongo collection provider for the RDD
