@@ -60,7 +60,7 @@ public class MongoRDD<T> extends RDD<T> {
      * @param clazz the class of the elements in the RDD
      * @param splitKey the minimal prefix key of the index to be used for splitting
      */
-    public MongoRDD(final SparkContext sc, final Broadcast<MongoCollectionProvider<T>> provider, final Class<T> clazz,
+    public MongoRDD(final SparkContext sc, final MongoCollectionProvider<T> provider, final Class<T> clazz,
                     final String splitKey) {
         this(sc, provider, clazz, splitKey, 64, Collections.emptyList());
     }
@@ -76,7 +76,7 @@ public class MongoRDD<T> extends RDD<T> {
      * @param splitKey the minimal prefix key of the index to be used for splitting
      * @param maxChunkSize the max chunk size for partitions in MB
      */
-    public MongoRDD(final SparkContext sc, final Broadcast<MongoCollectionProvider<T>> provider, final Class<T> clazz,
+    public MongoRDD(final SparkContext sc, final MongoCollectionProvider<T> provider, final Class<T> clazz,
                     final String splitKey, final int maxChunkSize) {
         this(sc, provider, clazz, splitKey, maxChunkSize, Collections.emptyList());
     }
@@ -92,7 +92,7 @@ public class MongoRDD<T> extends RDD<T> {
      * @param splitKey the minimal prefix key of the index to be used for splitting
      * @param pipeline the aggregation pipeline
      */
-    public MongoRDD(final SparkContext sc, final Broadcast<MongoCollectionProvider<T>> provider, final Class<T> clazz,
+    public MongoRDD(final SparkContext sc, final MongoCollectionProvider<T> provider, final Class<T> clazz,
                     final String splitKey, final List<Bson> pipeline) {
         this(sc, provider, clazz, splitKey, 64, pipeline);
     }
@@ -109,11 +109,12 @@ public class MongoRDD<T> extends RDD<T> {
      * @param maxChunkSize the max chunk size for partitions in MB
      * @param pipeline the aggregation pipeline
      */
-    public MongoRDD(final SparkContext sc, final Broadcast<MongoCollectionProvider<T>> provider, final Class<T> clazz,
+    public MongoRDD(final SparkContext sc, final MongoCollectionProvider<T> provider, final Class<T> clazz,
                     final String splitKey, final int maxChunkSize, final List<Bson> pipeline) {
         super(sc, new ArrayBuffer<>(), ClassTag$.MODULE$.apply(notNull("clazz", clazz)));
         this.clazz = clazz;
-        this.collectionProvider = notNull("provider", provider);
+        notNull("provider", provider);
+        this.collectionProvider = this.sparkContext().broadcast(provider, ClassTag$.MODULE$.apply(provider.getClass()));
         this.splitKey = notNull("splitKey", splitKey);
         isTrueArgument("maxChunkSize in range [1, 1024]", maxChunkSize >= 1 && maxChunkSize <= 1024);
         this.maxChunkSize = maxChunkSize;

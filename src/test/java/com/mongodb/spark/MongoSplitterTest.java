@@ -19,7 +19,6 @@ package com.mongodb.spark;
 import com.mongodb.client.model.Filters;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.broadcast.Broadcast;
 import org.bson.Document;
 import org.junit.After;
 import org.junit.Before;
@@ -53,10 +52,10 @@ public class MongoSplitterTest {
     @Test
     public void shouldSplitStandalone() {
         MongoClientProvider clientProvider = new MongoSparkClientProvider("mongodb://localhost:30000");
-        Broadcast<MongoCollectionProvider<Document>> broadcastProvider =
-                msc.broadcast(new MongoSparkCollectionProvider<>(Document.class, clientProvider, "spark_test", "test"));
+        MongoCollectionProvider<Document> collectionProvider =
+                new MongoSparkCollectionProvider<>(Document.class, clientProvider, "spark_test", "test");
 
-        JavaRDD<Document> rdd = msc.parallelize(Document.class, broadcastProvider, "a");
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, collectionProvider, "a");
 
         assertEquals(clientProvider.getClient()
                                    .getDatabase("spark_test")
@@ -71,10 +70,10 @@ public class MongoSplitterTest {
     @Test
     public void shouldSplitSharded() {
         MongoClientProvider clientProvider = new MongoSparkClientProvider("mongodb://localhost:27017");
-        Broadcast<MongoCollectionProvider<Document>> broadcastProvider =
-                msc.broadcast(new MongoSparkCollectionProvider<>(Document.class, clientProvider, "spark_test", "test"));
+        MongoCollectionProvider<Document> collectionProvider =
+                new MongoSparkCollectionProvider<>(Document.class, clientProvider, "spark_test", "test");
 
-        JavaRDD<Document> rdd = msc.parallelize(Document.class, broadcastProvider, "a");
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, collectionProvider, "a");
 
         assertEquals(clientProvider.getClient()
                                    .getDatabase("config")

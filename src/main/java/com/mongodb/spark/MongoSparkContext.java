@@ -21,7 +21,6 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.broadcast.Broadcast;
 import org.bson.conversions.Bson;
 import scala.reflect.ClassTag$;
 
@@ -96,7 +95,7 @@ public class MongoSparkContext extends JavaSparkContext {
      * @param <T> the type of the objects in the RDD
      * @return the RDD
      */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final Broadcast<MongoCollectionProvider<T>> provider, final String splitKey) {
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final MongoCollectionProvider<T> provider, final String splitKey) {
         return new JavaRDD<>(new MongoRDD<>(this.sc, provider, clazz, splitKey), ClassTag$.MODULE$.apply(clazz));
     }
 
@@ -112,7 +111,7 @@ public class MongoSparkContext extends JavaSparkContext {
      * @param <T> the type of the objects in the RDD
      * @return the RDD
      */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final Broadcast<MongoCollectionProvider<T>> provider, final String splitKey,
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final MongoCollectionProvider<T> provider, final String splitKey,
                                       final int maxChunkSize) {
         return new JavaRDD<>(new MongoRDD<>(this.sc, provider, clazz, splitKey, maxChunkSize), ClassTag$.MODULE$.apply(clazz));
     }
@@ -130,7 +129,7 @@ public class MongoSparkContext extends JavaSparkContext {
      * @param <T> the type of the objects in the RDD
      * @return the RDD
      */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final Broadcast<MongoCollectionProvider<T>> provider, final String splitKey,
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final MongoCollectionProvider<T> provider, final String splitKey,
                                       final int maxChunkSize, final List<Bson> pipeline) {
         return new JavaRDD<>(new MongoRDD<>(this.sc, provider, clazz, splitKey, maxChunkSize, pipeline), ClassTag$.MODULE$.apply(clazz));
     }
@@ -148,7 +147,7 @@ public class MongoSparkContext extends JavaSparkContext {
      * @param <T> the type of the objects in the RDD
      * @return the RDD
      */
-    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final Broadcast<MongoCollectionProvider<T>> provider, final String splitKey,
+    public <T> JavaRDD<T> parallelize(final Class<T> clazz, final MongoCollectionProvider<T> provider, final String splitKey,
                                       final List<Bson> pipeline) {
         return new JavaRDD<>(new MongoRDD<>(this.sc, provider, clazz, splitKey, pipeline), ClassTag$.MODULE$.apply(clazz));
     }

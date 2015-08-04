@@ -20,7 +20,6 @@ import com.mongodb.MongoClient;
 import com.mongodb.MongoClientURI;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
-import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.rdd.RDD;
 import org.bson.BsonMaxKey;
 import org.bson.BsonMinKey;
@@ -55,7 +54,6 @@ public class MongoWriterTest {
     private SparkConf sparkConf = new SparkConf().setMaster(master)
             .setAppName(appName);
     private SparkContext sc;
-    private Broadcast<MongoCollectionProvider<Document>> broadcastCollectionProvider;
 
     private MongoClientProvider clientProvider = new MongoSparkClientProvider(uri);
     private MongoCollectionProvider<Document> collectionProvider =
@@ -72,7 +70,6 @@ public class MongoWriterTest {
         client.getDatabase(database).getCollection(collection).createIndex(new Document(key, 1));
         client.close();
         sc = new SparkContext(sparkConf);
-        broadcastCollectionProvider = sc.broadcast(collectionProvider, ClassTag$.MODULE$.apply(MongoCollectionProvider.class));
     }
 
     @After
@@ -83,7 +80,7 @@ public class MongoWriterTest {
 
     @Test
     public void shouldInsertToMongo() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionProvider, Document.class, key)
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionProvider, Document.class, key)
                 .map(new GetSingleKeyValueDocument(key), ClassTag$.MODULE$.apply(Document.class));
 
         MongoWriter.writeToMongo(mongoRdd, collectionProvider, false, false);
@@ -93,7 +90,7 @@ public class MongoWriterTest {
 
     @Test
     public void shouldNotUpsertToMongoDueToUpsertOption() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionProvider, Document.class, key);
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionProvider, Document.class, key);
 
         assertEquals(documents.size(), mongoRdd.cache().count());
 
@@ -108,7 +105,7 @@ public class MongoWriterTest {
 
     @Test
     public void shouldUpsertToMongoDueToUpsertOption() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionProvider, Document.class, key)
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionProvider, Document.class, key)
                 .map(new GetSingleKeyValueDocument(key), ClassTag$.MODULE$.apply(Document.class));
 
         assertEquals(documents.size(), mongoRdd.cache().count());
@@ -128,7 +125,7 @@ public class MongoWriterTest {
 
     @Test
     public void shouldNotUpsertToMongoDocumentsAlreadyExist() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionProvider, Document.class, key);
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionProvider, Document.class, key);
 
         MongoWriter.writeToMongo(mongoRdd, collectionProvider, true, false);
 
@@ -138,7 +135,7 @@ public class MongoWriterTest {
 
     @Test
     public void shouldReplaceInMongo() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionProvider, Document.class, key)
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionProvider, Document.class, key)
                 .map(new ChangeNonIDKeyValue(), ClassTag$.MODULE$.apply(Document.class));
 
         MongoWriter.writeToMongo(mongoRdd, collectionProvider, false, false);
@@ -152,7 +149,7 @@ public class MongoWriterTest {
 
     @Test
     public void shouldNotReplaceInMongo() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionProvider, Document.class, key)
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionProvider, Document.class, key)
                 .map(new ChangeIDValue(), ClassTag$.MODULE$.apply(Document.class));
 
         MongoWriter.writeToMongo(mongoRdd, collectionProvider, false, false);
@@ -162,7 +159,7 @@ public class MongoWriterTest {
 
     @Test
     public void shouldCreateAndWriteToCollection() {
-        RDD<Document> mongoRdd = new MongoRDD<>(sc, broadcastCollectionProvider, Document.class, key)
+        RDD<Document> mongoRdd = new MongoRDD<>(sc, collectionProvider, Document.class, key)
                 .map(new GetSingleKeyValueDocument(key), ClassTag$.MODULE$.apply(Document.class));
 
         MongoCollectionProvider<Document> docProvider =
