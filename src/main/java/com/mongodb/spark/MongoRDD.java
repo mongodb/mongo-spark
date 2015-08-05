@@ -131,7 +131,9 @@ public class MongoRDD<T> extends RDD<T> {
 
     @Override
     public Iterator<T> compute(final Partition split, final TaskContext context) {
-        return asScalaIteratorConverter(this.getCursor((MongoPartition) split)).asScala();
+        MongoCursor<T> cursor = this.getCursor((MongoPartition) split);
+        context.addTaskCompletionListener(new MongoTaskCompletionListener(cursor));
+        return asScalaIteratorConverter(cursor).asScala();
     }
 
     /**
