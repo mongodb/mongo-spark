@@ -29,7 +29,7 @@ repositories {
     mavenCentral()
 }
 
-sourceCompatibility = 1.8
+sourceCompatibility = JavaVersion.VERSION_1_8
 
 dependencies {
     testCompile group: 'junit', name: 'junit', version: '4.11'
@@ -45,5 +45,6 @@ checkstyle {
 task fatJar(type: Jar, dependsOn: 'compileJava') {
     from { configurations.runtime.collect { it.isDirectory() ? it : zipTree(it) } }
     exclude 'META-INF/MANIFEST.MF', 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
+    with jar
     archiveName = 'mongo-spark-1.0-SNAPSHOT-fat.jar'
 }
