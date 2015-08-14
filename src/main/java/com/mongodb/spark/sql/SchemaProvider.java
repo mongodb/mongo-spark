@@ -17,7 +17,9 @@
 package com.mongodb.spark.sql;
 
 import com.mongodb.spark.MongoCollectionProvider;
+import org.apache.spark.sql.types.ArrayType;
 import org.apache.spark.sql.types.DataType;
+import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 import org.bson.BsonTimestamp;
@@ -25,18 +27,16 @@ import org.bson.Document;
 import org.bson.types.ObjectId;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.util.Collections.singletonList;
-import static org.apache.spark.sql.types.DataTypes.NullType;
-import static org.apache.spark.sql.types.DataTypes.StringType;
-import static org.apache.spark.sql.types.DataTypes.TimestampType;
-import static org.apache.spark.sql.types.DataTypes.createArrayType;
-import static org.apache.spark.sql.types.DataTypes.createStructField;
-import static org.apache.spark.sql.types.DataTypes.createStructType;
 
 /**
  * Utility class to generate a Spark SQL schema for a collection from MongoDB.
@@ -65,26 +65,90 @@ public final class SchemaProvider {
                                                      .into(new ArrayList<>());
 
         Map<String, DataType> keyValueDataTypeMap = new HashMap<>();
-        List<String> ignoreKeys = new ArrayList<>();
 
         documents.forEach(document ->
-                document.keySet().forEach(key -> {
-                    DataType dataType = getDataType(document.get(key));
+            document.keySet().forEach(key -> {
+                DataType dataType;
+                try {
+                    dataType = getDataType(document.get(key));
+                } catch (SkipFieldException e) {
+                    // empty array; just skip the field
+                    return;
+                }
 
-                    if (keyValueDataTypeMap.containsKey(key) && !keyValueDataTypeMap.get(key).sameType(dataType)) {
-                        keyValueDataTypeMap.remove(key);
-                        ignoreKeys.add(key);
-                    } else if (!ignoreKeys.contains(key)) {
-                        keyValueDataTypeMap.put(key, dataType);
-                    }
-                })
+                if (keyValueDataTypeMap.containsKey(key)) {
+                    keyValueDataTypeMap.put(key, getMatchingDataType(keyValueDataTypeMap.get(key), dataType));
+                } else {
+                    keyValueDataTypeMap.put(key, dataType);
+                }
+            })
         );
 
         List<StructField> fields = keyValueDataTypeMap.entrySet()
                                                       .stream()
-                                                      .map(entry -> createStructField(entry.getKey(), entry.getValue(), true))
+                                                      .map(entry -> DataTypes.createStructField(entry.getKey(), entry.getValue(), true))
                                                       .collect(Collectors.toList());
-        return createStructType(fields);
+
+        return DataTypes.createStructType(fields);
+    }
+
+    /**
+     * Gets the matching DataType for the input DataTypes.
+     *
+     * For simple types, returns a ConflictType if the DataTypes do not match.
+     *
+     * For complex types:
+     * - ArrayTypes: if the DataTypes of the elements cannot be matched, then
+     *               an ArrayType(ConflictType, true) is returned.
+     * - StructTypes: for any field on which the DataTypes conflict, the field
+     *                value is replaced with a ConflictType.
+     *
+     * @param thisType the DataType of the first element
+     * @param thatType the DataType of the second element
+     * @return the DataType that matches on the input DataTypes
+     */
+    private static DataType getMatchingDataType(final DataType thisType, final DataType thatType) {
+        if (thisType instanceof ArrayType && thatType instanceof ArrayType) {
+            ArrayType thisArrayType = (ArrayType) thisType;
+            ArrayType thatArrayType = (ArrayType) thatType;
+
+            DataType matchingElementDataType = getMatchingDataType(thisArrayType.elementType(), thatArrayType.elementType());
+
+            return DataTypes.createArrayType(matchingElementDataType);
+        }
+
+        if (thisType instanceof StructType && thatType instanceof StructType) {
+            StructType thisStructType = ((StructType) thisType);
+            StructType thatStructType = ((StructType) thatType);
+
+            Set<String> thisTypeFieldNames = new HashSet<>(Arrays.asList(thisStructType.fieldNames()));
+            Set<String> thatTypeFieldNames = new HashSet<>(Arrays.asList(thatStructType.fieldNames()));
+
+            Set<String> intersection = new HashSet<>(thisTypeFieldNames);
+            intersection.retainAll(thatTypeFieldNames);
+
+            StructField[] thisTypeFields = thisStructType.fields();
+            StructField[] thatTypeFields = thatStructType.fields();
+
+            List<StructField> fields = new ArrayList<>();
+
+            intersection.forEach(fieldName -> {
+                DataType thisFieldDataType = thisTypeFields[thisStructType.fieldIndex(fieldName)].dataType();
+                DataType thatFieldDataType = thatTypeFields[thatStructType.fieldIndex(fieldName)].dataType();
+                DataType matchingElementDataType = getMatchingDataType(thisFieldDataType, thatFieldDataType);
+                fields.add(DataTypes.createStructField(fieldName, matchingElementDataType, true));
+            });
+
+            thisTypeFieldNames.removeAll(intersection);
+            thatTypeFieldNames.removeAll(intersection);
+
+            thisTypeFieldNames.forEach(fieldName -> fields.add(thisTypeFields[thisStructType.fieldIndex(fieldName)]));
+            thatTypeFieldNames.forEach(fieldName -> fields.add(thatTypeFields[thatStructType.fieldIndex(fieldName)]));
+
+            return DataTypes.createStructType(fields);
+        }
+
+        return thisType.sameType(thatType) ? thisType : ConflictType.CONFLICT_TYPE;
     }
 
     /**
@@ -101,16 +165,26 @@ public final class SchemaProvider {
     public static StructType getSchemaFromDocument(final Document document) {
         List<StructField> fields = document.entrySet()
                                            .stream()
-                                           .map(entry -> createStructField(entry.getKey(), getDataType(entry.getValue()), true))
+                                           .map(entry -> {
+                                               try {
+                                                   return DataTypes.createStructField(entry.getKey(), getDataType(entry.getValue()), true);
+                                               } catch (SkipFieldException e) {
+                                                   return null;
+                                               }
+                                           })
+                                           .filter(field -> field != null)
                                            .collect(Collectors.toList());
-        return createStructType(fields);
+
+        return DataTypes.createStructType(fields);
     }
 
     /**
      * This is a helper function used to get the Spark SQL DataType for a given field
      * in a Document.
      *
-     * Support is currently provided for the following types (from Document):
+     * Support is currently provided for the following types:
+     *  ByteType
+     *  ShortType
      *  IntegerType
      *  LongType
      *  FloatType
@@ -120,69 +194,76 @@ public final class SchemaProvider {
      *  DateType *
      *  TimestampType
      *  StructType
-     *  ArrayType
+     *  ArrayType **
      *
-     * At this point in time, no support is offered for ByteType, ShortType, DecimalType, MapType, StructField.
+     * At this point in time, no support is offered for DecimalType, MapType, StructField.
      *
      * * Note that the DateType used in Spark SQL only records year, month, and day. Precision from
-     *   BsonTimestamp will be lost.
+     *   Date will be lost.
+     *
+     * ** Since ArrayTypes in Spark SQL must be homogenous, heterogenous arrays are marked
+     *    as ArrayType(ConflictType, true).
      *
      * @param object the object
      * @return the DataType of the object
      */
-    private static DataType getDataType(final Object object) {
-        Class objectClass = object.getClass();
-
-        if (objectClass.equals(ObjectId.class)) {
-            return StringType;
+    private static DataType getDataType(final Object object) throws SkipFieldException {
+        if (object instanceof ObjectId) {
+            return DataTypes.StringType;
         }
-        else if (objectClass.equals(Document.class)) {
+        else if (object instanceof Document) {
             return getSchemaFromDocument((Document) object);
         }
-        else if (objectClass.equals(ArrayList.class)) {
-            return createArrayType(getArrayElementType((List) object));
+        else if (object instanceof List) {
+            // throws SparkException
+            return DataTypes.createArrayType(getArrayElementType((List) object));
         }
-        else if (objectClass.equals(BsonTimestamp.class)) {
-            return TimestampType;
+        else if (object instanceof BsonTimestamp) {
+            return DataTypes.TimestampType;
         }
+
         // this will throw an exception if the class is not supported in Spark SQL type system
-        return DataType.fromJson("\"" + objectClass.getSimpleName().toLowerCase() + "\"");
+        try {
+            return DataType.fromJson("\"" + object.getClass().getSimpleName().toLowerCase() + "\"");
+        } catch (NoSuchElementException e) {
+            // may need to just catch Exception
+            return ConflictType.CONFLICT_TYPE;
+        }
     }
 
     /**
      * Gets the DataType of the elements in the Array. Since arrays in documents
-     * are represented by ArrayLists, the method takes a List as a parameter.
+     * are represented by Lists, the method takes a List as a parameter.
      *
-     * Since ArrayTypes in Spark SQL must be homogenous, heterogenous arrays are ignored.
+     * Since ArrayTypes in Spark SQL must be homogenous, heterogenous arrays are marked
+     * as ArrayType(ConflictType, true).
      *
-     * @param list the list representing the array
+     * @param arrayElements the list representing the array
      * @return the DataType of the elements in the array, or null if the list is empty or heterogeneous
      */
-    private static DataType getArrayElementType(final List list) {
-        if (list.isEmpty()) {
-            return NullType;
+    private static DataType getArrayElementType(final List arrayElements) throws SkipFieldException {
+        if (arrayElements.isEmpty()) {
+            throw new SkipFieldException("Skip empty array field");
         }
 
-        Class elementClass = list.get(0).getClass();
-        for (Object element : list) {
-            if (!element.getClass().equals(elementClass)) {
-                return NullType;
+        // preliminary run through - if classes don't match up, then it's not homogeneous
+        Object firstElement = arrayElements.get(0);
+        Class firstElementClass = firstElement.getClass();
+        for (Object element : arrayElements) {
+            if (!element.getClass().equals(firstElementClass)) {
+                return ConflictType.CONFLICT_TYPE;
             }
         }
 
-        // Deal with documents with differing structures, since they are
-        // technically homogenous, but taking the schema generated by the first
-        // document could potentially overlook elements in the rest of the
-        // array, e.g. [{a : 1}, {b : 1}] should have a schema [a, b]
-        if (elementClass.equals(Document.class)) {
-            StructType schema = (StructType) getDataType(list.get(0));
-            for (int i = 1; i < list.size(); i++) {
-                // TODO: deal with possibly thrown SparkException
-                schema = schema.merge((StructType) getDataType(list.get(i)));
+        DataType elementType = getDataType(firstElement);
+        // if documents or lists, get the matching types
+        if (firstElement instanceof Document || firstElement instanceof List) {
+            for (int i = 1; i < arrayElements.size(); i++) {
+                elementType = getMatchingDataType(elementType, getDataType(arrayElements.get(i)));
             }
-            return schema;
         }
-        return getDataType(list.get(0));
+
+        return elementType;
     }
 
     private SchemaProvider() {
