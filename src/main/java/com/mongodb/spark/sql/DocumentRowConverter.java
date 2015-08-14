@@ -65,21 +65,19 @@ public final class DocumentRowConverter {
      * @return the Spark SQL equivalent of the object
      */
     private static Object toDataType(final Object element, final DataType elementType) {
-        Class elementTypeClass = elementType.getClass();
-
-        // currently, will throw a ClassCastException if the value in the
-        // document does not correspond to the elementType
-        if (elementTypeClass.equals(TimestampType.class)) {
+        // currently, will throw a ClassCastException when accesing the value through a Spark SQL query
+        // if the value in the document does not correspond to its elementType
+        if (elementType instanceof TimestampType) {
             return new java.sql.Timestamp(((BsonTimestamp) element).getTime() * 1000L);
-        } else if (elementTypeClass.equals(DateType.class)) {
+        } else if (elementType instanceof DateType) {
             return new java.sql.Date(((Date) element).getTime());
-        } else if (elementTypeClass.equals(ArrayType.class)) {
+        } else if (elementType instanceof ArrayType) {
             DataType innerElementType = ((ArrayType) (elementType)).elementType();
             return asScalaBuffer(((List<?>) element).stream()
                                                     .map(innerElement -> toDataType(innerElement, innerElementType))
                                                     .collect(Collectors.toList()))
                                   .toList();
-        } else if (elementTypeClass.equals(StructType.class)) {
+        } else if (elementType instanceof StructType) {
             return documentToRow((Document) element, (StructType) elementType);
         }
 
