@@ -217,6 +217,10 @@ public final class SchemaProvider {
      * @return the DataType of the object
      */
     private static DataType getDataType(final Object object) throws SkipFieldException {
+        if (object == null) {
+            throw new SkipFieldException("Skip null value field");
+        }
+
         if (object instanceof ObjectId) {
             return DataTypes.StringType;
         }
@@ -255,20 +259,32 @@ public final class SchemaProvider {
             throw new SkipFieldException("Skip empty array field");
         }
 
-        // preliminary run through - if classes don't match up, then it's not homogeneous
-        Object firstElement = arrayElements.get(0);
-        Class firstElementClass = firstElement.getClass();
+        Object firstNonNullElement = null;
         for (Object element : arrayElements) {
-            if (!element.getClass().equals(firstElementClass)) {
+            if (element != null) {
+                firstNonNullElement = element;
+                break;
+            }
+        }
+
+        if (firstNonNullElement == null) {
+            throw new SkipFieldException("Skip array of null values field");
+        }
+
+        // preliminary run through - if classes don't match up, then it's not homogeneous
+        Class firstNonNullElementClass = firstNonNullElement.getClass();
+        for (Object element : arrayElements) {
+            if (element != null && !element.getClass().equals(firstNonNullElementClass)) {
                 return ConflictType.CONFLICT_TYPE;
             }
         }
 
-        DataType elementType = getDataType(firstElement);
-        // if documents or lists, get the matching types
-        if (firstElement instanceof Document || firstElement instanceof List) {
-            for (int i = 1; i < arrayElements.size(); i++) {
-                elementType = getMatchingDataType(elementType, getDataType(arrayElements.get(i)));
+        DataType elementType = getDataType(firstNonNullElement);
+        if (firstNonNullElement instanceof Document || firstNonNullElement instanceof List) {
+            for (Object element : arrayElements) {
+                if (element != null && !element.equals(firstNonNullElement)) {
+                    elementType = getMatchingDataType(elementType, getDataType(element));
+                }
             }
         }
 

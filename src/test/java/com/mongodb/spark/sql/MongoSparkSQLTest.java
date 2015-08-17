@@ -465,4 +465,18 @@ public class MongoSparkSQLTest {
 
         assertTrue(expectedSchema.sameType(schema));
     }
+
+    @Test
+    public void nullTypes() {
+        Document document = new Document("a", null)
+                                 .append("b", Collections.singletonList(null))
+                                 .append("c", new Document("d", null));
+
+        StructType schema = SchemaProvider.getSchemaFromDocument(document);
+
+        StructType expectedSchema =
+                createStructType(Collections.singletonList(createStructField("c", createStructType(Collections.emptyList()), true)));
+
+        assertEquals(expectedSchema, schema);
+    }
 }
