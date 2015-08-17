@@ -48,9 +48,6 @@ public final class SchemaProvider {
      *
      * Utilizes the $sample aggregation operator, available in server versions 3.1.6+.
      *
-     * Note that if any key in the sampled documents has multiple types for the value
-     * in different documents, then the key is dropped from the schema.
-     *
      * @param collectionProvider the collection provider
      * @param sampleSize a positive integer sample size to draw from the collection
      * @return the schema for the collection
@@ -64,6 +61,18 @@ public final class SchemaProvider {
                                                      .aggregate(singletonList(new Document("$sample", new Document("size", sampleSize))))
                                                      .into(new ArrayList<>());
 
+        return getSchemaFromDocuments(documents);
+    }
+
+    /**
+     * Gets a schema from the specified Documents. The documents should be
+     * a representative sample of the collection, whether from $sample
+     * or sampling the RDD directly.
+     *
+     * @param documents the documents
+     * @return the schema for the collection
+     */
+    private static StructType getSchemaFromDocuments(final List<Document> documents) {
         Map<String, DataType> keyValueDataTypeMap = new HashMap<>();
 
         documents.forEach(document ->
@@ -72,7 +81,7 @@ public final class SchemaProvider {
                 try {
                     dataType = getDataType(document.get(key));
                 } catch (SkipFieldException e) {
-                    // empty array; just skip the field
+                    // just skip the field
                     return;
                 }
 
