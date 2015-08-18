@@ -18,6 +18,8 @@
 package com.mongodb.spark;
 
 import com.mongodb.client.MongoCursor;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.spark.TaskContext;
 import org.apache.spark.util.TaskCompletionListener;
 
@@ -28,6 +30,8 @@ import static com.mongodb.assertions.Assertions.notNull;
  * once the task has been completed.
  */
 public class MongoTaskCompletionListener implements TaskCompletionListener {
+    private static final Log LOG = LogFactory.getLog(MongoTaskCompletionListener.class);
+
     private MongoCursor cursor;
 
     /**
@@ -41,6 +45,8 @@ public class MongoTaskCompletionListener implements TaskCompletionListener {
 
     @Override
     public void onTaskCompletion(final TaskContext context) {
+        LOG.debug("Closing cursor");
+
         this.cursor.close();
     }
 }

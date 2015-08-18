@@ -19,6 +19,8 @@ package com.mongodb.spark;
 import com.mongodb.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import static com.mongodb.assertions.Assertions.notNull;
 
@@ -28,6 +30,8 @@ import static com.mongodb.assertions.Assertions.notNull;
  * @param <T> type of objects in the collection
  */
 public class MongoSparkCollectionProvider<T> implements MongoCollectionProvider<T> {
+    private static final Log LOG = LogFactory.getLog(MongoSparkCollectionProvider.class);
+
     private Class<T> clazz;
     private MongoClientProvider clientProvider;
     private String collection;
@@ -53,6 +57,8 @@ public class MongoSparkCollectionProvider<T> implements MongoCollectionProvider<
     @Override
     public MongoCollection<T> getCollection() {
         if (this.mongoCollection == null) {
+            LOG.debug("Instantiating a MongoCollection for " + this.database + "." + this.collection);
+
             this.mongoCollection = this.clientProvider.getClient()
                                                       .getDatabase(this.database)
                                                       .getCollection(this.collection, this.clazz);

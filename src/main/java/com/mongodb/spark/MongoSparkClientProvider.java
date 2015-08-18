@@ -18,6 +18,8 @@ package com.mongodb.spark;
 
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientURI;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import java.io.IOException;
 
@@ -27,6 +29,8 @@ import static com.mongodb.assertions.Assertions.notNull;
  * Implementation of a client provider. Used to share a client amongst partitions in a worker node.
  */
 public class MongoSparkClientProvider implements MongoClientProvider {
+    private static final Log LOG = LogFactory.getLog(MongoSparkClientProvider.class);
+
     private transient MongoClient client;
     private MongoClientOptionsBuilderInitializer initializer;
     private String uri;
@@ -54,6 +58,8 @@ public class MongoSparkClientProvider implements MongoClientProvider {
     @Override
     public MongoClient getClient() {
         if (this.client == null) {
+            LOG.debug("Instantiating a MongoClient");
+
             if (this.initializer != null) {
                 this.client = new MongoClient(new MongoClientURI(this.uri, this.initializer.initialize()));
             }
@@ -68,6 +74,8 @@ public class MongoSparkClientProvider implements MongoClientProvider {
     @Override
     public void close() throws IOException {
         if (this.client != null) {
+            LOG.debug("Closing a MongoClient");
+
             this.client.close();
             this.client = null;
         }

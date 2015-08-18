@@ -17,6 +17,8 @@
 package com.mongodb.spark;
 
 import com.mongodb.client.MongoCollection;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.bson.BsonMaxKey;
 import org.bson.BsonMinKey;
 import org.bson.Document;
@@ -31,6 +33,8 @@ import static com.mongodb.spark.SplitterHelper.splitsToBounds;
  * A splitter for standalone mongo.
  */
 class StandaloneMongoSplitter {
+    private static final Log LOG = LogFactory.getLog(StandaloneMongoSplitter.class);
+
     private MongoCollectionProvider provider;
     private String key;
     private int maxChunkSize;
@@ -50,7 +54,7 @@ class StandaloneMongoSplitter {
     }
 
     /**
-     * Get the split keys for a non-sharded collection.
+     * Get the split bounds for a non-sharded collection.
      *
      * @return the split bounds as documents
      */
@@ -59,6 +63,9 @@ class StandaloneMongoSplitter {
         MongoCollection collection = this.provider.getCollection();
 
         String ns = collection.getNamespace().getFullName();
+
+        LOG.debug("Getting split bounds for a non-sharded collection " + ns);
+
         Document keyPattern = new Document(this.key, 1);
         Document splitVectorCommand = new Document("splitVector", ns)
                                            .append("keyPattern", keyPattern)
@@ -72,6 +79,9 @@ class StandaloneMongoSplitter {
             List<Document> splitBounds = new ArrayList<>(splitKeys.size() + 1);
 
             if (splitKeys.isEmpty()) {
+                LOG.warn("WARNING: No splitKeys were calculated by the splitVector command. Proceeding with a single partition, "
+                         + "which may be large. Try lowering 'maxChunkSize' if this is undesirable.");
+
                 splitBounds.add(
                         splitsToBounds(new Document(this.key, new BsonMinKey()), new Document(this.key, new BsonMaxKey()), this.key));
             } else {

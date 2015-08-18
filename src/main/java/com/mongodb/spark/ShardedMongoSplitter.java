@@ -19,6 +19,8 @@ package com.mongodb.spark;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.Projections;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.bson.Document;
 
 import java.util.ArrayList;
@@ -31,6 +33,8 @@ import static com.mongodb.spark.SplitterHelper.splitsToBounds;
  * A splitter for a sharded mongo.
  */
 class ShardedMongoSplitter {
+    private static final Log LOG = LogFactory.getLog(ShardedMongoSplitter.class);
+
     private MongoCollectionProvider provider;
     private String key;
 
@@ -54,12 +58,16 @@ class ShardedMongoSplitter {
     List<Document> getSplitBounds() {
         MongoCollection collection = this.provider.getCollection();
 
+        String ns = collection.getNamespace().getFullName();
+
+        LOG.debug("Getting split bounds for sharded collection " + ns);
+
         // get chunks for this namespace
         // may throw exception
         List<Document> chunks = this.provider.getClient()
                                              .getDatabase("config")
                                              .getCollection("chunks")
-                                             .find(Filters.eq("ns", collection.getNamespace().getFullName()))
+                                             .find(Filters.eq("ns", ns))
                                              .projection(Projections.include("min", "max"))
                                              .into(new ArrayList<>());
 

@@ -16,11 +16,14 @@
 
 package com.mongodb.spark;
 
+import com.mongodb.MongoBulkWriteException;
 import com.mongodb.client.model.BulkWriteOptions;
 import com.mongodb.client.model.InsertOneModel;
 import com.mongodb.client.model.ReplaceOneModel;
 import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.model.WriteModel;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.rdd.RDD;
 import org.bson.Document;
@@ -37,6 +40,8 @@ import java.util.List;
  * Utility class for writing RDDs to Mongo collections.
  */
 public final class MongoWriter {
+    private static final Log LOG = LogFactory.getLog(MongoWriter.class);
+
     /**
      * Writes the given RDD to the collection specified in the collection provider.
      * If there is a CollectibleCodec available for the documents and document ids
@@ -53,6 +58,8 @@ public final class MongoWriter {
      */
     public static <T> void writeToMongo(final RDD<T> rdd, final MongoCollectionProvider<T> provider, final Boolean upsert,
                                         final Boolean ordered) {
+        LOG.debug("Writing to collection " + provider.getCollection().getNamespace().getFullName());
+
         Broadcast<MongoCollectionProvider<T>> collectionProvider =
                 rdd.sparkContext().broadcast(provider, ClassTag$.MODULE$.apply(provider.getClass()));
 
@@ -79,7 +86,11 @@ public final class MongoWriter {
                 }
 
                 if (writeModels.size() > 0) {
-                    collectionProvider.value().getCollection().bulkWrite(writeModels, new BulkWriteOptions().ordered(ordered));
+                    try {
+                        collectionProvider.value().getCollection().bulkWrite(writeModels, new BulkWriteOptions().ordered(ordered));
+                    } catch (MongoBulkWriteException e) {
+                        LOG.info(e.getMessage(), e);
+                    }
                 }
 
                 return null;
