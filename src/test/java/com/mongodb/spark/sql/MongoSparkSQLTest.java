@@ -349,13 +349,22 @@ public class MongoSparkSQLTest {
 
         StructField bDoubleTypeField = createStructField("b", DataTypes.DoubleType, true);
         StructField cDoubleTypeField = createStructField("c", DataTypes.DoubleType, true);
+
         StructType bcStructType = createStructType(Arrays.asList(bDoubleTypeField, cDoubleTypeField));
         ArrayType aArrayTypeOfBCStructType = createArrayType(bcStructType);
         StructField aArrayTypeOfBCStructTypeField = createStructField("a", aArrayTypeOfBCStructType, true);
 
-        StructType expectedSchema = createStructType(Arrays.asList(aArrayTypeOfBCStructTypeField, underscoreIdStringTypeField));
+        StructType expectedBCSchema = createStructType(Arrays.asList(aArrayTypeOfBCStructTypeField, underscoreIdStringTypeField));
 
-        assertTrue(expectedSchema.sameType(schema));
+        StructType cbStructType = createStructType(Arrays.asList(cDoubleTypeField, bDoubleTypeField));
+        ArrayType aArrayTypeOfCBStructType = createArrayType(cbStructType);
+        StructField aArrayTypeOfCBStructTypeField = createStructField("a", aArrayTypeOfCBStructType, true);
+
+        StructType expectedCBSchema = createStructType(Arrays.asList(aArrayTypeOfCBStructTypeField, underscoreIdStringTypeField));
+
+        // because of $sample in SchemaProvider.getSchema, the schema built may have the order
+        // of the StructType fields in the elementType of the ArrayType be c, b instead of b, c
+        assertTrue(expectedBCSchema.sameType(schema) || expectedCBSchema.sameType(schema));
     }
 
     @Test
