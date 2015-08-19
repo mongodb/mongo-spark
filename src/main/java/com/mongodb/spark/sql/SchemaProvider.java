@@ -29,11 +29,9 @@ import org.bson.types.ObjectId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.util.Collections.singletonList;
@@ -127,29 +125,31 @@ public final class SchemaProvider {
         }
 
         if (thisType instanceof StructType && thatType instanceof StructType) {
-            StructType thisStructType = ((StructType) thisType);
-            StructType thatStructType = ((StructType) thatType);
+            StructType thisStructType = (StructType) thisType;
+            StructType thatStructType = (StructType) thatType;
 
-            Set<String> thisTypeFieldNames = new HashSet<>(Arrays.asList(thisStructType.fieldNames()));
-            Set<String> thatTypeFieldNames = new HashSet<>(Arrays.asList(thatStructType.fieldNames()));
+            List<String> thisTypeFieldNames = new ArrayList<>(Arrays.asList(thisStructType.fieldNames()));
+            List<String> thatTypeFieldNames = new ArrayList<>(Arrays.asList(thatStructType.fieldNames()));
 
-            Set<String> intersection = new HashSet<>(thisTypeFieldNames);
-            intersection.retainAll(thatTypeFieldNames);
+            List<String> intersectionFieldNames = new ArrayList<>(thisTypeFieldNames);
+            intersectionFieldNames.retainAll(thatTypeFieldNames);
 
             StructField[] thisTypeFields = thisStructType.fields();
             StructField[] thatTypeFields = thatStructType.fields();
 
             List<StructField> fields = new ArrayList<>();
 
-            intersection.forEach(fieldName -> {
+            intersectionFieldNames.forEach(fieldName -> {
                 DataType thisFieldDataType = thisTypeFields[thisStructType.fieldIndex(fieldName)].dataType();
                 DataType thatFieldDataType = thatTypeFields[thatStructType.fieldIndex(fieldName)].dataType();
+
                 DataType matchingElementDataType = getMatchingDataType(thisFieldDataType, thatFieldDataType);
+
                 fields.add(DataTypes.createStructField(fieldName, matchingElementDataType, true));
             });
 
-            thisTypeFieldNames.removeAll(intersection);
-            thatTypeFieldNames.removeAll(intersection);
+            thisTypeFieldNames.removeAll(intersectionFieldNames);
+            thatTypeFieldNames.removeAll(intersectionFieldNames);
 
             thisTypeFieldNames.forEach(fieldName -> fields.add(thisTypeFields[thisStructType.fieldIndex(fieldName)]));
             thatTypeFieldNames.forEach(fieldName -> fields.add(thatTypeFields[thatStructType.fieldIndex(fieldName)]));
