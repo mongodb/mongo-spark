@@ -17,6 +17,7 @@
 package com.mongodb.spark;
 
 import com.mongodb.MongoBulkWriteException;
+import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.BulkWriteOptions;
 import com.mongodb.client.model.InsertOneModel;
 import com.mongodb.client.model.ReplaceOneModel;
@@ -66,12 +67,12 @@ public final class MongoWriter {
         rdd.foreachPartition(new SerializableAbstractFunction1<Iterator<T>, BoxedUnit>() {
             @Override
             public BoxedUnit apply(final Iterator<T> elements) {
-                Codec<T> codec = collectionProvider.value()
-                                                   .getCollection()
-                                                   .getCodecRegistry().get(collectionProvider.value()
-                                                                                             .getCollection()
-                                                                                             .getDocumentClass());
+                MongoCollection<T> collection = collectionProvider.value().getCollection();
+                BulkWriteOptions bulkWriteOptions = new BulkWriteOptions().ordered(ordered);
+
+                Codec<T> codec = collection.getCodecRegistry().get(collection.getDocumentClass());
                 boolean isCollectibleCodec = codec instanceof CollectibleCodec;
+
                 List<WriteModel<T>> writeModels = new ArrayList<>();
                 T element;
 
@@ -83,11 +84,27 @@ public final class MongoWriter {
                     } else {
                         writeModels.add(new InsertOneModel<>(element));
                     }
+
+                    // limit batch size to 1000
+                    if (writeModels.size() == 1000) {
+                        try {
+                            collection.bulkWrite(writeModels, bulkWriteOptions);
+                        } catch (MongoBulkWriteException e) {
+                            LOG.info(e.getMessage(), e);
+
+                            if (bulkWriteOptions.isOrdered()) {
+                                LOG.info("Stopping ordered bulk write operation");
+                                return null;
+                            }
+                        } finally {
+                            writeModels.clear();
+                        }
+                    }
                 }
 
                 if (writeModels.size() > 0) {
                     try {
-                        collectionProvider.value().getCollection().bulkWrite(writeModels, new BulkWriteOptions().ordered(ordered));
+                        collection.bulkWrite(writeModels, bulkWriteOptions);
                     } catch (MongoBulkWriteException e) {
                         LOG.info(e.getMessage(), e);
                     }
