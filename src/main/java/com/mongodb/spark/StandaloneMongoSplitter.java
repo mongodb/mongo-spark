@@ -16,6 +16,7 @@
 
 package com.mongodb.spark;
 
+import com.mongodb.MongoNotPrimaryException;
 import com.mongodb.client.MongoCollection;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -24,6 +25,7 @@ import org.bson.BsonMinKey;
 import org.bson.Document;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static com.mongodb.assertions.Assertions.notNull;
@@ -70,11 +72,18 @@ class StandaloneMongoSplitter {
         Document splitVectorCommand = new Document("splitVector", ns)
                                            .append("keyPattern", keyPattern)
                                            .append("maxChunkSize", this.maxChunkSize);
-        Document result = this.provider.getDatabase()
-                                       .runCommand(splitVectorCommand, Document.class);
+        Document result;
+        try {
+            result = this.provider.getDatabase()
+                                  .runCommand(splitVectorCommand, Document.class);
+        } catch (MongoNotPrimaryException e) {
+            LOG.info("splitVector failed. " + e.getMessage() + "; continuing with no splitKeys!");
+
+            result = new Document("ok", 1.0);
+        }
 
         if (result.get("ok").equals(1.0)) {
-            List<Document> splitKeys = (List<Document>) result.get("splitKeys");
+            List<Document> splitKeys = (List<Document>) result.getOrDefault("splitKeys", Collections.emptyList());
 
             List<Document> splitBounds = new ArrayList<>(splitKeys.size() + 1);
 
