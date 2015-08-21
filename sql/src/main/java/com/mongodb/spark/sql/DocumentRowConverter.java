@@ -76,7 +76,7 @@ public final class DocumentRowConverter {
             return asScalaBuffer(((List<?>) element).stream()
                                                     .map(innerElement -> toDataType(innerElement, innerElementType))
                                                     .collect(Collectors.toList()))
-                                  .toList();
+                         .toList();
         } else if (elementType instanceof StructType) {
             return documentToRow((Document) element, (StructType) elementType);
         }

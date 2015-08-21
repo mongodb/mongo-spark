@@ -70,6 +70,27 @@ project(':core') {
     archivesBaseName = "mongo-spark-core"
 }
 
+project(':sql') {
+    archivesBaseName = "mongo-spark-sql"
+
+    dependencies {
+        compile project(':core')
+
+        compile 'org.apache.spark:spark-sql_2.10:1.4.1'
+    }
+
+    jar {
+        from project(':core').sourceSets.main.output
+        from sourceSets.main.output
+
+        configurations.compile.filter {
+            it.name.startsWith('mongo-java-driver')
+        }.each {
+            from zipTree(it)
+        }
+    }
+}
+
 project(':examples/enron') {
     archivesBaseName = "enron"
 
