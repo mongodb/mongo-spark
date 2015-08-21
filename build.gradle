@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 
-group 'org.mongodb'
-version '1.0-SNAPSHOT'
-
 apply plugin: 'java'
-apply plugin: 'checkstyle'
-apply plugin: 'eclipse'
 apply plugin: 'idea'
+apply plugin: 'eclipse'
+apply from: "gradle/examples.gradle"
+
+allprojects {
+    group = 'org.mongodb'
+    version = '1.0-SNAPSHOT'
+}
 
 def configDir = new File(rootDir, 'config')
 
@@ -29,23 +31,59 @@ repositories {
     mavenCentral()
 }
 
-sourceCompatibility = JavaVersion.VERSION_1_8
+configure(subprojects) {
+    apply plugin: 'java'
+    apply plugin: 'idea'
+    apply plugin: 'eclipse'
+    apply plugin: 'checkstyle'
 
-dependencies {
-    testCompile group: 'junit', name: 'junit', version: '4.11'
-    compile 'org.mongodb:mongo-java-driver:3.0.3'
-    compile 'org.apache.spark:spark-core_2.10:1.4.1'
-    compile 'org.apache.spark:spark-sql_2.10:1.4.1'
+    repositories {
+        mavenLocal()
+        mavenCentral()
+    }
+
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+
+    dependencies {
+        compile 'org.mongodb:mongo-java-driver:3.0.3'
+        compile 'org.apache.spark:spark-core_2.10:1.4.1'
+
+        testCompile 'junit:junit:4.11'
+    }
+
+    checkstyle {
+        toolVersion = "6.2"
+        configFile = new File("$configDir/checkstyle.xml")
+    }
 }
 
-checkstyle {
-    toolVersion = "6.2"
-    configFile = new File("$configDir/checkstyle.xml")
+jar {
+    dependsOn compileJava
+
+    def srcProjects = subprojects.findAll{ !it.name.contains('examples/') }
+
+    srcProjects.collect{with it.jar}
 }
 
-task fatJar(type: Jar, dependsOn: 'compileJava') {
-    from { configurations.runtime.collect { it.isDirectory() ? it : zipTree(it) } }
-    exclude 'META-INF/MANIFEST.MF', 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
-    with jar
-    archiveName = 'mongo-spark-1.0-SNAPSHOT-fat.jar'
+project(':core') {
+    archivesBaseName = "mongo-spark-core"
+}
+
+project(':examples/enron') {
+    archivesBaseName = "enron"
+
+    dependencies {
+        compile project(':core')
+    }
+
+    jar {
+        with rootProject.jar
+    }
+}
+
+project(':examples/tour') {
+    dependencies {
+        compile project(':core')
+    }
 }

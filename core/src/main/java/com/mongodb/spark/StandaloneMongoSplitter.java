@@ -28,55 +28,55 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static com.mongodb.assertions.Assertions.notNull;
 import static com.mongodb.spark.SplitterHelper.splitsToBounds;
 
 /**
- * A splitter for standalone mongo.
+ * A splitter for standalone mongo. Calculates a list of splits on a single
+ * collection by running the MongoDB internal command {@code splitVector} and
+ * generating split boundaries from the index boundaries returned by the
+ * command. Each chunk represented by the boundaries contains an approximate
+ * amount of data specified by the maxChunkSize used, and corresponds to one
+ * partition in an RDD.
+ *
+ * This splitter is the default implementation used for any collection which
+ * is not sharded.
+ *
+ * WARNING: If the collection provider targets a secondary member of a replica
+ * set, the {@code splitVector} command will fail. The program will proceed
+ * with a single partition. If this is not desirable, target the primary and
+ * set read preference accordingly.
  */
-class StandaloneMongoSplitter {
+final class StandaloneMongoSplitter {
     private static final Log LOG = LogFactory.getLog(StandaloneMongoSplitter.class);
 
-    private MongoCollectionProvider provider;
-    private String key;
-    private int maxChunkSize;
-
     /**
-     * Constructs a new instance
+     * Gets the split bounds for a non-sharded collection.
      *
      * @param provider a mongo collection provider
      * @param key the minimal prefix key of the index to be used for splitting
      * @param maxChunkSize the max size (in MB) for each partition
      * @param <T> the type of documents in the collection
-     */
-    <T> StandaloneMongoSplitter(final MongoCollectionProvider<T> provider, final String key, final int maxChunkSize) {
-        this.provider = notNull("provider", provider);
-        this.key = notNull("key", key);
-        this.maxChunkSize = maxChunkSize;
-    }
-
-    /**
-     * Get the split bounds for a non-sharded collection.
-     *
      * @return the split bounds as documents
      */
     @SuppressWarnings("unchecked")
-    List<Document> getSplitBounds() {
-        MongoCollection collection = this.provider.getCollection();
+    static <T> List<Document> getSplitBounds(final MongoCollectionProvider<T> provider, final String key, final int maxChunkSize) {
+        MongoCollection collection = provider.getCollection();
 
         String ns = collection.getNamespace().getFullName();
 
         LOG.debug("Getting split bounds for a non-sharded collection " + ns);
 
-        Document keyPattern = new Document(this.key, 1);
+        Document keyPattern = new Document(key, 1);
         Document splitVectorCommand = new Document("splitVector", ns)
                                            .append("keyPattern", keyPattern)
-                                           .append("maxChunkSize", this.maxChunkSize);
+                                           .append("maxChunkSize", maxChunkSize);
+
         Document result;
         try {
-            result = this.provider.getDatabase()
-                                  .runCommand(splitVectorCommand, Document.class);
+            result = provider.getDatabase()
+                             .runCommand(splitVectorCommand, Document.class);
         } catch (MongoNotPrimaryException e) {
+            // this fails because no chunk manager on secondaries
             LOG.info("splitVector failed. " + e.getMessage() + "; continuing with no splitKeys!");
 
             result = new Document("ok", 1.0);
@@ -92,20 +92,23 @@ class StandaloneMongoSplitter {
                          + "which may be large. Try lowering 'maxChunkSize' if this is undesirable.");
 
                 splitBounds.add(
-                        splitsToBounds(new Document(this.key, new BsonMinKey()), new Document(this.key, new BsonMaxKey()), this.key));
+                        splitsToBounds(new Document(key, new BsonMinKey()), new Document(key, new BsonMaxKey()), key));
             } else {
-                splitBounds.add(splitsToBounds(new Document(this.key, new BsonMinKey()), splitKeys.get(0), this.key));
+                splitBounds.add(splitsToBounds(new Document(key, new BsonMinKey()), splitKeys.get(0), key));
 
                 for (int i = 0; i < splitKeys.size() - 1; i++) {
-                    splitBounds.add(splitsToBounds(splitKeys.get(i), splitKeys.get(i + 1), this.key));
+                    splitBounds.add(splitsToBounds(splitKeys.get(i), splitKeys.get(i + 1), key));
                 }
 
-                splitBounds.add(splitsToBounds(splitKeys.get(splitKeys.size() - 1), new Document(this.key, new BsonMaxKey()), this.key));
+                splitBounds.add(splitsToBounds(splitKeys.get(splitKeys.size() - 1), new Document(key, new BsonMaxKey()), key));
             }
 
             return splitBounds;
         } else {
             throw new SplitException("Could not calculate standalone splits. Server errmsg: " + result.get("errmsg"));
         }
+    }
+
+    private StandaloneMongoSplitter() {
     }
 }

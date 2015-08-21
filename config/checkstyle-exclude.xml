@@ -22,4 +22,5 @@
 
 <suppressions>
     <suppress checks="Javadoc*" files=".*test.*"/>
+    <suppress checks="Javadoc*" files="examples/.*"/>
 </suppressions>
