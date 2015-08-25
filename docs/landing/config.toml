@@ -1,0 +1,6 @@
+baseurl = "/mongo-spark/"
+languageCode = "en-us"
+title = "Mongo Spark"
+canonifyUrls = false
+
+githubRepo = "mongo-spark"
