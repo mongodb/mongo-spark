@@ -106,5 +106,6 @@ project(':examples/enron') {
 project(':examples/tour') {
     dependencies {
         compile project(':core')
+        compile project(':sql')
     }
 }
