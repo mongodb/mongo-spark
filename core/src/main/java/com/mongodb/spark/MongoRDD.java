@@ -137,7 +137,8 @@ public class MongoRDD<T> extends RDD<T> {
     }
 
     /**
-     * Helper function to retrieve the results from the collection.
+     * Retrieves the partition's data from the mongo collection based on the
+     * bounds of the partition.
      *
      * @return the cursor
      */

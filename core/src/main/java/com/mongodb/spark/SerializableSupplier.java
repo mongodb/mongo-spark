@@ -20,7 +20,7 @@ import java.io.Serializable;
 import java.util.function.Supplier;
 
 /**
- * A dummy interface to provide a friendlier way to instantiate a lambda as
+ * A interface to provide a friendlier way to instantiate a lambda as
  * a serializable supplier by specifying the reference type and additional bound.
  *
  * See <a href="http://docs.oracle.com/javase/specs/jls/se8/html/jls-15.html#jls-15.16">Cast Expressions</a>

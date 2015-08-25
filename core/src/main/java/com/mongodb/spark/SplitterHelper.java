@@ -23,7 +23,7 @@ import org.bson.Document;
  */
 final class SplitterHelper {
     /**
-     * Helper function to translate splitVector key:value pairs into partition boundaries.
+     * Translates splitVector key:value pairs into partition boundaries.
      *
      * @param lower the lower boundary document
      * @param upper the upper boundary document

@@ -21,7 +21,7 @@ import com.mongodb.MongoClientOptions.Builder;
 import java.io.Serializable;
 
 /**
- * Provides an interface to initialize non-serializable builders to configure client options
+ * Interface for an initializer of non-serializable builders to configure client options
  * not supported by a MongoClientURI on Spark worker node mongo clients.
  */
 public interface MongoClientOptionsBuilderInitializer extends Serializable {

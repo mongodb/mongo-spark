@@ -25,6 +25,11 @@ import java.io.IOException;
 
 import static com.mongodb.assertions.Assertions.notNull;
 
+/*
+ * In essence, instantiate a single client per executor process on any
+ * given worker node. The partitions computed by the worker node may share
+ * the instantiated client when getting connections to the database.
+ */
 /**
  * Implementation of a client provider. Used to share a client amongst partitions in a worker node.
  */

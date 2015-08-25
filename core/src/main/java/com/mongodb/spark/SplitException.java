@@ -19,7 +19,7 @@ package com.mongodb.spark;
 import com.mongodb.MongoException;
 
 /**
- * A class for exceptions that come from the connector.
+ * A class for exceptions that come from the connector's mongo splitters.
  */
 public class SplitException extends MongoException {
     /**

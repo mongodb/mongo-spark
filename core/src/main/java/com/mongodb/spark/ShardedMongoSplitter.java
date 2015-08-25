@@ -30,7 +30,8 @@ import static com.mongodb.assertions.Assertions.notNull;
 import static com.mongodb.spark.SplitterHelper.splitsToBounds;
 
 /**
- * A splitter for a sharded mongo.
+ * A splitter for a sharded mongo. Retrieves chunk information from the
+ * cluster's config server and produces one partition for each chunk.
  */
 class ShardedMongoSplitter {
     private static final Log LOG = LogFactory.getLog(ShardedMongoSplitter.class);
@@ -51,7 +52,7 @@ class ShardedMongoSplitter {
     }
 
     /**
-     * Get the split bounds for a sharded collection.
+     * Gets the split bounds for a sharded collection.
      *
      * @return the split bounds as documents
      */

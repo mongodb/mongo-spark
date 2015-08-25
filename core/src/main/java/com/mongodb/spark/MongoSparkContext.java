@@ -85,7 +85,7 @@ public class MongoSparkContext extends JavaSparkContext {
     }
 
     /**
-     * Parallelizes a mongo collection specified by the collection provider. The number of partitions
+     * Gets a RDD for a mongo collection specified by the collection provider. The number of partitions
      * is determined by the number of chunks in a sharded collection, or the number of chunks
      * calculated by a vectorSplit for non-sharded collections (default max chunk size 64 MB).
      *
@@ -102,7 +102,7 @@ public class MongoSparkContext extends JavaSparkContext {
     }
 
     /**
-     * Parallelizes a mongo collection specified by the collection provider. Set maxChunkSize
+     * Gets a RDD for a mongo collection specified by the collection provider. Set maxChunkSize
      * to determine the size of the partitions based on a vectorSplit. maxChunkSize only
      * affects creating RDDs from non-sharded collections.
      *
@@ -121,7 +121,7 @@ public class MongoSparkContext extends JavaSparkContext {
     }
 
     /**
-     * Parallelizes a mongo collection specified by the collection provider and prefiltered
+     * Gets a RDD for a mongo collection specified by the collection provider and prefiltered
      * according to the aggregation pipeline. Set maxChunkSize to determine the size of the partitions
      * based on a vectorSplit. maxChunkSize only affects creating RDDs from non-sharded collections.
      *
@@ -141,7 +141,7 @@ public class MongoSparkContext extends JavaSparkContext {
     }
 
     /**
-     * Parallelizes a mongo collection specified by the collection provider and an aggregation pipeline
+     * Gets a RDD for a mongo collection specified by the collection provider and an aggregation pipeline
      * to prefilter results. The number of partitions is determined by the number of chunks in a
      * sharded collection, or the number of chunks calculated by a vectorSplit for non-sharded
      * collections (default max chunk size 64 MB).
