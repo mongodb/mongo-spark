@@ -11,11 +11,17 @@ workflow.
 mongo-spark provides a connector for Spark which allows MongoDB to be used as
 an input source for RDDs as well as providing options to write RDDs to MongoDB.
 
+It also provides integration with Spark SQL, including schema inference and
+document to row mapping.
+
 ## Features
+
 * Use MongoDB collections from standalone, replica set, or sharded
   configurations as input for RDDs.
-* Write RDDs to MongoDB collections.
 * Filter source data with aggregation.
+* Write RDDs to MongoDB collections.
+* Infer Spark SQL schemas for Mongo collections.
+* Map documents to Spark SQL rows.
 
 ## Building
 
