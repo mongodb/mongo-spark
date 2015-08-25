@@ -1,4 +1,7 @@
 {{ $artifactId := .Get "artifactId"}}{{ $version := .Get "version"}}{{ $dependencies := .Get "dependencies"}}{{ $snapshot := in $version "SNAPSHOT" }}
+{{ $sparkVersion := "1.4.1"}}
+{{ $mongoJavaDriverVersion := "3.0.3"}}
+{{ $mavenUrl := "https://repo1.maven.org/maven2" }}
 {{ if $snapshot }}
 {{$ossUrl := "https://oss.sonatype.org/content/repositories/snapshots"}}
 <section class="maven">
@@ -42,8 +45,8 @@
     {{ with $dependencies}}
     <p>
         <strong>Note:</strong> <code>{{$artifactId}}</code> requires the following dependencies:
-        <a href="{{$ossUrl}}/org/mongodb/bson/{{$version}}" target="_blank"><code>bson</code></a> and
-        <a href="{{$ossUrl}}/org/mongodb/mongodb-driver-core/{{$version}}" target="_blank"><code>mongodb-driver-core</code></a>
+        <a href="{{$mavenUrl}}/org/apache/spark/spark-core_2.10/{{$sparkVersion}}/" target="_blank"><code>spark-core 2.10-{{$sparkVersion}}</code></a> and
+        <a href="{{$mavenUrl}}/org/mongodb/mongo-java-driver/{{$mongoJavaDriverVersion}}/" target="_blank"><code>mongo-java-driver {{$mongoJavaDriverVersion}}</code></a>
     </p>
     {{end}}
 </section>
@@ -76,8 +79,8 @@
     {{ with $dependencies}}
     <p>
         <strong>Note:</strong> <code>{{$artifactId}}</code> requires the following dependencies:
-        <a href="{{$ossUrl}}/org/mongodb/bson/{{$version}}" target="_blank"><code>bson</code></a> and
-        <a href="{{$ossUrl}}/org/mongodb/mongodb-driver-core/{{$version}}" target="_blank"><code>mongodb-driver-core</code></a>
+        <a href="{{$mavenUrl}}/org/apache/spark/spark-core_2.10/{{$sparkVersion}}/" target="_blank"><code>spark-core 2.10-{{$sparkVersion}}</code></a> and
+        <a href="{{$mavenUrl}}/org/mongodb/mongo-java-driver/{{$mongoJavaDriverVersion}}/" target="_blank"><code>mongo-java-driver {{$mongoJavaDriverVersion}}</code></a>
     </p>
     {{end}}
 </section>
