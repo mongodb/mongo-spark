@@ -27,16 +27,20 @@ import org.junit.Test;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.mongodb.spark.SplitterHelper.splitsToBounds;
 import static org.junit.Assert.assertEquals;
 
 /*
  * These tests assume:
- *     There is a standalone mongod running on localhost:30000, with namespace test.foo
- *     There is a sharded cluster running with a mongos on localhost:27017, with namespace test.foo
+ *     There is a standalone mongod running on localhost:27017, with db 'spark_test'
+ *     There is a sharded cluster running with a mongos on localhost:27018, with db 'spark_test'
  * Modify the URIs as necessary.
  */
 public class MongoSplitterTest {
     private MongoSparkContext msc;
+
+    private String standaloneUri = "mongodb://localhost:27017";
+    private String shardedUri = "mongodb://localhost:27018";
 
     @Before
     public void setUp() {
@@ -51,7 +55,7 @@ public class MongoSplitterTest {
 
     @Test
     public void shouldSplitStandalone() {
-        MongoClientProvider clientProvider = new MongoSparkClientProvider("mongodb://localhost:30000");
+        MongoClientProvider clientProvider = new MongoSparkClientProvider(standaloneUri);
         MongoCollectionProvider<Document> collectionProvider =
                 new MongoSparkCollectionProvider<>(Document.class, clientProvider, "spark_test", "test");
 
@@ -69,7 +73,7 @@ public class MongoSplitterTest {
 
     @Test
     public void shouldSplitSharded() {
-        MongoClientProvider clientProvider = new MongoSparkClientProvider("mongodb://localhost:27017");
+        MongoClientProvider clientProvider = new MongoSparkClientProvider(shardedUri);
         MongoCollectionProvider<Document> collectionProvider =
                 new MongoSparkCollectionProvider<>(Document.class, clientProvider, "spark_test", "test");
 
@@ -83,5 +87,17 @@ public class MongoSplitterTest {
                                    .into(new ArrayList<>())
                                    .size(),
                      rdd.partitions().size());
+    }
+
+    @Test
+    public void shouldGenerateBoundsFromSplits() {
+        String key = "a";
+        Document lower = new Document(key, 1);
+        Document upper = new Document(key, 2);
+
+        Document expectedBounds = new Document(key, new Document("$gte", lower.get(key))
+                                                         .append("$lt", upper.get(key)));
+
+        assertEquals(expectedBounds, splitsToBounds(lower, upper, key));
     }
 }

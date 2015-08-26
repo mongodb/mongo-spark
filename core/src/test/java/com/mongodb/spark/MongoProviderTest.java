@@ -25,12 +25,13 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 /*
- * These tests assume a single mongod running on localhost:30000
+ * These tests assume a single mongod running on localhost:27017
+ * with a db 'spark_test' present.
  */
 public class MongoProviderTest {
     @Test
     public void testProviders() {
-        MongoClientProvider clientProvider = new MongoSparkClientProvider("mongodb://localhost:30000/");
+        MongoClientProvider clientProvider = new MongoSparkClientProvider("mongodb://localhost:27017/");
         MongoCollectionProvider<Document> collectionProvider =
                 new MongoSparkCollectionProvider<>(Document.class, clientProvider, "spark_test", "test");
 

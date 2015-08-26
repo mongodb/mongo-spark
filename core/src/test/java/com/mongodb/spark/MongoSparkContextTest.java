@@ -38,24 +38,23 @@ import static java.util.Collections.singletonList;
 import static org.junit.Assert.assertEquals;
 
 /*
- * These tests assume a single mongod running on localhost:30000
- * with authentication available for a user with name 'test' and password 'password'
- * for the database 'test'
+ * These tests assume a single mongod running on localhost:27017
+ * with a db 'spark_test' present.
  */
 public class MongoSparkContextTest {
     private String database = "spark_test";
     private String collection = "test";
-    private String uri = "mongodb://spark_test:password@localhost:30000/spark_test";
+    private String uri = "mongodb://localhost:27017/spark_test";
 
     private String master = "local";
     private String appName = "testApp";
-    private String sparkHome = "path/to/spark";
-    private String jarFile = "test.jar";
+    private String sparkHome = System.getenv("SPARK_HOME");
+    private String jarFile = "build/libs/mongo-spark-1.0-SNAPSHOT.jar";
 
     private SparkConf sparkConf = new SparkConf().setMaster(master)
                                                  .setAppName(appName);
     private MongoSparkContext msc;
-    private int partitions = 1;
+    private int maxChunkSize = 1;
 
     private MongoClientProvider clientProvider = new MongoSparkClientProvider(uri);
     private MongoCollectionProvider<Document> collectionProvider =
@@ -131,13 +130,12 @@ public class MongoSparkContextTest {
     }
 
     @Test
-    public void shouldParallelizeWithPartitions() {
+    public void shouldParallelizeWithMaxChunkSize() {
         msc = new MongoSparkContext(sparkConf);
 
-        JavaRDD<Document> rdd = msc.parallelize(Document.class, collectionProvider, key, partitions);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, collectionProvider, key, maxChunkSize);
 
         assertEquals(documents.size(), rdd.count());
-        assertEquals(partitions, rdd.partitions().size());
         assertEquals(documents, rdd.collect());
     }
 
@@ -148,18 +146,16 @@ public class MongoSparkContextTest {
         JavaRDD<Document> rdd = msc.parallelize(Document.class, collectionProvider, key, pipeline);
 
         assertEquals(1, rdd.count());
-        assertEquals(msc.sc().defaultParallelism(), rdd.partitions().size());
         assertEquals(singletonList(documents.get(0)), rdd.collect());
     }
 
     @Test
-    public void shouldParallelizeWithPartitionsAndPipeline() {
+    public void shouldParallelizeWithMaxChunkSizeAndPipeline() {
         msc = new MongoSparkContext(sparkConf);
 
-        JavaRDD<Document> rdd = msc.parallelize(Document.class, collectionProvider, key, partitions, pipeline);
+        JavaRDD<Document> rdd = msc.parallelize(Document.class, collectionProvider, key, maxChunkSize, pipeline);
 
         assertEquals(1, rdd.count());
-        assertEquals(partitions, rdd.partitions().size());
         assertEquals(singletonList(documents.get(0)), rdd.collect());
     }
 
@@ -170,15 +166,42 @@ public class MongoSparkContextTest {
         JavaRDD<Document> rdd = msc.parallelize(Document.class, collectionProvider, key);
 
         assertEquals(documents.size(), rdd.count());
-        assertEquals(msc.sc().defaultParallelism(), rdd.partitions().size());
         assertEquals(documents, rdd.collect());
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void shouldFailNonnegativePartitions() {
+    public void shouldFailNullClazz() {
+        msc = new MongoSparkContext(sparkConf);
+
+        msc.parallelize(null, collectionProvider, key);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void shouldFailNullCollectionProvider() {
+        msc = new MongoSparkContext(sparkConf);
+
+        msc.parallelize(Document.class, null, key);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void shouldFailNullSplitKey() {
+        msc = new MongoSparkContext(sparkConf);
+
+        msc.parallelize(Document.class, collectionProvider, null);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void shouldFailNonPositiveMaxChunkSize() {
         msc = new MongoSparkContext(sparkConf);
 
         msc.parallelize(Document.class, collectionProvider, key, 0);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void shouldFailNullPipeline() {
+        msc = new MongoSparkContext(sparkConf);
+
+        msc.parallelize(Document.class, collectionProvider, key, 0, null);
     }
 
     /*

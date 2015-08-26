@@ -38,15 +38,14 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
 
 /*
- * These tests assume a single mongod running on localhost:30000
- * with authentication available for a user with name 'test' and password 'password'
- * for the database 'test'
+ * These tests assume a single mongod running on localhost:27017
+ * with a db 'spark_test' present.
  */
 public class MongoWriterTest {
     private String database = "spark_test";
     private String collection = "test";
 
-    private String uri = "mongodb://spark_test:password@localhost:30000/spark_test";
+    private String uri = "mongodb://localhost:27017/spark_test";
 
     private String master = "local";
     private String appName = "testApp";

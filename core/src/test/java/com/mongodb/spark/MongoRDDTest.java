@@ -36,15 +36,14 @@ import static java.util.Collections.singletonList;
 import static org.junit.Assert.assertEquals;
 
 /*
- * These tests assume a single mongod running on localhost:30000
- * with authentication available for a user with name 'test' and password 'password'
- * for the database 'test'
+ * These tests assume a single mongod running on localhost:27017
+ * with a db 'spark_test' present.
  */
 public class MongoRDDTest {
     private String database = "spark_test";
     private String collection = "test";
 
-    private String uri = "mongodb://spark_test:password@localhost:30000/spark_test";
+    private String uri = "mongodb://localhost:27017/spark_test";
 
     private String master = "local";
     private String appName = "testApp";
@@ -79,21 +78,19 @@ public class MongoRDDTest {
     }
 
     @Test
-    public void shouldMakeMongoRDDWithPartitionsAndAggregation() {
+    public void shouldMakeMongoRDDWithMaxChunkSizeAndAggregation() {
         MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, collectionProvider, Document.class, key, partitions, pipeline);
 
         assertEquals(1, mongoRdd.count());
         assertEquals(documents.get(0), mongoRdd.first());
-        assertEquals(partitions, mongoRdd.getPartitions().length);
     }
 
     @Test
-    public void shouldMakeMongoRDDWithPartitions() {
+    public void shouldMakeMongoRDDWithMaxChunkSize() {
         MongoRDD<Document> mongoRdd = new MongoRDD<>(sc, collectionProvider, Document.class, key, partitions);
 
         assertEquals(documents.size(), mongoRdd.count());
         assertEquals(documents.get(0), mongoRdd.first());
-        assertEquals(partitions, mongoRdd.getPartitions().length);
     }
 
 
@@ -103,7 +100,6 @@ public class MongoRDDTest {
 
         assertEquals(1, mongoRdd.count());
         assertEquals(documents.get(0), mongoRdd.first());
-        assertEquals(sc.defaultParallelism(), mongoRdd.getPartitions().length);
     }
 
     @Test
@@ -112,7 +108,6 @@ public class MongoRDDTest {
 
         assertEquals(documents.size(), mongoRdd.count());
         assertEquals(documents.get(0), mongoRdd.first());
-        assertEquals(sc.defaultParallelism(), mongoRdd.getPartitions().length);
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -131,7 +126,7 @@ public class MongoRDDTest {
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void shouldFailLessThanOnePartitions() {
+    public void shouldFailNonPositiveMaxChunkSize() {
         new MongoRDD<>(sc, collectionProvider, Document.class, key, 0);
     }
 }
