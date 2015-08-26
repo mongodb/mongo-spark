@@ -177,9 +177,9 @@ public class MongoRDD<T> extends RDD<T> {
 
         if (result.get("ok").equals(1.0)) {
             if (Boolean.TRUE.equals(result.get("sharded"))) {
-                return new ShardedMongoSplitter(this.collectionProvider.value(), this.splitKey).getSplitBounds();
+                return ShardedMongoSplitter.getSplitBounds(this.collectionProvider.value(), this.splitKey);
             } else {
-                return new StandaloneMongoSplitter(this.collectionProvider.value(), this.splitKey, this.maxChunkSize).getSplitBounds();
+                return StandaloneMongoSplitter.getSplitBounds(this.collectionProvider.value(), this.splitKey, this.maxChunkSize);
             }
         }
         else {
