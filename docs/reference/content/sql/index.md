@@ -14,11 +14,11 @@ Welcome to the Mongo Spark SQL Connector documentation hub.
 
 ### Getting Started
 
-The [Getting Started]({{< ref "sql/getting-started/index.md" >}}) guide
+The [Getting Started]({{< relref "sql/getting-started/index.md" >}}) guide
 contains installation instructions and a simple tutorial to get up and
 running quickly.
 
 ### Reference
 
 For more detailed documentation, see the
-[Reference]({{< ref "sql/reference/index.md" >}}) guide.
+[Reference]({{< relref "sql/reference/index.md" >}}) guide.

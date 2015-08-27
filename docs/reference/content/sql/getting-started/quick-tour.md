@@ -15,12 +15,12 @@ The following code snippets come from the `SQLQuickTour.java` example code that
 can be found with the [connector source]({{< srcref "examples/tour/src/main/java/com/mongodb/spark/examples/tour/SQLQuickTour.java" >}}).
 
 {{% note %}}
-See the [installation guide]({{< ref "sql/getting-started/installation-guide.md" >}})
+See the [installation guide]({{< relref "sql/getting-started/installation-guide.md" >}})
 for instructions on how to install the Mongo Spark connector.
 {{% /note %}}
 
 {{% note %}}
-See the [core connector quick tour]({{< ref "core/getting-started/quick-tour.md" >}})
+See the [core connector quick tour]({{< relref "core/getting-started/quick-tour.md" >}})
 for instructions on how to utilize the core Mongo Spark connector.
 {{% /note %}}
 

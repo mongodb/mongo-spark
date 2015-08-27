@@ -22,7 +22,7 @@ To run the server call the hugo command:
 | Options explained           ||
 | --------------------------- |--------------------------------------------------------------------------|
 | server                      | Hugo runs its own webserver to render the files                          |
-| --baseUrl=http://localhost/ | Normally the base url will be /mongo-java-driver for gh-pages            |
+| --baseUrl=http://localhost/ | Normally the base url will be /mongo-spark for gh-pages                  |
 | --buildDrafts               | Include draft posts in the output - these won't be published to gh-pages |
 | -- watch                    | Automatically reloads on file change                                     |
 
@@ -50,6 +50,6 @@ The weight parameter relates to where it will appear in the menu starting with t
 
 ## MongoDB Theme
 **Do not delete / change anything in themes**.<br>
-Currently, `./themes/mongodb` provides all templates and configuration.  You can override *anything* by providing a top level version in the top level directory (`data, layouts, static`), so feel free to copy or add your own layouts.  
+Currently, `./themes/mongodb` provides all templates and configuration.  You can override *anything* by providing a top level version in the top level directory (`data, layouts, static`), so feel free to copy or add your own layouts.
 
 You shouldn't edit the mongodb theme directly as it will be updated and any changes will be lost.

@@ -13,5 +13,5 @@ title = "Getting Started"
 
 To help you get started quickly with the connector, follow:
 
-  * [Installation]({{< ref "core/getting-started/installation-guide.md" >}})
-  * [Quick Tour]({{< ref "core/getting-started/quick-tour.md" >}})
+  * [Installation]({{< relref "core/getting-started/installation-guide.md" >}})
+  * [Quick Tour]({{< relref "core/getting-started/quick-tour.md" >}})

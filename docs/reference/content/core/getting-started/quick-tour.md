@@ -15,7 +15,7 @@ The following code snippets come from the `QuickTour.java` example code that
 can be found with the [connector source]({{< srcref "examples/tour/src/main/java/com/mongodb/spark/examples/tour/QuickTour.java" >}}).
 
 {{% note %}}
-See the [installation guide]({{< ref "core/getting-started/installation-guide.md" >}})
+See the [installation guide]({{< relref "installation-guide.md" >}})
 for instructions on how to install the Mongo Spark connector.
 {{% /note %}}
 

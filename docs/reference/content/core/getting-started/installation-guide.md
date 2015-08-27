@@ -31,7 +31,7 @@ dependencies.
 
 ## Uber Mongo Spark Connector
 
-An uber-jar containing the core connector library, `mongo-java-driver`, and
-`spark-core`.
+An uber-jar containing the core connector library, mongo-java-driver, and
+spark-core.
 
 {{< install artifactId="mongo-spark" version="1.0-SNAPSHOT">}}

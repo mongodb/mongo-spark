@@ -13,5 +13,5 @@ title = "Getting Started"
 
 To help you get started quickly with the connector, follow:
 
-  * [Installation]({{< ref "sql/getting-started/installation-guide.md" >}})
-  * [Quick Tour]({{< ref "sql/getting-started/quick-tour.md" >}})
+  * [Installation]({{< relref "sql/getting-started/installation-guide.md" >}})
+  * [Quick Tour]({{< relref "sql/getting-started/quick-tour.md" >}})

@@ -14,11 +14,11 @@ Welcome to the Mongo Spark Connector documentation hub.
 
 ### Getting Started
 
-The [Getting Started]({{< ref "core/getting-started/index.md" >}}) guide
+The [Getting Started]({{< relref "core/getting-started/index.md" >}}) guide
 contains installation instructions and a simple tutorial to get up and
 running quickly.
 
 ### Reference
 
 For more detailed documentation, see the
-[Reference]({{< ref "core/reference/index.md" >}}) guide.
+[Reference]({{< relref "core/reference/index.md" >}}) guide.

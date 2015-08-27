@@ -1,6 +1,6 @@
 # Mongo Spark Front page
 
-The static front page site for the Java documentation portal.
+The static front page site for the connector documentation portal.
 
 ## Requirements
 Hugo version 0.13 [download here](https://github.com/spf13/hugo/releases/tag/v0.13)
@@ -15,7 +15,7 @@ To run the server call the hugo command:
 | Options explained           ||
 | --------------------------- |--------------------------------------------------------------------------|
 | server                      | Hugo runs its own webserver to render the files                          |
-| --baseUrl=http://localhost/ | Normally the base url will be /mongo-java-driver for gh-pages            |
+| --baseUrl=http://localhost/ | Normally the base url will be /mongo-spark for gh-pages                  |
 | --buildDrafts               | Include draft posts in the output - these won't be published to gh-pages |
 | -- watch                    | Automatically reloads on file change                                     |
 
