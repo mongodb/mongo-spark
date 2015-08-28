@@ -18,11 +18,13 @@ package com.mongodb.spark.sql;
 
 import org.apache.spark.sql.types.DataType;
 
+import java.io.Serializable;
+
 /**
  * A tombstone type to mark conflicting DataTypes in the document structure to schema
  * translation process.
  */
-public final class ConflictType extends DataType {
+public final class ConflictType extends DataType implements Serializable {
     /**
      * Gets the ConflictType object.
      */
