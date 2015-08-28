@@ -13,6 +13,7 @@ title = "Reference"
 
 The reference documentation for the connector focuses on high-level
 documentation and use cases. The Javadoc-generated API reference is
-[here](http://api.mongodb.org/mongo-spark/).
+[here](http://api.mongodb.org/mongo-spark/1.0-SNAPSHOT).
 
-  * [Client Setup]({{< relref "core/reference/client/index.md" >}})
+  * [Client Setup]({{< relref "core/reference/client/index.md" >}}):
+    Documentation of the connector's method for setting up client connections.

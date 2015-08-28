@@ -13,6 +13,8 @@ title = "Reference"
 
 The reference documentation for the Spark SQL functionality focuses on
 high-level documentation and use cases. The Javadoc-generated API reference is
-[here](http://api.mongodb.org/mongo-spark/).
+[here](http://api.mongodb.org/mongo-spark/1.0-SNAPSHOT).
 
-  * [Schema Inference]({{< relref "sql/reference/schema/index.md" >}})
+  * [Schema Inference]({{< relref "sql/reference/schema/index.md" >}}):
+    Documentation of the connector's support for Spark SQL schema inference
+    from MongoDB collections.
