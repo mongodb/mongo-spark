@@ -31,15 +31,12 @@ client provider implementation provides support for all options supported by
 and any additional options supported by
 [`MongoClientOptions.Builder`](http://api.mongodb.org/java/current/com/mongodb/MongoClientOptions.Builder.html).
 
-For example, one could specify a custom CodecRegistry for the client to use:
-
 ```java
-MongoClientOptionsBuilderInitializer builderInitializer =
-        new MongoSparkClientOptionsBuilderInitializer(() -> {
-            CodecRegistry codecRegistry = CodecRegistries.fromCodecs(new DocumentCodec());
-            return new Builder().codecRegistry(codecRegistry);
-        });
+MongoClientProvider clientProvider = new MongoSparkClientProvider(uri);
 ```
+
+See [Client Setup]({{< relref "core/reference/client/index.md" >}}) for
+detailed information on setting up the client provider.
 
 ### Collection Configuration
 RDDs can only be computed from single collections. Users must configure a

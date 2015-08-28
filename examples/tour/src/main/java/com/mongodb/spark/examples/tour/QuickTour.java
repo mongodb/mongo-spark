@@ -16,12 +16,9 @@
 
 package com.mongodb.spark.examples.tour;
 
-import com.mongodb.MongoClientOptions.Builder;
-import com.mongodb.spark.MongoClientOptionsBuilderInitializer;
 import com.mongodb.spark.MongoClientProvider;
 import com.mongodb.spark.MongoCollectionProvider;
 import com.mongodb.spark.MongoRDD;
-import com.mongodb.spark.MongoSparkClientOptionsBuilderInitializer;
 import com.mongodb.spark.MongoSparkClientProvider;
 import com.mongodb.spark.MongoSparkCollectionProvider;
 import com.mongodb.spark.MongoSparkContext;
@@ -29,9 +26,6 @@ import com.mongodb.spark.MongoWriter;
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaRDD;
 import org.bson.Document;
-import org.bson.codecs.DocumentCodec;
-import org.bson.codecs.configuration.CodecRegistries;
-import org.bson.codecs.configuration.CodecRegistry;
 
 import java.util.Arrays;
 import java.util.List;
@@ -52,15 +46,14 @@ public final class QuickTour {
         // registry is not serializable, so this shows how to work around the
         // serializability issue for providing options beyond those supported
         // in the URI connection string.
-        MongoClientOptionsBuilderInitializer builderInitializer =
-                new MongoSparkClientOptionsBuilderInitializer(() -> {
-                    CodecRegistry codecRegistry = CodecRegistries.fromCodecs(new DocumentCodec());
-                    return new Builder().codecRegistry(codecRegistry);
-                });
+        // MongoClientOptionsBuilderInitializer builderInitializer =
+        //         new MongoSparkClientOptionsBuilderInitializer(() -> {
+        //             CodecRegistry codecRegistry = CodecRegistries.fromCodecs(new DocumentCodec());
+        //             return new Builder().codecRegistry(codecRegistry);
+        //         });
 
         // Setup a client provider.
-        MongoClientProvider clientProvider =
-                new MongoSparkClientProvider(uri, builderInitializer);
+        MongoClientProvider clientProvider = new MongoSparkClientProvider(uri);
 
         // Setup a collection provider using the client provider - thus, can
         // reuse the instantiated client amongst multiple partitions that
