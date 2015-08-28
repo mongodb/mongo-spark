@@ -71,30 +71,30 @@ public final class SchemaProvider {
      * @return the schema for the collection
      */
     private static StructType getSchemaFromDocuments(final List<Document> documents) {
-        Map<String, DataType> keyValueDataTypeMap = new HashMap<>();
+        Map<String, DataType> dataTypeMap = new HashMap<>();
 
         documents.forEach(document ->
-            document.keySet().forEach(key -> {
+            document.entrySet().forEach(entry -> {
                 DataType dataType;
                 try {
-                    dataType = getDataType(document.get(key));
+                    dataType = getDataType(entry.getValue());
                 } catch (SkipFieldException e) {
                     // just skip the field
                     return;
                 }
 
-                if (keyValueDataTypeMap.containsKey(key)) {
-                    keyValueDataTypeMap.put(key, getMatchingDataType(keyValueDataTypeMap.get(key), dataType));
+                if (dataTypeMap.containsKey(entry.getKey())) {
+                    dataTypeMap.put(entry.getKey(), getMatchingDataType(dataTypeMap.get(entry.getKey()), dataType));
                 } else {
-                    keyValueDataTypeMap.put(key, dataType);
+                    dataTypeMap.put(entry.getKey(), dataType);
                 }
             })
         );
 
-        List<StructField> fields = keyValueDataTypeMap.entrySet()
-                                                      .stream()
-                                                      .map(entry -> DataTypes.createStructField(entry.getKey(), entry.getValue(), true))
-                                                      .collect(Collectors.toList());
+        List<StructField> fields = dataTypeMap.entrySet()
+                                              .stream()
+                                              .map(entry -> DataTypes.createStructField(entry.getKey(), entry.getValue(), true))
+                                              .collect(Collectors.toList());
 
         return DataTypes.createStructType(fields);
     }
