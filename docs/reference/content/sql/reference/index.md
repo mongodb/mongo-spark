@@ -9,3 +9,10 @@ title = "Reference"
   pre = "<i class='fa fa-book'></i>"
 +++
 
+## Reference
+
+The reference documentation for the Spark SQL functionality focuses on
+high-level documentation and use cases. The Javadoc-generated API reference is
+[here](http://api.mongodb.org/mongo-spark/).
+
+  * [Schema Inference]({{< relref "sql/reference/schema/index.md" >}})
