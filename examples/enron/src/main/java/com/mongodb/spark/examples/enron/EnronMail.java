@@ -33,6 +33,13 @@ import java.util.List;
 public final class EnronMail {
     public static void runEnronMail() {
         SparkConf sparkConf = new SparkConf();
+        sparkConf.setMaster("local[2]");
+        sparkConf.set("spark.scheduler.mode", "FAIR");
+        sparkConf.setAppName("EnronMail");
+        sparkConf.setJars(new String[]{
+          "./build/libs/mongo-spark-1.0-SNAPSHOT.jar",
+          "./examples/enron/build/libs/enron-1.0-SNAPSHOT.jar"
+        });
         MongoSparkContext msc = new MongoSparkContext(sparkConf);
         MongoClientProvider clientProvider = new MongoSparkClientProvider("mongodb://localhost:27017/?maxIdleTimeMS=250");
         MongoCollectionProvider<Document> inputCollectionProvider =

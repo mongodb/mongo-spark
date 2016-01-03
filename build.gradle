@@ -47,7 +47,7 @@ configure(subprojects) {
 
     dependencies {
         compile 'org.mongodb:mongo-java-driver:3.0.3'
-        compile 'org.apache.spark:spark-core_2.10:1.4.1'
+        compile 'org.apache.spark:spark-core_2.10:1.5.2'
 
         testCompile 'junit:junit:4.11'
     }
@@ -76,7 +76,7 @@ project(':sql') {
     dependencies {
         compile project(':core')
 
-        compile 'org.apache.spark:spark-sql_2.10:1.4.1'
+        compile 'org.apache.spark:spark-sql_2.10:1.5.2'
     }
 
     jar {
