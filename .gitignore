@@ -12,6 +12,7 @@
 build
 out
 mongo*.jar
+target
 
 # Eclipse files
 .classpath
@@ -34,8 +35,11 @@ codereview.rc
 
 # local settings
 **/gradle.properties
+.java-version
 
 # doc settings
 docs/reference/public
 docs/landing/public
 docs/hugo*
+
+c-conn
