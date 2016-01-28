@@ -22,79 +22,41 @@ import scala.reflect.ClassTag
 import org.apache.spark.rdd.RDD
 
 import org.bson.Document
+import com.mongodb.spark.classTagToClassOf
 import com.mongodb.spark.DefaultHelper.DefaultsTo
-import com.mongodb.spark.{MongoConnector, classTagToClassOf}
-
-/**
- * MongoDB Document RDD functions
- */
-object DocumentRDDFunctions {
-
-  /**
-   * Creates the DocumentRDDFunctions instance
-   *
-   * @param rdd the rdd
-   * @tparam D the type of data in the RDD
-   * @return a DocumentRDDFunctions instance
-   */
-  def apply[D: ClassTag](rdd: RDD[D]): DocumentRDDFunctions[D] = apply(rdd, MongoConnector(rdd.context.getConf))
-
-  /**
-   * Creates the DocumentRDDFunctions instance
-   * @param rdd the rdd
-   *
-   * @param collectionName the name of the collection to save data to
-   * @tparam D the type of data in the RDD
-   */
-  def apply[D: ClassTag](rdd: RDD[D], collectionName: String): DocumentRDDFunctions[D] =
-    apply(rdd, MongoConnector(rdd.context.getConf), collectionName)
-
-  /**
-   * Creates the DocumentRDDFunctions instance
-   *
-   * @param rdd the rdd
-   * @param connector the [[MongoConnector]]
-   * @tparam D the type of data in the RDD
-   * @return a DocumentRDDFunctions instance
-   */
-  def apply[D: ClassTag](rdd: RDD[D], connector: MongoConnector): DocumentRDDFunctions[D] =
-    apply(rdd, connector, connector.databaseName, connector.collectionName)
-
-  /**
-   * Functions for RDD's that allow the data to be saved to MongoDB.
-   *
-   * @param rdd the rdd
-   * @param connector the [[MongoConnector]]
-   * @param collectionName the name of the collection to save data to
-   * @tparam D the type of data in the RDD
-   */
-  def apply[D: ClassTag](rdd: RDD[D], connector: MongoConnector, collectionName: String): DocumentRDDFunctions[D] =
-    new DocumentRDDFunctions[D](rdd, connector, connector.databaseName, collectionName)
-
-}
+import com.mongodb.spark.MongoConnector
+import com.mongodb.spark.conf.WriteConfig
 
 /**
  * Functions for RDD's that allow the data to be saved to MongoDB.
  *
  * @param rdd the rdd
- * @param connector the [[MongoConnector]]
- * @param databaseName the name of the database to save the data to
- * @param collectionName the name of the collection to save data to
  * @param e the implicit datatype of the rdd
  * @param ct the implicit ClassTag of the datatype of the rdd
  * @tparam D the type of data in the RDD
  */
-case class DocumentRDDFunctions[D](rdd: RDD[D], connector: MongoConnector, databaseName: String,
-                                   collectionName: String)(implicit e: D DefaultsTo Document, ct: ClassTag[D]) {
+case class DocumentRDDFunctions[D](rdd: RDD[D])(implicit e: D DefaultsTo Document, ct: ClassTag[D]) {
+
+  val mongoConnector = MongoConnector(rdd.context.getConf)
 
   /**
-   * Saves the RDD data to MongoDB
+   * Saves the RDD data to MongoDB using the `SparkConf` settings for the [[com.mongodb.spark.conf.WriteConfig]]
    *
    * @return the RDD
    */
-  def saveToMongoDB(): RDD[D] = {
+  def saveToMongoDB(): RDD[D] = saveToMongoDB(WriteConfig(rdd.context.getConf))
+
+  /**
+   * Saves the RDD data to MongoDB using the given `WriteConfig`
+   *
+   * @param writeConfig the [[com.mongodb.spark.conf.WriteConfig]] to use
+   * @return the rdd
+   */
+  def saveToMongoDB(writeConfig: WriteConfig): RDD[D] = {
     rdd.foreachPartition(iter => if (iter.nonEmpty) {
-      connector.getMongoClient().getDatabase(databaseName).getCollection(collectionName, ct).insertMany(iter.toList.asJava)
+      mongoConnector.getCollection(writeConfig.databaseName, writeConfig.collectionName, classTagToClassOf(ct))
+        .withWriteConcern(writeConfig.writeConcern)
+        .insertMany(iter.toList.asJava)
     })
     rdd
   }

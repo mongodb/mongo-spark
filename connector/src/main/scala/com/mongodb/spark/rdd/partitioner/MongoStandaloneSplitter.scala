@@ -23,21 +23,22 @@ import org.bson._
 import com.mongodb.MongoNotPrimaryException
 import com.mongodb.client.MongoCollection
 import com.mongodb.spark.MongoConnector
+import com.mongodb.spark.conf.ReadConfig
 import com.mongodb.spark.exceptions.MongoSplitException
 
-private[partitioner] case class MongoStandaloneSplitter(connector: MongoConnector, splitKey: String, maxChunkSize: Int) extends MongoSplitter {
+private[partitioner] case class MongoStandaloneSplitter(connector: MongoConnector, readConfig: ReadConfig) extends MongoSplitter {
 
   override def bounds(): Seq[BsonDocument] = {
-    val collection: MongoCollection[BsonDocument] = connector.collection()
+    val collection: MongoCollection[BsonDocument] = connector.collection(readConfig.databaseName, readConfig.collectionName)
     val ns: String = collection.getNamespace.getFullName
     logDebug(s"Getting split bounds for a non-sharded collection: $ns")
 
-    val keyPattern: BsonDocument = new BsonDocument(splitKey, new BsonInt32(1))
+    val keyPattern: BsonDocument = new BsonDocument(readConfig.splitKey, new BsonInt32(1))
     val splitVectorCommand: BsonDocument = new BsonDocument("splitVector", new BsonString(ns))
       .append("keyPattern", keyPattern)
-      .append("maxChunkSize", new BsonInt32(maxChunkSize))
+      .append("maxChunkSize", new BsonInt32(readConfig.maxChunkSize))
 
-    Try(connector.getDatabase().runCommand(splitVectorCommand, classOf[BsonDocument])) match {
+    Try(connector.getDatabase(readConfig.databaseName).runCommand(splitVectorCommand, classOf[BsonDocument])) match {
       case Success(result: BsonDocument) => createSplits(result)
       case Failure(e: MongoNotPrimaryException) =>
         logInfo(s"Splitting failed: '${e.getMessage}'. Continuing with a single partition.")
@@ -50,7 +51,7 @@ private[partitioner] case class MongoStandaloneSplitter(connector: MongoConnecto
     result.getDouble("ok").getValue match {
       case 1.0 =>
         val splitKeys: Seq[BsonDocument] = result.get("splitKeys").asInstanceOf[java.util.List[BsonDocument]].asScala
-        val minMaxBounds = MongoMinToMaxSplitter(splitKey).bounds()
+        val minMaxBounds = MongoMinToMaxSplitter(readConfig.splitKey).bounds()
         val minToMaxSplitKeys: Seq[BsonDocument] = minMaxBounds.head +: splitKeys :+ minMaxBounds.tail.head
         if (splitKeys.isEmpty) {
           logInfo(
@@ -59,7 +60,7 @@ private[partitioner] case class MongoStandaloneSplitter(connector: MongoConnecto
           )
         }
         val splitKeyPairs: Seq[(BsonDocument, BsonDocument)] = minToMaxSplitKeys zip minToMaxSplitKeys.tail
-        splitKeyPairs.map(x => createBoundaryQuery(splitKey, x._1.get(splitKey), x._2.get(splitKey)))
+        splitKeyPairs.map(x => createBoundaryQuery(readConfig.splitKey, x._1.get(readConfig.splitKey), x._2.get(readConfig.splitKey)))
       case _ => throw new MongoSplitException(s"""Could not calculate standalone splits. Server errmsg: ${result.get("errmsg")}""")
     }
   }

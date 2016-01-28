@@ -25,9 +25,10 @@ import com.mongodb.Implicits._
 import com.mongodb.MongoClient
 import com.mongodb.client.{MongoCollection, MongoDatabase}
 import com.mongodb.connection.ClusterType.{REPLICA_SET, SHARDED, STANDALONE}
+import com.mongodb.spark.conf.ReadConfig
 import com.mongodb.spark.rdd.MongoRDD
 
-trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with Logging {
+trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with BeforeAndAfterEach with Logging {
 
   private val mongoDBDefaults: MongoDBDefaults = MongoDBDefaults()
   private var _currentTestName: Option[String] = None
@@ -41,7 +42,7 @@ trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with
   }
 
   protected override def runTest(testName: String, args: Args): Status = {
-    _currentTestName = Some(testName.split("should")(1).trim)
+    if (!requestedSparkContext) _currentTestName = Some(testName.split("should")(1).trim)
     mongoDBOnline = mongoDBDefaults.isMongoDBOnline()
     super.runTest(testName, args)
   }
@@ -52,7 +53,7 @@ trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with
 
   lazy val database: MongoDatabase = mongoClient.getDatabase(databaseName)
 
-  lazy val collection: MongoCollection[Document] = database.getCollection(collectionName)
+  lazy val collection: MongoCollection[Document] = database.getCollection(readConfig.collectionName)
 
   lazy val isStandalone: Boolean = mongoClient.cluster.getDescription.getType == STANDALONE
 
@@ -60,18 +61,20 @@ trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with
 
   lazy val isSharded: Boolean = mongoClient.cluster.getDescription.getType == SHARDED
 
-  def shardCollection(collectionName: String): Unit = mongoDBDefaults.shardCollection(collectionName, new Document("_id", 1))
+  def readConfig: ReadConfig = ReadConfig(sparkContext.getConf)
 
-  def loadSampleDataIntoShardedCollection(collectionName: String, sizeInMB: Int): Unit = {
-    shardCollection(collectionName)
-    loadSampleData(collectionName, sizeInMB)
+  def shardCollection(): Unit = mongoDBDefaults.shardCollection(readConfig.collectionName, new Document("_id", 1))
+
+  def loadSampleDataIntoShardedCollection(sizeInMB: Int): Unit = {
+    shardCollection()
+    loadSampleData(sizeInMB)
   }
 
-  def loadSampleData(collectionName: String, filename: String): Unit = mongoDBDefaults.loadSampleData(collectionName, filename)
+  def loadSampleData(filename: String): Unit = mongoDBDefaults.loadSampleData(readConfig.collectionName, filename)
 
-  def loadSampleData(collectionName: String, sizeInMB: Int): Unit = mongoDBDefaults.loadSampleData(collectionName, sizeInMB)
+  def loadSampleData(sizeInMB: Int): Unit = mongoDBDefaults.loadSampleData(readConfig.collectionName, sizeInMB)
 
-  def mongoConnector: MongoConnector = MongoConnector(mongoClientURI, databaseName, collectionName)
+  def mongoConnector: MongoConnector = MongoConnector(mongoClientURI)
 
   def sparkConf: SparkConf = sparkConf(collectionName)
 
@@ -93,7 +96,7 @@ trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with
   }
 
   implicit class MongoSparkContext(sc: SparkContext) {
-    def dropDatabase(): Unit = MongoRDD(sc).connector.value.database().drop()
+    def dropDatabase(): Unit = MongoRDD(sc).connector.value.database(databaseName).drop()
   }
 
   /**
@@ -110,6 +113,10 @@ trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with
     if (!mongoDBOnline) {
       cancel("No Available MongoDB")
     }
+  }
+
+  override def beforeEach() {
+    if (mongoDBOnline) collection.drop()
   }
 
   override def beforeAll() {

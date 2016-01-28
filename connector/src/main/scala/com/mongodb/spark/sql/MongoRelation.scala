@@ -22,7 +22,8 @@ import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{Row, SQLContext}
 
-import org.bson.{BsonDocument, Document}
+import org.bson.Document
+import com.mongodb.spark.conf.ReadConfig
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.sql.MongoRelationHelper.{createPipeline, documentToRow}
 
@@ -31,11 +32,9 @@ case class MongoRelation(mongoRDD: MongoRDD[Document], _schema: Option[StructTyp
     with PrunedFilteredScan
     with Logging {
 
-  // TODO - put magic numbers in  MongoDB Conf for sampleSize / ratio
-  override lazy val schema: StructType = _schema.getOrElse(MongoInferSchema(MongoRDD[BsonDocument](
-    sqlContext.sparkContext,
-    mongoRDD.connector.value
-  ), 100, 1.0)) // scalastyle:ignore
+  val readConfig: ReadConfig = ReadConfig(mongoRDD.context.getConf)
+
+  override lazy val schema: StructType = _schema.getOrElse(MongoInferSchema(sqlContext.sparkContext))
 
   override def buildScan(requiredColumns: Array[String], filters: Array[Filter]): RDD[Row] = {
     if (requiredColumns.nonEmpty || filters.nonEmpty) {

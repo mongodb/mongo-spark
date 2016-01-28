@@ -34,11 +34,9 @@ public final class MongoConnectorTest extends RequiresMongoDB {
         for(String host: new MongoClientURI(mongoClientURI).getHosts()) {
             expectedServerAddresses.add(new ServerAddress(host));
         }
-        MongoConnector mongoConnector = MongoConnectors.create(mongoClientURI, "db", "coll");
+        MongoConnector mongoConnector = MongoConnectors.create(mongoClientURI);
 
         assertEquals(mongoConnector.mongoClient().getServerAddressList(), expectedServerAddresses);
-        assertEquals(mongoConnector.getDatabase().getName(), "db");
-        assertEquals(mongoConnector.getCollection().getNamespace().getCollectionName(), "coll");
     }
 
 }

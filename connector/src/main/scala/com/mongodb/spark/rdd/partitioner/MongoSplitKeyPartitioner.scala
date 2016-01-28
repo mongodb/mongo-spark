@@ -23,26 +23,28 @@ import org.apache.spark.Partition
 import org.bson.Document
 import com.mongodb.MongoCommandException
 import com.mongodb.spark.MongoConnector
+import com.mongodb.spark.conf.ReadConfig
 
-private[rdd] case class MongoSplitKeyPartitioner(maxChunkSize: Int, splitKey: String) extends MongoPartitioner {
+private[rdd] case class MongoSplitKeyPartitioner(readConfig: ReadConfig) extends MongoPartitioner {
 
   override def partitions(@transient connector: MongoConnector): Array[Partition] = {
     splitter(connector).bounds().zipWithIndex.map(x => MongoPartition(x._2, x._1)).toArray
   }
 
   def splitter(@transient connector: MongoConnector): MongoSplitter = {
-    val collStatsCommand: Document = new Document("collStats", connector.collectionName)
-    Try(connector.getDatabase().runCommand(collStatsCommand)) match {
+
+    val collStatsCommand: Document = new Document("collStats", readConfig.collectionName)
+    Try(connector.getDatabase(readConfig.databaseName).runCommand(collStatsCommand)) match {
       case Success(result) => result.getBoolean("sharded").asInstanceOf[Boolean] match {
-        case true  => MongoShardedSplitter(connector, splitKey)
-        case false => MongoStandaloneSplitter(connector, splitKey, maxChunkSize)
+        case true  => MongoShardedSplitter(connector, readConfig)
+        case false => MongoStandaloneSplitter(connector, readConfig)
       }
       case Failure(ex: MongoCommandException) if ex.getErrorMessage.endsWith("not found.") =>
-        logWarning(s"Could not find collection (${connector.collectionName}), using empty splitter")
+        logWarning(s"Could not find collection (${readConfig.collectionName}), using empty splitter")
         MongoEmptySplitter()
       case Failure(e) =>
         logWarning(s"Could not get collection statistics, using max bounds splitter. Server errmsg: ${e.getMessage}")
-        MongoMinToMaxSplitter(splitKey)
+        MongoMinToMaxSplitter(readConfig.splitKey)
     }
   }
 

@@ -27,11 +27,9 @@ class MongoConnectorSpec extends FlatSpec with RequiresMongoDB {
   "MongoConnector" should "create a MongoClient" in {
     val expectedServerAddresses = new MongoClientURI(mongoClientURI).getHosts.asScala.map(new ServerAddress(_)).asJava
 
-    val mongoConnector = MongoConnector(mongoClientURI, "db", "coll")
+    val mongoConnector = MongoConnector(mongoClientURI)
 
     mongoConnector.getMongoClient().getServerAddressList should equal(expectedServerAddresses)
-    mongoConnector.getDatabase().getName shouldBe "db"
-    mongoConnector.getCollection().getNamespace.getCollectionName shouldBe "coll"
   }
 
 }

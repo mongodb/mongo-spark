@@ -26,17 +26,17 @@ class MongoDBShardedSplitterSpec extends FlatSpec with RequiresMongoDB {
 
   "MongoDBStandaloneSplitter" should "split the database as expected" in {
     if (!isSharded) cancel("Not a Sharded MongoDB")
-    loadSampleDataIntoShardedCollection(collectionName, 5)
+    loadSampleDataIntoShardedCollection(5) // scalastyle:ignore
 
-    MongoShardedSplitter(mongoConnector, "_id").bounds().size should (be >= 5 and be <= 10)
+    MongoShardedSplitter(mongoConnector, readConfig).bounds().size should (be >= 5 and be <= 10)
   }
 
   it should "have a default bounds of min to max key" in {
     if (!isSharded) cancel("Not a Sharded MongoDB")
-    shardCollection(collectionName)
+    shardCollection()
     collection.insertOne(new Document())
 
-    val expectedBounds: Document = new Document("_id", new Document("$gte", new MinKey).append("$lt", new MaxKey))
-    MongoShardedSplitter(mongoConnector, "_id").bounds() should contain theSameElementsAs Seq(expectedBounds)
+    val expectedBounds: Document = new Document(readConfig.splitKey, new Document("$gte", new MinKey).append("$lt", new MaxKey))
+    MongoShardedSplitter(mongoConnector, readConfig).bounds() should contain theSameElementsAs Seq(expectedBounds)
   }
 }

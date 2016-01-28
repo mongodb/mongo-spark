@@ -22,6 +22,7 @@ import org.apache.spark.SparkContext
 
 import org.bson.Document
 import com.mongodb.spark.DefaultHelper.DefaultsTo
+import com.mongodb.spark.conf.ReadConfig
 import com.mongodb.spark.rdd.MongoRDD
 
 /**
@@ -45,7 +46,7 @@ case class SparkContextFunctions(@transient val sc: SparkContext) extends Serial
   /**
    * Creates a MongoRDD
    *
-   * @param connector the [[MongoConnector]] to use
+   * @param connector the [[com.mongodb.spark.MongoConnector]] to use
    * @tparam D the type of Document to return from MongoDB - defaults to Document
    * @return
    */
@@ -54,16 +55,12 @@ case class SparkContextFunctions(@transient val sc: SparkContext) extends Serial
   /**
    * Creates a MongoRDD
    *
-   * @param connector    the [[MongoConnector]] to use
-   * @param splitKey     the key to split the collection by for non-sharded collections
-   * @param maxChunkSize the maximum chunkSize for non-sharded collections
+   * @param connector    the [[com.mongodb.spark.MongoConnector]]
+   * @param readConfig   the [[com.mongodb.spark.conf.ReadConfig]]
    * @tparam D the type of Document to return from MongoDB - defaults to Document
    * @return
    */
-  def loadFromMongoDB[D: ClassTag](
-    connector:    MongoConnector,
-    splitKey:     String         = MongoRDD.DEFAULT_SPLIT_KEY,
-    maxChunkSize: Int            = MongoRDD.DEFAULT_MAX_CHUNKSIZE
-  )(implicit e: D DefaultsTo Document): MongoRDD[D] = MongoRDD[D](sc, connector, splitKey, maxChunkSize)
+  def loadFromMongoDB[D: ClassTag](connector: MongoConnector, readConfig: ReadConfig)(implicit e: D DefaultsTo Document): MongoRDD[D] =
+    MongoRDD[D](sc, connector, readConfig)
 
 }

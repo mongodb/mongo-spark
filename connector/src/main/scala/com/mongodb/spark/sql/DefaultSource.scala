@@ -23,6 +23,7 @@ import org.apache.spark.sql.types.StructType
 
 import org.bson.{BsonDocument, Document}
 import com.mongodb.spark.MongoConnector
+import com.mongodb.spark.conf.ReadConfig
 import com.mongodb.spark.rdd.MongoRDD
 
 /**
@@ -43,16 +44,12 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
    */
   override def createRelation(sqlContext: SQLContext, parameters: Map[String, String]): MongoRelation = {
     val sparkConf: SparkConf = sqlContext.sparkContext.getConf
-    val uri: String = parameters.getOrElse("uri", sparkConf.get("com.mongodb.spark.uri"))
-    val databaseName: String = parameters.getOrElse("databaseName", sparkConf.get("com.mongodb.spark.databaseName"))
-    val collectionName: String = parameters.getOrElse("collectionName", sparkConf.get("com.mongodb.spark.collectionName"))
-    val mongoConnector: MongoConnector = MongoConnector(uri, databaseName, collectionName)
-    val mongoRDD: MongoRDD[BsonDocument] = MongoRDD(sqlContext.sparkContext, mongoConnector)
-
-    val sampleSize: Int = parameters.getOrElse("sampleSize", MongoInferSchema.defaultSampleSize.toString).toInt
-    val samplingRatio: Double = parameters.getOrElse("samplingRatio", MongoInferSchema.defaultSamplingRatio.toString).toDouble
-    val schema: StructType = MongoInferSchema(mongoRDD, sampleSize = sampleSize, samplingRatio = samplingRatio)
-    createRelation(sqlContext, parameters, schema)
+    val uri: String = parameters.getOrElse("uri", sparkConf.get("mongodb.uri"))
+    val mongoConnector: MongoConnector = MongoConnector(uri)
+    val readConfig = ReadConfig(sparkConf).withParameters(parameters)
+    val schema: StructType = MongoInferSchema(MongoRDD[BsonDocument](sqlContext.sparkContext, mongoConnector, readConfig))
+    val mongoRDD: MongoRDD[Document] = MongoRDD(sqlContext.sparkContext, mongoConnector, readConfig)
+    MongoRelation(mongoRDD, Some(schema))(sqlContext)
   }
 
   /**
@@ -69,11 +66,10 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
     schema:     StructType
   ): MongoRelation = {
     val sparkConf: SparkConf = sqlContext.sparkContext.getConf
-    val uri: String = parameters.getOrElse("uri", sparkConf.get("com.mongodb.spark.uri"))
-    val databaseName: String = parameters.getOrElse("databaseName", sparkConf.get("com.mongodb.spark.databaseName"))
-    val collectionName: String = parameters.getOrElse("collectionName", sparkConf.get("com.mongodb.spark.collectionName"))
-    val mongoConnector: MongoConnector = MongoConnector(uri, databaseName, collectionName)
-    val mongoRDD: MongoRDD[Document] = MongoRDD(sqlContext.sparkContext, mongoConnector) // TODO config - so can switch splitters
+    val uri: String = parameters.getOrElse("uri", sparkConf.get("mongodb.uri"))
+    val mongoConnector: MongoConnector = MongoConnector(uri)
+    val readConfig = ReadConfig(sparkConf).withParameters(parameters)
+    val mongoRDD: MongoRDD[Document] = MongoRDD(sqlContext.sparkContext, mongoConnector, readConfig)
     MongoRelation(mongoRDD, Some(schema))(sqlContext)
   }
 }

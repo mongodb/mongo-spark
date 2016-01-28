@@ -21,17 +21,17 @@ import org.scalatest.FlatSpec
 import org.bson.{BsonMaxKey, BsonMinKey, BsonDocument, Document}
 import org.bson.types.{MaxKey, MinKey}
 import com.mongodb.spark.RequiresMongoDB
+import com.mongodb.spark.conf.ReadConfig
 
 class MongoDBStandaloneSplitterSpec extends FlatSpec with RequiresMongoDB {
 
   // scalastyle:off magic.number
   "MongoDBStandaloneSplitter" should "split the database as expected" in {
     if (isSharded) cancel("Sharded MongoDB")
+    loadSampleData(5)
 
-    loadSampleData(collectionName, 5)
-
-    MongoStandaloneSplitter(mongoConnector, "_id", 4).bounds().size shouldBe 3
-    MongoStandaloneSplitter(mongoConnector, "_id", 5).bounds().size shouldBe 1
+    MongoStandaloneSplitter(mongoConnector, readConfig.copy(maxChunkSize = 4)).bounds().size shouldBe 3
+    MongoStandaloneSplitter(mongoConnector, readConfig.copy(maxChunkSize = 5)).bounds().size shouldBe 1
   }
   // scalastyle:on magic.number
 
@@ -39,6 +39,6 @@ class MongoDBStandaloneSplitterSpec extends FlatSpec with RequiresMongoDB {
     collection.insertOne(new Document())
 
     val expectedBounds: BsonDocument = new BsonDocument("_id", new BsonDocument("$gte", new BsonMinKey).append("$lt", new BsonMaxKey))
-    MongoStandaloneSplitter(mongoConnector, "_id", 1).bounds() should contain theSameElementsAs Seq(expectedBounds)
+    MongoStandaloneSplitter(mongoConnector, readConfig.copy(maxChunkSize = 1)).bounds() should contain theSameElementsAs Seq(expectedBounds)
   }
 }

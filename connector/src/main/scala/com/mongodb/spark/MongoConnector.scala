@@ -42,23 +42,18 @@ object MongoConnector {
    */
   def apply(sparkConf: SparkConf): MongoConnector = {
     // TODO validate the SparkConf and throw a meaningful error message
-    val uri = sparkConf.get("com.mongodb.spark.uri")
-    val databaseName = sparkConf.get("com.mongodb.spark.databaseName")
-    val collectionName = sparkConf.get("com.mongodb.spark.collectionName")
-    MongoConnector(uri, databaseName, collectionName)
+    val uri = sparkConf.get("mongodb.uri")
+    MongoConnector(uri)
   }
 
   /**
    * Creates a MongoConnector
    *
    * @param connectionString the connection string (`uri`)
-   * @param databaseName the name of the database to use
-   * @param collectionName the name of the collection to use
    * @return the MongoConnector
    */
-  def apply(connectionString: String, databaseName: String, collectionName: String): MongoConnector = {
-    MongoConnector(() => new MongoClient(new MongoClientURI(connectionString)), databaseName, collectionName)
-  }
+  def apply(connectionString: String): MongoConnector =
+    MongoConnector(() => new MongoClient(new MongoClientURI(connectionString)))
 }
 
 /**
@@ -67,29 +62,29 @@ object MongoConnector {
  * Connects Spark to MongoDB
  *
  * @param mongoClientFactory the factory that can be used to create a MongoClient
- * @param databaseName the name of the database to use
- * @param collectionName the name of the collection to use
  *
  * @since 1.0
  */
-case class MongoConnector(mongoClientFactory: () => MongoClient, databaseName: String, collectionName: String)
+case class MongoConnector(mongoClientFactory: () => MongoClient)
     extends Serializable with Closeable with Logging {
   @transient private[spark] var fetchedClient: Boolean = false
   @transient private[spark] lazy val _mongoClient: MongoClient = createMongoClient()
 
   def mongoClient(): MongoClient = _mongoClient
-  def database(): MongoDatabase = mongoClient.getDatabase(databaseName)
-  def collection[D]()(implicit e: D DefaultsTo Document, ct: ClassTag[D]): MongoCollection[D] =
-    getDatabase().getCollection[D](collectionName, ct)
+  def database(databaseName: String): MongoDatabase = mongoClient().getDatabase(databaseName)
+  def collection[D](databaseName: String, collectionName: String)(implicit e: D DefaultsTo Document, ct: ClassTag[D]): MongoCollection[D] =
+    getDatabase(databaseName).getCollection[D](collectionName, classTagToClassOf(ct))
 
-  def getMongoClient(): MongoClient = mongoClient
-  def getDatabase(): MongoDatabase = mongoClient.getDatabase(databaseName)
-  def getCollection(): MongoCollection[Document] = collection()
-  def getCollection[D](clazz: Class[D]): MongoCollection[D] = getDatabase().getCollection[D](collectionName, clazz)
+  // Java helpers
+  def getMongoClient(): MongoClient = mongoClient()
+  def getDatabase(databaseName: String): MongoDatabase = mongoClient().getDatabase(databaseName)
+  def getCollection(databaseName: String, collectionName: String): MongoCollection[Document] = collection(databaseName, collectionName)
+  def getCollection[D](databaseName: String, collectionName: String, clazz: Class[D]): MongoCollection[D] =
+    getDatabase(databaseName).getCollection[D](collectionName, clazz)
 
   override def close(): Unit = {
     logInfo("Closing MongoClient")
-    if (fetchedClient) mongoClient.close()
+    if (fetchedClient) mongoClient().close()
   }
 
   private[this] def createMongoClient(): MongoClient = {

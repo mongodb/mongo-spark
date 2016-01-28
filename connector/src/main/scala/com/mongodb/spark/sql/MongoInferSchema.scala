@@ -31,9 +31,6 @@ import com.mongodb.spark.sql.types.{ConflictType, SkipFieldType}
 
 object MongoInferSchema {
 
-  val defaultSampleSize: Int = 100
-  val defaultSamplingRatio: Double = 1.0
-
   /**
    * Gets a schema for the specified mongo collection. It is required that the
    * collection provides Documents.
@@ -41,12 +38,9 @@ object MongoInferSchema {
    * Utilizes the `\$sample` aggregation operator, available in server versions 3.2+.
    *
    * @param sc                 the spark context
-   * @param sampleSize         a positive integer sample size to draw from the collection
-   * @param samplingRatio      the proportion of documents to be sampled
    * @return the schema for the collection
    */
-  def apply(sc: SparkContext, sampleSize: Int, samplingRatio: Double): StructType =
-    apply(MongoRDD[BsonDocument](sc), sampleSize, samplingRatio)
+  def apply(sc: SparkContext): StructType = apply(MongoRDD[BsonDocument](sc))
 
   /**
    * Gets a schema for the specified mongo collection. It is required that the
@@ -55,22 +49,12 @@ object MongoInferSchema {
    * Utilizes the `\$sample` aggregation operator, available in server versions 3.2+.
    *
    * @param mongoRDD           the MongoRDD to be sampled
-   * @param sampleSize         a positive integer sample size to draw from the collection
-   * @param samplingRatio      the proportion of documents to be sampled
    * @return the schema for the collection
    */
-  def apply(mongoRDD: MongoRDD[BsonDocument], sampleSize: Int, samplingRatio: Double): StructType = {
-    require(sampleSize > 0, s"sampleSize ($sampleSize) should be greater than 0")
-    require(samplingRatio > 0, s"samplingRatio ($samplingRatio) should be greater than 0")
+  def apply(mongoRDD: MongoRDD[BsonDocument]): StructType = {
 
     // TODO handle pre 3.2
-    val sampleRDD = mongoRDD.withPipeline(List(new Document("$sample", new Document("size", sampleSize))))
-
-    val schemaData = if (samplingRatio > 0.99) {
-      sampleRDD
-    } else {
-      sampleRDD.sample(withReplacement = false, samplingRatio, 1)
-    }
+    val schemaData = mongoRDD.withPipeline(List(new Document("$sample", new Document("size", mongoRDD.readConfig.sampleSize))))
 
     // perform schema inference on each row and merge afterwards
     val rootType: DataType = schemaData
