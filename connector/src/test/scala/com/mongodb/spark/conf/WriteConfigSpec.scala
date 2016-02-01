@@ -39,7 +39,7 @@ class WriteConfigSpec extends FlatSpec with Matchers {
   it should "validate the values" in {
     an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().remove("mongodb.output.databaseName"))
     an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().remove("mongodb.output.collectionName"))
-    an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.set("mongodb.output.writeConcern", "allTheNodes"))
+    an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().set("mongodb.output.writeConcern", "allTheNodes"))
   }
 
   val sparkConf = new SparkConf()

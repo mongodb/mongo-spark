@@ -56,4 +56,5 @@ package object spark {
   implicit def toDocumentRDDFunctions[D](rdd: RDD[D])(implicit e: D DefaultsTo Document, ct: ClassTag[D]): DocumentRDDFunctions[D] =
     DocumentRDDFunctions(rdd)
 
+  private[spark] def notNull[T](name: String, value: T): Unit = require(Option(value).isDefined, s"$name cannot be null")
 }

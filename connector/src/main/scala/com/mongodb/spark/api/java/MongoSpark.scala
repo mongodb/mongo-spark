@@ -28,6 +28,7 @@ import com.mongodb.spark.MongoConnector
 import com.mongodb.spark.conf.{WriteConfig, ReadConfig}
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
 import com.mongodb.spark.rdd.{DocumentRDDFunctions, MongoRDD}
+import com.mongodb.spark.notNull
 
 object MongoSpark {
 
@@ -184,7 +185,4 @@ object MongoSpark {
     DocumentRDDFunctions(JavaRDD.toRDD(javaRDD)).saveToMongoDB(writeConfig)
   }
 
-  private def notNull[T](name: String, value: T): Unit = {
-    if (Option(value).isEmpty) throw new IllegalArgumentException(name + " can not be null")
-  }
 }

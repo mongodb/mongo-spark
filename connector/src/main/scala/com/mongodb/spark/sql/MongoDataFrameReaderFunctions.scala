@@ -19,7 +19,6 @@ package com.mongodb.spark.sql
 import scala.reflect.runtime.universe._
 
 import org.apache.spark.Logging
-import org.apache.spark.sql.catalyst.ScalaReflection
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, DataFrameReader}
 
@@ -32,7 +31,7 @@ private[spark] case class MongoDataFrameReaderFunctions(@transient val dfr: Data
    * @tparam T The optional type of the data from MongoDB
    * @return DataFrame
    */
-  def mongo[T <: Product: TypeTag](): DataFrame = createDataFrame(inferSchema[T](), None)
+  def mongo[T <: Product: TypeTag](): DataFrame = createDataFrame(MongoInferSchema.reflectSchema[T](), None)
 
   /**
    * Creates a [[DataFrame]] through schema inference via the `tparam` type, otherwise will sample the collection to
@@ -42,7 +41,8 @@ private[spark] case class MongoDataFrameReaderFunctions(@transient val dfr: Data
    * @tparam T The optional type of the data from MongoDB
    * @return DataFrame
    */
-  def mongo[T <: Product: TypeTag](options: Map[String, String]): DataFrame = createDataFrame(inferSchema[T](), Some(options))
+  def mongo[T <: Product: TypeTag](options: Map[String, String]): DataFrame =
+    createDataFrame(MongoInferSchema.reflectSchema[T](), Some(options))
 
   /**
    * Creates a [[DataFrame]] with the set schema
@@ -60,13 +60,6 @@ private[spark] case class MongoDataFrameReaderFunctions(@transient val dfr: Data
    * @return DataFrame
    */
   def mongo(schema: StructType, options: Map[String, String]): DataFrame = createDataFrame(Some(schema), Some(options))
-
-  private def inferSchema[T <: Product: TypeTag](): Option[StructType] = {
-    typeOf[T] match {
-      case x if x == typeOf[Nothing] => None
-      case _                         => Some(ScalaReflection.schemaFor[T].dataType.asInstanceOf[StructType])
-    }
-  }
 
   private def createDataFrame(schema: Option[StructType], options: Option[Map[String, String]]): DataFrame = {
     val builder = dfr.format("com.mongodb.spark.sql.DefaultSource")

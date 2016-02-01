@@ -14,27 +14,18 @@
  * limitations under the License.
  */
 
-package com.mongodb.spark.api.java.sql;
+package com.mongodb.spark.api.java;
 
 import java.io.Serializable;
 
-public class Character implements Serializable {
-    private String name;
-    private Integer age;
+public final class Counter implements Serializable {
+    private Integer counter;
 
-    public String getName() {
-        return name;
+    public Integer getCounter() {
+        return counter;
     }
 
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public Integer getAge() {
-        return age;
-    }
-
-    public void setAge(final Integer age) {
-        this.age = age;
+    public void setCounter(final Integer counter) {
+        this.counter = counter;
     }
 }

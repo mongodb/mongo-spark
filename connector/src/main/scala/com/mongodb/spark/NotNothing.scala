@@ -14,27 +14,18 @@
  * limitations under the License.
  */
 
-package com.mongodb.spark.api.java.sql;
+package com.mongodb.spark
 
-import java.io.Serializable;
+import scala.annotation.implicitNotFound
 
-public class Character implements Serializable {
-    private String name;
-    private Integer age;
+@implicitNotFound("You must explicitly provide a type.")
+trait NotNothing[T]
 
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public Integer getAge() {
-        return age;
-    }
-
-    public void setAge(final Integer age) {
-        this.age = age;
-    }
+/**
+ * `NotNothing` bottom type constraint for methods allowing a generic type that is not `Nothing`.
+ */
+object NotNothing {
+  private val evidence: NotNothing[Any] = new Object with NotNothing[Any]
+  implicit def notNothingEv[T](implicit n: T =:= T): NotNothing[T] =
+    evidence.asInstanceOf[NotNothing[T]]
 }

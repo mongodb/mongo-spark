@@ -33,7 +33,7 @@ import org.bson.types.ObjectId
 import org.bson.{BsonTimestamp, Document}
 import com.mongodb.client.model.{Aggregates, Filters, Projections}
 
-private[sql] object MongoRelationHelper {
+private[spark] object MongoRelationHelper {
 
   def documentToRow(document: Document, schema: StructType, requiredColumns: Array[String] = Array.empty[String]): Row = {
     val values: Array[(Any, StructField)] = schema.fields.map(field =>

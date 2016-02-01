@@ -20,8 +20,10 @@ import java.util
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
+import scala.reflect.runtime.universe._
 
 import org.apache.spark.SparkContext
+import org.apache.spark.sql.catalyst.{JavaTypeInference, ScalaReflection}
 import org.apache.spark.sql.catalyst.analysis.HiveTypeCoercion
 import org.apache.spark.sql.types._
 
@@ -192,5 +194,14 @@ object MongoInferSchema {
     }
   }
   // scalastyle:on cyclomatic.complexity null
+
+  def reflectSchema[T <: Product: TypeTag](): Option[StructType] = {
+    typeOf[T] match {
+      case x if x == typeOf[Nothing] => None
+      case _                         => Some(ScalaReflection.schemaFor[T].dataType.asInstanceOf[StructType])
+    }
+  }
+
+  def reflectSchema[T](beanClass: Class[T]): StructType = JavaTypeInference.inferDataType(beanClass)._1.asInstanceOf[StructType]
 
 }

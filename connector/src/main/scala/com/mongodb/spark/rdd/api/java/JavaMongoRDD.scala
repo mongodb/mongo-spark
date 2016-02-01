@@ -20,9 +20,11 @@ import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 
 import org.apache.spark.api.java.JavaRDD
+import org.apache.spark.sql.{DataFrame, Dataset}
 
 import org.bson.conversions.Bson
 import com.mongodb.spark.rdd.MongoRDD
+import com.mongodb.spark.notNull
 
 case class JavaMongoRDD[D](override val rdd: MongoRDD[D])(implicit override val classTag: ClassTag[D]) extends JavaRDD[D](rdd)(classTag) {
 
@@ -32,7 +34,40 @@ case class JavaMongoRDD[D](override val rdd: MongoRDD[D])(implicit override val 
    * @param pipeline the aggregation pipeline to use
    * @return the updated MongoJavaRDD
    */
-  def withPipeline[B <: Bson](pipeline: java.util.List[B]): JavaMongoRDD[D] =
+  def withPipeline[B <: Bson](pipeline: java.util.List[B]): JavaMongoRDD[D] = {
+    notNull("pipeline", pipeline)
     JavaMongoRDD(rdd.withPipeline(pipeline.asScala))
+  }
+
+  /**
+   * Creates a `DataFrame` inferring the schema by sampling data from MongoDB
+   *
+   * @return a DataFrame
+   */
+  def toDF(): DataFrame = rdd.toDF()
+
+  /**
+   * Creates a `DataFrame` based on the schema derived from the bean class
+   *
+   * @param beanClass encapsulating the data from MongoDB
+   * @tparam T The bean class type to shape the data from MongoDB into
+   * @return a DataFrame
+   */
+  def toDF[T](beanClass: Class[T]): DataFrame = {
+    notNull("beanClass", beanClass)
+    rdd.toDF(beanClass)
+  }
+
+  /**
+   * Creates a `Dataset` from the RDD strongly typed to the provided java bean.
+   *
+   * @param beanClass encapsulating the data from MongoDB
+   * @tparam T The type of the data from MongoDB
+   * @return a Dataset
+   */
+  def toDS[T](beanClass: Class[T]): Dataset[T] = {
+    notNull("beanClass", beanClass)
+    rdd.toDS(beanClass)
+  }
 
 }

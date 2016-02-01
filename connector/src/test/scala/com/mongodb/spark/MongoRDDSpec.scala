@@ -18,14 +18,26 @@ package com.mongodb.spark
 
 import org.scalatest.FlatSpec
 
+import org.apache.spark.SparkException
+import org.apache.spark.sql.catalyst.ScalaReflection
+import org.apache.spark.sql.types.DataTypes._
+import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
+import org.apache.spark.sql.{DataFrame, Dataset}
+
 import org.bson.{BsonDocument, Document}
 import com.mongodb.client.model.{Aggregates, Filters}
 import com.mongodb.spark.rdd.MongoRDD
 
 class MongoRDDSpec extends FlatSpec with RequiresMongoDB {
+  val counters =
+    """
+      | {counter: 0}
+      | {counter: 1}
+      | {counter: 2}
+    """.stripMargin.trim.stripMargin.split("[\\r\\n]+").toSeq
 
   "MongoRDD" should "be easily created from the SparkContext" in withSparkContext() { sc =>
-    sc.parallelize(Seq(Document.parse("{counter: 0}"), Document.parse("{counter: 1}"), Document.parse("{counter: 2}"))).saveToMongoDB()
+    sc.parallelize(counters.map(Document.parse)).saveToMongoDB()
     val mongoRDD: MongoRDD[Document] = sc.loadFromMongoDB()
 
     mongoRDD.count() shouldBe 3
@@ -37,7 +49,7 @@ class MongoRDDSpec extends FlatSpec with RequiresMongoDB {
   }
 
   it should "be able to query via a pipeline" in withSparkContext() { sc =>
-    sc.parallelize(Seq(Document.parse("{counter: 0}"), Document.parse("{counter: 1}"), Document.parse("{counter: 2}"))).saveToMongoDB()
+    sc.parallelize(counters.map(Document.parse)).saveToMongoDB()
 
     sc.loadFromMongoDB().withPipeline(List(Document.parse("{$match: { counter: {$gt: 0}}}"))).count() shouldBe 2
     sc.loadFromMongoDB().withPipeline(List(BsonDocument.parse("{$match: { counter: {$gt: 0}}}"))).count() shouldBe 2
@@ -45,9 +57,61 @@ class MongoRDDSpec extends FlatSpec with RequiresMongoDB {
   }
 
   it should "be able to handle different collection types" in withSparkContext() { sc =>
-    sc.parallelize(Seq(BsonDocument.parse("{counter: 0}"), BsonDocument.parse("{counter: 1}"), BsonDocument.parse("{counter: 2}"))).saveToMongoDB()
+    sc.parallelize(counters.map(Document.parse)).saveToMongoDB()
 
     val mongoRDD: MongoRDD[BsonDocument] = sc.loadFromMongoDB[BsonDocument]()
     mongoRDD.count() shouldBe 3
+  }
+
+  it should "be able to create a DataFrame by inferring the schema" in withSparkContext() { sc =>
+    sc.parallelize(counters.map(Document.parse)).saveToMongoDB()
+
+    val _idField: StructField = createStructField("_id", DataTypes.StringType, true)
+    val countField: StructField = createStructField("counter", DataTypes.IntegerType, true)
+    val expectedSchema: StructType = createStructType(Array(_idField, countField))
+
+    val dataFrame: DataFrame = sc.loadFromMongoDB().toDF()
+    dataFrame.schema should equal(expectedSchema)
+    dataFrame.count() should equal(3)
+  }
+
+  it should "be able to create a DataFrame when provided a case class" in withSparkContext() { sc =>
+    sc.parallelize(counters.map(Document.parse)).saveToMongoDB()
+
+    val expectedSchema: StructType = ScalaReflection.schemaFor[Counter].dataType.asInstanceOf[StructType]
+    val dataFrame: DataFrame = sc.loadFromMongoDB().toDF[Counter]()
+    dataFrame.schema should equal(expectedSchema)
+    dataFrame.count() should equal(3)
+  }
+
+  it should "be able to create a Dataset when provided a case class" in withSparkContext() { sc =>
+    sc.parallelize(counters.map(Document.parse)).saveToMongoDB()
+
+    val expectedSchema: StructType = ScalaReflection.schemaFor[Counter].dataType.asInstanceOf[StructType]
+    val dataset: Dataset[Counter] = sc.loadFromMongoDB().toDS[Counter]()
+    dataset.schema should equal(expectedSchema)
+    dataset.count() should equal(3)
+  }
+
+  it should "not allow Nothing when trying to create a Dataset" in withSparkContext() { sc =>
+    sc.parallelize(counters.map(Document.parse)).saveToMongoDB()
+
+    "sc.fromMongoDB().toDS()" shouldNot compile
+    "sc.fromMongoDB().toDS[Nothing]()" shouldNot compile
+  }
+
+  it should "throw when creating a Dataset with invalid data" in withSparkContext() { sc =>
+    sc.parallelize(List(Document.parse("{counter: 'a'}"), Document.parse("{counter: 'b'}"))).saveToMongoDB()
+    val dataset: Dataset[Counter] = sc.fromMongoDB().toDS[Counter]()
+
+    import dataset.sqlContext.implicits._
+    an[SparkException] should be thrownBy dataset.map(counter => counter.counter).collectAsList()
+  }
+
+  it should "use default values when creating a Dataset with missing data" in withSparkContext() { sc =>
+    sc.parallelize(List(Document.parse("{name: 'a'}"), Document.parse("{name: 'b'}"))).saveToMongoDB()
+    val dataset: Dataset[Counter] = sc.fromMongoDB().toDS[Counter]()
+    import dataset.sqlContext.implicits._
+    dataset.map(counter => counter.counter).collectAsList() should contain theSameElementsAs List(None, None)
   }
 }
