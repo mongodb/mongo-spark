@@ -16,12 +16,14 @@
 
 package com.mongodb.spark.sql
 
+import scala.collection.JavaConverters._
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
 
-import org.bson.{BsonDocument, Document}
+import org.bson.conversions.Bson
+import org.bson.{BsonType, BsonArray, BsonDocument, Document}
 import com.mongodb.spark.MongoConnector
 import com.mongodb.spark.conf.ReadConfig
 import com.mongodb.spark.rdd.MongoRDD
@@ -42,15 +44,8 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
    * @param parameters any user provided parameters
    * @return a MongoRelation
    */
-  override def createRelation(sqlContext: SQLContext, parameters: Map[String, String]): MongoRelation = {
-    val sparkConf: SparkConf = sqlContext.sparkContext.getConf
-    val uri: String = parameters.getOrElse("uri", sparkConf.get("mongodb.uri"))
-    val mongoConnector: MongoConnector = MongoConnector(uri)
-    val readConfig = ReadConfig(sparkConf).withParameters(parameters)
-    val schema: StructType = MongoInferSchema(MongoRDD[BsonDocument](sqlContext.sparkContext, mongoConnector, readConfig))
-    val mongoRDD: MongoRDD[Document] = MongoRDD(sqlContext.sparkContext, mongoConnector, readConfig)
-    MongoRelation(mongoRDD, Some(schema))(sqlContext)
-  }
+  override def createRelation(sqlContext: SQLContext, parameters: Map[String, String]): MongoRelation =
+    createRelation(sqlContext, parameters, None)
 
   /**
    * Create a `MongoRelation` based on the provided schema
@@ -60,16 +55,35 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
    * @param schema     the provided schema for the documents
    * @return a MongoRelation
    */
-  override def createRelation(
-    sqlContext: SQLContext,
-    parameters: Map[String, String],
-    schema:     StructType
-  ): MongoRelation = {
+  override def createRelation(sqlContext: SQLContext, parameters: Map[String, String], schema: StructType): MongoRelation =
+    createRelation(sqlContext, parameters, Some(schema))
+
+  private def createRelation(sqlContext: SQLContext, parameters: Map[String, String], structType: Option[StructType]): MongoRelation = {
     val sparkConf: SparkConf = sqlContext.sparkContext.getConf
     val uri: String = parameters.getOrElse("uri", sparkConf.get("mongodb.uri"))
     val mongoConnector: MongoConnector = MongoConnector(uri)
     val readConfig = ReadConfig(sparkConf).withParameters(parameters)
-    val mongoRDD: MongoRDD[Document] = MongoRDD(sqlContext.sparkContext, mongoConnector, readConfig)
-    MongoRelation(mongoRDD, Some(schema))(sqlContext)
+    val pipeline = parameters.get("pipeline")
+    val schema: StructType = structType match {
+      case Some(s) => s
+      case None    => MongoInferSchema(pipelinedRdd(MongoRDD[BsonDocument](sqlContext.sparkContext, mongoConnector, readConfig), pipeline))
+    }
+    MongoRelation(pipelinedRdd(MongoRDD[Document](sqlContext.sparkContext, mongoConnector, readConfig), pipeline), Some(schema))(sqlContext)
+  }
+
+  private def pipelinedRdd[T](rdd: MongoRDD[T], pipelineJson: Option[String]): MongoRDD[T] = {
+    pipelineJson match {
+      case Some(json) =>
+        val pipeline: Seq[Bson] = BsonDocument.parse(s"{pipeline: $json}").get("pipeline") match {
+          case seq: BsonArray if seq.get(0).getBsonType == BsonType.DOCUMENT => seq.getValues.asScala.asInstanceOf[Seq[Bson]]
+          case doc: BsonDocument => Seq(doc)
+          case _ => throw new IllegalArgumentException(
+            s"""Invalid pipeline option: $pipelineJson.
+               | It should be a list of pipeline stages (Documents) or a single pipeline stage (Document)""".stripMargin
+          )
+        }
+        rdd.withPipeline(pipeline)
+      case None => rdd
+    }
   }
 }

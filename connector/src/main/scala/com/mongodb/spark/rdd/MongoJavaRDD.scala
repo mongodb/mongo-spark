@@ -16,7 +16,7 @@
 
 package com.mongodb.spark.rdd
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 
 import org.apache.spark.api.java.JavaRDD
@@ -31,8 +31,6 @@ case class MongoJavaRDD[D](override val rdd: MongoRDD[D])(implicit override val 
    * @param pipeline the aggregation pipeline to use
    * @return the updated MongoJavaRDD
    */
-  def withPipeline[B <: Bson](pipeline: java.util.List[B]): MongoJavaRDD[D] = {
-    MongoJavaRDD(rdd.withPipeline(pipeline.toList))
-  }
+  def withPipeline[B <: Bson](pipeline: java.util.List[B]): MongoJavaRDD[D] = MongoJavaRDD(rdd.withPipeline(pipeline.asScala))
 
 }

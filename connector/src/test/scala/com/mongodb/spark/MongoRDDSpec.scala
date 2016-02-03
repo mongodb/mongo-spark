@@ -96,13 +96,13 @@ class MongoRDDSpec extends FlatSpec with RequiresMongoDB {
   it should "not allow Nothing when trying to create a Dataset" in withSparkContext() { sc =>
     sc.parallelize(counters.map(Document.parse)).saveToMongoDB()
 
-    "sc.fromMongoDB().toDS()" shouldNot compile
-    "sc.fromMongoDB().toDS[Nothing]()" shouldNot compile
+    "sc.loadFromMongoDB().toDS()" shouldNot compile
+    "sc.loadFromMongoDB().toDS[Nothing]()" shouldNot compile
   }
 
   it should "throw when creating a Dataset with invalid data" in withSparkContext() { sc =>
     sc.parallelize(List(Document.parse("{counter: 'a'}"), Document.parse("{counter: 'b'}"))).saveToMongoDB()
-    val dataset: Dataset[Counter] = sc.fromMongoDB().toDS[Counter]()
+    val dataset: Dataset[Counter] = sc.loadFromMongoDB().toDS[Counter]()
 
     import dataset.sqlContext.implicits._
     an[SparkException] should be thrownBy dataset.map(counter => counter.counter).collectAsList()
@@ -110,8 +110,9 @@ class MongoRDDSpec extends FlatSpec with RequiresMongoDB {
 
   it should "use default values when creating a Dataset with missing data" in withSparkContext() { sc =>
     sc.parallelize(List(Document.parse("{name: 'a'}"), Document.parse("{name: 'b'}"))).saveToMongoDB()
-    val dataset: Dataset[Counter] = sc.fromMongoDB().toDS[Counter]()
+    val dataset: Dataset[Counter] = sc.loadFromMongoDB().toDS[Counter]()
     import dataset.sqlContext.implicits._
     dataset.map(counter => counter.counter).collectAsList() should contain theSameElementsAs List(None, None)
   }
+
 }

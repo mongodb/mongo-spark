@@ -16,6 +16,8 @@
 
 package com.mongodb.spark.rdd
 
+import java.util
+
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
@@ -30,6 +32,7 @@ import org.bson.codecs.configuration.CodecRegistry
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
 import com.mongodb.client.MongoCursor
+import com.mongodb.connection.ServerVersion
 import com.mongodb.spark.conf.ReadConfig
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
 import com.mongodb.spark.rdd.partitioner.{MongoPartition, MongoPartitioner, MongoSplitKeyPartitioner}
@@ -108,12 +111,21 @@ class MongoRDD[D: ClassTag](
     private[spark] val pipeline:         Seq[Bson]
 ) extends RDD[D](sc, Nil) {
 
+  private[spark] lazy val hasSampleAggregateOperator: Boolean = {
+    val buildInfo: BsonDocument = connector.value.mongoClient().getDatabase("test").runCommand(new Document("buildInfo", 1), classOf[BsonDocument])
+    val versionArray: util.List[Integer] = buildInfo.getArray("versionArray").asScala.take(3).map(_.asInt32().getValue.asInstanceOf[Integer]).asJava
+    new ServerVersion(versionArray).compareTo(new ServerVersion(3, 2)) >= 0
+  }
+
+  private[spark] def appendPipeline[B <: Bson](extraPipeline: Seq[B]): MongoRDD[D] = withPipeline(pipeline ++ extraPipeline)
+
   override def toJavaRDD(): JavaMongoRDD[D] = JavaMongoRDD(this)
 
   /**
    * Creates a `DataFrame` based on the schema derived from the optional type.
    *
    * '''Note:''' Prefer [[toDS[T<:Product]()*]] as computations will be more efficient.
+   *  The rdd must contain an `_id` for MongoDB versions < 3.2.
    *
    * @tparam T The optional type of the data from MongoDB, if not provided the schema will be inferred from the collection
    * @return a DataFrame

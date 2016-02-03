@@ -141,6 +141,7 @@ public final class MongoSparkTest extends RequiresMongoDB {
         // then
         assertEquals(dataset.schema(), expectedSchema);
         assertEquals(dataset.count(), 3);
+
         assertEquals(dataset.map(new MapFunction<Counter, Integer>(){
             @Override
             public Integer call(final Counter counter) throws Exception {

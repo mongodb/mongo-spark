@@ -18,7 +18,6 @@ package com.mongodb.spark.api.java.sql;
 
 import com.mongodb.spark.api.java.MongoSpark;
 import com.mongodb.spark.api.java.RequiresMongoDB;
-import com.mongodb.spark.rdd.api.java.JavaMongoRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.sql.DataFrame;
@@ -68,6 +67,33 @@ public final class MongoDataFrameReaderTest extends RequiresMongoDB {
     }
 
     @Test
+    public void shouldIncludeAnyPipelinesWhenInferringTheSchema() {
+        // Given
+        JavaSparkContext sc = new JavaSparkContext(getSparkContext());
+        MongoSpark.save(sc.parallelize(characters).map(JsonToDocument));
+        MongoSpark.save(sc.parallelize(asList("{counter: 1}", "{counter: 2}", "{counter: 3}")).map(JsonToDocument));
+
+        SQLContext sqlContext = new SQLContext(sc);
+        StructType expectedSchema = createStructType(asList(_idField, ageField, nameField));
+
+        // When
+        DataFrame df = sqlContext.read().format("com.mongodb.spark.sql").option("pipeline", "{ $match: { name: { $exists: true } } }").load();
+
+        // Then
+        assertEquals(df.schema(), expectedSchema);
+        assertEquals(df.count(), 10);
+        assertEquals(df.filter("age > 100").count(), 6);
+
+        // When - single item pipeline
+        df = sqlContext.read().format("com.mongodb.spark.sql").option("pipeline", "{ $match: { name: { $exists: true } } }").load();
+
+        // Then
+        assertEquals(df.schema(), expectedSchema);
+        assertEquals(df.count(), 10);
+        assertEquals(df.filter("age > 100").count(), 6);
+    }
+
+    @Test
     public void shouldBeEasilyCreatedWithAProvidedRDDAndJavaBean() {
         // Given
         JavaSparkContext sc = new JavaSparkContext(getSparkContext());
@@ -75,13 +101,20 @@ public final class MongoDataFrameReaderTest extends RequiresMongoDB {
         StructType expectedSchema = createStructType(asList(ageField, nameField));
 
         // When
-        JavaMongoRDD<Document> mongoRDD = MongoSpark.load(sc);
-        DataFrame df = mongoRDD.toDF(Character.class);
+        DataFrame df = MongoSpark.load(sc).toDF(Character.class);
 
         // Then
         assertEquals(df.schema(), expectedSchema);
         assertEquals(df.count(), 10);
         assertEquals(df.filter("age > 100").count(), 6);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void shouldThrowAnExceptionIfPipelineIsInvalid() {
+        JavaSparkContext sc = new JavaSparkContext(getSparkContext());
+        MongoSpark.save(sc.parallelize(characters).map(JsonToDocument));
+
+        new SQLContext(sc).read().format("com.mongodb.spark.sql").option("pipeline", "[1, 2, 3]").load();
     }
 
     private static Function<String, Document> JsonToDocument = new Function<String, Document>() {

@@ -94,6 +94,17 @@ class MongoInferSchemaSpec extends FlatSpec with MongoDataGenerator with Require
     }
   }
 
+  it should "use any set pipelines on the RDD" in withSparkContext() { sc =>
+    forAll(genDocumentDataType(0)) { (data: MongoDataType) =>
+      val allDocs = data.getDocuments ++ Seq("{badData: [1 ,2, 3]}", "{badData: 55}", "{badData: 'bad'}").map(Document.parse)
+      sc.parallelize(allDocs.toBson).saveToMongoDB()
+
+      val rdd = MongoRDD[BsonDocument](sc).withPipeline(Seq(Document.parse("{ $match: { badData : { $exists : false } } }")))
+      data.schema should equal(MongoInferSchema(rdd))
+      sc.dropDatabase()
+    }
+  }
+
   implicit class DocHelpers(val pipeline: Seq[Bson]) {
     def toBson: Seq[BsonDocument] =
       pipeline.map(_.toBsonDocument(classOf[BsonDocument], MongoClient.getDefaultCodecRegistry))

@@ -40,7 +40,7 @@ case class MongoRelation(mongoRDD: MongoRDD[Document], _schema: Option[StructTyp
     if (requiredColumns.nonEmpty || filters.nonEmpty) {
       logInfo(s"requiredColumns: ${requiredColumns.mkString(", ")}, filters: ${filters.mkString(", ")}")
     }
-    mongoRDD.withPipeline(createPipeline(requiredColumns, filters)).map(doc => documentToRow(doc, schema, requiredColumns))
+    mongoRDD.appendPipeline(createPipeline(requiredColumns, filters)).map(doc => documentToRow(doc, schema, requiredColumns))
   }
 
 }

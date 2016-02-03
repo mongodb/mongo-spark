@@ -38,6 +38,7 @@ trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with
   private def sparkContext: SparkContext = _sparkContext
   private lazy val _sparkContext: SparkContext = {
     requestedSparkContext = true
+    _currentTestName = Some(suiteName)
     new SparkContext(sparkConf)
   }
 
@@ -126,6 +127,7 @@ trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with
   override def afterAll() {
     mongoDBDefaults.dropDB()
     if (requestedSparkContext) sparkContext.stop()
+    logInfo(s"Ended Test: '${_currentTestName.getOrElse(suiteName)}'")
   }
 
 }
