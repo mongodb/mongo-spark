@@ -44,7 +44,7 @@ case class DocumentRDDFunctions[D](rdd: RDD[D])(implicit e: D DefaultsTo Documen
    *
    * @return the RDD
    */
-  def saveToMongoDB(): RDD[D] = saveToMongoDB(WriteConfig(rdd.context.getConf))
+  def saveToMongoDB(): Unit = saveToMongoDB(WriteConfig(rdd.context.getConf))
 
   /**
    * Saves the RDD data to MongoDB using the given `WriteConfig`
@@ -52,13 +52,11 @@ case class DocumentRDDFunctions[D](rdd: RDD[D])(implicit e: D DefaultsTo Documen
    * @param writeConfig the [[com.mongodb.spark.conf.WriteConfig]] to use
    * @return the rdd
    */
-  def saveToMongoDB(writeConfig: WriteConfig): RDD[D] = {
+  def saveToMongoDB(writeConfig: WriteConfig): Unit =
     rdd.foreachPartition(iter => if (iter.nonEmpty) {
       mongoConnector.getCollection(writeConfig.databaseName, writeConfig.collectionName, classTagToClassOf(ct))
         .withWriteConcern(writeConfig.writeConcern)
         .insertMany(iter.toList.asJava)
     })
-    rdd
-  }
 
 }
