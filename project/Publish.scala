@@ -32,13 +32,20 @@ object Publish {
   val secretKeyRing = "signing.secretKeyRingFile"
   val keyPassword = "signing.password"
 
-  lazy val settings: Seq[Def.Setting[_]] = {
-    if (!propFile.exists) Seq.empty
-    else {
+  def settings: Seq[Def.Setting[_]] = {
+    val defaults = Seq(
+        publishArtifact in (Compile, packageDoc) := publishDocs(scalaVersion.value),
+        publishArtifact in packageDoc := publishDocs(scalaVersion.value),
+        sources in (Compile,doc) := publishDocSrcs(scalaVersion.value, (sources in (Compile,doc)).value)
+    )
+
+    if (!propFile.exists) {
+      defaults
+    } else {
       val props = new Properties
       val input = new FileInputStream(propFile)
       try props.load(input) finally input.close()
-      mavenSettings ++ Seq(
+      mavenSettings ++ defaults ++ Seq(
         PgpSettings.pgpPassphrase := Some(props.getProperty(keyPassword).toArray),
         PgpSettings.pgpSecretRing := file(props.getProperty(secretKeyRing)),
         credentials += Credentials(
@@ -51,28 +58,29 @@ object Publish {
     }
   }
 
-  lazy val publishAssemblySettings = Seq(
+  lazy val assemblySettings = Seq(
     assemblyJarName in assembly := "mongo-spark-connector-alldep.jar",
     assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = false),
     test in assembly := {},
     artifact in (Compile, assembly) := {
       val art = (artifact in (Compile, assembly)).value
-      art.copy(`classifier` = Some("alldep"))
+      art.copy(`classifier` = Some("assembly"))
     }
   ) ++ addArtifact(artifact in (Compile, assembly), assembly).settings
 
   lazy val mavenSettings = Seq(
     publishTo := {
       val nexus = "https://oss.sonatype.org/"
-      if (isSnapshot.value)
+      if (isSnapshot.value) {
         Some("snapshots" at nexus + "content/repositories/snapshots")
-      else
+      } else {
         Some("releases" at nexus + "service/local/staging/deploy/maven2")
+      }
     },
     publishMavenStyle := true,
     publishArtifact in Test := false,
     pomIncludeRepository := { _ => false },
-    pomExtra := (
+    pomExtra :=
       <url>http://mongodb.github.io/mongo-scala-driver</url>
         <licenses>
           <license>
@@ -93,7 +101,6 @@ object Publish {
             <organization>MongoDB</organization>
           </developer>
         </developers>
-      )
   )
 
   lazy val noPublishing = Seq(
@@ -109,5 +116,15 @@ object Publish {
     // Only publish if snapshot
     if(isSnapshot.value) Def.task { PgpKeys.publishSigned.value } else Def.task { }
   }
+
+  def publishDocs(scalaVersion: String): Boolean = CrossVersion.partialVersion(scalaVersion).exists(value => value != (2, 10))
+  def publishDocSrcs(scalaVersion: String, defaultSources: Seq[File]): Seq[File] = {
+    publishDocs(scalaVersion) match {
+      case true => defaultSources
+      case false => Seq.empty
+    }
+  }
+
+
 
 }

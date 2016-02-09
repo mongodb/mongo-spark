@@ -21,15 +21,14 @@ import java.io.Serializable
 import org.apache.spark.sql.types.DataType
 
 /**
- * A type marking fields in the document structure to schema translation process that should be skipped.
- *
- * The main example use case is skipping a field with an empty array as the value.
+ * A tombstone type to mark conflicting DataTypes in the document structure to schema
+ * translation process.
  */
-class SkipFieldType private () extends DataType with Serializable {
+private[sql] class ConflictType private () extends DataType with Serializable {
   def defaultSize: Int = 0
 
   def asNullable: DataType = this
-  override def toString: String = "SkipFieldType"
+  override def toString: String = "ConflictType"
 }
 
-case object SkipFieldType extends SkipFieldType
+case object ConflictType extends ConflictType

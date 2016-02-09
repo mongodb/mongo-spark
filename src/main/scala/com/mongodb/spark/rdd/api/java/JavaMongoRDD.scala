@@ -42,7 +42,7 @@ case class JavaMongoRDD[D](override val rdd: MongoRDD[D])(implicit override val 
   /**
    * Creates a `DataFrame` inferring the schema by sampling data from MongoDB.
    *
-   * '''Note:''' Prefer [[toDS[T](beanClass: Class[T])*]] as any computations will be more efficient.
+   * '''Note:''' Prefer [[toDS[T](beanClass:Class[T])*]] as any computations will be more efficient.
    *  The rdd must contain an `_id` for MongoDB versions < 3.2.
    *
    * @return a DataFrame

@@ -31,15 +31,19 @@ object SparkConnectorBuild extends Build {
     organizationHomepage := Some(url("http://www.mongodb.org")),
     version := "0.1.0-SNAPSHOT",
     scalaVersion := scalaCoreVersion,
+    crossScalaVersions := scalaVersions,
     libraryDependencies ++= coreDependencies,
     resolvers := mongoScalaResolvers,
-    scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-Xlint"
-                          /*"-Xlint:-missing-interpolator", "-Xlog-implicits", "-Yinfer-debug", "-Xprint:typer"*/)
+    scalacOptions ++= scalacOptionsVersion(scalaVersion.value)
   )
 
-  val publishSettings = Publish.settings
-  val publishAssemblySettings = Publish.publishAssemblySettings
-  val noPublishSettings = Publish.noPublishing
+  def scalacOptionsVersion(scalaVersion: String): Seq[String] = {
+    val optionalFlags = CrossVersion.partialVersion(scalaVersion) match {
+      case Some((2, 11)) => Seq("-Xlint:-missing-interpolator") // scalastyle:ignore
+      case _ => Seq.empty
+    }
+    Seq("-unchecked", "-deprecation", "-feature", "-Xlint") ++ optionalFlags
+  }
 
   /*
    * Test Settings
@@ -79,26 +83,14 @@ object SparkConnectorBuild extends Build {
 
   lazy val connector = Project(
     id = "mongo-spark-connector",
-    base = file("connector")
+    base = file(".")
   ).settings(buildSettings)
     .settings(testSettings)
     .settings(customScalariformSettings)
     .settings(scalaStyleSettings)
     .settings(scoverageSettings)
-    .settings(publishSettings)
-    .settings(publishAssemblySettings)
-
-  lazy val root = Project(
-    id = "mongo-spark",
-    base = file(".")
-  ).aggregate(connector)
-    .settings(buildSettings)
-    .settings(scalaStyleSettings)
-    .settings(scoverageSettings)
-    .settings(noPublishSettings)
+    .settings(Publish.settings)
+    .settings(Publish.assemblySettings)
     .settings(checkAlias)
-    .dependsOn(connector)
-
-  override def rootProject: Some[Project] = Some(root)
 
 }
