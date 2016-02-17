@@ -14,17 +14,6 @@
  * limitations under the License.
  */
 
-package com.mongodb.spark
+package com.mongodb.spark.sql
 
-import scala.language.implicitConversions
-
-import org.apache.spark.sql.{DataFrameWriter, DataFrameReader}
-
-package object sql {
-
-  implicit def toMongoDataFrameReaderFunctions(dfr: DataFrameReader): MongoDataFrameReaderFunctions =
-    new MongoDataFrameReaderFunctions(dfr)
-
-  implicit def toMongoDataFrameWriterFunctions(dfw: DataFrameWriter): MongoDataFrameWriterFunctions =
-    new MongoDataFrameWriterFunctions(dfw)
-}
+case class Character(name: String, age: Int)

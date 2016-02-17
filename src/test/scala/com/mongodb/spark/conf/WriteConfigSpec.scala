@@ -16,7 +16,11 @@
 
 package com.mongodb.spark.conf
 
-import org.scalatest.{Matchers, FlatSpec}
+import java.util.concurrent.TimeUnit
+
+import org.scalatest.prop.TableDrivenPropertyChecks.forAll
+import org.scalatest.prop.Tables.Table
+import org.scalatest.{FlatSpec, Matchers}
 
 import org.apache.spark.SparkConf
 
@@ -31,19 +35,38 @@ class WriteConfigSpec extends FlatSpec with Matchers {
   }
 
   it should "be creatable from SparkConfig" in {
-    val expectedWriteConfig = WriteConfig("db", "collection", WriteConcern.MAJORITY)
+    forAll(writeConcerns) { writeConcern: WriteConcern =>
+      val expectedWriteConfig = WriteConfig("db", "collection", writeConcern)
+      WriteConfig(sparkConf.clone().set("mongodb.output.writeConcern", writeConcern.asDocument.toJson)) should equal(expectedWriteConfig)
+    }
+  }
 
-    WriteConfig(sparkConf) should equal(expectedWriteConfig)
+  it should "round trip options" in {
+    val defaultWriteConfig = WriteConfig("", "", WriteConcern.ACKNOWLEDGED)
+    forAll(writeConcerns) { writeConcern: WriteConcern =>
+      val expectedWriteConfig = WriteConfig("db", "collection", writeConcern)
+      defaultWriteConfig.withOptions(expectedWriteConfig.asOptions) should equal(expectedWriteConfig)
+    }
   }
 
   it should "validate the values" in {
     an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().remove("mongodb.output.databaseName"))
     an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().remove("mongodb.output.collectionName"))
     an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().set("mongodb.output.writeConcern", "allTheNodes"))
+    an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().set("mongodb.output.writeConcern", "{Fail}"))
   }
 
   val sparkConf = new SparkConf()
     .set("mongodb.output.databaseName", "db")
     .set("mongodb.output.collectionName", "collection")
     .set("mongodb.output.writeConcern", "majority")
+
+  val writeConcerns = Table(
+    "writeConcern",
+    WriteConcern.ACKNOWLEDGED,
+    WriteConcern.W1,
+    WriteConcern.MAJORITY,
+    WriteConcern.W1.withJournal(true),
+    WriteConcern.W1.withJournal(true).withWTimeout(1, TimeUnit.MINUTES)
+  )
 }

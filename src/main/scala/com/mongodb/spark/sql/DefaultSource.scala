@@ -18,20 +18,26 @@ package com.mongodb.spark.sql
 
 import scala.collection.JavaConverters._
 import org.apache.spark.SparkConf
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.SaveMode._
+import org.apache.spark.sql.{DataFrame, SaveMode, SQLContext}
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
 
 import org.bson.conversions.Bson
 import org.bson.{BsonType, BsonArray, BsonDocument, Document}
+import com.mongodb.client.{MongoCollection, MongoDatabase}
+import com.mongodb.spark.toDocumentRDDFunctions
 import com.mongodb.spark.MongoConnector
-import com.mongodb.spark.conf.ReadConfig
+import com.mongodb.spark.conf.{WriteConfig, ReadConfig}
 import com.mongodb.spark.rdd.MongoRDD
+import com.mongodb.spark.sql.MongoRelationHelper._
 
 /**
  * A MongoDB based DataSource
  */
-class DefaultSource extends DataSourceRegister with RelationProvider with SchemaRelationProvider {
+class DefaultSource extends DataSourceRegister with RelationProvider with SchemaRelationProvider with CreatableRelationProvider
+    with InsertableRelation {
 
   override def shortName(): String = "mongo"
 
@@ -59,16 +65,48 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
     createRelation(sqlContext, parameters, Some(schema))
 
   private def createRelation(sqlContext: SQLContext, parameters: Map[String, String], structType: Option[StructType]): MongoRelation = {
-    val sparkConf: SparkConf = sqlContext.sparkContext.getConf
-    val uri: String = parameters.getOrElse("uri", sparkConf.get("mongodb.uri"))
-    val mongoConnector: MongoConnector = MongoConnector(uri)
-    val readConfig = ReadConfig(sparkConf).withParameters(parameters)
+    val (mongoConnector, readConfig, _) = connectorAndConfigs(sqlContext, parameters)
     val pipeline = parameters.get("pipeline")
     val schema: StructType = structType match {
       case Some(s) => s
       case None    => MongoInferSchema(pipelinedRdd(MongoRDD[BsonDocument](sqlContext.sparkContext, mongoConnector, readConfig), pipeline))
     }
     MongoRelation(pipelinedRdd(MongoRDD[Document](sqlContext.sparkContext, mongoConnector, readConfig), pipeline), Some(schema))(sqlContext)
+  }
+
+  override def createRelation(sqlContext: SQLContext, mode: SaveMode, parameters: Map[String, String], data: DataFrame): BaseRelation = {
+    val (mongoConnector, _, writeConfig) = connectorAndConfigs(sqlContext, parameters)
+    val documentRdd: RDD[Document] = data.map(row => rowToDocument(row))
+
+    lazy val database: MongoDatabase = mongoConnector.getDatabase(writeConfig.databaseName)
+    lazy val collection: MongoCollection[Document] = database.getCollection(writeConfig.collectionName)
+    lazy val collectionExists: Boolean = database.listCollectionNames().asScala.toList.contains(writeConfig.collectionName)
+
+    mode match {
+      case Append => documentRdd.saveToMongoDB(writeConfig)
+      case Overwrite =>
+        collection.drop()
+        documentRdd.saveToMongoDB(writeConfig)
+      case ErrorIfExists =>
+        if (collectionExists) {
+          throw new UnsupportedOperationException("MongoCollection already exists")
+        } else {
+          documentRdd.saveToMongoDB(writeConfig)
+        }
+      case Ignore =>
+        if (!collectionExists) {
+          documentRdd.saveToMongoDB(writeConfig)
+        }
+    }
+    createRelation(sqlContext, writeConfig.asOptions)
+  }
+
+  override def insert(data: DataFrame, overwrite: Boolean): Unit = {
+    val dfw = data.write
+    overwrite match {
+      case true  => dfw.mode(SaveMode.Overwrite).save()
+      case false => dfw.mode(SaveMode.ErrorIfExists).save()
+    }
   }
 
   private def pipelinedRdd[T](rdd: MongoRDD[T], pipelineJson: Option[String]): MongoRDD[T] = {
@@ -85,5 +123,14 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
         rdd.withPipeline(pipeline)
       case None => rdd
     }
+  }
+
+  private def connectorAndConfigs(sqlContext: SQLContext, parameters: Map[String, String]): (MongoConnector, ReadConfig, WriteConfig) = {
+    val sparkConf: SparkConf = sqlContext.sparkContext.getConf
+    val uri: String = parameters.getOrElse("uri", sparkConf.get("mongodb.uri"))
+    val mongoConnector: MongoConnector = MongoConnector(uri)
+    val readConfig: ReadConfig = ReadConfig(sparkConf).withOptions(parameters)
+    val writeConfig: WriteConfig = WriteConfig(sparkConf).withOptions(parameters)
+    (mongoConnector, readConfig, writeConfig)
   }
 }

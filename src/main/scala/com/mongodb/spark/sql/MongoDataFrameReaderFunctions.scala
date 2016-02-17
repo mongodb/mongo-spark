@@ -22,10 +22,12 @@ import org.apache.spark.Logging
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, DataFrameReader}
 
+import com.mongodb.spark.conf.ReadConfig
+
 private[spark] case class MongoDataFrameReaderFunctions(@transient val dfr: DataFrameReader) extends Serializable with Logging {
 
   /**
-   * Creates a [[DataFrame]] through schema inference via the `tparam` type, otherwise will sample the collection to
+   * Creates a [[DataFrame]] through schema inference via the `T` type, otherwise will sample the collection to
    * determine the type.
    *
    * @tparam T The optional type of the data from MongoDB
@@ -34,15 +36,15 @@ private[spark] case class MongoDataFrameReaderFunctions(@transient val dfr: Data
   def mongo[T <: Product: TypeTag](): DataFrame = createDataFrame(MongoInferSchema.reflectSchema[T](), None)
 
   /**
-   * Creates a [[DataFrame]] through schema inference via the `tparam` type, otherwise will sample the collection to
+   * Creates a [[DataFrame]] through schema inference via the `T` type, otherwise will sample the collection to
    * determine the type.
    *
-   * @param options any connection options overrides. Overrides the configuration set in [[org.apache.spark.SparkConf]]
+   * @param readConfig any connection read configuration overrides. Overrides the configuration set in [[org.apache.spark.SparkConf]]
    * @tparam T The optional type of the data from MongoDB
    * @return DataFrame
    */
-  def mongo[T <: Product: TypeTag](options: Map[String, String]): DataFrame =
-    createDataFrame(MongoInferSchema.reflectSchema[T](), Some(options))
+  def mongo[T <: Product: TypeTag](readConfig: ReadConfig): DataFrame =
+    createDataFrame(MongoInferSchema.reflectSchema[T](), Some(readConfig))
 
   /**
    * Creates a [[DataFrame]] with the set schema
@@ -55,16 +57,16 @@ private[spark] case class MongoDataFrameReaderFunctions(@transient val dfr: Data
   /**
    * Creates a [[DataFrame]] with the set schema
    *
-   * @param options any connection options overrides. Overrides the configuration set in [[org.apache.spark.SparkConf]]
    * @param schema the schema definition
+   * @param readConfig any custom read configuration
    * @return DataFrame
    */
-  def mongo(schema: StructType, options: Map[String, String]): DataFrame = createDataFrame(Some(schema), Some(options))
+  def mongo(schema: StructType, readConfig: ReadConfig): DataFrame = createDataFrame(Some(schema), Some(readConfig))
 
-  private def createDataFrame(schema: Option[StructType], options: Option[Map[String, String]]): DataFrame = {
+  private def createDataFrame(schema: Option[StructType], readConfig: Option[ReadConfig]): DataFrame = {
     val builder = dfr.format("com.mongodb.spark.sql.DefaultSource")
     if (schema.isDefined) dfr.schema(schema.get)
-    if (options.isDefined) dfr.options(options.get)
+    if (readConfig.isDefined) dfr.options(readConfig.get.asOptions)
     builder.load()
   }
 

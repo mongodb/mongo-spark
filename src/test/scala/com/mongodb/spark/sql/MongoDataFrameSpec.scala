@@ -24,11 +24,11 @@ import org.apache.spark.sql.types.DataTypes._
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 
 import org.bson.Document
+import com.mongodb.spark.conf.WriteConfig
 import com.mongodb.spark.{RequiresMongoDB, _}
 
-class MongoDataFrameReaderFunctionsSpec extends FlatSpec with RequiresMongoDB {
+class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
   // scalastyle:off magic.number
-  case class Character(name: String, age: Int)
 
   val characters = """
      | {"name": "Bilbo Baggins", "age": 50}
@@ -42,7 +42,7 @@ class MongoDataFrameReaderFunctionsSpec extends FlatSpec with RequiresMongoDB {
      | {"name": "Fíli", "age": 82}
      | {"name": "Bombur"}""".trim.stripMargin.split("[\\r\\n]+").toSeq
 
-  "DataFrameReader" should "be easily created from the SQLContext" in withSparkContext() { sc =>
+  "DataFrameReader" should "should be easily created from the SQLContext and load from Mongo" in withSparkContext() { sc =>
     sc.parallelize(characters.map(Document.parse)).saveToMongoDB()
     val df = new SQLContext(sc).read.mongo()
 
@@ -84,6 +84,29 @@ class MongoDataFrameReaderFunctionsSpec extends FlatSpec with RequiresMongoDB {
     sc.parallelize(List("{counter: 1}", "{counter: 2}", "{counter: 3}").map(Document.parse)).saveToMongoDB()
 
     an[IllegalArgumentException] should be thrownBy new SQLContext(sc).read.option("pipeline", "[1, 2, 3]").mongo()
+  }
+
+  "DataFrameWriter" should "be easily created from a DataFrame and save to Mongo" in withSparkContext() { sc =>
+    val sqlContext = new SQLContext(sc)
+    import sqlContext.implicits._
+    sc.parallelize(characters.map(Document.parse))
+      .filter(_.containsKey("age")).map(doc => Character(doc.getString("name"), doc.getInteger("age")))
+      .toDF().write.mongo()
+
+    sqlContext.read.mongo[Character]().count() should equal(9)
+  }
+
+  it should "take custom writeConfig" in withSparkContext() { sc =>
+    val sqlContext = new SQLContext(sc)
+    import sqlContext.implicits._
+    val saveToCollectionName = s"${collectionName}_new"
+    val writeConfig = WriteConfig(sc.getConf).withOptions(Map("collectionName" -> saveToCollectionName))
+
+    sc.parallelize(characters.map(Document.parse))
+      .filter(_.containsKey("age")).map(doc => Character(doc.getString("name"), doc.getInteger("age")))
+      .toDF().write.mongo(writeConfig)
+
+    sqlContext.read.option("collectionName", saveToCollectionName).mongo[Character]().count() should equal(9)
   }
 
   private val expectedSchema: StructType = {

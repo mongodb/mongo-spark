@@ -16,11 +16,12 @@
 
 package com.mongodb.spark.conf
 
+import scala.collection.JavaConverters._
 import scala.util.Try
 
 import org.apache.spark.SparkConf
 
-import com.mongodb.{ReadConcernLevel, ReadConcern, ReadPreference}
+import com.mongodb.{ReadConcern, ReadConcernLevel, ReadPreference}
 
 /**
  * The `ReadConfig` companion object
@@ -78,6 +79,14 @@ object ReadConfig {
     )
   }
 
+  /**
+   * Creates the `ReadConfig` from settings in the `SparkConf`
+   *
+   * @param sparkConf the spark configuration
+   * @return the ReadConfig
+   */
+  def create(sparkConf: SparkConf): ReadConfig = apply(sparkConf)
+
 }
 
 /**
@@ -90,7 +99,6 @@ object ReadConfig {
  * @param readPreferenceName the readPreference to use when reading data
  * @param readConcernLevel the readConcern to use
  * @param sampleSize         a positive integer sample size to draw from the collection
- *
  * @since 1.0
  */
 case class ReadConfig(
@@ -110,6 +118,7 @@ case class ReadConfig(
 
   /**
    * Returns the `ReadConcern` setting for the `ReadConfig`
+   *
    * @return the `ReadConcern`
    */
   def readConcern: ReadConcern = readConcernLevel match {
@@ -119,41 +128,75 @@ case class ReadConfig(
 
   /**
    * Returns the `ReadPreference` setting for the `ReadConfig`
+   *
    * @return the `ReadPreference`
    */
   def readPreference: ReadPreference = ReadPreference.valueOf(readPreferenceName)
 
   // scalastyle:off cyclomatic.complexity
   /**
-   * Creates a new `ReadConfig` with the parameters applied
+   * Creates a new `ReadConfig` with the options applied
    *
-   * *Note:* The `ReadConfig` parameters should not have the "mongodb.input." property prefix
+   * *Note:* The `ReadConfig` options should not have the "mongodb.input." property prefix
    *
-   * @param parameters a map of parameters to be applied to the `ReadConfig`
+   * @param options a map of options to be applied to the `ReadConfig`
    * @return an updated `ReadConfig`
    */
-  def withParameters(parameters: Map[String, String]): ReadConfig = {
+  def withOptions(options: scala.collection.Map[String, String]): ReadConfig = {
     ReadConfig(
-      databaseName = parameters.getOrElse("databaseName", databaseName),
-      collectionName = parameters.getOrElse("collectionName", collectionName),
-      maxChunkSize = parameters.get("maxChunkSize") match {
+      databaseName = options.getOrElse("databaseName", databaseName),
+      collectionName = options.getOrElse("collectionName", collectionName),
+      maxChunkSize = options.get("maxChunkSize") match {
         case Some(size) => size.toInt
         case None       => maxChunkSize
       },
-      splitKey = parameters.getOrElse("splitKey", splitKey),
-      readPreferenceName = parameters.get("readPreference") match {
+      splitKey = options.getOrElse("splitKey", splitKey),
+      readPreferenceName = options.get("readPreference") match {
         case Some(readPreference) => readPreference
         case None                 => readPreferenceName
       },
-      readConcernLevel = parameters.get("readConcernLevel") match {
+      readConcernLevel = options.get("readConcernLevel") match {
         case Some(level) => Some(level)
         case None        => readConcernLevel
       },
-      sampleSize = parameters.get("sampleSize") match {
+      sampleSize = options.get("sampleSize") match {
         case Some(size) => size.toInt
         case None       => sampleSize
       }
     )
   }
   // scalastyle:on cyclomatic.complexity
+
+  /**
+   * Creates a map of options representing the  `ReadConfig`
+   *
+   * @return the map representing the `ReadConfig`
+   */
+  def asOptions: Map[String, String] = {
+    val options: Map[String, String] = Map("databaseName" -> databaseName, "collectionName" -> collectionName,
+      "maxChunkSize" -> maxChunkSize.toString, "splitKey" -> splitKey, "readPreference" -> readPreference.getName,
+      "sampleSize" -> sampleSize.toString)
+
+    readConcernLevel.isDefined match {
+      case true  => options ++ Map("readConcernLevel" -> readConcernLevel.get)
+      case false => options
+    }
+  }
+
+  /**
+   * Creates a new `ReadConfig` with the options applied
+   *
+   * *Note:* The `ReadConfig` options should not have the "mongodb.input." property prefix
+   *
+   * @param options a map of options to be applied to the `ReadConfig`
+   * @return an updated `ReadConfig`
+   */
+  def withJavaOptions(options: java.util.Map[String, String]): ReadConfig = withOptions(options.asScala)
+
+  /**
+   * Creates a map of options representing the  `ReadConfig`
+   *
+   * @return the map representing the `ReadConfig`
+   */
+  def asJavaOptions: java.util.Map[String, String] = asOptions.asJava
 }

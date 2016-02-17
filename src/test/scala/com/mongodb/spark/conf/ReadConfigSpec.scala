@@ -40,7 +40,7 @@ class ReadConfigSpec extends FlatSpec with Matchers {
   it should "be able mixin user parameters" in {
     val expectedReadConfig = ReadConfig("db", "collection", 10, "ID", "secondaryPreferred", Some("majority"), 200) // scalastyle:ignore
 
-    ReadConfig(sparkConf).withParameters(
+    ReadConfig(sparkConf).withOptions(
       Map(
         "maxChunkSize" -> "10",
         "splitKey" -> "ID",
