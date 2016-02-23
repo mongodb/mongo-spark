@@ -147,9 +147,7 @@ class MongoRelationHelperSpec extends FlatSpec with PropertyChecks with Requires
 
   it should "handle spark Filters" in {
     forAll(filters) { (filter: Filter, expected: String) =>
-      {
-        MongoRelationHelper.createPipeline(Array.empty[String], Array(filter)).toBson should equal(Seq(expected.toBson))
-      }
+      MongoRelationHelper.createPipeline(Array.empty[String], Array(filter)).toBson should equal(Seq(expected.toBson))
     }
   }
 

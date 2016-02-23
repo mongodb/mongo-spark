@@ -16,18 +16,28 @@
 
 package com.mongodb.spark
 
-import scala.collection.JavaConverters._
+import java.io.Serializable
 
-import org.scalatest.FlatSpec
+import com.mongodb.{MongoClient, ServerAddress}
 
-import com.mongodb.{MongoClientURI, ServerAddress}
+/**
+ * A factory for creating MongoClients
+ *
+ * @since 1.0
+ */
+trait MongoClientFactory extends Serializable {
 
-class MongoConnectorSpec extends FlatSpec with RequiresMongoDB {
+  /**
+   * Creates a `MongoClient`
+   * @return the new `MongoClient`
+   */
+  def create(): MongoClient
 
-  "MongoConnector" should "create a MongoClient" in {
-    val expectedServerAddresses = new MongoClientURI(mongoClientURI).getHosts.asScala.map(new ServerAddress(_)).asJava
-
-    MongoConnector(mongoClientURI).withMongoClientDo({ client => client.getServerAddressList }) should equal(expectedServerAddresses)
-  }
+  /**
+   * Creates a new `MongoClientFactory` with a specific `ServerAddress`
+   * @param serverAddress the server to connect to
+   * @return a new `MongoClientFactory`
+   */
+  def withServerAddress(serverAddress: ServerAddress): MongoClientFactory
 
 }

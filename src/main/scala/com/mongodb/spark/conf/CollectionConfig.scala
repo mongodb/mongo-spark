@@ -14,20 +14,22 @@
  * limitations under the License.
  */
 
-package com.mongodb.spark
+package com.mongodb.spark.conf
 
-import scala.collection.JavaConverters._
+/**
+ * Configurations for connecting to a specific collection in a database
+ *
+ * @since 1.0
+ */
+trait CollectionConfig {
 
-import org.scalatest.FlatSpec
+  /**
+   * @return the database name
+   */
+  def databaseName: String
 
-import com.mongodb.{MongoClientURI, ServerAddress}
-
-class MongoConnectorSpec extends FlatSpec with RequiresMongoDB {
-
-  "MongoConnector" should "create a MongoClient" in {
-    val expectedServerAddresses = new MongoClientURI(mongoClientURI).getHosts.asScala.map(new ServerAddress(_)).asJava
-
-    MongoConnector(mongoClientURI).withMongoClientDo({ client => client.getServerAddressList }) should equal(expectedServerAddresses)
-  }
-
+  /**
+   * @return the collection name
+   */
+  def collectionName: String
 }

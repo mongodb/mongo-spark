@@ -109,7 +109,7 @@ case class ReadConfig(
     readPreferenceName: String         = ReadConfig.DefaultReadPreferenceName,
     readConcernLevel:   Option[String] = ReadConfig.DefaultReadConcernLevel,
     sampleSize:         Int            = ReadConfig.DefaultSampleSize
-) {
+) extends CollectionConfig {
 
   require(maxChunkSize > 0, s"maxChunkSize ($maxChunkSize) must be greater than 0")
   require(sampleSize > 0, s"sampleSize ($sampleSize) must be greater than 0")

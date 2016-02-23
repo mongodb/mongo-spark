@@ -117,7 +117,8 @@ object WriteConfig {
  * @param writeConcern the write concern
  * @since 1.0
  */
-case class WriteConfig(databaseName: String, collectionName: String, writeConcern: WriteConcern = WriteConfig.DefaultWriteConcern) {
+case class WriteConfig(databaseName: String, collectionName: String,
+                       writeConcern: WriteConcern = WriteConfig.DefaultWriteConcern) extends CollectionConfig {
 
   /**
    * Creates a new `WriteConfig` with the options applied

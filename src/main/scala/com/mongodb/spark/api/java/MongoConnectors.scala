@@ -19,9 +19,7 @@ package com.mongodb.spark.api.java
 import org.apache.spark.SparkConf
 import org.apache.spark.api.java.function.{Function0 => JFunction0}
 
-import com.mongodb.MongoClient
-import com.mongodb.spark.MongoConnector
-import com.mongodb.spark.notNull
+import com.mongodb.spark.{MongoClientFactory, MongoConnector, notNull}
 
 /**
  * A helper class to create a MongoConnector
@@ -57,8 +55,8 @@ object MongoConnectors {
    * @param mongoClientFactory the factory for creating the MongoClient
    * @return the MongoConnector
    */
-  def create(mongoClientFactory: JFunction0[MongoClient]): MongoConnector = {
+  def create(mongoClientFactory: MongoClientFactory): MongoConnector = {
     notNull("mongoClientFactory", mongoClientFactory)
-    MongoConnector(() => mongoClientFactory.call())
+    MongoConnector(mongoClientFactory)
   }
 }

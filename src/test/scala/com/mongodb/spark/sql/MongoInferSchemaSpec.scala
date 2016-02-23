@@ -33,7 +33,7 @@ class MongoInferSchemaSpec extends FlatSpec with MongoDataGenerator with Require
       datum.foreach { data =>
         sc.parallelize(data.getDocuments.toBson).saveToMongoDB()
         data.schema should equal(MongoInferSchema(sc))
-        sc.dropDatabase()
+        database.drop()
       }
     }
   }
@@ -42,7 +42,7 @@ class MongoInferSchemaSpec extends FlatSpec with MongoDataGenerator with Require
     forAll(genArrayDataType(0)) { (data: MongoDataType) =>
       sc.parallelize(data.getDocuments.toBson).saveToMongoDB()
       data.schema should equal(MongoInferSchema(sc))
-      sc.dropDatabase()
+      database.drop()
     }
   }
 
@@ -50,7 +50,7 @@ class MongoInferSchemaSpec extends FlatSpec with MongoDataGenerator with Require
     forAll(genDocumentDataType(0)) { (data: MongoDataType) =>
       sc.parallelize(data.getDocuments.toBson).saveToMongoDB()
       data.schema should equal(MongoInferSchema(sc))
-      sc.dropDatabase()
+      database.drop()
     }
   }
 
@@ -58,7 +58,7 @@ class MongoInferSchemaSpec extends FlatSpec with MongoDataGenerator with Require
     forAll(genArrayDataType()) { (data: MongoDataType) =>
       sc.parallelize(data.getDocuments.toBson).saveToMongoDB()
       data.schema should equal(MongoInferSchema(sc))
-      sc.dropDatabase()
+      database.drop()
     }
   }
 
@@ -66,7 +66,7 @@ class MongoInferSchemaSpec extends FlatSpec with MongoDataGenerator with Require
     forAll(genDocumentDataType()) { (data: MongoDataType) =>
       sc.parallelize(data.getDocuments.toBson).saveToMongoDB()
       data.schema should equal(MongoInferSchema(sc))
-      sc.dropDatabase()
+      database.drop()
     }
   }
 
@@ -74,7 +74,7 @@ class MongoInferSchemaSpec extends FlatSpec with MongoDataGenerator with Require
     forAll(genDocumentDataType()) { (data: MongoDataType) =>
       sc.parallelize(data.getDocuments.toBson).saveToMongoDB()
       data.schema should equal(MongoInferSchema(MongoRDD[BsonDocument](sc, readConfig.copy(sampleSize = 200)))) // scalastyle:ignore
-      sc.dropDatabase()
+      database.drop()
     }
   }
 
@@ -90,7 +90,7 @@ class MongoInferSchemaSpec extends FlatSpec with MongoDataGenerator with Require
 
       sc.parallelize(allDocs).saveToMongoDB()
       data.schema should equal(MongoInferSchema(sc))
-      sc.dropDatabase()
+      database.drop()
     }
   }
 
@@ -101,7 +101,7 @@ class MongoInferSchemaSpec extends FlatSpec with MongoDataGenerator with Require
 
       val rdd = MongoRDD[BsonDocument](sc).withPipeline(Seq(Document.parse("{ $match: { badData : { $exists : false } } }")))
       data.schema should equal(MongoInferSchema(rdd))
-      sc.dropDatabase()
+      database.drop()
     }
   }
 

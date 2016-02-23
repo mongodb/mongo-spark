@@ -26,7 +26,6 @@ import com.mongodb.MongoClient
 import com.mongodb.client.{MongoCollection, MongoDatabase}
 import com.mongodb.connection.ClusterType.{REPLICA_SET, SHARDED, STANDALONE}
 import com.mongodb.spark.conf.ReadConfig
-import com.mongodb.spark.rdd.MongoRDD
 
 trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with BeforeAndAfterEach with Logging {
 
@@ -92,12 +91,8 @@ trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with
       logInfo(s"Running Test: '${_currentTestName.getOrElse(suiteName)}'")
       testCode(sparkContext) // "loan" the fixture to the test
     } finally {
-      sparkContext.dropDatabase()
+      database.drop()
     }
-  }
-
-  implicit class MongoSparkContext(sc: SparkContext) {
-    def dropDatabase(): Unit = MongoRDD(sc).connector.value.database(databaseName).drop()
   }
 
   /**

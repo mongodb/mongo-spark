@@ -31,7 +31,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Encoders, SQLContext}
 import org.bson.codecs.configuration.CodecRegistry
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
-import com.mongodb.client.MongoCursor
+import com.mongodb.client.{MongoCollection, MongoCursor}
 import com.mongodb.connection.ServerVersion
 import com.mongodb.spark.conf.ReadConfig
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
@@ -112,7 +112,10 @@ class MongoRDD[D: ClassTag](
 ) extends RDD[D](sc, Nil) {
 
   private[spark] lazy val hasSampleAggregateOperator: Boolean = {
-    val buildInfo: BsonDocument = connector.value.mongoClient().getDatabase("test").runCommand(new Document("buildInfo", 1), classOf[BsonDocument])
+    val buildInfo: BsonDocument = connector.value.withDatabaseDo(
+      ReadConfig(sc.getConf).copy(databaseName = "test"),
+      { db => db.runCommand(new Document("buildInfo", 1), classOf[BsonDocument]) }
+    )
     val versionArray: util.List[Integer] = buildInfo.getArray("versionArray").asScala.take(3).map(_.asInt32().getValue.asInstanceOf[Integer]).asJava
     new ServerVersion(versionArray).compareTo(new ServerVersion(3, 2)) >= 0
   }
@@ -176,7 +179,7 @@ class MongoRDD[D: ClassTag](
    * @return the updated MongoRDD
    */
   def withPipeline[B <: Bson](pipeline: Seq[B]): MongoRDD[D] = {
-    val codecRegistry: CodecRegistry = connector.value.getMongoClient().getMongoClientOptions.getCodecRegistry
+    val codecRegistry: CodecRegistry = connector.value.codecRegistry
     copy(pipeline = pipeline.map(x => x.toBsonDocument(classOf[Document], codecRegistry))) // Convert to serializable BsonDocuments
   }
 
@@ -220,7 +223,7 @@ class MongoRDD[D: ClassTag](
    */
   private def getCursor(partition: MongoPartition): MongoCursor[D] = {
     val partitionPipeline: Seq[Bson] = new BsonDocument("$match", partition.queryBounds) +: pipeline
-    connector.value.collection[D](readConfig.databaseName, readConfig.collectionName).aggregate(partitionPipeline.asJava).iterator
+    connector.value.withCollectionDo(readConfig, { collection: MongoCollection[D] => collection.aggregate(partitionPipeline.asJava).iterator })
   }
 
   private def checkSparkContext(): Unit = {

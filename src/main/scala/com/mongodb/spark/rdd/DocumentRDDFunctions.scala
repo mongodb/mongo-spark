@@ -22,7 +22,7 @@ import scala.reflect.ClassTag
 import org.apache.spark.rdd.RDD
 
 import org.bson.Document
-import com.mongodb.spark.classTagToClassOf
+import com.mongodb.client.MongoCollection
 import com.mongodb.spark.DefaultHelper.DefaultsTo
 import com.mongodb.spark.MongoConnector
 import com.mongodb.spark.conf.WriteConfig
@@ -54,9 +54,9 @@ case class DocumentRDDFunctions[D](rdd: RDD[D])(implicit e: D DefaultsTo Documen
    */
   def saveToMongoDB(writeConfig: WriteConfig): Unit =
     rdd.foreachPartition(iter => if (iter.nonEmpty) {
-      mongoConnector.getCollection(writeConfig.databaseName, writeConfig.collectionName, classTagToClassOf(ct))
-        .withWriteConcern(writeConfig.writeConcern)
-        .insertMany(iter.toList.asJava)
+      mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[D] =>
+        collection.withWriteConcern(writeConfig.writeConcern).insertMany(iter.toList.asJava)
+      })
     })
 
 }

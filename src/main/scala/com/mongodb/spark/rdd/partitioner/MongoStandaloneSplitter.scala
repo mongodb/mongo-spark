@@ -21,7 +21,6 @@ import scala.util.{Failure, Success, Try}
 
 import org.bson._
 import com.mongodb.MongoNotPrimaryException
-import com.mongodb.client.MongoCollection
 import com.mongodb.spark.MongoConnector
 import com.mongodb.spark.conf.ReadConfig
 import com.mongodb.spark.exceptions.MongoSplitException
@@ -29,8 +28,7 @@ import com.mongodb.spark.exceptions.MongoSplitException
 private[partitioner] case class MongoStandaloneSplitter(connector: MongoConnector, readConfig: ReadConfig) extends MongoSplitter {
 
   override def bounds(): Seq[BsonDocument] = {
-    val collection: MongoCollection[BsonDocument] = connector.collection(readConfig.databaseName, readConfig.collectionName)
-    val ns: String = collection.getNamespace.getFullName
+    val ns: String = s"${readConfig.databaseName}.${readConfig.collectionName}"
     logDebug(s"Getting split bounds for a non-sharded collection: $ns")
 
     val keyPattern: BsonDocument = new BsonDocument(readConfig.splitKey, new BsonInt32(1))
@@ -38,13 +36,15 @@ private[partitioner] case class MongoStandaloneSplitter(connector: MongoConnecto
       .append("keyPattern", keyPattern)
       .append("maxChunkSize", new BsonInt32(readConfig.maxChunkSize))
 
-    Try(connector.getDatabase(readConfig.databaseName).runCommand(splitVectorCommand, classOf[BsonDocument])) match {
-      case Success(result: BsonDocument) => createSplits(result)
-      case Failure(e: MongoNotPrimaryException) =>
-        logInfo(s"Splitting failed: '${e.getMessage}'. Continuing with a single partition.")
-        createSplits(new BsonDocument("ok", new BsonDouble(1.0)))
-      case Failure(t: Throwable) => throw t
-    }
+    connector.withDatabaseDo(readConfig, { db =>
+      Try(db.runCommand(splitVectorCommand, classOf[BsonDocument])) match {
+        case Success(result: BsonDocument) => createSplits(result)
+        case Failure(e: MongoNotPrimaryException) =>
+          logInfo(s"Splitting failed: '${e.getMessage}'. Continuing with a single partition.")
+          createSplits(new BsonDocument("ok", new BsonDouble(1.0)))
+        case Failure(t: Throwable) => throw t
+      }
+    })
   }
 
   private def createSplits(result: BsonDocument): Seq[BsonDocument] = {

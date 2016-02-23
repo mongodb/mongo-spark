@@ -17,21 +17,21 @@
 package com.mongodb.spark.sql
 
 import scala.collection.JavaConverters._
+
 import org.apache.spark.SparkConf
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SaveMode._
-import org.apache.spark.sql.{DataFrame, SaveMode, SQLContext}
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, SQLContext, SaveMode}
 
 import org.bson.conversions.Bson
-import org.bson.{BsonType, BsonArray, BsonDocument, Document}
-import com.mongodb.client.{MongoCollection, MongoDatabase}
-import com.mongodb.spark.toDocumentRDDFunctions
-import com.mongodb.spark.MongoConnector
-import com.mongodb.spark.conf.{WriteConfig, ReadConfig}
+import org.bson.{BsonArray, BsonDocument, BsonType, Document}
+import com.mongodb.client.MongoCollection
+import com.mongodb.spark.conf.{ReadConfig, WriteConfig}
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.sql.MongoRelationHelper._
+import com.mongodb.spark.{MongoConnector, toDocumentRDDFunctions}
 
 /**
  * A MongoDB based DataSource
@@ -78,14 +78,14 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
     val (mongoConnector, _, writeConfig) = connectorAndConfigs(sqlContext, parameters)
     val documentRdd: RDD[Document] = data.map(row => rowToDocument(row))
 
-    lazy val database: MongoDatabase = mongoConnector.getDatabase(writeConfig.databaseName)
-    lazy val collection: MongoCollection[Document] = database.getCollection(writeConfig.collectionName)
-    lazy val collectionExists: Boolean = database.listCollectionNames().asScala.toList.contains(writeConfig.collectionName)
+    lazy val collectionExists: Boolean = mongoConnector.withDatabaseDo(
+      writeConfig, { db => db.listCollectionNames().asScala.toList.contains(writeConfig.collectionName) }
+    )
 
     mode match {
       case Append => documentRdd.saveToMongoDB(writeConfig)
       case Overwrite =>
-        collection.drop()
+        mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[Document] => collection.drop() })
         documentRdd.saveToMongoDB(writeConfig)
       case ErrorIfExists =>
         if (collectionExists) {

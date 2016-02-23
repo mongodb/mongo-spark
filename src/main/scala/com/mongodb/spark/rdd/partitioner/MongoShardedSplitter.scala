@@ -18,7 +18,7 @@ package com.mongodb.spark.rdd.partitioner
 
 import scala.collection.JavaConverters._
 
-import org.bson.{BsonDocument, BsonMaxKey, BsonMinKey}
+import org.bson.BsonDocument
 import com.mongodb.client.MongoCollection
 import com.mongodb.client.model.{Filters, Projections}
 import com.mongodb.spark.MongoConnector
@@ -27,13 +27,16 @@ import com.mongodb.spark.conf.ReadConfig
 private[partitioner] case class MongoShardedSplitter(connector: MongoConnector, readConfig: ReadConfig) extends MongoSplitter {
 
   override def bounds(): Seq[BsonDocument] = {
-    val collection: MongoCollection[BsonDocument] = connector.collection(readConfig.databaseName, readConfig.collectionName)
-    val ns: String = collection.getNamespace.getFullName
+    val ns: String = s"${readConfig.databaseName}.${readConfig.collectionName}"
     logDebug(s"Getting split bounds for a sharded collection: $ns")
 
-    val chunks: Seq[BsonDocument] = connector.mongoClient().getDatabase("config").getCollection("chunks", classOf[BsonDocument])
-      .find(Filters.eq("ns", ns)).projection(Projections.include("min", "max"))
-      .into(new java.util.ArrayList[BsonDocument]).asScala
+    val chunks: Seq[BsonDocument] = connector.withCollectionDo(
+      ReadConfig("config", "chunks"),
+      { collection: MongoCollection[BsonDocument] =>
+        collection.find(Filters.eq("ns", ns)).projection(Projections.include("min", "max"))
+          .into(new java.util.ArrayList[BsonDocument]).asScala
+      }
+    )
 
     chunks.isEmpty match {
       case true =>

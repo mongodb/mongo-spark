@@ -17,15 +17,19 @@
 package com.mongodb.spark
 
 import java.io.{Closeable, Serializable}
+import java.util.concurrent.TimeUnit
 
+import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
 
+import org.apache.spark.api.java.function.{Function => JFunction}
 import org.apache.spark.{Logging, SparkConf}
 
-import org.bson.Document
+import org.bson.codecs.configuration.CodecRegistry
+import com.mongodb.MongoClient
 import com.mongodb.client.{MongoCollection, MongoDatabase}
-import com.mongodb.spark.DefaultHelper.DefaultsTo
-import com.mongodb.{MongoClient, MongoClientURI}
+import com.mongodb.spark.conf.CollectionConfig
+import com.mongodb.spark.connection.{DefaultMongoClientFactory, MongoClientCache}
 
 /**
  * The MongoConnector companion object
@@ -52,8 +56,16 @@ object MongoConnector {
    * @param connectionString the connection string (`uri`)
    * @return the MongoConnector
    */
-  def apply(connectionString: String): MongoConnector =
-    MongoConnector(() => new MongoClient(new MongoClientURI(connectionString)))
+  def apply(connectionString: String): MongoConnector = MongoConnector(DefaultMongoClientFactory(connectionString))
+
+  private[spark] val mongoClientKeepAlive = Duration(10, TimeUnit.SECONDS) // scalastyle:ignore
+  private val mongoClientCache = new MongoClientCache(mongoClientKeepAlive)
+
+  Runtime.getRuntime.addShutdownHook(new Thread(new Runnable {
+    def run() {
+      mongoClientCache.shutdown()
+    }
+  }))
 }
 
 /**
@@ -62,34 +74,31 @@ object MongoConnector {
  * Connects Spark to MongoDB
  *
  * @param mongoClientFactory the factory that can be used to create a MongoClient
- *
  * @since 1.0
  */
-case class MongoConnector(mongoClientFactory: () => MongoClient)
+case class MongoConnector(mongoClientFactory: MongoClientFactory)
     extends Serializable with Closeable with Logging {
-  @transient private[spark] var fetchedClient: Boolean = false
-  @transient private[spark] lazy val _mongoClient: MongoClient = createMongoClient()
 
-  def mongoClient(): MongoClient = _mongoClient
-  def database(databaseName: String): MongoDatabase = mongoClient().getDatabase(databaseName)
-  def collection[D](databaseName: String, collectionName: String)(implicit e: D DefaultsTo Document, ct: ClassTag[D]): MongoCollection[D] =
-    getDatabase(databaseName).getCollection[D](collectionName, classTagToClassOf(ct))
-
-  // Java helpers
-  def getMongoClient(): MongoClient = mongoClient()
-  def getDatabase(databaseName: String): MongoDatabase = mongoClient().getDatabase(databaseName)
-  def getCollection(databaseName: String, collectionName: String): MongoCollection[Document] = collection(databaseName, collectionName)
-  def getCollection[D](databaseName: String, collectionName: String, clazz: Class[D]): MongoCollection[D] =
-    getDatabase(databaseName).getCollection[D](collectionName, clazz)
-
-  override def close(): Unit = {
-    logInfo("Closing MongoClient")
-    if (fetchedClient) mongoClient().close()
+  def withMongoClientDo[T](code: MongoClient => T): T = {
+    val client = MongoConnector.mongoClientCache.acquire(None, mongoClientFactory)
+    try {
+      code(client)
+    } finally {
+      MongoConnector.mongoClientCache.release(client)
+    }
   }
 
-  private[this] def createMongoClient(): MongoClient = {
-    logInfo(s"Creating MongoClient")
-    fetchedClient = true
-    mongoClientFactory()
-  }
+  def withDatabaseDo[T](config: CollectionConfig, code: MongoDatabase => T): T =
+    withMongoClientDo({ client => code(client.getDatabase(config.databaseName)) })
+
+  def withCollectionDo[D, T](config: CollectionConfig, code: MongoCollection[D] => T)(implicit ct: ClassTag[D]): T =
+    withCollectionDo(config, code, classTagToClassOf(ct))
+
+  def withCollectionDo[D, T](config: CollectionConfig, code: MongoCollection[D] => T, clazz: Class[D]): T =
+    withDatabaseDo(config, { db => code(db.getCollection[D](config.collectionName, clazz)) })
+
+  private[spark] def codecRegistry: CodecRegistry = withMongoClientDo({ client => client.getMongoClientOptions.getCodecRegistry })
+
+  override def close(): Unit = MongoConnector.mongoClientCache.shutdown()
+
 }

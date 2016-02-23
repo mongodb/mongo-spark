@@ -34,7 +34,7 @@ private[rdd] case class MongoSplitKeyPartitioner(readConfig: ReadConfig) extends
   def splitter(@transient connector: MongoConnector): MongoSplitter = {
 
     val collStatsCommand: Document = new Document("collStats", readConfig.collectionName)
-    Try(connector.getDatabase(readConfig.databaseName).runCommand(collStatsCommand)) match {
+    Try(connector.withDatabaseDo(readConfig, { db => db.runCommand(collStatsCommand) })) match {
       case Success(result) => result.getBoolean("sharded").asInstanceOf[Boolean] match {
         case true  => MongoShardedSplitter(connector, readConfig)
         case false => MongoStandaloneSplitter(connector, readConfig)
