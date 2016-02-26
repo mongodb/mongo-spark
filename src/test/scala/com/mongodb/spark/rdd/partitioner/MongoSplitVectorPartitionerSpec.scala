@@ -18,27 +18,25 @@ package com.mongodb.spark.rdd.partitioner
 
 import org.scalatest.FlatSpec
 
-import org.bson.{BsonMaxKey, BsonMinKey, BsonDocument, Document}
-import org.bson.types.{MaxKey, MinKey}
+import org.bson.{BsonDocument, BsonMaxKey, BsonMinKey, Document}
 import com.mongodb.spark.RequiresMongoDB
-import com.mongodb.spark.conf.ReadConfig
 
-class MongoDBStandaloneSplitterSpec extends FlatSpec with RequiresMongoDB {
+class MongoSplitVectorPartitionerSpec extends FlatSpec with RequiresMongoDB {
 
   // scalastyle:off magic.number
-  "MongoDBStandaloneSplitter" should "split the database as expected" in {
+  "MongoSplitVectorPartitioner" should "partition the database as expected" in {
     if (isSharded) cancel("Sharded MongoDB")
     loadSampleData(5)
 
-    MongoStandaloneSplitter(mongoConnector, readConfig.copy(maxChunkSize = 4)).bounds().size shouldBe 3
-    MongoStandaloneSplitter(mongoConnector, readConfig.copy(maxChunkSize = 5)).bounds().size shouldBe 1
+    MongoSplitVectorPartitioner.partitions(mongoConnector, partitionConfig.copy(maxChunkSize = 4)).length shouldBe 3
+    MongoSplitVectorPartitioner.partitions(mongoConnector, partitionConfig.copy(maxChunkSize = 5)).length shouldBe 1
   }
   // scalastyle:on magic.number
 
   it should "have a default bounds of min to max key" in {
+    val expectedBounds: BsonDocument = new BsonDocument(partitionConfig.splitKey, new BsonDocument("$gte", new BsonMinKey).append("$lt", new BsonMaxKey))
     collection.insertOne(new Document())
 
-    val expectedBounds: BsonDocument = new BsonDocument("_id", new BsonDocument("$gte", new BsonMinKey).append("$lt", new BsonMaxKey))
-    MongoStandaloneSplitter(mongoConnector, readConfig.copy(maxChunkSize = 1)).bounds() should contain theSameElementsAs Seq(expectedBounds)
+    MongoSplitVectorPartitioner.partitions(mongoConnector, partitionConfig)(0).queryBounds should equal(expectedBounds)
   }
 }

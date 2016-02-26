@@ -23,7 +23,7 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{Row, SQLContext}
 
 import org.bson.Document
-import com.mongodb.spark.conf.ReadConfig
+import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.sql.MongoRelationHelper.{createPipeline, documentToRow}
 

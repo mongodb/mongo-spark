@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.mongodb.spark.conf
+package com.mongodb.spark.config
 
 import scala.collection.JavaConverters._
 import scala.util.Try
@@ -33,27 +33,19 @@ object ReadConfig {
   // Property names
   val databaseNameProperty = "mongodb.input.databaseName"
   val collectionNameProperty = "mongodb.input.collectionName"
-  val maxChunkSizeProperty = "mongodb.input.maxChunkSize"
-  val splitKeyProperty = "mongodb.input.splitKey"
   val readPreferenceProperty = "mongodb.input.readPreference"
-  val readConcernLevelProperty = "mongo.input.readConcernLevel"
-  val sampleSizeProperty = "mongo.input.sampleSize"
-  val samplingRatioProperty = "mongo.input.samplingRatio"
+  val readConcernLevelProperty = "mongodb.input.readConcernLevel"
+  val sampleSizeProperty = "mongodb.input.sampleSize"
 
   // Whitelist for allowed Read environment variables
   val Properties = Set(
     databaseNameProperty,
     collectionNameProperty,
-    maxChunkSizeProperty,
-    splitKeyProperty,
     readPreferenceProperty,
     readConcernLevelProperty,
-    sampleSizeProperty,
-    samplingRatioProperty
+    sampleSizeProperty
   )
 
-  private val DefaultMaxChunkSize = 64 // 64 MB
-  private val DefaultSplitKey = "_id"
   private val DefaultReadPreferenceName = "primary"
   private val DefaultReadConcernLevel = None
   private val DefaultSampleSize: Int = 1000
@@ -71,8 +63,6 @@ object ReadConfig {
     ReadConfig(
       databaseName = sparkConf.get(databaseNameProperty),
       collectionName = sparkConf.get(collectionNameProperty),
-      maxChunkSize = sparkConf.getInt(maxChunkSizeProperty, DefaultMaxChunkSize),
-      splitKey = sparkConf.get(splitKeyProperty, DefaultSplitKey),
       readPreferenceName = sparkConf.get(readPreferenceProperty, DefaultReadPreferenceName),
       readConcernLevel = sparkConf.getOption(readConcernLevelProperty),
       sampleSize = sparkConf.getInt(sampleSizeProperty, DefaultSampleSize)
@@ -94,27 +84,22 @@ object ReadConfig {
  *
  * @param databaseName the database name
  * @param collectionName the collection name
- * @param maxChunkSize the maximum chunkSize for non-sharded collections
- * @param splitKey     the key to split the collection by for non-sharded collections
  * @param readPreferenceName the readPreference to use when reading data
  * @param readConcernLevel the readConcern to use
- * @param sampleSize         a positive integer sample size to draw from the collection
+ * @param sampleSize a positive integer sample size to draw from the collection when inferring the schema
  * @since 1.0
  */
 case class ReadConfig(
     databaseName:       String,
     collectionName:     String,
-    maxChunkSize:       Int            = ReadConfig.DefaultMaxChunkSize,
-    splitKey:           String         = ReadConfig.DefaultSplitKey,
     readPreferenceName: String         = ReadConfig.DefaultReadPreferenceName,
     readConcernLevel:   Option[String] = ReadConfig.DefaultReadConcernLevel,
     sampleSize:         Int            = ReadConfig.DefaultSampleSize
 ) extends CollectionConfig {
 
-  require(maxChunkSize > 0, s"maxChunkSize ($maxChunkSize) must be greater than 0")
-  require(sampleSize > 0, s"sampleSize ($sampleSize) must be greater than 0")
   require(Try(readPreference).isSuccess, s"readPreferenceName ($readPreferenceName) is not valid")
   require(Try(readConcern).isSuccess, s"readConcernLevel ($readConcernLevel) is not valid")
+  require(sampleSize > 0, s"sampleSize ($sampleSize) must be greater than 0")
 
   /**
    * Returns the `ReadConcern` setting for the `ReadConfig`
@@ -146,11 +131,6 @@ case class ReadConfig(
     ReadConfig(
       databaseName = options.getOrElse("databaseName", databaseName),
       collectionName = options.getOrElse("collectionName", collectionName),
-      maxChunkSize = options.get("maxChunkSize") match {
-        case Some(size) => size.toInt
-        case None       => maxChunkSize
-      },
-      splitKey = options.getOrElse("splitKey", splitKey),
       readPreferenceName = options.get("readPreference") match {
         case Some(readPreference) => readPreference
         case None                 => readPreferenceName
@@ -174,8 +154,7 @@ case class ReadConfig(
    */
   def asOptions: Map[String, String] = {
     val options: Map[String, String] = Map("databaseName" -> databaseName, "collectionName" -> collectionName,
-      "maxChunkSize" -> maxChunkSize.toString, "splitKey" -> splitKey, "readPreference" -> readPreference.getName,
-      "sampleSize" -> sampleSize.toString)
+      "readPreference" -> readPreference.getName, "sampleSize" -> sampleSize.toString)
 
     readConcernLevel.isDefined match {
       case true  => options ++ Map("readConcernLevel" -> readConcernLevel.get)

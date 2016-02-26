@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.mongodb.spark.conf
+package com.mongodb.spark.config
 
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -26,29 +26,40 @@ class ReadConfigSpec extends FlatSpec with Matchers {
 
   "ReadConfig" should "have the expected defaults" in {
     val readConfig = ReadConfig("db", "collection")
-    val expectedReadConfig = ReadConfig("db", "collection", 64, "_id", "primary", None, 1000) // scalastyle:ignore
+    val expectedReadConfig = ReadConfig("db", "collection", "primary", None, 1000) // scalastyle:ignore
 
     readConfig should equal(expectedReadConfig)
   }
 
   it should "be creatable from SparkConfig" in {
-    val expectedReadConfig = ReadConfig("db", "collection", 1, "_id", "secondary", Some("local"), 150) // scalastyle:ignore
+    val expectedReadConfig = ReadConfig("db", "collection", "secondary", Some("local"), 150) // scalastyle:ignore
 
     ReadConfig(sparkConf) should equal(expectedReadConfig)
   }
 
   it should "be able mixin user parameters" in {
-    val expectedReadConfig = ReadConfig("db", "collection", 10, "ID", "secondaryPreferred", Some("majority"), 200) // scalastyle:ignore
+    val expectedReadConfig = ReadConfig("db", "collection", "secondaryPreferred", Some("majority"), 200) // scalastyle:ignore
 
     ReadConfig(sparkConf).withOptions(
       Map(
-        "maxChunkSize" -> "10",
-        "splitKey" -> "ID",
         "readPreference" -> "secondaryPreferred",
         "readConcernLevel" -> "majority",
         "sampleSize" -> "200"
       )
     ) should equal(expectedReadConfig)
+  }
+
+  it should "be able to create a map" in {
+    val readConfig = ReadConfig("dbName", "collName", "secondaryPreferred", Some("majority"), 200) // scalastyle:ignore
+    val expectedReadConfigMap = Map(
+      "databaseName" -> "dbName",
+      "collectionName" -> "collName",
+      "readPreference" -> "secondaryPreferred",
+      "readConcernLevel" -> "majority",
+      "sampleSize" -> "200"
+    )
+
+    readConfig.asOptions should equal(expectedReadConfigMap)
   }
 
   it should "create the expected ReadPreference and ReadConcern" in {
@@ -61,7 +72,6 @@ class ReadConfigSpec extends FlatSpec with Matchers {
   it should "validate the values" in {
     an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set("mongodb.input.collectionName", "coll"))
     an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set("mongodb.input.databaseName", "db"))
-    an[IllegalArgumentException] should be thrownBy ReadConfig("db", "collection", maxChunkSize = -1)
     an[IllegalArgumentException] should be thrownBy ReadConfig("db", "collection", sampleSize = -1)
     an[IllegalArgumentException] should be thrownBy ReadConfig("db", "collection", readPreferenceName = "allTheNodes")
     an[IllegalArgumentException] should be thrownBy ReadConfig("db", "collection", readConcernLevel = Some("allTheNodes"))
@@ -70,11 +80,9 @@ class ReadConfigSpec extends FlatSpec with Matchers {
   val sparkConf = new SparkConf()
     .set("mongodb.input.databaseName", "db")
     .set("mongodb.input.collectionName", "collection")
-    .set("mongodb.input.maxChunkSize", "1")
-    .set("mongodb.input.splitKey", "_id")
     .set("mongodb.input.readPreference", "secondary")
-    .set("mongo.input.readConcernLevel", "local")
-    .set("mongo.input.sampleSize", "150")
+    .set("mongodb.input.readConcernLevel", "local")
+    .set("mongodb.input.sampleSize", "150")
 
 }
 

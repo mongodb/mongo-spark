@@ -1,8 +1,8 @@
 package com.mongodb.spark.api.java.sql;
 
 import com.mongodb.spark.api.java.RequiresMongoDB;
-import com.mongodb.spark.conf.ReadConfig;
-import com.mongodb.spark.conf.WriteConfig;
+import com.mongodb.spark.config.ReadConfig;
+import com.mongodb.spark.config.WriteConfig;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;

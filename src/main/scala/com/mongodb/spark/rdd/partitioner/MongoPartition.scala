@@ -19,8 +19,9 @@ package com.mongodb.spark.rdd.partitioner
 import org.apache.spark.Partition
 
 import org.bson.BsonDocument
+import com.mongodb.ServerAddress
 
 /**
  * An identifier for a partition in a MongoRDD.
  */
-private[rdd] case class MongoPartition(index: Int, queryBounds: BsonDocument) extends Partition
+private[rdd] case class MongoPartition(index: Int, queryBounds: BsonDocument, locations: Seq[ServerAddress] = Nil) extends Partition

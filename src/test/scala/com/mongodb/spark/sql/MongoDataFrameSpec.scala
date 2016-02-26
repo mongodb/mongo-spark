@@ -24,7 +24,7 @@ import org.apache.spark.sql.types.DataTypes._
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 
 import org.bson.Document
-import com.mongodb.spark.conf.WriteConfig
+import com.mongodb.spark.config.WriteConfig
 import com.mongodb.spark.{RequiresMongoDB, _}
 
 class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {

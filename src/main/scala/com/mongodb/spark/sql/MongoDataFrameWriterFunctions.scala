@@ -19,7 +19,7 @@ package com.mongodb.spark.sql
 import org.apache.spark.Logging
 import org.apache.spark.sql.DataFrameWriter
 
-import com.mongodb.spark.conf.WriteConfig
+import com.mongodb.spark.config.WriteConfig
 
 class MongoDataFrameWriterFunctions(@transient val dfw: DataFrameWriter) extends Serializable with Logging {
 
@@ -33,7 +33,7 @@ class MongoDataFrameWriterFunctions(@transient val dfw: DataFrameWriter) extends
   /**
    * Saves the contents of the `DataFrame` to MongoDB.
    *
-   * @param writeConfig the [[com.mongodb.spark.conf.WriteConfig]] to use
+   * @param writeConfig the [[com.mongodb.spark.config.WriteConfig]] to use
    */
   def mongo(writeConfig: WriteConfig): Unit = dfw.format(source).options(writeConfig.asOptions).save()
 

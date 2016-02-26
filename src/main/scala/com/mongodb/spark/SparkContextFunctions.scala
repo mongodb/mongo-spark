@@ -18,11 +18,12 @@ package com.mongodb.spark
 
 import scala.reflect.ClassTag
 
-import org.apache.spark.SparkContext
+import org.apache.spark.{SparkConf, SparkContext}
 
 import org.bson.Document
+import org.bson.conversions.Bson
 import com.mongodb.spark.DefaultHelper.DefaultsTo
-import com.mongodb.spark.conf.ReadConfig
+import com.mongodb.spark.config.{PartitionConfig, ReadConfig}
 import com.mongodb.spark.rdd.MongoRDD
 
 /**
@@ -33,6 +34,7 @@ import com.mongodb.spark.rdd.MongoRDD
  */
 case class SparkContextFunctions(@transient val sc: SparkContext) extends Serializable {
 
+  @transient private val sparkConf: SparkConf = sc.getConf
   /**
    * Creates a MongoRDD
    *
@@ -41,26 +43,41 @@ case class SparkContextFunctions(@transient val sc: SparkContext) extends Serial
    * @tparam D the type of Document to return from MongoDB - defaults to Document
    * @return a MongoRDD
    */
-  def loadFromMongoDB[D: ClassTag]()(implicit e: D DefaultsTo Document): MongoRDD[D] = MongoRDD[D](sc)
+  def loadFromMongoDB[D: ClassTag]()(implicit e: D DefaultsTo Document): MongoRDD[D] = loadFromMongoDB[D](MongoConnector(sparkConf))
 
   /**
    * Creates a MongoRDD
    *
    * @param connector the [[com.mongodb.spark.MongoConnector]] to use
    * @tparam D the type of Document to return from MongoDB - defaults to Document
-   * @return
+   * @return a MongoRDD
    */
-  def loadFromMongoDB[D: ClassTag](connector: MongoConnector)(implicit e: D DefaultsTo Document): MongoRDD[D] = MongoRDD[D](sc, connector)
+  def loadFromMongoDB[D: ClassTag](connector: MongoConnector)(implicit e: D DefaultsTo Document): MongoRDD[D] =
+    loadFromMongoDB[D](connector, ReadConfig(sparkConf))
 
   /**
    * Creates a MongoRDD
    *
    * @param connector    the [[com.mongodb.spark.MongoConnector]]
-   * @param readConfig   the [[com.mongodb.spark.conf.ReadConfig]]
+   * @param readConfig   the [[com.mongodb.spark.config.ReadConfig]]
    * @tparam D the type of Document to return from MongoDB - defaults to Document
-   * @return
+   * @return a MongoRDD
    */
   def loadFromMongoDB[D: ClassTag](connector: MongoConnector, readConfig: ReadConfig)(implicit e: D DefaultsTo Document): MongoRDD[D] =
-    MongoRDD[D](sc, connector, readConfig)
+    loadFromMongoDB[D](connector, readConfig, PartitionConfig(sparkConf))
+
+  /**
+   * Creates a MongoRDD
+   *
+   * @param connector    the [[com.mongodb.spark.MongoConnector]]
+   * @param readConfig   the [[com.mongodb.spark.config.ReadConfig]]
+   * @param partitionConfig the [[com.mongodb.spark.config.PartitionConfig]]
+   * @param pipeline the aggregate pipeline
+   * @tparam D the type of Document to return from MongoDB - defaults to Document
+   * @return a MongoRDD
+   */
+  def loadFromMongoDB[D: ClassTag](connector: MongoConnector, readConfig: ReadConfig, partitionConfig: PartitionConfig,
+                                   pipeline: Seq[Bson] = Nil)(implicit e: D DefaultsTo Document): MongoRDD[D] =
+    MongoRDD[D](sc, connector, readConfig, partitionConfig, pipeline)
 
 }

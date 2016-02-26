@@ -26,10 +26,10 @@ import org.apache.spark.api.java.function.{Function => JFunction}
 import org.apache.spark.{Logging, SparkConf}
 
 import org.bson.codecs.configuration.CodecRegistry
-import com.mongodb.MongoClient
 import com.mongodb.client.{MongoCollection, MongoDatabase}
-import com.mongodb.spark.conf.CollectionConfig
+import com.mongodb.spark.config.CollectionConfig
 import com.mongodb.spark.connection.{DefaultMongoClientFactory, MongoClientCache}
+import com.mongodb.{MongoClient, ServerAddress}
 
 /**
  * The MongoConnector companion object
@@ -45,9 +45,8 @@ object MongoConnector {
    * @return the MongoConnector
    */
   def apply(sparkConf: SparkConf): MongoConnector = {
-    // TODO validate the SparkConf and throw a meaningful error message
-    val uri = sparkConf.get("mongodb.uri")
-    MongoConnector(uri)
+    require(sparkConf.contains(mongoURIProperty), s"Missing '$mongoURIProperty' property from sparkConfig")
+    MongoConnector(sparkConf.get(mongoURIProperty))
   }
 
   /**
@@ -58,7 +57,9 @@ object MongoConnector {
    */
   def apply(connectionString: String): MongoConnector = MongoConnector(DefaultMongoClientFactory(connectionString))
 
+  private[spark] val mongoURIProperty: String = "mongodb.uri"
   private[spark] val mongoClientKeepAlive = Duration(10, TimeUnit.SECONDS) // scalastyle:ignore
+
   private val mongoClientCache = new MongoClientCache(mongoClientKeepAlive)
 
   Runtime.getRuntime.addShutdownHook(new Thread(new Runnable {
@@ -79,8 +80,10 @@ object MongoConnector {
 case class MongoConnector(mongoClientFactory: MongoClientFactory)
     extends Serializable with Closeable with Logging {
 
-  def withMongoClientDo[T](code: MongoClient => T): T = {
-    val client = MongoConnector.mongoClientCache.acquire(None, mongoClientFactory)
+  def withMongoClientDo[T](code: MongoClient => T): T = withMongoClientDo(code, None)
+
+  def withMongoClientDo[T](code: MongoClient => T, serverAddress: Option[ServerAddress]): T = {
+    val client = MongoConnector.mongoClientCache.acquire(serverAddress, mongoClientFactory)
     try {
       code(client)
     } finally {
@@ -88,14 +91,12 @@ case class MongoConnector(mongoClientFactory: MongoClientFactory)
     }
   }
 
-  def withDatabaseDo[T](config: CollectionConfig, code: MongoDatabase => T): T =
-    withMongoClientDo({ client => code(client.getDatabase(config.databaseName)) })
+  def withDatabaseDo[T](config: CollectionConfig, code: MongoDatabase => T, serverAddress: Option[ServerAddress] = None): T =
+    withMongoClientDo({ client => code(client.getDatabase(config.databaseName)) }, serverAddress)
 
-  def withCollectionDo[D, T](config: CollectionConfig, code: MongoCollection[D] => T)(implicit ct: ClassTag[D]): T =
-    withCollectionDo(config, code, classTagToClassOf(ct))
-
-  def withCollectionDo[D, T](config: CollectionConfig, code: MongoCollection[D] => T, clazz: Class[D]): T =
-    withDatabaseDo(config, { db => code(db.getCollection[D](config.collectionName, clazz)) })
+  def withCollectionDo[D, T](config: CollectionConfig, code: MongoCollection[D] => T,
+                             serverAddress: Option[ServerAddress] = None)(implicit ct: ClassTag[D]): T =
+    withDatabaseDo(config, { db => code(db.getCollection[D](config.collectionName, classTagToClassOf(ct))) }, serverAddress)
 
   private[spark] def codecRegistry: CodecRegistry = withMongoClientDo({ client => client.getMongoClientOptions.getCodecRegistry })
 

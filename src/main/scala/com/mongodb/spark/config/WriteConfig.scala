@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.mongodb.spark.conf
+package com.mongodb.spark.config
 
 import java.util.concurrent.TimeUnit
 

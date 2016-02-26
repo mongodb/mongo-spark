@@ -17,7 +17,10 @@
 package com.mongodb.spark.rdd.partitioner
 
 import org.bson.BsonDocument
+import com.mongodb.spark.MongoConnector
+import com.mongodb.spark.config.PartitionConfig
 
-private[rdd] case class MongoEmptySplitter() extends MongoSplitter {
-  override def bounds(): Seq[BsonDocument] = Seq()
+private[rdd] case object MongoSinglePartitioner extends MongoPartitioner {
+  override def partitions(connector: MongoConnector, partitionConfig: PartitionConfig): Array[MongoPartition] =
+    Array(MongoPartition(0, new BsonDocument()))
 }

@@ -16,8 +16,19 @@
 
 package com.mongodb.spark.rdd.partitioner
 
-import org.bson.{BsonDocument, BsonMaxKey, BsonMinKey}
+import org.bson.{BsonDocument, BsonValue}
 
-private[rdd] case class MongoMinToMaxSplitter(splitKey: String) extends MongoSplitter {
-  override def bounds(): Seq[BsonDocument] = Seq(new BsonDocument(splitKey, new BsonMinKey), new BsonDocument(splitKey, new BsonMaxKey))
+private[partitioner] object PartitionerHelper {
+
+  /**
+   * Creates the upper and lower boundary query for the given key
+   *
+   * @param key   the key that represents the values that can be partitioned
+   * @param lower the value of the lower bound
+   * @param upper the value of the upper bound
+   * @return the document containing the partition bounds
+   */
+  def createBoundaryQuery(key: String, lower: BsonValue, upper: BsonValue): BsonDocument =
+    new BsonDocument(key, new BsonDocument("$gte", lower).append("$lt", upper))
+
 }

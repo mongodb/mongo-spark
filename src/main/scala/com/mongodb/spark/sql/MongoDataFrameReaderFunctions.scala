@@ -22,7 +22,7 @@ import org.apache.spark.Logging
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, DataFrameReader}
 
-import com.mongodb.spark.conf.ReadConfig
+import com.mongodb.spark.config.ReadConfig
 
 private[spark] case class MongoDataFrameReaderFunctions(@transient val dfr: DataFrameReader) extends Serializable with Logging {
 

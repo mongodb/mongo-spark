@@ -25,7 +25,7 @@ import org.bson.Document
 import com.mongodb.client.MongoCollection
 import com.mongodb.spark.DefaultHelper.DefaultsTo
 import com.mongodb.spark.MongoConnector
-import com.mongodb.spark.conf.WriteConfig
+import com.mongodb.spark.config.WriteConfig
 
 /**
  * Functions for RDD's that allow the data to be saved to MongoDB.
@@ -40,7 +40,7 @@ case class DocumentRDDFunctions[D](rdd: RDD[D])(implicit e: D DefaultsTo Documen
   val mongoConnector = MongoConnector(rdd.context.getConf)
 
   /**
-   * Saves the RDD data to MongoDB using the `SparkConf` settings for the [[com.mongodb.spark.conf.WriteConfig]]
+   * Saves the RDD data to MongoDB using the `SparkConf` settings for the [[com.mongodb.spark.config.WriteConfig]]
    *
    * @return the RDD
    */
@@ -49,7 +49,7 @@ case class DocumentRDDFunctions[D](rdd: RDD[D])(implicit e: D DefaultsTo Documen
   /**
    * Saves the RDD data to MongoDB using the given `WriteConfig`
    *
-   * @param writeConfig the [[com.mongodb.spark.conf.WriteConfig]] to use
+   * @param writeConfig the [[com.mongodb.spark.config.WriteConfig]] to use
    * @return the rdd
    */
   def saveToMongoDB(writeConfig: WriteConfig): Unit =

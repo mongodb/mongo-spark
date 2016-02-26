@@ -25,7 +25,7 @@ import com.mongodb.Implicits._
 import com.mongodb.MongoClient
 import com.mongodb.client.{MongoCollection, MongoDatabase}
 import com.mongodb.connection.ClusterType.{REPLICA_SET, SHARDED, STANDALONE}
-import com.mongodb.spark.conf.ReadConfig
+import com.mongodb.spark.config.{PartitionConfig, ReadConfig}
 
 trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with BeforeAndAfterEach with Logging {
 
@@ -62,6 +62,8 @@ trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with
   lazy val isSharded: Boolean = mongoClient.cluster.getDescription.getType == SHARDED
 
   def readConfig: ReadConfig = ReadConfig(sparkContext.getConf)
+
+  def partitionConfig: PartitionConfig = PartitionConfig(sparkContext.getConf)
 
   def shardCollection(): Unit = mongoDBDefaults.shardCollection(readConfig.collectionName, new Document("_id", 1))
 
