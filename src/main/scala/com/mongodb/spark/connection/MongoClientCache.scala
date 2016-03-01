@@ -26,7 +26,7 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}
 
-import org.apache.spark.Logging
+import com.mongodb.spark.Logging
 
 import com.mongodb.spark.MongoClientFactory
 import com.mongodb.{MongoClient, ServerAddress}

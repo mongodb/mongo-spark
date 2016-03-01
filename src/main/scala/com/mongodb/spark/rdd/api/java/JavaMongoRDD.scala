@@ -23,8 +23,8 @@ import org.apache.spark.api.java.JavaRDD
 import org.apache.spark.sql.{DataFrame, Dataset}
 
 import org.bson.conversions.Bson
-import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.notNull
+import com.mongodb.spark.rdd.MongoRDD
 
 case class JavaMongoRDD[D](override val rdd: MongoRDD[D])(implicit override val classTag: ClassTag[D]) extends JavaRDD[D](rdd)(classTag) {
 

@@ -35,7 +35,7 @@ import com.mongodb.client.{MongoCollection, MongoCursor}
 import com.mongodb.connection.ServerVersion
 import com.mongodb.spark.config.{PartitionConfig, ReadConfig}
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
-import com.mongodb.spark.rdd.partitioner.{MongoPartition, MongoPartitioner, DefaultMongoPartitioner}
+import com.mongodb.spark.rdd.partitioner.{DefaultMongoPartitioner, MongoPartition, MongoPartitioner}
 import com.mongodb.spark.sql.MongoInferSchema
 import com.mongodb.spark.sql.MongoRelationHelper.documentToRow
 import com.mongodb.spark.{MongoConnector, NotNothing}

@@ -18,7 +18,7 @@ package com.mongodb.spark
 
 import org.scalatest._
 
-import org.apache.spark.{Logging, SparkConf, SparkContext}
+import org.apache.spark.{SparkConf, SparkContext}
 
 import org.bson.Document
 import com.mongodb.Implicits._

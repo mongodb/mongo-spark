@@ -21,7 +21,7 @@ import scala.collection.immutable.IndexedSeq
 import scala.io.Source
 import scala.util._
 
-import org.apache.spark.{Logging, SparkConf}
+import org.apache.spark.SparkConf
 
 import org.bson.Document
 import com.mongodb.client.model.Updates

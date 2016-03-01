@@ -20,7 +20,7 @@ import org.scalatest.{FlatSpec, Matchers}
 
 import org.apache.spark.SparkConf
 
-import com.mongodb.{ReadPreference, ReadConcern}
+import com.mongodb.{ReadConcern, ReadPreference}
 
 class ReadConfigSpec extends FlatSpec with Matchers {
 

@@ -179,6 +179,15 @@ public final class MongoSparkTest extends RequiresMongoDB {
         // when
         Dataset<Counter> dataset = mongoRDD.toDS(Counter.class);
 
+        Dataset<Integer> test = dataset.map(new MapFunction<Counter, Integer>() {
+            @Override
+            public Integer call(final Counter counter) throws Exception {
+                return counter.getCounter();
+            }
+        }, Encoders.INT());
+
+        System.out.println(test.collectAsList());
+
         // then - default values
         assertEquals(dataset.map(new MapFunction<Counter, Integer>(){
             @Override

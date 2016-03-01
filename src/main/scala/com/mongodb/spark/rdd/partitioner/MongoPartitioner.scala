@@ -16,7 +16,7 @@
 
 package com.mongodb.spark.rdd.partitioner
 
-import org.apache.spark.Logging
+import com.mongodb.spark.Logging
 
 import com.mongodb.spark.MongoConnector
 import com.mongodb.spark.config.PartitionConfig

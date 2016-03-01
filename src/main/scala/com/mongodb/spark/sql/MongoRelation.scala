@@ -16,7 +16,7 @@
 
 package com.mongodb.spark.sql
 
-import org.apache.spark.Logging
+import com.mongodb.spark.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType

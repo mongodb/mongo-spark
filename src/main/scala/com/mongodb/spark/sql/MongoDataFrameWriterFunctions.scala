@@ -16,7 +16,7 @@
 
 package com.mongodb.spark.sql
 
-import org.apache.spark.Logging
+import com.mongodb.spark.Logging
 import org.apache.spark.sql.DataFrameWriter
 
 import com.mongodb.spark.config.WriteConfig

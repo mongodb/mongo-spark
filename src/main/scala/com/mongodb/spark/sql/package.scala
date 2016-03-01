@@ -18,7 +18,7 @@ package com.mongodb.spark
 
 import scala.language.implicitConversions
 
-import org.apache.spark.sql.{DataFrameWriter, DataFrameReader}
+import org.apache.spark.sql.{DataFrameReader, DataFrameWriter}
 
 package object sql {
 

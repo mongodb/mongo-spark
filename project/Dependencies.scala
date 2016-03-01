@@ -22,6 +22,7 @@ object Dependencies {
   val scalaVersions           = Seq("2.11.7", "2.10.6")
   val mongodbDriverVersion    = "3.2.1"
   val sparkVersion            = "1.6.0"
+  val slf4jVersion            = "1.7.16"
 
   val scalaTestVersion        = "2.2.4"
   val scalaCheckVersion       = "1.12.5"
@@ -30,9 +31,10 @@ object Dependencies {
   val junitInterfaceVersion   = "0.11"
 
   // Libraries
-  val mongodbDriver = "org.mongodb" % "mongo-java-driver" % mongodbDriverVersion
-  val sparkCore = "org.apache.spark" %% "spark-core" % sparkVersion % "provided,test"
-  val sparkSql  = "org.apache.spark" %% "spark-sql" % sparkVersion % "provided,test"
+  val mongodbDriver     = "org.mongodb" % "mongo-java-driver" % mongodbDriverVersion
+  val sparkCore         = "org.apache.spark" %% "spark-core" % sparkVersion % "provided,test"
+  val sparkSql          = "org.apache.spark" %% "spark-sql" % sparkVersion % "provided,test"
+  val slf4j             = "org.slf4j" % "slf4j-api" % slf4jVersion % "provided,test"
 
   // Test
   val scalaTest         = "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
@@ -42,7 +44,7 @@ object Dependencies {
   val junitInterface    = "com.novocode" % "junit-interface" % junitInterfaceVersion % "test"
 
   // Projects
-  val coreDependencies     = Seq(mongodbDriver, sparkCore, sparkSql)
+  val coreDependencies     = Seq(mongodbDriver, sparkCore, sparkSql, slf4j)
   val testDependencies     = Seq(scalaTest, scalaCheck, scalaMock, junit, junitInterface)
 
   }

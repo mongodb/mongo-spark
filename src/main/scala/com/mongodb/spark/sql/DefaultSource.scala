@@ -76,7 +76,7 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
 
   override def createRelation(sqlContext: SQLContext, mode: SaveMode, parameters: Map[String, String], data: DataFrame): BaseRelation = {
     val (mongoConnector, _, _, writeConfig) = connectorAndConfigs(sqlContext, parameters)
-    val documentRdd: RDD[Document] = data.map(row => rowToDocument(row))
+    val documentRdd: RDD[Document] = data.rdd.map(row => rowToDocument(row))
 
     lazy val collectionExists: Boolean = mongoConnector.withDatabaseDo(
       writeConfig, { db => db.listCollectionNames().asScala.toList.contains(writeConfig.collectionName) }

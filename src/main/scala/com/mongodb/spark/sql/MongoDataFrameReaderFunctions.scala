@@ -18,7 +18,7 @@ package com.mongodb.spark.sql
 
 import scala.reflect.runtime.universe._
 
-import org.apache.spark.Logging
+import com.mongodb.spark.Logging
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, DataFrameReader}
 

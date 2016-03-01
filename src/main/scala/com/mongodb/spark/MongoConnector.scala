@@ -22,8 +22,8 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
 
+import org.apache.spark.SparkConf
 import org.apache.spark.api.java.function.{Function => JFunction}
-import org.apache.spark.{Logging, SparkConf}
 
 import org.bson.codecs.configuration.CodecRegistry
 import com.mongodb.client.{MongoCollection, MongoDatabase}

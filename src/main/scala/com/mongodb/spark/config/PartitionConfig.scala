@@ -17,6 +17,7 @@
 package com.mongodb.spark.config
 
 import scala.collection.JavaConverters._
+
 import org.apache.spark.SparkConf
 
 /**

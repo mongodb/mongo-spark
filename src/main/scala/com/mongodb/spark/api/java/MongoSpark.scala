@@ -17,6 +17,7 @@
 package com.mongodb.spark.api.java
 
 import java.util
+
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 
@@ -24,11 +25,10 @@ import org.apache.spark.api.java.{JavaRDD, JavaSparkContext}
 
 import org.bson.Document
 import org.bson.conversions.Bson
-import com.mongodb.spark.MongoConnector
-import com.mongodb.spark.config.{PartitionConfig, WriteConfig, ReadConfig}
+import com.mongodb.spark.config.{PartitionConfig, ReadConfig, WriteConfig}
+import com.mongodb.spark.{MongoConnector, notNull}
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
 import com.mongodb.spark.rdd.{DocumentRDDFunctions, MongoRDD}
-import com.mongodb.spark.notNull
 
 object MongoSpark {
 
