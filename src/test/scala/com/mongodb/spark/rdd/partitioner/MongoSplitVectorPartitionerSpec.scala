@@ -28,8 +28,8 @@ class MongoSplitVectorPartitionerSpec extends FlatSpec with RequiresMongoDB {
     if (isSharded) cancel("Sharded MongoDB")
     loadSampleData(5)
 
-    MongoSplitVectorPartitioner.partitions(mongoConnector, partitionConfig.copy(maxChunkSize = 4)).length shouldBe 3
-    MongoSplitVectorPartitioner.partitions(mongoConnector, partitionConfig.copy(maxChunkSize = 5)).length shouldBe 1
+    MongoSplitVectorPartitioner.partitions(mongoConnector, partitionConfig.copy(maxChunkSize = 3)).length should be >= 2
+    MongoSplitVectorPartitioner.partitions(mongoConnector, partitionConfig.copy(maxChunkSize = 7)).length shouldBe 1
   }
   // scalastyle:on magic.number
 
