@@ -35,7 +35,7 @@ public final class MongoConnectorTest extends RequiresMongoDB {
     @Test
     public void shouldCreateMongoConnector() {
         String mongoClientURI = getMongoClientURI();
-        List<ServerAddress> expectedServerAddresses = new ArrayList<>();
+        List<ServerAddress> expectedServerAddresses = new ArrayList<ServerAddress>();
         for (String host : new MongoClientURI(mongoClientURI).getHosts()) {
             expectedServerAddresses.add(new ServerAddress(host));
         }
@@ -54,7 +54,7 @@ public final class MongoConnectorTest extends RequiresMongoDB {
     @Test
     public void shouldCreateMongoConnectorWithCustomMongoClientFactory() {
         String mongoClientURI = getMongoClientURI();
-        List<ServerAddress> expectedServerAddresses = new ArrayList<>();
+        List<ServerAddress> expectedServerAddresses = new ArrayList<ServerAddress>();
         for (String host : new MongoClientURI(mongoClientURI).getHosts()) {
             expectedServerAddresses.add(new ServerAddress(host));
         }
