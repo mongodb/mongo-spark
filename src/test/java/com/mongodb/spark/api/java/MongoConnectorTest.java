@@ -17,7 +17,6 @@
 package com.mongodb.spark.api.java;
 
 import com.mongodb.MongoClient;
-import com.mongodb.MongoClientURI;
 import com.mongodb.ServerAddress;
 import com.mongodb.spark.MongoClientFactory;
 import com.mongodb.spark.MongoConnector;
@@ -25,49 +24,34 @@ import com.mongodb.spark.connection.DefaultMongoClientFactory;
 import org.junit.Test;
 import scala.runtime.AbstractFunction1;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public final class MongoConnectorTest extends RequiresMongoDB {
 
     @Test
     public void shouldCreateMongoConnector() {
-        String mongoClientURI = getMongoClientURI();
-        List<ServerAddress> expectedServerAddresses = new ArrayList<ServerAddress>();
-        for (String host : new MongoClientURI(mongoClientURI).getHosts()) {
-            expectedServerAddresses.add(new ServerAddress(host));
-        }
-        MongoConnector mongoConnector = MongoConnectors.create(mongoClientURI);
-
-        List<ServerAddress> serverAddresses = mongoConnector.withMongoClientDo(new AbstractFunction1<MongoClient, List<ServerAddress>>() {
+        MongoConnector mongoConnector = MongoConnectors.create(getMongoClientURI());
+        Boolean created = mongoConnector.withMongoClientDo(new AbstractFunction1<MongoClient, Boolean>() {
             @Override
-            public List<ServerAddress> apply(final MongoClient v1) {
-                return v1.getServerAddressList();
+            public Boolean apply(final MongoClient v1) {
+                return true;
             }
         });
 
-        assertEquals(serverAddresses, expectedServerAddresses);
+        assertTrue(created);
     }
 
     @Test
     public void shouldCreateMongoConnectorWithCustomMongoClientFactory() {
-        String mongoClientURI = getMongoClientURI();
-        List<ServerAddress> expectedServerAddresses = new ArrayList<ServerAddress>();
-        for (String host : new MongoClientURI(mongoClientURI).getHosts()) {
-            expectedServerAddresses.add(new ServerAddress(host));
-        }
-        MongoConnector mongoConnector = MongoConnectors.create(new JavaMongoClientFactory(mongoClientURI));
-
-        List<ServerAddress> serverAddresses = mongoConnector.withMongoClientDo(new AbstractFunction1<MongoClient, List<ServerAddress>>() {
+        MongoConnector mongoConnector = MongoConnectors.create(new JavaMongoClientFactory(getMongoClientURI()));
+        Boolean created = mongoConnector.withMongoClientDo(new AbstractFunction1<MongoClient, Boolean>() {
             @Override
-            public List<ServerAddress> apply(final MongoClient v1) {
-                return v1.getServerAddressList();
+            public Boolean apply(final MongoClient v1) {
+                return true;
             }
         });
 
-        assertEquals(serverAddresses, expectedServerAddresses);
+        assertTrue(created);
     }
 
     class JavaMongoClientFactory implements MongoClientFactory {

@@ -28,7 +28,7 @@ class MongoShardedPartitionerSpec extends FlatSpec with RequiresMongoDB {
     if (!isSharded) cancel("Not a Sharded MongoDB")
     loadSampleDataIntoShardedCollection(5) // scalastyle:ignore
 
-    MongoShardedPartitioner.partitions(mongoConnector, partitionConfig).length should (be >= 5 and be <= 10)
+    MongoShardedPartitioner.partitions(mongoConnector, partitionConfig).length should be >= 2
   }
 
   it should "fallback to a single partition for a non sharded collections" in {
