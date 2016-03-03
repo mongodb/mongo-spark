@@ -70,6 +70,7 @@ class MongoDBDefaults extends Logging {
     if (Option(configDB.getCollection("databases").find(new Document("_id", DATABASE_NAME)).first()).isEmpty) enableSharding()
     if (Option(configDB.getCollection("collections").find(new Document("_id", ns).append("dropped", false)).first()).isEmpty) {
       logInfo(s"Sharding: $ns")
+      Try(adminDB.runCommand(Document.parse(s"{ enableSharding: '$DATABASE_NAME' }")))
       adminDB.runCommand(Document.parse(s"{shardCollection: '$ns', key: ${shardKey.toJson}, unique: true}"))
     }
     logInfo("Settings chunkSize to 1MB")
