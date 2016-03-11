@@ -100,13 +100,13 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
     val sqlContext = new SQLContext(sc)
     import sqlContext.implicits._
     val saveToCollectionName = s"${collectionName}_new"
-    val writeConfig = WriteConfig(sc.getConf).withOptions(Map("collectionName" -> saveToCollectionName))
+    val writeConfig = WriteConfig(sc.getConf).withOptions(Map("collection" -> saveToCollectionName))
 
     sc.parallelize(characters.map(Document.parse))
       .filter(_.containsKey("age")).map(doc => Character(doc.getString("name"), doc.getInteger("age")))
       .toDF().write.mongo(writeConfig)
 
-    sqlContext.read.option("collectionName", saveToCollectionName).mongo[Character]().count() should equal(9)
+    sqlContext.read.option("collection", saveToCollectionName).mongo[Character]().count() should equal(9)
   }
 
   private val expectedSchema: StructType = {

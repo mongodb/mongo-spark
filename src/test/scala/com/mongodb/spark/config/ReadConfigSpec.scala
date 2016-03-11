@@ -16,47 +16,85 @@
 
 package com.mongodb.spark.config
 
+import scala.collection.JavaConverters._
 import org.scalatest.{FlatSpec, Matchers}
 
 import org.apache.spark.SparkConf
 
-import com.mongodb.{ReadConcern, ReadPreference}
+import com.mongodb.{Tag, TagSet, ReadConcern, ReadPreference}
 
+// scalastyle:off magic.number
 class ReadConfigSpec extends FlatSpec with Matchers {
 
   "ReadConfig" should "have the expected defaults" in {
     val readConfig = ReadConfig("db", "collection")
-    val expectedReadConfig = ReadConfig("db", "collection", "primary", None, 1000) // scalastyle:ignore
+    val expectedReadConfig = ReadConfig("db", "collection", 1000, 64, "_id", shardedConnectDirectly = false, shardedConnectToMongos = true,
+      ReadPreferenceConfig(ReadPreference.primary()), ReadConcernConfig(ReadConcern.DEFAULT))
 
     readConfig should equal(expectedReadConfig)
   }
 
   it should "be creatable from SparkConfig" in {
-    val expectedReadConfig = ReadConfig("db", "collection", "secondary", Some("local"), 150) // scalastyle:ignore
+    val expectedReadConfig = ReadConfig("db", "collection", 150, 32, "ID", shardedConnectDirectly = true, shardedConnectToMongos = false,
+      ReadPreferenceConfig(ReadPreference.secondary()), ReadConcernConfig(ReadConcern.LOCAL))
 
     ReadConfig(sparkConf) should equal(expectedReadConfig)
   }
 
-  it should "be able mixin user parameters" in {
-    val expectedReadConfig = ReadConfig("db", "collection", "secondaryPreferred", Some("majority"), 200) // scalastyle:ignore
+  it should "use the URI for default values" in {
+    val uri =
+      "mongodb://localhost/db.collection?readPreference=secondaryPreferred&readPreferenceTags=dc:east,use:production&readPreferenceTags=&readconcernlevel=local"
+    val readConfig = ReadConfig(Map("uri" -> uri))
 
-    ReadConfig(sparkConf).withOptions(
-      Map(
-        "readPreference" -> "secondaryPreferred",
-        "readConcernLevel" -> "majority",
-        "sampleSize" -> "200"
-      )
-    ) should equal(expectedReadConfig)
+    val expectedReadConfig = ReadConfig("db", "collection", 1000, 64, "_id", shardedConnectDirectly = false, shardedConnectToMongos = true,
+      ReadPreferenceConfig(ReadPreference.secondaryPreferred(List(
+        new TagSet(List(new Tag("dc", "east"), new Tag("use", "production")).asJava),
+        new TagSet()
+      ).asJava)),
+      ReadConcernConfig(ReadConcern.LOCAL))
+
+    readConfig should equal(expectedReadConfig)
+  }
+
+  it should "override URI values with named values" in {
+    val uri =
+      "mongodb://localhost/db.collection?readPreference=secondaryPreferred&readconcernlevel=local"
+    val readConfig = ReadConfig(Map("uri" -> uri, "readPreference.name" -> "primaryPreferred", "readConcern.level" -> "majority"))
+
+    val expectedReadConfig = ReadConfig("db", "collection", 1000, 64, "_id", shardedConnectDirectly = false, shardedConnectToMongos = true,
+      ReadPreferenceConfig(ReadPreference.primaryPreferred()), ReadConcernConfig(ReadConcern.MAJORITY))
+
+    readConfig should equal(expectedReadConfig)
+  }
+
+  it should "round trip options" in {
+    val defaultReadConfig = ReadConfig(sparkConf)
+    val expectedReadConfig = ReadConfig("db", "collection", 200, 20, "foo", shardedConnectDirectly = true, shardedConnectToMongos = false,
+      ReadPreferenceConfig(ReadPreference.secondaryPreferred(new TagSet(List(new Tag("dc", "east"), new Tag("use", "production")).asJava))),
+      ReadConcernConfig(ReadConcern.MAJORITY))
+
+    defaultReadConfig.withOptions(expectedReadConfig.asOptions) should equal(expectedReadConfig)
   }
 
   it should "be able to create a map" in {
-    val readConfig = ReadConfig("dbName", "collName", "secondaryPreferred", Some("majority"), 200) // scalastyle:ignore
+    val readConfig = ReadConfig("dbName", "collName", 200, 20, "foo", shardedConnectDirectly = true, shardedConnectToMongos = false,
+      ReadPreferenceConfig(ReadPreference.secondaryPreferred(List(
+        new TagSet(List(new Tag("dc", "east"), new Tag("use", "production")).asJava),
+        new TagSet()
+      ).asJava)),
+      ReadConcernConfig(ReadConcern.MAJORITY))
+
     val expectedReadConfigMap = Map(
-      "databaseName" -> "dbName",
-      "collectionName" -> "collName",
-      "readPreference" -> "secondaryPreferred",
-      "readConcernLevel" -> "majority",
-      "sampleSize" -> "200"
+      "database" -> "dbName",
+      "collection" -> "collName",
+      "maxchunksize" -> "20",
+      "splitkey" -> "foo",
+      "shardedconnectdirectly" -> "true",
+      "shardedconnecttomongos" -> "false",
+      "readpreference.name" -> "secondaryPreferred",
+      "readpreference.tagsets" -> """[{dc:"east",use:"production"},{}]""",
+      "readconcern.level" -> "majority",
+      "samplesize" -> "200"
     )
 
     readConfig.asOptions should equal(expectedReadConfigMap)
@@ -70,19 +108,25 @@ class ReadConfigSpec extends FlatSpec with Matchers {
   }
 
   it should "validate the values" in {
-    an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set("mongodb.input.collectionName", "coll"))
-    an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set("mongodb.input.databaseName", "db"))
     an[IllegalArgumentException] should be thrownBy ReadConfig("db", "collection", sampleSize = -1)
-    an[IllegalArgumentException] should be thrownBy ReadConfig("db", "collection", readPreferenceName = "allTheNodes")
-    an[IllegalArgumentException] should be thrownBy ReadConfig("db", "collection", readConcernLevel = Some("allTheNodes"))
+    an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set("spark.mongodb.input.collection", "coll"))
+    an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set("spark.mongodb.input.database", "db"))
+    an[IllegalArgumentException] should be thrownBy ReadConfig(sparkConf.clone().set("spark.mongodb.input.readPreference.tagSets", "[1, 2]"))
+    an[IllegalArgumentException] should be thrownBy ReadConfig(sparkConf.clone().set("spark.mongodb.input.readPreference.tagSets", "-1]"))
+    an[IllegalArgumentException] should be thrownBy ReadConfig(sparkConf.clone().set("spark.mongodb.input.readConcern.level", "Alpha"))
   }
 
   val sparkConf = new SparkConf()
-    .set("mongodb.input.databaseName", "db")
-    .set("mongodb.input.collectionName", "collection")
-    .set("mongodb.input.readPreference", "secondary")
-    .set("mongodb.input.readConcernLevel", "local")
-    .set("mongodb.input.sampleSize", "150")
+    .set("spark.mongodb.input.database", "db")
+    .set("spark.mongodb.input.collection", "collection")
+    .set("spark.mongodb.input.maxChunkSize", "32")
+    .set("spark.mongodb.input.splitKey", "ID")
+    .set("spark.mongodb.input.shardedConnectDirectly", "true")
+    .set("spark.mongodb.input.shardedConnectToMongos", "false")
+    .set("spark.mongodb.input.readPreference.name", "secondary")
+    .set("spark.mongodb.input.readConcern.level", "local")
+    .set("spark.mongodb.input.sampleSize", "150")
 
 }
+// scalastyle:on magic.number
 

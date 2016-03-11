@@ -28,15 +28,15 @@ class MongoSplitVectorPartitionerSpec extends FlatSpec with RequiresMongoDB {
     if (isSharded) cancel("Sharded MongoDB")
     loadSampleData(5)
 
-    MongoSplitVectorPartitioner.partitions(mongoConnector, partitionConfig.copy(maxChunkSize = 3)).length should be >= 2
-    MongoSplitVectorPartitioner.partitions(mongoConnector, partitionConfig.copy(maxChunkSize = 7)).length shouldBe 1
+    MongoSplitVectorPartitioner.partitions(mongoConnector, readConfig.copy(maxChunkSize = 3)).length should be >= 2
+    MongoSplitVectorPartitioner.partitions(mongoConnector, readConfig.copy(maxChunkSize = 7)).length shouldBe 1
   }
   // scalastyle:on magic.number
 
   it should "have a default bounds of min to max key" in {
-    val expectedBounds: BsonDocument = new BsonDocument(partitionConfig.splitKey, new BsonDocument("$gte", new BsonMinKey).append("$lt", new BsonMaxKey))
+    val expectedBounds: BsonDocument = new BsonDocument(readConfig.splitKey, new BsonDocument("$gte", new BsonMinKey).append("$lt", new BsonMaxKey))
     collection.insertOne(new Document())
 
-    MongoSplitVectorPartitioner.partitions(mongoConnector, partitionConfig)(0).queryBounds should equal(expectedBounds)
+    MongoSplitVectorPartitioner.partitions(mongoConnector, readConfig)(0).queryBounds should equal(expectedBounds)
   }
 }

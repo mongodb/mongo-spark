@@ -16,10 +16,8 @@
 
 package com.mongodb.spark.rdd.partitioner
 
-import com.mongodb.spark.Logging
-
-import com.mongodb.spark.MongoConnector
-import com.mongodb.spark.config.PartitionConfig
+import com.mongodb.spark.{Logging, MongoConnector}
+import com.mongodb.spark.config.ReadConfig
 
 /**
  * The MongoPartitioner provides the partitions of a collection
@@ -32,9 +30,9 @@ trait MongoPartitioner extends Logging with Serializable {
    * Calculate the Partitions
    *
    * @param connector the MongoConnector
-   * @param partitionConfig the [[com.mongodb.spark.config.PartitionConfig]]
+   * @param readConfig the [[com.mongodb.spark.config.ReadConfig]]
    * @return the partitions
    */
-  def partitions(connector: MongoConnector, partitionConfig: PartitionConfig): Array[MongoPartition]
+  def partitions(connector: MongoConnector, readConfig: ReadConfig): Array[MongoPartition]
 
 }

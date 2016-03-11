@@ -50,7 +50,7 @@ public final class MongoDataFrameWriterTest extends RequiresMongoDB {
         // Given
         String saveToCollectionName = getCollectionName() + "_new";
         Map<String, String> options = new HashMap<String, String>();
-        options.put("collectionName", saveToCollectionName);
+        options.put("collection", saveToCollectionName);
         JavaSparkContext sc = new JavaSparkContext(getSparkContext());
         WriteConfig writeConfig = WriteConfig.create(sc.getConf()).withJavaOptions(options);
         ReadConfig readConfig = ReadConfig.create(sc.getConf()).withJavaOptions(options);

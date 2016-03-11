@@ -16,32 +16,34 @@
 
 package com.mongodb.spark.rdd.partitioner
 
+import java.util
+
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
 import org.bson._
 import com.mongodb.MongoNotPrimaryException
 import com.mongodb.spark.MongoConnector
-import com.mongodb.spark.config.PartitionConfig
+import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.exceptions.MongoSplitException
 
 private[partitioner] case object MongoSplitVectorPartitioner extends MongoPartitioner {
 
-  override def partitions(connector: MongoConnector, partitionConfig: PartitionConfig): Array[MongoPartition] = {
-    val ns: String = s"${partitionConfig.databaseName}.${partitionConfig.collectionName}"
+  override def partitions(connector: MongoConnector, readConfig: ReadConfig): Array[MongoPartition] = {
+    val ns: String = s"${readConfig.databaseName}.${readConfig.collectionName}"
     logDebug(s"Getting split bounds for a non-sharded collection: $ns")
 
-    val keyPattern: BsonDocument = new BsonDocument(partitionConfig.splitKey, new BsonInt32(1))
+    val keyPattern: BsonDocument = new BsonDocument(readConfig.splitKey, new BsonInt32(1))
     val splitVectorCommand: BsonDocument = new BsonDocument("splitVector", new BsonString(ns))
       .append("keyPattern", keyPattern)
-      .append("maxChunkSize", new BsonInt32(partitionConfig.maxChunkSize))
+      .append("maxChunkSize", new BsonInt32(readConfig.maxChunkSize))
 
-    connector.withDatabaseDo(partitionConfig, { db =>
+    connector.withDatabaseDo(readConfig, { db =>
       Try(db.runCommand(splitVectorCommand, classOf[BsonDocument])) match {
-        case Success(result: BsonDocument) => createPartitions(partitionConfig.splitKey, result)
+        case Success(result: BsonDocument) => createPartitions(readConfig.splitKey, result)
         case Failure(e: MongoNotPrimaryException) =>
           logInfo(s"Splitting failed: '${e.getMessage}'. Continuing with a single partition.")
-          MongoSinglePartitioner.partitions(connector, partitionConfig)
+          MongoSinglePartitioner.partitions(connector, readConfig)
         case Failure(t: Throwable) => throw t
       }
     })
@@ -51,7 +53,7 @@ private[partitioner] case object MongoSplitVectorPartitioner extends MongoPartit
     result.getDouble("ok").getValue match {
       case 1.0 =>
         val minBounds = new BsonDocument(splitKey, new BsonMinKey())
-        val splitKeys: Seq[BsonDocument] = result.get("splitKeys").asInstanceOf[java.util.List[BsonDocument]].asScala
+        val splitKeys: Seq[BsonDocument] = result.get("splitKeys").asInstanceOf[util.List[BsonDocument]].asScala
         val maxBounds = new BsonDocument(splitKey, new BsonMaxKey())
         val minToMaxSplitKeys: Seq[BsonDocument] = minBounds +: splitKeys :+ maxBounds
         if (splitKeys.isEmpty) {

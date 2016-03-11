@@ -16,14 +16,12 @@
 
 package com.mongodb.spark.config
 
-import java.util.concurrent.TimeUnit
+import java.util
 
 import scala.collection.JavaConverters._
-import scala.util.{Failure, Success, Try}
 
 import org.apache.spark.SparkConf
 
-import org.bson._
 import com.mongodb.WriteConcern
 
 /**
@@ -31,81 +29,27 @@ import com.mongodb.WriteConcern
  *
  * @since 1.0
  */
-object WriteConfig {
+object WriteConfig extends MongoOutputConfig {
 
-  // Property names
-  val databaseNameProperty = "mongodb.output.databaseName"
-  val collectionNameProperty = "mongodb.output.collectionName"
-  val writeConcernProperty = "mongodb.output.writeConcern"
+  type Self = WriteConfig
 
-  // Whitelist for allowed Write context variables
-  val Properties = Set(
-    databaseNameProperty,
-    collectionNameProperty,
-    writeConcernProperty
-  )
+  def apply(databaseName: String, collectionName: String, writeConcern: WriteConcern): WriteConfig =
+    new WriteConfig(databaseName, collectionName, WriteConcernConfig(writeConcern))
 
-  private val DefaultWriteConcern = WriteConcern.ACKNOWLEDGED
-
-  /**
-   * Creates the `WriteConfig` from settings in the `SparkConf`
-   *
-   * @param sparkConf the spark configuration
-   * @return the WriteConfig
-   */
-  def apply(sparkConf: SparkConf): WriteConfig = {
-    require(sparkConf.contains(databaseNameProperty), s"Missing '$databaseNameProperty' property in the SparkConf")
-    require(sparkConf.contains(collectionNameProperty), s"Missing '$collectionNameProperty' property in the SparkConf")
-
+  override def apply(options: collection.Map[String, String], default: Option[WriteConfig]): WriteConfig = {
+    val cleanedOptions = prefixLessOptions(options)
     WriteConfig(
-      databaseName = sparkConf.get(databaseNameProperty),
-      collectionName = sparkConf.get(collectionNameProperty),
-      writeConcern = getWriteConcern(sparkConf.getOption(writeConcernProperty))
+      databaseName = databaseName(databaseNameProperty, cleanedOptions, default.map(writeConf => writeConf.databaseName)),
+      collectionName = collectionName(collectionNameProperty, cleanedOptions, default.map(writeConf => writeConf.collectionName)),
+      writeConcernConfig = WriteConcernConfig(cleanedOptions, default.map(writeConf => writeConf.writeConcernConfig))
     )
   }
 
-  /**
-   * Creates the `WriteConfig` from settings in the `SparkConf`
-   *
-   * @param sparkConf the spark configuration
-   * @return the WriteConfig
-   */
-  def create(sparkConf: SparkConf): WriteConfig = apply(sparkConf)
+  override def create(sparkConf: SparkConf): WriteConfig = apply(sparkConf)
 
-  // scalastyle:off cyclomatic.complexity
-  private def getWriteConcern(writeConcernOption: Option[String], default: WriteConcern = DefaultWriteConcern): WriteConcern = {
-    val writeConcern: WriteConcern = writeConcernOption match {
-      case Some(json) if json.contains("{") => Try(BsonDocument.parse(json)) match {
-        case Success(writeConcernDoc) =>
-          val nullValue = new BsonNull()
-          var concern = DefaultWriteConcern
-          concern = writeConcernDoc.get("w", nullValue) match {
-            case wInt: BsonInt32     => concern.withW(wInt.intValue)
-            case wString: BsonString => concern.withW(wString.getValue)
-            case _                   => concern
-          }
-          concern = writeConcernDoc.get("wtimeout", nullValue) match {
-            case wTimeout: BsonInt32 => concern.withWTimeout(wTimeout.getValue, TimeUnit.MILLISECONDS)
-            case _                   => concern
-          }
-          concern = writeConcernDoc.get("fsync", nullValue) match {
-            case wFsync: BsonBoolean => concern.withJournal(wFsync.getValue)
-            case _                   => concern
-          }
-          concern = writeConcernDoc.get("j", nullValue) match {
-            case wJ: BsonBoolean => concern.withJournal(wJ.getValue)
-            case _               => concern
-          }
-          concern
-        case Failure(e) => WriteConcern.valueOf(json)
-      }
-      case Some(name) => WriteConcern.valueOf(name)
-      case _          => default
-    }
-    require(Option(writeConcern).isDefined, s"WriteConcern (${writeConcernOption.get}) is not valid")
-    writeConcern
-  }
-  // scalastyle:on cyclomatic.complexity
+  override def create(options: util.Map[String, String]): WriteConfig = apply(options.asScala)
+
+  override def create(options: util.Map[String, String], default: WriteConfig): WriteConfig = apply(options.asScala, Option(default))
 
 }
 
@@ -114,51 +58,29 @@ object WriteConfig {
  *
  * @param databaseName the database name
  * @param collectionName the collection name
- * @param writeConcern the write concern
+ * @param writeConcernConfig the write concern configuration
  * @since 1.0
  */
-case class WriteConfig(databaseName: String, collectionName: String,
-                       writeConcern: WriteConcern = WriteConfig.DefaultWriteConcern) extends CollectionConfig {
+case class WriteConfig(
+    databaseName:                   String,
+    collectionName:                 String,
+    private val writeConcernConfig: WriteConcernConfig = WriteConcernConfig.Default
+) extends MongoCollectionConfig with MongoSparkConfig {
+
+  type Self = WriteConfig
+
+  override def withOptions(options: scala.collection.Map[String, String]): WriteConfig = WriteConfig(options, Some(this))
+
+  def asOptions: Map[String, String] = Map("database" -> databaseName, "collection" -> collectionName) ++ writeConcernConfig.asOptions
+
+  override def withJavaOptions(options: util.Map[String, String]): WriteConfig = withOptions(options.asScala)
+
+  override def asJavaOptions: util.Map[String, String] = asOptions.asJava
 
   /**
-   * Creates a new `WriteConfig` with the options applied
+   * The `WriteConcern` that this config represents
    *
-   * *Note:* The `WriteConfig` options should not have the "mongodb.output." property prefix
-   *
-   * @param options a map of options to be applied to the `WriteConfig`
-   * @return an updated `WriteConfig`
+   * @return the WriteConcern
    */
-  def withOptions(options: scala.collection.Map[String, String]): WriteConfig = {
-    WriteConfig(
-      databaseName = options.getOrElse("databaseName", databaseName),
-      collectionName = options.getOrElse("collectionName", collectionName),
-      writeConcern = WriteConfig.getWriteConcern(options.get("writeConcern"), writeConcern)
-    )
-  }
-
-  /**
-   * Creates a map of options representing the  `WriteConfig`
-   *
-   * @return the map representing the  `WriteConfig`
-   */
-  def asOptions: Map[String, String] =
-    Map("databaseName" -> databaseName, "collectionName" -> collectionName, "writeConcern" -> writeConcern.asDocument().toJson)
-
-  /**
-   * Creates a new `WriteConfig` with the options applied
-   *
-   * *Note:* The `WriteConfig` options should not have the "mongodb.output." property prefix
-   *
-   * @param options a map of options to be applied to the `WriteConfig`
-   * @return an updated `WriteConfig`
-   */
-  def withJavaOptions(options: java.util.Map[String, String]): WriteConfig = withOptions(options.asScala)
-
-  /**
-   * Creates a map of options representing the  `WriteConfig`
-   *
-   * @return the map representing the  `WriteConfig`
-   */
-  def asJavaOptions: java.util.Map[String, String] = asOptions.asJava
-
+  def writeConcern: WriteConcern = writeConcernConfig.writeConcern
 }

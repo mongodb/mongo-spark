@@ -17,6 +17,7 @@
 package com.mongodb.spark.sql
 
 import java.sql.Timestamp
+import java.util
 import java.util.Date
 import java.util.regex.Pattern
 
@@ -114,7 +115,7 @@ private[spark] object MongoRelationHelper {
       case _: DateType      => new Date(element.asInstanceOf[Date].getTime)
       case _: ArrayType =>
         val innerElementType: DataType = elementType.asInstanceOf[ArrayType].elementType
-        element.asInstanceOf[java.util.List[_]].asScala.map(innerElement => convert(innerElement, innerElementType))
+        element.asInstanceOf[util.List[_]].asScala.map(innerElement => convert(innerElement, innerElementType))
       case schema: StructType => documentToRow(element.asInstanceOf[Document], schema)
       case _: StringType if element.isInstanceOf[ObjectId] => element.asInstanceOf[ObjectId].toHexString
       case _ => element

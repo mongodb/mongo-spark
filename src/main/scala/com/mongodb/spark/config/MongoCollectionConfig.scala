@@ -21,7 +21,7 @@ package com.mongodb.spark.config
  *
  * @since 1.0
  */
-trait CollectionConfig {
+trait MongoCollectionConfig extends Serializable {
 
   /**
    * @return the database name

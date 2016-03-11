@@ -21,25 +21,25 @@ import scala.util.{Failure, Success, Try}
 import org.bson.Document
 import com.mongodb.MongoCommandException
 import com.mongodb.spark.MongoConnector
-import com.mongodb.spark.config.PartitionConfig
+import com.mongodb.spark.config.ReadConfig
 
 private[rdd] case object DefaultMongoPartitioner extends MongoPartitioner {
 
-  override def partitions(connector: MongoConnector, partitionConfig: PartitionConfig): Array[MongoPartition] = {
-    val collStatsCommand: Document = new Document("collStats", partitionConfig.collectionName)
-    val partitioner = Try(connector.withDatabaseDo(partitionConfig, { db => db.runCommand(collStatsCommand) })) match {
+  override def partitions(connector: MongoConnector, readConfig: ReadConfig): Array[MongoPartition] = {
+    val collStatsCommand: Document = new Document("collStats", readConfig.collectionName)
+    val partitioner = Try(connector.withDatabaseDo(readConfig, { db => db.runCommand(collStatsCommand) })) match {
       case Success(result) => result.getBoolean("sharded").asInstanceOf[Boolean] match {
         case true  => MongoShardedPartitioner
         case false => MongoSplitVectorPartitioner
       }
       case Failure(ex: MongoCommandException) if ex.getErrorMessage.endsWith("not found.") =>
-        logWarning(s"Could not find collection (${partitionConfig.collectionName}), using single partition")
+        logWarning(s"Could not find collection (${readConfig.collectionName}), using single partition")
         MongoSinglePartitioner
       case Failure(e) =>
         logWarning(s"Could not get collection statistics, using single partition. Server errmsg: ${e.getMessage}")
         MongoSinglePartitioner
     }
-    partitioner.partitions(connector, partitionConfig)
+    partitioner.partitions(connector, readConfig)
   }
 
 }

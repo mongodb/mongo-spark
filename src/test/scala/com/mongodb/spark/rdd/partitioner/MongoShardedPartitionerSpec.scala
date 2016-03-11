@@ -28,23 +28,23 @@ class MongoShardedPartitionerSpec extends FlatSpec with RequiresMongoDB {
     if (!isSharded) cancel("Not a Sharded MongoDB")
     loadSampleDataIntoShardedCollection(5) // scalastyle:ignore
 
-    MongoShardedPartitioner.partitions(mongoConnector, partitionConfig).length should be >= 2
+    MongoShardedPartitioner.partitions(mongoConnector, readConfig).length should be >= 2
   }
 
   it should "fallback to a single partition for a non sharded collections" in {
     if (!isSharded) cancel("Not a Sharded MongoDB")
     loadSampleData(5) // scalastyle:ignore
 
-    MongoShardedPartitioner.partitions(mongoConnector, partitionConfig).length should equal(1)
+    MongoShardedPartitioner.partitions(mongoConnector, readConfig).length should equal(1)
   }
 
   it should "have a default bounds of min to max key" in {
     if (!isSharded) cancel("Not a Sharded MongoDB")
-    val expectedBounds: BsonDocument = new BsonDocument(partitionConfig.splitKey, new BsonDocument("$gte", new BsonMinKey).append("$lt", new BsonMaxKey))
+    val expectedBounds: BsonDocument = new BsonDocument(readConfig.splitKey, new BsonDocument("$gte", new BsonMinKey).append("$lt", new BsonMaxKey))
     shardCollection()
     collection.insertOne(new Document())
 
-    MongoShardedPartitioner.partitions(mongoConnector, partitionConfig)(0).queryBounds should equal(expectedBounds)
+    MongoShardedPartitioner.partitions(mongoConnector, readConfig)(0).queryBounds should equal(expectedBounds)
   }
 
   it should "connect directly to the mongos if shardedConnectDirectly and shardedConnectToMongos" in {

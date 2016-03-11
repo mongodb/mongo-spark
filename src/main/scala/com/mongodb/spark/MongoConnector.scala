@@ -27,7 +27,7 @@ import org.apache.spark.api.java.function.{Function => JFunction}
 
 import org.bson.codecs.configuration.CodecRegistry
 import com.mongodb.client.{MongoCollection, MongoDatabase}
-import com.mongodb.spark.config.CollectionConfig
+import com.mongodb.spark.config.{MongoCollectionConfig, ReadConfig, WriteConfig}
 import com.mongodb.spark.connection.{DefaultMongoClientFactory, MongoClientCache}
 import com.mongodb.{MongoClient, ServerAddress}
 
@@ -57,7 +57,7 @@ object MongoConnector {
    */
   def apply(connectionString: String): MongoConnector = MongoConnector(DefaultMongoClientFactory(connectionString))
 
-  private[spark] val mongoURIProperty: String = "mongodb.uri"
+  private[spark] val mongoURIProperty: String = s"${ReadConfig.configPrefix}${ReadConfig.mongoURIProperty}"
   private[spark] val mongoClientKeepAlive = Duration(10, TimeUnit.SECONDS) // scalastyle:ignore
 
   private val mongoClientCache = new MongoClientCache(mongoClientKeepAlive)
@@ -80,9 +80,9 @@ object MongoConnector {
 case class MongoConnector(mongoClientFactory: MongoClientFactory)
     extends Serializable with Closeable with Logging {
 
-  def withMongoClientDo[T](code: MongoClient => T): T = withMongoClientDo(code, None)
+  private[spark] def withMongoClientDo[T](code: MongoClient => T): T = withMongoClientDo(code, None)
 
-  def withMongoClientDo[T](code: MongoClient => T, serverAddress: Option[ServerAddress]): T = {
+  private[spark] def withMongoClientDo[T](code: MongoClient => T, serverAddress: Option[ServerAddress]): T = {
     val client = MongoConnector.mongoClientCache.acquire(serverAddress, mongoClientFactory)
     try {
       code(client)
@@ -91,12 +91,20 @@ case class MongoConnector(mongoClientFactory: MongoClientFactory)
     }
   }
 
-  def withDatabaseDo[T](config: CollectionConfig, code: MongoDatabase => T, serverAddress: Option[ServerAddress] = None): T =
+  private[spark] def withDatabaseDo[T](config: MongoCollectionConfig, code: MongoDatabase => T, serverAddress: Option[ServerAddress] = None): T =
     withMongoClientDo({ client => code(client.getDatabase(config.databaseName)) }, serverAddress)
 
-  def withCollectionDo[D, T](config: CollectionConfig, code: MongoCollection[D] => T,
-                             serverAddress: Option[ServerAddress] = None)(implicit ct: ClassTag[D]): T =
-    withDatabaseDo(config, { db => code(db.getCollection[D](config.collectionName, classTagToClassOf(ct))) }, serverAddress)
+  private[spark] def withCollectionDo[D, T](config: MongoCollectionConfig, code: MongoCollection[D] => T,
+                                            serverAddress: Option[ServerAddress] = None)(implicit ct: ClassTag[D]): T = {
+    withDatabaseDo(config, { db =>
+      val collection = db.getCollection[D](config.collectionName, classTagToClassOf(ct))
+      code(config match {
+        case writeConfig: WriteConfig => collection.withWriteConcern(writeConfig.writeConcern)
+        case readConfig: ReadConfig   => collection.withReadConcern(readConfig.readConcern).withReadPreference(readConfig.readPreference)
+        case _                        => collection
+      })
+    }, serverAddress)
+  }
 
   private[spark] def codecRegistry: CodecRegistry = withMongoClientDo({ client => client.getMongoClientOptions.getCodecRegistry })
 

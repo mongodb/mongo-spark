@@ -33,7 +33,7 @@ import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
 import com.mongodb.client.{MongoCollection, MongoCursor}
 import com.mongodb.connection.ServerVersion
-import com.mongodb.spark.config.{PartitionConfig, ReadConfig}
+import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
 import com.mongodb.spark.rdd.partitioner.{DefaultMongoPartitioner, MongoPartition, MongoPartitioner}
 import com.mongodb.spark.sql.MongoInferSchema
@@ -60,34 +60,21 @@ object MongoRDD {
    * Creates a MongoRDD
    *
    * @param sc the Spark context
-   * @param readConfig the [[com.mongodb.spark.config.ReadConfig]]
-   * @tparam D the type of Document to return
-   * @return a MongoRDD
-   */
-  def apply[D: ClassTag](sc: SparkContext, readConfig: ReadConfig): MongoRDD[D] = apply(sc, readConfig, PartitionConfig(sc.getConf))
-
-  /**
-   * Creates a MongoRDD
-   *
-   * @param sc the Spark context
-   * @param readConfig the [[com.mongodb.spark.config.ReadConfig]]
-   * @param partitionConfig the [[com.mongodb.spark.config.PartitionConfig]]
-   * @tparam D the type of Document to return
-   * @return a MongoRDD
-   */
-  def apply[D: ClassTag](sc: SparkContext, readConfig: ReadConfig, partitionConfig: PartitionConfig): MongoRDD[D] =
-    apply(sc, MongoConnector(sc.getConf), readConfig, PartitionConfig(sc.getConf))
-
-  /**
-   * Creates a MongoRDD
-   *
-   * @param sc the Spark context
    * @param connector the [[com.mongodb.spark.MongoConnector]]
    * @tparam D the type of Document to return
    * @return a MongoRDD
    */
-  def apply[D: ClassTag](sc: SparkContext, connector: MongoConnector): MongoRDD[D] = apply(sc, connector, ReadConfig(sc.getConf),
-    PartitionConfig(sc.getConf))
+  def apply[D: ClassTag](sc: SparkContext, connector: MongoConnector): MongoRDD[D] = apply(sc, connector, ReadConfig(sc.getConf))
+
+  /**
+   * Creates a MongoRDD
+   *
+   * @param sc the Spark context
+   * @param readConfig the [[com.mongodb.spark.config.ReadConfig]]
+   * @tparam D the type of Document to return
+   * @return a MongoRDD
+   */
+  def apply[D: ClassTag](sc: SparkContext, readConfig: ReadConfig): MongoRDD[D] = apply(sc, MongoConnector(sc.getConf), readConfig)
 
   /**
    * Creates a MongoRDD
@@ -99,10 +86,9 @@ object MongoRDD {
    * @tparam D the type of Document to return
    * @return a MongoRDD
    */
-  def apply[D: ClassTag](sc: SparkContext, connector: MongoConnector, readConfig: ReadConfig, partitionConfig: PartitionConfig,
-                         pipeline: Seq[Bson] = Nil): MongoRDD[D] = {
+  def apply[D: ClassTag](sc: SparkContext, connector: MongoConnector, readConfig: ReadConfig, pipeline: Seq[Bson] = Nil): MongoRDD[D] = {
     val sharedConnector: Broadcast[MongoConnector] = sc.broadcast(connector)
-    new MongoRDD[D](sc, sharedConnector, DefaultMongoPartitioner, readConfig, partitionConfig, pipeline)
+    new MongoRDD[D](sc, sharedConnector, DefaultMongoPartitioner, readConfig, pipeline)
   }
 
 }
@@ -114,7 +100,6 @@ object MongoRDD {
  * @param connector the [[com.mongodb.spark.MongoConnector]]
  * @param mongoPartitioner the [[com.mongodb.spark.rdd.partitioner.MongoPartitioner]]
  * @param readConfig the [[com.mongodb.spark.config.ReadConfig]]
- * @param partitionConfig the [[com.mongodb.spark.config.PartitionConfig]]
  * @param pipeline aggregate pipeline
  * @tparam D the type of the collection documents
  */
@@ -123,7 +108,6 @@ class MongoRDD[D: ClassTag](
     private[spark] val connector:        Broadcast[MongoConnector],
     private[spark] val mongoPartitioner: MongoPartitioner,
     private[spark] val readConfig:       ReadConfig,
-    private[spark] val partitionConfig:  PartitionConfig,
     private[spark] val pipeline:         Seq[Bson]
 ) extends RDD[D](sc, Nil) {
 
@@ -154,7 +138,7 @@ class MongoRDD[D: ClassTag](
   def toDF[T <: Product: TypeTag](): DataFrame = {
     val schema: StructType = MongoInferSchema.reflectSchema[T]() match {
       case Some(reflectedSchema) => reflectedSchema
-      case None                  => MongoInferSchema(MongoRDD[BsonDocument](sc, connector.value, readConfig, partitionConfig).withPipeline(pipeline))
+      case None                  => MongoInferSchema(MongoRDD[BsonDocument](sc, connector.value, readConfig).withPipeline(pipeline))
     }
     toDF(schema)
   }
@@ -208,7 +192,6 @@ class MongoRDD[D: ClassTag](
     connector:        Broadcast[MongoConnector] = connector,
     mongoPartitioner: MongoPartitioner          = mongoPartitioner,
     readConfig:       ReadConfig                = readConfig,
-    partitionConfig:  PartitionConfig           = partitionConfig,
     pipeline:         Seq[Bson]                 = pipeline
   ): MongoRDD[D] = {
     checkSparkContext()
@@ -217,14 +200,13 @@ class MongoRDD[D: ClassTag](
       connector = connector,
       mongoPartitioner = mongoPartitioner,
       readConfig = readConfig,
-      partitionConfig = partitionConfig,
       pipeline = pipeline
     )
   }
 
   override protected def getPartitions: Array[Partition] = {
     checkSparkContext()
-    mongoPartitioner.partitions(connector.value, partitionConfig).asInstanceOf[Array[Partition]]
+    mongoPartitioner.partitions(connector.value, readConfig).asInstanceOf[Array[Partition]]
   }
 
   override def compute(split: Partition, context: TaskContext): Iterator[D] = {
@@ -258,7 +240,7 @@ class MongoRDD[D: ClassTag](
   }
 
   private def toDF(schema: StructType): DataFrame = {
-    val rowRDD = MongoRDD[Document](sc, connector.value, readConfig, partitionConfig).withPipeline(pipeline).map(doc => documentToRow(doc, schema, Array()))
+    val rowRDD = MongoRDD[Document](sc, connector.value, readConfig).withPipeline(pipeline).map(doc => documentToRow(doc, schema, Array()))
     new SQLContext(sc).createDataFrame(rowRDD, schema)
   }
 

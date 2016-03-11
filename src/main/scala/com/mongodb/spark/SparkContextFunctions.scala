@@ -23,7 +23,7 @@ import org.apache.spark.{SparkConf, SparkContext}
 import org.bson.Document
 import org.bson.conversions.Bson
 import com.mongodb.spark.DefaultHelper.DefaultsTo
-import com.mongodb.spark.config.{PartitionConfig, ReadConfig}
+import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.rdd.MongoRDD
 
 /**
@@ -60,24 +60,12 @@ case class SparkContextFunctions(@transient val sc: SparkContext) extends Serial
    *
    * @param connector    the [[com.mongodb.spark.MongoConnector]]
    * @param readConfig   the [[com.mongodb.spark.config.ReadConfig]]
-   * @tparam D the type of Document to return from MongoDB - defaults to Document
-   * @return a MongoRDD
-   */
-  def loadFromMongoDB[D: ClassTag](connector: MongoConnector, readConfig: ReadConfig)(implicit e: D DefaultsTo Document): MongoRDD[D] =
-    loadFromMongoDB[D](connector, readConfig, PartitionConfig(sparkConf))
-
-  /**
-   * Creates a MongoRDD
-   *
-   * @param connector    the [[com.mongodb.spark.MongoConnector]]
-   * @param readConfig   the [[com.mongodb.spark.config.ReadConfig]]
-   * @param partitionConfig the [[com.mongodb.spark.config.PartitionConfig]]
    * @param pipeline the aggregate pipeline
    * @tparam D the type of Document to return from MongoDB - defaults to Document
    * @return a MongoRDD
    */
-  def loadFromMongoDB[D: ClassTag](connector: MongoConnector, readConfig: ReadConfig, partitionConfig: PartitionConfig,
+  def loadFromMongoDB[D: ClassTag](connector: MongoConnector, readConfig: ReadConfig,
                                    pipeline: Seq[Bson] = Nil)(implicit e: D DefaultsTo Document): MongoRDD[D] =
-    MongoRDD[D](sc, connector, readConfig, partitionConfig, pipeline)
+    MongoRDD[D](sc, connector, readConfig, pipeline)
 
 }

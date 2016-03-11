@@ -25,10 +25,10 @@ import org.apache.spark.api.java.{JavaRDD, JavaSparkContext}
 
 import org.bson.Document
 import org.bson.conversions.Bson
-import com.mongodb.spark.config.{PartitionConfig, ReadConfig, WriteConfig}
-import com.mongodb.spark.{MongoConnector, notNull}
+import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
 import com.mongodb.spark.rdd.{DocumentRDDFunctions, MongoRDD}
+import com.mongodb.spark.{MongoConnector, notNull}
 
 object MongoSpark {
 
@@ -93,7 +93,7 @@ object MongoSpark {
    * @return a MongoRDD
    */
   def load[D](sc: JavaSparkContext, connector: MongoConnector, readConfig: ReadConfig, clazz: Class[D]): JavaMongoRDD[D] =
-    load(sc, connector, readConfig, PartitionConfig(sc.getConf), clazz)
+    load(sc, connector, readConfig, util.Collections.emptyList(), clazz)
 
   /**
    * Load data from MongoDB
@@ -101,39 +101,11 @@ object MongoSpark {
    * @param sc        the Spark context
    * @param connector the[[com.mongodb.spark.MongoConnector]]
    * @param readConfig the [[com.mongodb.spark.config.ReadConfig]]
-   * @param partitionConfig the [[com.mongodb.spark.config.PartitionConfig]]
-   * @return a MongoRDD
-   */
-  def load(sc: JavaSparkContext, connector: MongoConnector, readConfig: ReadConfig, partitionConfig: PartitionConfig): JavaMongoRDD[Document] =
-    load(sc, connector, readConfig, partitionConfig, classOf[Document])
-
-  /**
-   * Load data from MongoDB
-   *
-   * @param sc        the Spark context
-   * @param connector the[[com.mongodb.spark.MongoConnector]]
-   * @param readConfig the [[com.mongodb.spark.config.ReadConfig]]
-   * @param partitionConfig the [[com.mongodb.spark.config.PartitionConfig]]
-   * @param clazz        the class of the return type for the RDD
-   * @tparam D the type of Document to return
-   * @return a MongoRDD
-   */
-  def load[D](sc: JavaSparkContext, connector: MongoConnector, readConfig: ReadConfig, partitionConfig: PartitionConfig, clazz: Class[D]): JavaMongoRDD[D] =
-    load(sc, connector, readConfig, partitionConfig, util.Collections.emptyList(), clazz)
-
-  /**
-   * Load data from MongoDB
-   *
-   * @param sc        the Spark context
-   * @param connector the[[com.mongodb.spark.MongoConnector]]
-   * @param readConfig the [[com.mongodb.spark.config.ReadConfig]]
-   * @param partitionConfig the [[com.mongodb.spark.config.PartitionConfig]]
    * @param pipeline aggregate pipeline
    * @return a MongoRDD
    */
-  def load(sc: JavaSparkContext, connector: MongoConnector, readConfig: ReadConfig, partitionConfig: PartitionConfig,
-           pipeline: util.List[Bson]): JavaMongoRDD[Document] =
-    load(sc, connector, readConfig, partitionConfig, pipeline, classOf[Document])
+  def load(sc: JavaSparkContext, connector: MongoConnector, readConfig: ReadConfig, pipeline: util.List[Bson]): JavaMongoRDD[Document] =
+    load(sc, connector, readConfig, pipeline, classOf[Document])
 
   /**
    * Load data from MongoDB
@@ -141,21 +113,18 @@ object MongoSpark {
    * @param sc        the Spark context
    * @param connector the[[com.mongodb.spark.MongoConnector]]
    * @param readConfig the [[com.mongodb.spark.config.ReadConfig]]
-   * @param partitionConfig the [[com.mongodb.spark.config.PartitionConfig]]
    * @param pipeline aggregate pipeline
    * @param clazz        the class of the return type for the RDD
    * @tparam D the type of Document to return
    * @return a MongoRDD
    */
-  def load[D](sc: JavaSparkContext, connector: MongoConnector, readConfig: ReadConfig, partitionConfig: PartitionConfig,
-              pipeline: util.List[Bson], clazz: Class[D]): JavaMongoRDD[D] = {
+  def load[D](sc: JavaSparkContext, connector: MongoConnector, readConfig: ReadConfig, pipeline: util.List[Bson], clazz: Class[D]): JavaMongoRDD[D] = {
     notNull("sc", sc)
     notNull("connector", connector)
     notNull("readConfig", readConfig)
-    notNull("partitionConfig", partitionConfig)
     notNull("clazz", clazz)
     implicit def ct: ClassTag[D] = ClassTag(clazz)
-    MongoRDD(sc.sc, connector, readConfig, partitionConfig, pipeline.asScala).toJavaRDD()
+    MongoRDD(sc.sc, connector, readConfig, pipeline.asScala).toJavaRDD()
   }
 
   /**

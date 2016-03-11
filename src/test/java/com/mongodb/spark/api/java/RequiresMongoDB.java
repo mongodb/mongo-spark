@@ -76,6 +76,10 @@ public abstract class RequiresMongoDB implements Serializable {
         return sc;
     }
 
+    public String getDatabaseName() {
+        return mongoDBDefaults.DATABASE_NAME();
+    }
+
     public String getCollectionName() {
         return this.getClass().getName();
     }

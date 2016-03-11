@@ -37,12 +37,19 @@ class WriteConfigSpec extends FlatSpec with Matchers {
   it should "be creatable from SparkConfig" in {
     forAll(writeConcerns) { writeConcern: WriteConcern =>
       val expectedWriteConfig = WriteConfig("db", "collection", writeConcern)
-      WriteConfig(sparkConf.clone().set("mongodb.output.writeConcern", writeConcern.asDocument.toJson)) should equal(expectedWriteConfig)
+
+      val conf = sparkConf.clone()
+      Option(writeConcern.getWObject).map(w => conf.set(s"${WriteConfig.configPrefix}${WriteConfig.writeConcernWProperty}", w.toString))
+      Option(writeConcern.getJournal).map(j => conf.set(s"${WriteConfig.configPrefix}${WriteConfig.writeConcernJournalProperty}", j.toString))
+      Option(writeConcern.getWTimeout(TimeUnit.MILLISECONDS)).map(t =>
+        conf.set(s"${WriteConfig.configPrefix}${WriteConfig.writeConcernWTimeoutMSProperty}", t.toString))
+
+      WriteConfig(conf) should equal(expectedWriteConfig)
     }
   }
 
   it should "round trip options" in {
-    val defaultWriteConfig = WriteConfig("", "", WriteConcern.ACKNOWLEDGED)
+    val defaultWriteConfig = WriteConfig("dbName", "collName", WriteConcern.ACKNOWLEDGED)
     forAll(writeConcerns) { writeConcern: WriteConcern =>
       val expectedWriteConfig = WriteConfig("db", "collection", writeConcern)
       defaultWriteConfig.withOptions(expectedWriteConfig.asOptions) should equal(expectedWriteConfig)
@@ -50,19 +57,19 @@ class WriteConfigSpec extends FlatSpec with Matchers {
   }
 
   it should "validate the values" in {
-    an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().remove("mongodb.output.databaseName"))
-    an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().remove("mongodb.output.collectionName"))
-    an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().set("mongodb.output.writeConcern", "allTheNodes"))
-    an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().set("mongodb.output.writeConcern", "{Fail}"))
+    an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().remove("spark.mongodb.output.database"))
+    an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().remove("spark.mongodb.output.collection"))
+    an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().set("spark.mongodb.output.writeConcern.w", "-1"))
+    an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().set("spark.mongodb.output.writeConcern.wTimeoutMS", "-1"))
   }
 
   val sparkConf = new SparkConf()
-    .set("mongodb.output.databaseName", "db")
-    .set("mongodb.output.collectionName", "collection")
-    .set("mongodb.output.writeConcern", "majority")
+    .set("spark.mongodb.output.database", "db")
+    .set("spark.mongodb.output.collection", "collection")
 
   val writeConcerns = Table(
     "writeConcern",
+    WriteConcern.UNACKNOWLEDGED,
     WriteConcern.ACKNOWLEDGED,
     WriteConcern.W1,
     WriteConcern.MAJORITY,

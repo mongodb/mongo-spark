@@ -25,19 +25,19 @@ import com.mongodb.ServerAddress
 import com.mongodb.client.MongoCollection
 import com.mongodb.client.model.{Filters, Projections}
 import com.mongodb.spark.MongoConnector
-import com.mongodb.spark.config.{PartitionConfig, ReadConfig}
+import com.mongodb.spark.config.ReadConfig
 
 private[partitioner] case object MongoShardedPartitioner extends MongoPartitioner {
 
-  override def partitions(connector: MongoConnector, partitionConfig: PartitionConfig): Array[MongoPartition] = {
-    val ns: String = s"${partitionConfig.databaseName}.${partitionConfig.collectionName}"
+  override def partitions(connector: MongoConnector, readConfig: ReadConfig): Array[MongoPartition] = {
+    val ns: String = s"${readConfig.databaseName}.${readConfig.collectionName}"
     logDebug(s"Getting split bounds for a sharded collection: $ns")
 
     val chunks: Seq[BsonDocument] = connector.withCollectionDo(
       ReadConfig("config", "chunks"),
       { collection: MongoCollection[BsonDocument] =>
         collection.find(Filters.eq("ns", ns)).projection(Projections.include("min", "max", "shard"))
-          .into(new java.util.ArrayList[BsonDocument]).asScala
+          .into(new util.ArrayList[BsonDocument]).asScala
       }
     )
 
@@ -47,7 +47,7 @@ private[partitioner] case object MongoShardedPartitioner extends MongoPartitione
           s"""Collection '$ns' does not appear to be sharded, continuing with a single partition.
              |To split the collections into multiple partitions connect to the MongoDB node directly""".stripMargin.replaceAll("\n", " ")
         )
-        MongoSinglePartitioner.partitions(connector, partitionConfig)
+        MongoSinglePartitioner.partitions(connector, readConfig)
       case false =>
         val shardsMap: Map[String, String] = mapShards(connector)
         val mongosMap: Map[String, String] = mapMongos(connector)
@@ -57,9 +57,9 @@ private[partitioner] case object MongoShardedPartitioner extends MongoPartitione
             MongoPartition(
               i,
               PartitionerHelper.createBoundaryQuery(
-                partitionConfig.splitKey,
-                chunk.getDocument("min").get(partitionConfig.splitKey),
-                chunk.getDocument("max").get(partitionConfig.splitKey)
+                readConfig.splitKey,
+                chunk.getDocument("min").get(readConfig.splitKey),
+                chunk.getDocument("max").get(readConfig.splitKey)
               ),
               Nil
             )

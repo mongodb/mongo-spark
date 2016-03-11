@@ -16,66 +16,55 @@
 
 package com.mongodb.spark.config
 
+import java.util
+
 import scala.collection.JavaConverters._
-import scala.util.Try
 
 import org.apache.spark.SparkConf
 
-import com.mongodb.{ReadConcern, ReadConcernLevel, ReadPreference}
+import com.mongodb.{ReadConcern, ReadPreference}
 
 /**
  * The `ReadConfig` companion object
  *
+ * $inputProperties
+ *
  * @since 1.0
  */
-object ReadConfig {
+object ReadConfig extends MongoInputConfig {
 
-  // Property names
-  val databaseNameProperty = "mongodb.input.databaseName"
-  val collectionNameProperty = "mongodb.input.collectionName"
-  val readPreferenceProperty = "mongodb.input.readPreference"
-  val readConcernLevelProperty = "mongodb.input.readConcernLevel"
-  val sampleSizeProperty = "mongodb.input.sampleSize"
+  type Self = ReadConfig
 
-  // Whitelist for allowed Read environment variables
-  val Properties = Set(
-    databaseNameProperty,
-    collectionNameProperty,
-    readPreferenceProperty,
-    readConcernLevelProperty,
-    sampleSizeProperty
-  )
-
-  private val DefaultReadPreferenceName = "primary"
-  private val DefaultReadConcernLevel = None
   private val DefaultSampleSize: Int = 1000
+  private val DefaultMaxChunkSize = 64 // 64 MB
+  private val DefaultSplitKey = "_id"
+  private val DefaultShardingConnectDirectly = false
+  private val DefaultShardingConnectToMongos = true
 
-  /**
-   * Creates the `ReadConfig` from settings in the `SparkConf`
-   *
-   * @param sparkConf the spark configuration
-   * @return the ReadConfig
-   */
-  def apply(sparkConf: SparkConf): ReadConfig = {
-    require(sparkConf.contains(databaseNameProperty), s"Missing '$databaseNameProperty' property in the SparkConf")
-    require(sparkConf.contains(collectionNameProperty), s"Missing '$collectionNameProperty' property in the SparkConf")
-
+  override def apply(options: collection.Map[String, String], default: Option[ReadConfig]): ReadConfig = {
+    val cleanedOptions = prefixLessOptions(options)
     ReadConfig(
-      databaseName = sparkConf.get(databaseNameProperty),
-      collectionName = sparkConf.get(collectionNameProperty),
-      readPreferenceName = sparkConf.get(readPreferenceProperty, DefaultReadPreferenceName),
-      readConcernLevel = sparkConf.getOption(readConcernLevelProperty),
-      sampleSize = sparkConf.getInt(sampleSizeProperty, DefaultSampleSize)
+      databaseName = databaseName(databaseNameProperty, cleanedOptions, default.map(conf => conf.databaseName)),
+      collectionName = collectionName(collectionNameProperty, cleanedOptions, default.map(conf => conf.collectionName)),
+      sampleSize = getInt(cleanedOptions.get(sampleSizeProperty), default.map(conf => conf.sampleSize), DefaultSampleSize),
+      maxChunkSize = getInt(cleanedOptions.get(maxChunkSizeProperty), default.map(conf => conf.maxChunkSize), DefaultMaxChunkSize),
+      splitKey = getString(cleanedOptions.get(splitKeyProperty), default.map(conf => conf.splitKey), DefaultSplitKey),
+      shardedConnectDirectly = getBoolean(
+        cleanedOptions.get(shardedConnectDirectlyProperty), default.map(conf => conf.shardedConnectDirectly), DefaultShardingConnectDirectly
+      ),
+      shardedConnectToMongos = getBoolean(
+        cleanedOptions.get(shardedConnectToMongosProperty), default.map(conf => conf.shardedConnectToMongos), DefaultShardingConnectToMongos
+      ),
+      readPreferenceConfig = ReadPreferenceConfig(cleanedOptions, default.map(conf => conf.readPreferenceConfig)),
+      readConcernConfig = ReadConcernConfig(cleanedOptions, default.map(conf => conf.readConcernConfig))
     )
   }
 
-  /**
-   * Creates the `ReadConfig` from settings in the `SparkConf`
-   *
-   * @param sparkConf the spark configuration
-   * @return the ReadConfig
-   */
-  def create(sparkConf: SparkConf): ReadConfig = apply(sparkConf)
+  override def create(sparkConf: SparkConf): ReadConfig = apply(sparkConf)
+
+  override def create(options: util.Map[String, String]): ReadConfig = apply(options.asScala)
+
+  override def create(options: util.Map[String, String], default: ReadConfig): ReadConfig = apply(options.asScala, Option(default))
 
 }
 
@@ -84,98 +73,63 @@ object ReadConfig {
  *
  * @param databaseName the database name
  * @param collectionName the collection name
- * @param readPreferenceName the readPreference to use when reading data
- * @param readConcernLevel the readConcern to use
  * @param sampleSize a positive integer sample size to draw from the collection when inferring the schema
+ * @param maxChunkSize   the maximum chunkSize for non-sharded collections
+ * @param splitKey the key to split the collection by for non-sharded collections or the "shard key" for sharded collection
+ * @param shardedConnectDirectly for sharded collections connect directly to the shard when reading the data.
+ *                                *Caution:* If [[shardedConnectToMongos]] is set to false then the balancer must be off to ensure that
+ *                                there are no duplicated documents.
+ * @param shardedConnectToMongos for sharded collections only read data via mongos. Used inconjunction with [[shardedConnectDirectly]].
+ *                                Ensures that there are no duplicated chunks by connecting via a mongos.
+ * @param readPreferenceConfig the readPreference configuration
+ * @param readConcernConfig the readConcern configuration
+ *
  * @since 1.0
  */
 case class ReadConfig(
-    databaseName:       String,
-    collectionName:     String,
-    readPreferenceName: String         = ReadConfig.DefaultReadPreferenceName,
-    readConcernLevel:   Option[String] = ReadConfig.DefaultReadConcernLevel,
-    sampleSize:         Int            = ReadConfig.DefaultSampleSize
-) extends CollectionConfig {
-
-  require(Try(readPreference).isSuccess, s"readPreferenceName ($readPreferenceName) is not valid")
-  require(Try(readConcern).isSuccess, s"readConcernLevel ($readConcernLevel) is not valid")
+    databaseName:           String,
+    collectionName:         String,
+    sampleSize:             Int                  = ReadConfig.DefaultSampleSize,
+    maxChunkSize:           Int                  = ReadConfig.DefaultMaxChunkSize,
+    splitKey:               String               = ReadConfig.DefaultSplitKey,
+    shardedConnectDirectly: Boolean              = ReadConfig.DefaultShardingConnectDirectly,
+    shardedConnectToMongos: Boolean              = ReadConfig.DefaultShardingConnectToMongos,
+    readPreferenceConfig:   ReadPreferenceConfig = ReadPreferenceConfig(),
+    readConcernConfig:      ReadConcernConfig    = ReadConcernConfig()
+) extends MongoCollectionConfig with MongoSparkConfig {
   require(sampleSize > 0, s"sampleSize ($sampleSize) must be greater than 0")
 
-  /**
-   * Returns the `ReadConcern` setting for the `ReadConfig`
-   *
-   * @return the `ReadConcern`
-   */
-  def readConcern: ReadConcern = readConcernLevel match {
-    case Some(level) => new ReadConcern(ReadConcernLevel.fromString(level))
-    case None        => ReadConcern.DEFAULT
+  type Self = ReadConfig
+
+  override def withOptions(options: collection.Map[String, String]): ReadConfig = ReadConfig(options, Some(this))
+
+  override def asOptions: collection.Map[String, String] = {
+    Map(
+      ReadConfig.databaseNameProperty -> databaseName,
+      ReadConfig.collectionNameProperty -> collectionName,
+      ReadConfig.sampleSizeProperty -> sampleSize.toString,
+      ReadConfig.maxChunkSizeProperty -> maxChunkSize.toString,
+      ReadConfig.splitKeyProperty -> splitKey,
+      ReadConfig.shardedConnectDirectlyProperty -> shardedConnectDirectly.toString,
+      ReadConfig.shardedConnectToMongosProperty -> shardedConnectToMongos.toString
+    ) ++ readPreferenceConfig.asOptions ++ readConcernConfig.asOptions
   }
 
-  /**
-   * Returns the `ReadPreference` setting for the `ReadConfig`
-   *
-   * @return the `ReadPreference`
-   */
-  def readPreference: ReadPreference = ReadPreference.valueOf(readPreferenceName)
+  override def withJavaOptions(options: util.Map[String, String]): ReadConfig = withOptions(options.asScala)
 
-  // scalastyle:off cyclomatic.complexity
-  /**
-   * Creates a new `ReadConfig` with the options applied
-   *
-   * *Note:* The `ReadConfig` options should not have the "mongodb.input." property prefix
-   *
-   * @param options a map of options to be applied to the `ReadConfig`
-   * @return an updated `ReadConfig`
-   */
-  def withOptions(options: scala.collection.Map[String, String]): ReadConfig = {
-    ReadConfig(
-      databaseName = options.getOrElse("databaseName", databaseName),
-      collectionName = options.getOrElse("collectionName", collectionName),
-      readPreferenceName = options.get("readPreference") match {
-        case Some(readPreference) => readPreference
-        case None                 => readPreferenceName
-      },
-      readConcernLevel = options.get("readConcernLevel") match {
-        case Some(level) => Some(level)
-        case None        => readConcernLevel
-      },
-      sampleSize = options.get("sampleSize") match {
-        case Some(size) => size.toInt
-        case None       => sampleSize
-      }
-    )
-  }
-  // scalastyle:on cyclomatic.complexity
+  override def asJavaOptions: util.Map[String, String] = asOptions.asJava
 
   /**
-   * Creates a map of options representing the  `ReadConfig`
+   * The `ReadPreference` to use
    *
-   * @return the map representing the `ReadConfig`
+   * @return the ReadPreference
    */
-  def asOptions: Map[String, String] = {
-    val options: Map[String, String] = Map("databaseName" -> databaseName, "collectionName" -> collectionName,
-      "readPreference" -> readPreference.getName, "sampleSize" -> sampleSize.toString)
-
-    readConcernLevel.isDefined match {
-      case true  => options ++ Map("readConcernLevel" -> readConcernLevel.get)
-      case false => options
-    }
-  }
+  def readPreference: ReadPreference = readPreferenceConfig.readPreference
 
   /**
-   * Creates a new `ReadConfig` with the options applied
+   * The `ReadConcern` to use
    *
-   * *Note:* The `ReadConfig` options should not have the "mongodb.input." property prefix
-   *
-   * @param options a map of options to be applied to the `ReadConfig`
-   * @return an updated `ReadConfig`
+   * @return the ReadConcern
    */
-  def withJavaOptions(options: java.util.Map[String, String]): ReadConfig = withOptions(options.asScala)
-
-  /**
-   * Creates a map of options representing the  `ReadConfig`
-   *
-   * @return the map representing the `ReadConfig`
-   */
-  def asJavaOptions: java.util.Map[String, String] = asOptions.asJava
+  def readConcern: ReadConcern = readConcernConfig.readConcern
 }

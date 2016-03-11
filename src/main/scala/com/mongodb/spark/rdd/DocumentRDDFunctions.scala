@@ -55,7 +55,7 @@ case class DocumentRDDFunctions[D](rdd: RDD[D])(implicit e: D DefaultsTo Documen
   def saveToMongoDB(writeConfig: WriteConfig): Unit =
     rdd.foreachPartition(iter => if (iter.nonEmpty) {
       mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[D] =>
-        collection.withWriteConcern(writeConfig.writeConcern).insertMany(iter.toList.asJava)
+        collection.insertMany(iter.toList.asJava)
       })
     })
 
