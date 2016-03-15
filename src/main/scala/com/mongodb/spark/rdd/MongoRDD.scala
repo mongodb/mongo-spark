@@ -28,7 +28,6 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, SQLContext}
 
-import org.bson.codecs.configuration.CodecRegistry
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
 import com.mongodb.client.{MongoCollection, MongoCursor}
@@ -54,7 +53,7 @@ object MongoRDD {
    * @tparam D the type of Document to return
    * @return a MongoRDD
    */
-  def apply[D: ClassTag](sc: SparkContext): MongoRDD[D] = apply(sc, MongoConnector(sc.getConf))
+  def apply[D: ClassTag](sc: SparkContext): MongoRDD[D] = apply(new SQLContext(sc))
 
   /**
    * Creates a MongoRDD
@@ -64,7 +63,7 @@ object MongoRDD {
    * @tparam D the type of Document to return
    * @return a MongoRDD
    */
-  def apply[D: ClassTag](sc: SparkContext, connector: MongoConnector): MongoRDD[D] = apply(sc, connector, ReadConfig(sc.getConf))
+  def apply[D: ClassTag](sc: SparkContext, connector: MongoConnector): MongoRDD[D] = apply(new SQLContext(sc), connector)
 
   /**
    * Creates a MongoRDD
@@ -74,7 +73,19 @@ object MongoRDD {
    * @tparam D the type of Document to return
    * @return a MongoRDD
    */
-  def apply[D: ClassTag](sc: SparkContext, readConfig: ReadConfig): MongoRDD[D] = apply(sc, MongoConnector(sc.getConf), readConfig)
+  def apply[D: ClassTag](sc: SparkContext, readConfig: ReadConfig): MongoRDD[D] = apply(new SQLContext(sc), readConfig)
+
+  /**
+   * Creates a MongoRDD
+   *
+   * @param sc the Spark context
+   * @param connector the [[com.mongodb.spark.MongoConnector]]
+   * @param readConfig the [[com.mongodb.spark.config.ReadConfig]]
+   * @tparam D the type of Document to return
+   * @return a MongoRDD
+   */
+  def apply[D: ClassTag](sc: SparkContext, connector: MongoConnector, readConfig: ReadConfig): MongoRDD[D] =
+    apply(sc, connector, readConfig, Nil)
 
   /**
    * Creates a MongoRDD
@@ -86,9 +97,53 @@ object MongoRDD {
    * @tparam D the type of Document to return
    * @return a MongoRDD
    */
-  def apply[D: ClassTag](sc: SparkContext, connector: MongoConnector, readConfig: ReadConfig, pipeline: Seq[Bson] = Nil): MongoRDD[D] = {
-    val sharedConnector: Broadcast[MongoConnector] = sc.broadcast(connector)
-    new MongoRDD[D](sc, sharedConnector, DefaultMongoPartitioner, readConfig, pipeline)
+  def apply[D: ClassTag](sc: SparkContext, connector: MongoConnector, readConfig: ReadConfig, pipeline: Seq[Bson]): MongoRDD[D] =
+    apply(new SQLContext(sc), connector, readConfig, pipeline)
+
+  /**
+   * Creates a MongoRDD
+   *
+   * @param sqlContext the Spark SQLContext
+   * @tparam D the type of Document to return
+   * @return a MongoRDD
+   */
+  def apply[D: ClassTag](sqlContext: SQLContext): MongoRDD[D] = apply(sqlContext, MongoConnector(sqlContext.sparkContext.getConf))
+
+  /**
+   * Creates a MongoRDD
+   *
+   * @param sqlContext the Spark SQLContext
+   * @param connector the [[com.mongodb.spark.MongoConnector]]
+   * @tparam D the type of Document to return
+   * @return a MongoRDD
+   */
+  def apply[D: ClassTag](sqlContext: SQLContext, connector: MongoConnector): MongoRDD[D] =
+    apply(sqlContext, connector, ReadConfig(sqlContext.sparkContext.getConf))
+
+  /**
+   * Creates a MongoRDD
+   *
+   * @param sqlContext the Spark SQLContext
+   * @param readConfig the [[com.mongodb.spark.config.ReadConfig]]
+   * @tparam D the type of Document to return
+   * @return a MongoRDD
+   */
+  def apply[D: ClassTag](sqlContext: SQLContext, readConfig: ReadConfig): MongoRDD[D] =
+    apply(sqlContext, MongoConnector(sqlContext.sparkContext.getConf), readConfig)
+
+  /**
+   * Creates a MongoRDD
+   *
+   * @param sqlContext the SQLContext
+   * @param connector the [[com.mongodb.spark.MongoConnector]]
+   * @param readConfig the [[com.mongodb.spark.config.ReadConfig]]
+   * @param pipeline optional aggregate pipeline
+   * @tparam D the type of Document to return
+   * @return a MongoRDD
+   */
+  def apply[D: ClassTag](sqlContext: SQLContext, connector: MongoConnector, readConfig: ReadConfig, pipeline: Seq[Bson] = Nil): MongoRDD[D] = {
+    val sharedConnector: Broadcast[MongoConnector] = sqlContext.sparkContext.broadcast(connector)
+    new MongoRDD[D](sqlContext, sharedConnector, DefaultMongoPartitioner, readConfig, pipeline)
   }
 
 }
@@ -96,7 +151,6 @@ object MongoRDD {
 /**
  * MongoRDD Class
  *
- * @param sc the Spark context
  * @param connector the [[com.mongodb.spark.MongoConnector]]
  * @param mongoPartitioner the [[com.mongodb.spark.rdd.partitioner.MongoPartitioner]]
  * @param readConfig the [[com.mongodb.spark.config.ReadConfig]]
@@ -104,23 +158,14 @@ object MongoRDD {
  * @tparam D the type of the collection documents
  */
 class MongoRDD[D: ClassTag](
-    @transient val sc:                   SparkContext,
+    @transient val sqlContext:           SQLContext,
     private[spark] val connector:        Broadcast[MongoConnector],
     private[spark] val mongoPartitioner: MongoPartitioner,
     private[spark] val readConfig:       ReadConfig,
     private[spark] val pipeline:         Seq[Bson]
-) extends RDD[D](sc, Nil) {
+) extends RDD[D](sqlContext.sparkContext, Nil) {
 
-  private[spark] lazy val hasSampleAggregateOperator: Boolean = {
-    val buildInfo: BsonDocument = connector.value.withDatabaseDo(
-      ReadConfig(sc.getConf).copy(databaseName = "test"),
-      { db => db.runCommand(new Document("buildInfo", 1), classOf[BsonDocument]) }
-    )
-    val versionArray: util.List[Integer] = buildInfo.getArray("versionArray").asScala.take(3).map(_.asInt32().getValue.asInstanceOf[Integer]).asJava
-    new ServerVersion(versionArray).compareTo(new ServerVersion(3, 2)) >= 0
-  }
-
-  private[spark] def appendPipeline[B <: Bson](extraPipeline: Seq[B]): MongoRDD[D] = withPipeline(pipeline ++ extraPipeline)
+  @transient val sc: SparkContext = sqlContext.sparkContext
 
   override def toJavaRDD(): JavaMongoRDD[D] = JavaMongoRDD(this)
 
@@ -138,7 +183,7 @@ class MongoRDD[D: ClassTag](
   def toDF[T <: Product: TypeTag](): DataFrame = {
     val schema: StructType = MongoInferSchema.reflectSchema[T]() match {
       case Some(reflectedSchema) => reflectedSchema
-      case None                  => MongoInferSchema(MongoRDD[BsonDocument](sc, connector.value, readConfig).withPipeline(pipeline))
+      case None                  => MongoInferSchema(MongoRDD[BsonDocument](sc, connector.value, readConfig, pipeline))
     }
     toDF(schema)
   }
@@ -180,15 +225,12 @@ class MongoRDD[D: ClassTag](
    * @param pipeline the aggregation pipeline to use
    * @return the updated MongoRDD
    */
-  def withPipeline[B <: Bson](pipeline: Seq[B]): MongoRDD[D] = {
-    val codecRegistry: CodecRegistry = connector.value.codecRegistry
-    copy(pipeline = pipeline.map(x => x.toBsonDocument(classOf[Document], codecRegistry))) // Convert to serializable BsonDocuments
-  }
+  def withPipeline[B <: Bson](pipeline: Seq[B]): MongoRDD[D] = copy(pipeline = pipeline)
 
   /**
    * Allows to copying of this RDD with changing some of the properties
    */
-  protected def copy(
+  def copy(
     connector:        Broadcast[MongoConnector] = connector,
     mongoPartitioner: MongoPartitioner          = mongoPartitioner,
     readConfig:       ReadConfig                = readConfig,
@@ -196,11 +238,11 @@ class MongoRDD[D: ClassTag](
   ): MongoRDD[D] = {
     checkSparkContext()
     new MongoRDD[D](
-      sc = sc,
+      sqlContext = sqlContext,
       connector = connector,
       mongoPartitioner = mongoPartitioner,
       readConfig = readConfig,
-      pipeline = pipeline
+      pipeline = pipeline.map(x => x.toBsonDocument(classOf[Document], connector.value.codecRegistry)) // Convert to serializable BsonDocuments
     )
   }
 
@@ -240,8 +282,18 @@ class MongoRDD[D: ClassTag](
   }
 
   private def toDF(schema: StructType): DataFrame = {
-    val rowRDD = MongoRDD[Document](sc, connector.value, readConfig).withPipeline(pipeline).map(doc => documentToRow(doc, schema, Array()))
-    new SQLContext(sc).createDataFrame(rowRDD, schema)
+    val rowRDD = MongoRDD[Document](sc, connector.value, readConfig, pipeline).map(doc => documentToRow(doc, schema, Array()))
+    sqlContext.createDataFrame(rowRDD, schema)
   }
 
+  private[spark] lazy val hasSampleAggregateOperator: Boolean = {
+    val buildInfo: BsonDocument = connector.value.withDatabaseDo(
+      ReadConfig(sc.getConf).copy(databaseName = "test"),
+      { db => db.runCommand(new Document("buildInfo", 1), classOf[BsonDocument]) }
+    )
+    val versionArray: util.List[Integer] = buildInfo.getArray("versionArray").asScala.take(3).map(_.asInt32().getValue.asInstanceOf[Integer]).asJava
+    new ServerVersion(versionArray).compareTo(new ServerVersion(3, 2)) >= 0
+  }
+
+  private[spark] def appendPipeline[B <: Bson](extraPipeline: Seq[B]): MongoRDD[D] = withPipeline(pipeline ++ extraPipeline)
 }

@@ -18,7 +18,7 @@ package com.mongodb.spark.config
 
 import java.util
 
-import org.apache.spark.SparkConf
+import org.apache.spark.{SparkConf, SparkContext}
 
 import com.mongodb.ConnectionString
 
@@ -49,6 +49,17 @@ trait MongoConfig extends Serializable {
    * The configuration prefix string for the current configuration scope
    */
   val configPrefix: String
+
+  /**
+   * Create a configuration from the `sparkContext`
+   *
+   * Uses the prefixed properties that are set in the Spark configuration to create the config.
+   *
+   * @see [[configPrefix]]
+   * @param sparkContext the spark context
+   * @return the configuration
+   */
+  def apply(sparkContext: SparkContext): Self = apply(sparkContext.getConf)
 
   /**
    * Create a configuration from the `sparkConf`
@@ -139,7 +150,7 @@ trait MongoConfig extends Serializable {
     }
   }
 
-  protected def databaseName(databaseNameProperty: String, options: scala.collection.Map[String, String], default: Option[String] = None): String = {
+  protected def databaseName(databaseNameProperty: String, options: collection.Map[String, String], default: Option[String] = None): String = {
     val cleanedOptions = prefixLessOptions(options)
     val defaultDatabaseName = default.getOrElse(connectionString(cleanedOptions).getDatabase)
     Option(cleanedOptions.getOrElse(databaseNameProperty, defaultDatabaseName)) match {
@@ -150,7 +161,7 @@ trait MongoConfig extends Serializable {
     }
   }
 
-  protected def collectionName(collectionNameProperty: String, options: scala.collection.Map[String, String], default: Option[String] = None): String = {
+  protected def collectionName(collectionNameProperty: String, options: collection.Map[String, String], default: Option[String] = None): String = {
     val cleanedOptions = prefixLessOptions(options)
     val defaultCollectionName = default.getOrElse(connectionString(cleanedOptions).getCollection)
     Option(cleanedOptions.getOrElse(collectionNameProperty, defaultCollectionName)) match {

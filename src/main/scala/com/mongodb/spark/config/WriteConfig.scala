@@ -33,6 +33,14 @@ object WriteConfig extends MongoOutputConfig {
 
   type Self = WriteConfig
 
+  /**
+   * Creates a WriteConfig
+   *
+   * @param databaseName the database name
+   * @param collectionName the collection name
+   * @param writeConcern the WriteConcern to use
+   * @return the write config
+   */
   def apply(databaseName: String, collectionName: String, writeConcern: WriteConcern): WriteConfig =
     new WriteConfig(databaseName, collectionName, WriteConcernConfig(writeConcern))
 
@@ -69,9 +77,9 @@ case class WriteConfig(
 
   type Self = WriteConfig
 
-  override def withOptions(options: scala.collection.Map[String, String]): WriteConfig = WriteConfig(options, Some(this))
+  override def withOptions(options: collection.Map[String, String]): WriteConfig = WriteConfig(options, Some(this))
 
-  def asOptions: Map[String, String] = Map("database" -> databaseName, "collection" -> collectionName) ++ writeConcernConfig.asOptions
+  override def asOptions: collection.Map[String, String] = Map("database" -> databaseName, "collection" -> collectionName) ++ writeConcernConfig.asOptions
 
   override def withJavaOptions(options: util.Map[String, String]): WriteConfig = withOptions(options.asScala)
 

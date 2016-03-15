@@ -14,26 +14,29 @@
  * limitations under the License.
  */
 
-package com.mongodb.spark
+package com.mongodb.spark.sql
 
 import scala.reflect.ClassTag
 
+import org.apache.spark.sql.SQLContext
 import org.apache.spark.{SparkConf, SparkContext}
 
 import org.bson.Document
 import org.bson.conversions.Bson
 import com.mongodb.spark.DefaultHelper.DefaultsTo
+import com.mongodb.spark.MongoConnector
 import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.rdd.MongoRDD
 
 /**
- * Helpers to create [[com.mongodb.spark.rdd.MongoRDD]] in the current `SparkContext`.
+ * Helpers to create [[com.mongodb.spark.rdd.MongoRDD]] in the current `SQLContext`.
  *
- * @param sc the Spark context
+ * @param sqlContext the SQLContext
  * @since 1.0
  */
-case class SparkContextFunctions(@transient val sc: SparkContext) extends Serializable {
+case class SparkSQLContextFunctions(@transient val sqlContext: SQLContext) extends Serializable {
 
+  @transient private val sc: SparkContext = sqlContext.sparkContext
   @transient private val sparkConf: SparkConf = sc.getConf
 
   /**
@@ -47,6 +50,6 @@ case class SparkContextFunctions(@transient val sc: SparkContext) extends Serial
    */
   def loadFromMongoDB[D: ClassTag](connector: MongoConnector = MongoConnector(sc), readConfig: ReadConfig = ReadConfig(sc),
                                    pipeline: Seq[Bson] = Nil)(implicit e: D DefaultsTo Document): MongoRDD[D] =
-    MongoRDD[D](sc, connector, readConfig, pipeline)
+    MongoRDD[D](sqlContext, connector, readConfig, pipeline)
 
 }

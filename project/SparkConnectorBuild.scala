@@ -93,4 +93,14 @@ object SparkConnectorBuild extends Build {
     .settings(Publish.assemblySettings)
     .settings(checkAlias)
 
+  lazy val examples = Project(
+    id = "mongo-spark-connector-examples",
+    base = file("examples")
+  ).dependsOn(connector)
+    .settings(buildSettings)
+    .settings(testSettings)
+    .settings(customScalariformSettings)
+    .settings(scalaStyleSettings)
+    .settings(Publish.noPublishing)
+
 }

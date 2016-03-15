@@ -22,8 +22,8 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
 
-import org.apache.spark.SparkConf
 import org.apache.spark.api.java.function.{Function => JFunction}
+import org.apache.spark.{SparkConf, SparkContext}
 
 import org.bson.codecs.configuration.CodecRegistry
 import com.mongodb.client.{MongoCollection, MongoDatabase}
@@ -39,7 +39,15 @@ import com.mongodb.{MongoClient, ServerAddress}
 object MongoConnector {
 
   /**
-   * Creates a MongoConnector using the [[ReadConfig.mongoURIProperty]]
+   * Creates a MongoConnector using the [[ReadConfig.mongoURIProperty]] from the `sparkConf`.
+   *
+   * @param sparkContext the Spark context
+   * @return the MongoConnector
+   */
+  def apply(sparkContext: SparkContext): MongoConnector = apply(sparkContext.getConf)
+
+  /**
+   * Creates a MongoConnector using the [[ReadConfig.mongoURIProperty]] from the `sparkConf`.
    *
    * @param sparkConf the Spark configuration.
    * @return the MongoConnector
@@ -81,9 +89,28 @@ object MongoConnector {
 case class MongoConnector(mongoClientFactory: MongoClientFactory)
     extends Serializable with Closeable with Logging {
 
-  private[spark] def withMongoClientDo[T](code: MongoClient => T): T = withMongoClientDo(code, None)
+  /**
+   * Execute some code on a `MongoClient`
+   *
+   * *Note:* The MongoClient is reference counted and loaned to the `code` method and should only be used inside that function.
+   *
+   * @param code the code block that is passed
+   * @tparam T the result of the code function
+   * @return the result
+   */
+  def withMongoClientDo[T](code: MongoClient => T): T = withMongoClientDo(code, None)
 
-  private[spark] def withMongoClientDo[T](code: MongoClient => T, serverAddress: Option[ServerAddress]): T = {
+  /**
+   * Execute some code on a `MongoClient`
+   *
+   * *Note:* The MongoClient is reference counted and loaned to the `code` method and should only be used inside that function.
+   *
+   * @param code the code block that is executed
+   * @param serverAddress the optional serverAddress to connect to
+   * @tparam T the result of the code function
+   * @return the result
+   */
+  def withMongoClientDo[T](code: MongoClient => T, serverAddress: Option[ServerAddress]): T = {
     val client = MongoConnector.mongoClientCache.acquire(serverAddress, mongoClientFactory)
     try {
       code(client)
@@ -92,11 +119,58 @@ case class MongoConnector(mongoClientFactory: MongoClientFactory)
     }
   }
 
-  private[spark] def withDatabaseDo[T](config: MongoCollectionConfig, code: MongoDatabase => T, serverAddress: Option[ServerAddress] = None): T =
+  /**
+   * Execute some code on a database
+   *
+   * *Note:* The `MongoDatabase` is reference counted and loaned to the `code` method and should only be used inside that function.
+   *
+   * @param config the [[MongoCollectionConfig]] determining which database to connect to
+   * @param code the code block that is executed
+   * @tparam T the result of the code function
+   * @return the result
+   */
+  def withDatabaseDo[T](config: MongoCollectionConfig, code: MongoDatabase => T): T = withDatabaseDo(config, code, None)
+
+  /**
+   * Execute some code on a database
+   *
+   * *Note:* The `MongoDatabase` is reference counted and loaned to the `code` method and should only be used inside that function.
+   *
+   * @param config the [[MongoCollectionConfig]] determining which database to connect to
+   * @param code the code block that is executed
+   * @param serverAddress the optional serverAddress to connect to
+   * @tparam T the result of the code function
+   * @return the result
+   */
+  def withDatabaseDo[T](config: MongoCollectionConfig, code: MongoDatabase => T, serverAddress: Option[ServerAddress]): T =
     withMongoClientDo({ client => code(client.getDatabase(config.databaseName)) }, serverAddress)
 
-  private[spark] def withCollectionDo[D, T](config: MongoCollectionConfig, code: MongoCollection[D] => T,
-                                            serverAddress: Option[ServerAddress] = None)(implicit ct: ClassTag[D]): T = {
+  /**
+   * Execute some code on a collection
+   *
+   * *Note:* The `MongoCollection` is reference counted and loaned to the `code` method and should only be used inside that function.
+   *
+   * @param config the [[MongoCollectionConfig]] determining which database and collection to connect to
+   * @param code the code block that is executed
+   * @tparam T the result of the code function
+   * @return the result
+   */
+  def withCollectionDo[D, T](config: MongoCollectionConfig, code: MongoCollection[D] => T)(implicit ct: ClassTag[D]): T =
+    withCollectionDo[D, T](config, code, None)
+
+  /**
+   * Execute some code on a collection
+   *
+   * *Note:* The `MongoCollection` is reference counted and loaned to the `code` method and should only be used inside that function.
+   *
+   * @param config the [[MongoCollectionConfig]] determining which database and collection to connect to
+   * @param code the code block that is executed
+   * @param serverAddress the optional serverAddress to connect to
+   * @tparam T the result of the code function
+   * @return the result
+   */
+  def withCollectionDo[D, T](config: MongoCollectionConfig, code: MongoCollection[D] => T,
+                             serverAddress: Option[ServerAddress])(implicit ct: ClassTag[D]): T = {
     withDatabaseDo(config, { db =>
       val collection = db.getCollection[D](config.collectionName, classTagToClassOf(ct))
       code(config match {
