@@ -39,14 +39,14 @@ import com.mongodb.{MongoClient, ServerAddress}
 object MongoConnector {
 
   /**
-   * Creates a MongoConnector
+   * Creates a MongoConnector using the [[ReadConfig.mongoURIProperty]]
    *
-   * @param sparkConf the Spark configuration containing the `uri`, `databaseName` and `collectionName` parameters
+   * @param sparkConf the Spark configuration.
    * @return the MongoConnector
    */
   def apply(sparkConf: SparkConf): MongoConnector = {
-    require(sparkConf.contains(mongoURIProperty), s"Missing '$mongoURIProperty' property from sparkConfig")
-    MongoConnector(sparkConf.get(mongoURIProperty))
+    require(sparkConf.contains(mongoReadURIProperty), s"Missing '$mongoReadURIProperty' property from sparkConfig")
+    MongoConnector(sparkConf.get(mongoReadURIProperty))
   }
 
   /**
@@ -57,7 +57,8 @@ object MongoConnector {
    */
   def apply(connectionString: String): MongoConnector = MongoConnector(DefaultMongoClientFactory(connectionString))
 
-  private[spark] val mongoURIProperty: String = s"${ReadConfig.configPrefix}${ReadConfig.mongoURIProperty}"
+  private[spark] val mongoReadURIProperty: String = s"${ReadConfig.configPrefix}${ReadConfig.mongoURIProperty}"
+  private[spark] val mongoWriteURIProperty: String = s"${ReadConfig.configPrefix}${ReadConfig.mongoURIProperty}"
   private[spark] val mongoClientKeepAlive = Duration(10, TimeUnit.SECONDS) // scalastyle:ignore
 
   private val mongoClientCache = new MongoClientCache(mongoClientKeepAlive)

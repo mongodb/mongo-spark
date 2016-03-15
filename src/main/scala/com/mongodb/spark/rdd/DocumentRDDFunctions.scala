@@ -37,7 +37,7 @@ import com.mongodb.spark.config.WriteConfig
  */
 case class DocumentRDDFunctions[D](rdd: RDD[D])(implicit e: D DefaultsTo Document, ct: ClassTag[D]) {
 
-  val mongoConnector = MongoConnector(rdd.context.getConf)
+  val mongoConnector = MongoConnector(rdd.context.getConf.get(MongoConnector.mongoWriteURIProperty))
 
   /**
    * Saves the RDD data to MongoDB using the `SparkConf` settings for the [[com.mongodb.spark.config.WriteConfig]]
