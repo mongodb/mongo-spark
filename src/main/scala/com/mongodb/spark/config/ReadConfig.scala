@@ -19,10 +19,9 @@ package com.mongodb.spark.config
 import java.util
 
 import scala.collection.JavaConverters._
-
 import org.apache.spark.SparkConf
-
 import com.mongodb.{ReadConcern, ReadPreference}
+import org.apache.spark.api.java.JavaSparkContext
 
 /**
  * The `ReadConfig` companion object
@@ -59,6 +58,8 @@ object ReadConfig extends MongoInputConfig {
       readConcernConfig = ReadConcernConfig(cleanedOptions, default.map(conf => conf.readConcernConfig))
     )
   }
+
+  override def create(javaSparkContext: JavaSparkContext): ReadConfig = apply(javaSparkContext.getConf)
 
   override def create(sparkConf: SparkConf): ReadConfig = apply(sparkConf)
 

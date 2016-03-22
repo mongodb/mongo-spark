@@ -20,11 +20,10 @@ import java.util
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
-
 import org.apache.spark.SparkConf
-
 import org.bson.Document
 import com.mongodb.{ReadPreference, Tag, TagSet, TaggableReadPreference}
+import org.apache.spark.api.java.JavaSparkContext
 
 /**
  * The `ReadPreferenceConfig` companion object
@@ -93,6 +92,8 @@ object ReadPreferenceConfig extends MongoInputConfig {
     readPreferenceConfig.getOrElse(defaultReadPreferenceConfig)
   }
 
+  override def create(javaSparkContext: JavaSparkContext): ReadPreferenceConfig = apply(javaSparkContext.getConf)
+
   override def create(sparkConf: SparkConf): ReadPreferenceConfig = apply(sparkConf)
 
   override def create(options: util.Map[String, String]): ReadPreferenceConfig = apply(options.asScala)
@@ -106,6 +107,7 @@ object ReadPreferenceConfig extends MongoInputConfig {
   }
 
   private def tagSet(tags: Document): TagSet = new TagSet(tags.asScala.map(kv => new Tag(kv._1, kv._2.toString)).toList.asJava)
+
 }
 
 /**

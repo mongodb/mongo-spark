@@ -18,6 +18,8 @@ package com.mongodb.spark.api.java;
 
 import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.Filters;
+import com.mongodb.spark.config.ReadConfig;
+import com.mongodb.spark.config.WriteConfig;
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD;
 import org.apache.spark.SparkException;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -34,7 +36,9 @@ import org.bson.BsonDocument;
 import org.bson.Document;
 import org.junit.Test;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
@@ -48,9 +52,9 @@ public final class MongoSparkTest extends RequiresMongoDB {
 
     @Test
     public void shouldBeCreatableFromTheSparkContext() {
-        JavaSparkContext sc = new JavaSparkContext(getSparkContext());
-        MongoSpark.save(sc.parallelize(counters));
-        JavaMongoRDD<Document> mongoRDD = MongoSpark.load(sc);
+        JavaSparkContext jsc = getJavaSparkContext();
+        MongoSpark.save(jsc.parallelize(counters));
+        JavaMongoRDD<Document> mongoRDD = MongoSpark.load(jsc);
 
         assertEquals(mongoRDD.count(), 3);
 
@@ -64,16 +68,41 @@ public final class MongoSparkTest extends RequiresMongoDB {
     }
 
     @Test
+    public void shouldBeCreatableFromTheSparkContextWithAlternativeReadAndWriteConfigs() {
+        JavaSparkContext jsc = getJavaSparkContext();
+        WriteConfig defaultWriteConfig = WriteConfig.create(jsc);
+        ReadConfig defaultReadConfig = ReadConfig.create(jsc);
+        Map<String, String> configOverrides = new HashMap<String, String>();
+        configOverrides.put("collection", getCollectionName() + "New");
+        configOverrides.put("writeConcern.w", "majority");
+        configOverrides.put("readPreference.name", "primaryPreferred");
+        WriteConfig writeConfig = WriteConfig.create(configOverrides, defaultWriteConfig);
+        ReadConfig readConfig = ReadConfig.create(configOverrides, defaultReadConfig);
+
+        MongoSpark.save(jsc.parallelize(counters), writeConfig);
+        JavaMongoRDD<Document> mongoRDD = MongoSpark.load(jsc, readConfig);
+
+        assertEquals(mongoRDD.count(), 3);
+        List<Integer> counters = mongoRDD.map(new Function<Document, Integer>() {
+            @Override
+            public Integer call(final Document x) throws Exception {
+                return x.getInteger("counter");
+            }
+        }).collect();
+        assertEquals(counters, asList(0,1,2));
+    }
+
+    @Test
     public void shouldBeAbleToHandleNoneExistentCollections() {
-        JavaMongoRDD<Document> mongoRDD = MongoSpark.load(new JavaSparkContext(getSparkContext()));
+        JavaMongoRDD<Document> mongoRDD = MongoSpark.load(getJavaSparkContext());
         assertEquals(mongoRDD.count(), 0);
     }
 
     @Test
     public void shouldBeAbleToQueryViaAPipeLine() {
-        JavaSparkContext sc = new JavaSparkContext(getSparkContext());
-        MongoSpark.save(sc.parallelize(counters));
-        JavaMongoRDD<Document> mongoRDD = MongoSpark.load(sc);
+        JavaSparkContext jsc = getJavaSparkContext();
+        MongoSpark.save(jsc.parallelize(counters));
+        JavaMongoRDD<Document> mongoRDD = MongoSpark.load(jsc);
 
         assertEquals(mongoRDD.withPipeline(singletonList(Document.parse("{$match: { counter: {$gt: 0}}}"))).count(), 2);
         assertEquals(mongoRDD.withPipeline(singletonList(BsonDocument.parse("{$match: { counter: {$gt: 0}}}"))).count(), 2);
@@ -82,10 +111,10 @@ public final class MongoSparkTest extends RequiresMongoDB {
 
     @Test
     public void shouldBeAbleToHandleDifferentCollectionTypes() {
-        JavaSparkContext sc = new JavaSparkContext(getSparkContext());
-        MongoSpark.save(sc.parallelize(asList(BsonDocument.parse("{counter: 0}"), BsonDocument.parse("{counter: 1}"),
+        JavaSparkContext jsc = getJavaSparkContext();
+        MongoSpark.save(jsc.parallelize(asList(BsonDocument.parse("{counter: 0}"), BsonDocument.parse("{counter: 1}"),
                 BsonDocument.parse("{counter: 2}"))), BsonDocument.class);
-        JavaMongoRDD<BsonDocument> mongoRDD = MongoSpark.load(sc, BsonDocument.class);
+        JavaMongoRDD<BsonDocument> mongoRDD = MongoSpark.load(jsc, BsonDocument.class);
 
         assertEquals(mongoRDD.count(), 3);
     }
@@ -93,9 +122,9 @@ public final class MongoSparkTest extends RequiresMongoDB {
     @Test
     public void shouldBeAbleToCreateADataFrameByInferringTheSchema() {
         // Given
-        JavaSparkContext sc = new JavaSparkContext(getSparkContext());
-        MongoSpark.save(sc.parallelize(counters));
-        JavaMongoRDD<Document> mongoRDD = MongoSpark.load(sc);
+        JavaSparkContext jsc = getJavaSparkContext();
+        MongoSpark.save(jsc.parallelize(counters));
+        JavaMongoRDD<Document> mongoRDD = MongoSpark.load(jsc);
 
         StructField _idField = createStructField("_id", DataTypes.StringType, true);
         StructField countField = createStructField("counter", DataTypes.IntegerType, true);
@@ -112,9 +141,9 @@ public final class MongoSparkTest extends RequiresMongoDB {
     @Test
     public void shouldBeAbleToCreateADataFrameUsingJavaBean() {
         // Given
-        JavaSparkContext sc = new JavaSparkContext(getSparkContext());
-        MongoSpark.save(sc.parallelize(counters));
-        JavaMongoRDD<Document> mongoRDD = MongoSpark.load(sc);
+        JavaSparkContext jsc = getJavaSparkContext();
+        MongoSpark.save(jsc.parallelize(counters));
+        JavaMongoRDD<Document> mongoRDD = MongoSpark.load(jsc);
 
         StructType expectedSchema = (StructType) JavaTypeInference.inferDataType(Counter.class)._1();
 
@@ -129,9 +158,9 @@ public final class MongoSparkTest extends RequiresMongoDB {
     @Test
     public void shouldBeAbleToCreateADatasetUsingJavaBean() {
         // Given
-        JavaSparkContext sc = new JavaSparkContext(getSparkContext());
-        MongoSpark.save(sc.parallelize(counters));
-        JavaMongoRDD<Document> mongoRDD = MongoSpark.load(sc);
+        JavaSparkContext jsc = getJavaSparkContext();
+        MongoSpark.save(jsc.parallelize(counters));
+        JavaMongoRDD<Document> mongoRDD = MongoSpark.load(jsc);
 
         StructType expectedSchema = (StructType) JavaTypeInference.inferDataType(Counter.class)._1();
 
@@ -153,9 +182,9 @@ public final class MongoSparkTest extends RequiresMongoDB {
     @Test(expected=SparkException.class)
     public void shouldThrowWhenCreatingADatasetWithInvalidData() {
         // Given
-        JavaSparkContext sc = new JavaSparkContext(getSparkContext());
-        MongoSpark.save(sc.parallelize(asList(Document.parse("{counter: 'a'}"), Document.parse("{counter: 'b'}"))));
-        JavaMongoRDD<Document> mongoRDD = MongoSpark.load(sc);
+        JavaSparkContext jsc = getJavaSparkContext();
+        MongoSpark.save(jsc.parallelize(asList(Document.parse("{counter: 'a'}"), Document.parse("{counter: 'b'}"))));
+        JavaMongoRDD<Document> mongoRDD = MongoSpark.load(jsc);
 
         // when
         Dataset<Counter> dataset = mongoRDD.toDS(Counter.class);
@@ -172,9 +201,9 @@ public final class MongoSparkTest extends RequiresMongoDB {
     @Test
     public void useDefaultValuesWhenCreatingADatasetWithMissingData() {
         // Given
-        JavaSparkContext sc = new JavaSparkContext(getSparkContext());
-        MongoSpark.save(sc.parallelize(asList(Document.parse("{name: 'a'}"), Document.parse("{name: 'b'}"))));
-        JavaMongoRDD<Document> mongoRDD = MongoSpark.load(sc);
+        JavaSparkContext jsc = getJavaSparkContext();
+        MongoSpark.save(jsc.parallelize(asList(Document.parse("{name: 'a'}"), Document.parse("{name: 'b'}"))));
+        JavaMongoRDD<Document> mongoRDD = MongoSpark.load(jsc);
 
         // when
         Dataset<Counter> dataset = mongoRDD.toDS(Counter.class);

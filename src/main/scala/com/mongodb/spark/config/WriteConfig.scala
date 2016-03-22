@@ -19,10 +19,9 @@ package com.mongodb.spark.config
 import java.util
 
 import scala.collection.JavaConverters._
-
 import org.apache.spark.SparkConf
-
 import com.mongodb.WriteConcern
+import org.apache.spark.api.java.JavaSparkContext
 
 /**
  * The `WriteConfig` companion object
@@ -52,6 +51,8 @@ object WriteConfig extends MongoOutputConfig {
       writeConcernConfig = WriteConcernConfig(cleanedOptions, default.map(writeConf => writeConf.writeConcernConfig))
     )
   }
+
+  override def create(javaSparkContext: JavaSparkContext): WriteConfig = apply(javaSparkContext.getConf)
 
   override def create(sparkConf: SparkConf): WriteConfig = apply(sparkConf)
 

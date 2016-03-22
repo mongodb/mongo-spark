@@ -21,10 +21,9 @@ import java.util
 import scala.collection.JavaConverters._
 import scala.collection.Map
 import scala.util.Try
-
 import org.apache.spark.SparkConf
-
 import com.mongodb.{ReadConcern, ReadConcernLevel}
+import org.apache.spark.api.java.JavaSparkContext
 
 /**
  * The `ReadConcernConfig` companion object
@@ -81,6 +80,8 @@ object ReadConcernConfig extends MongoInputConfig {
   override def create(options: util.Map[String, String]): ReadConcernConfig = apply(options.asScala, None)
 
   override def create(options: util.Map[String, String], default: ReadConcernConfig): ReadConcernConfig = apply(options.asScala, Option(default))
+
+  override def create(javaSparkContext: JavaSparkContext): ReadConcernConfig = ???
 }
 
 /**

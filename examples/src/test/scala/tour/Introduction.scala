@@ -64,7 +64,7 @@ object Introduction extends TourHelper {
     println(filteredRdd.first.toJson)
 
     // Filtering an rdd using an aggregation pipeline before passing to Spark
-    val aggregatedRdd = rdd.copy(pipeline = Seq(Document.parse("{ $match: { test : { $gt : 5 } } }")))
+    val aggregatedRdd = rdd.withPipeline(Seq(Document.parse("{ $match: { test : { $gt : 5 } } }")))
     println(aggregatedRdd.count)
     println(aggregatedRdd.first.toJson)
   }

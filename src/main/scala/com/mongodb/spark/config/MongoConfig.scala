@@ -19,8 +19,8 @@ package com.mongodb.spark.config
 import java.util
 
 import org.apache.spark.{SparkConf, SparkContext}
-
 import com.mongodb.ConnectionString
+import org.apache.spark.api.java.JavaSparkContext
 
 /**
  * The Mongo configuration base trait
@@ -92,6 +92,17 @@ trait MongoConfig extends Serializable {
    * @return the configuration
    */
   def apply(options: collection.Map[String, String], default: Option[Self]): Self
+
+  /**
+   * Create a configuration easily from the Java API using the `JavaSparkContext`
+   *
+   * Uses the prefixed properties that are set in the Spark configuration to create the config.
+   *
+   * @see [[configPrefix]]
+   * @param javaSparkContext the java spark context
+   * @return the configuration
+   */
+  def create(javaSparkContext: JavaSparkContext): Self
 
   /**
    * Create a configuration easily from the Java API using the `sparkConf`

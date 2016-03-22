@@ -1,6 +1,6 @@
 # Mongo Spark Connector Spark SQL
 
-The following code snippets can be found in [SQL.scala](../examples/src/test/scala/tour/SQL.scala).
+The following code snippets can be found in [SparkSQL.scala](../examples/src/test/scala/tour/SparkSQL.scala).
 
 ## Prerequisites
 
@@ -28,8 +28,8 @@ sc.parallelize(docs.map(Document.parse)).saveToMongoDB()
 
 ## Spark SQL
 
-The entry point into all functionality in Spark SQL is the SQLContext class, or one of its descendants. 
-To create a basic SQLContext, all you need is a SparkContext.
+The entry point to Spark SQL is the `SQLContext` class or one of its descendants. To create a basic `SQLContext` all you need is a
+`SparkContext`.
 
 ```scala
 import org.apache.spark.sql.SQLContext
@@ -38,7 +38,7 @@ val sc: SparkContext // An existing SparkContext.
 val sqlContext = new SQLContext(sc)
 ```
 
-To enable the Mongo Connector specific functions on the `SQLContext`:
+First enable the Mongo Connector specific functions on the `SQLContext`:
 
 ```scala
 import com.mongodb.spark.sql._
@@ -46,7 +46,7 @@ import com.mongodb.spark.sql._
 
 ### DataFrames and DataSets
 
-Creating a dataframe is easy, using the implicit `mongo` helper on the `DataFrameReader`:
+Creating a DataFrame is easy using the implicit `mongo` helper on the `DataFrameReader`:
 
 ```scala
 val df = sqlContext.read.mongo()
@@ -62,7 +62,10 @@ root
  |-- name: string (nullable = true)
 ```
 
+-----
 *Note:* The `sqlContext.read.mongo()` implicit function is the equivalent of `sqlContext.read.format("com.mongodb.spark.sql").load()`
+
+-----
 
 In the following example we can filter and output the characters with ages under 100:
 
@@ -80,14 +83,22 @@ df.filter(df("age") < 100).show()
 +--------------------+---+-------------+
 ```
 
-#### Schema inference and explicitly declaring the schema
+-----
+*Note:* Unlike RDD's when using `filters` with DataFrames or SparkSQL the underlying Mongo Connector code will construct an aggregation pipeline to filter the data in MongoDB before sending it to Spark.
+
+-----
+
+#### Schema inference and explicitly declaring a schema
 
 By default reading from MongoDB in a `SQLContext` infers the schema by sampling documents from the database. 
 If you know the shape of your documents then you can use a simple case class to define the schema instead, thus preventing the extra queries.
 
-*Note:* When providing a case class for the schema *only the declared fields* will be returned by MongoDB, helping minimize the data sent across the wire.
+-----
+**Note:** When providing a case class for the schema *only the declared fields* will be returned by MongoDB, helping minimize the data sent across the wire.
 
-The following example creates Character case class and then uses it to represent the documents or schema for the collection:
+-----
+
+The following example creates Character case class and then uses it to represent the documents / schema for the collection:
 
 ```scala
 case class Character(name: String, age: Int)
@@ -134,7 +145,10 @@ val centenarians = sqlContext.sql("SELECT name, age FROM characters WHERE age >=
 centenarians.show()
 ```
 
-*Note:* You must use the same `SQLContext` that registers the table and queries it. 
+-----
+**Note:** You must use the same `SQLContext` that registers the table when querying it. 
+
+-----
 
 ### Saving DataFrames
 
@@ -163,7 +177,9 @@ Outputs:
 +-------+----+
 ```
 
+-----
+**Note:** The `centenarians.write.mongo()` implicit function is the equivalent of `centenarians.write.format("com.mongodb.spark.sql").save()`
 
-*Note:* The `centenarians.write.mongo()` implicit function is the equivalent of `centenarians.write.format("com.mongodb.spark.sql").save()`
+-----
 
 [Next - Configuring](2-configuring.md)

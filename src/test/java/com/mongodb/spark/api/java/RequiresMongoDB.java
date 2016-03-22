@@ -22,6 +22,7 @@ import com.mongodb.client.MongoDatabase;
 import com.mongodb.spark.MongoDBDefaults;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
+import org.apache.spark.api.java.JavaSparkContext;
 import org.bson.Document;
 import org.junit.After;
 import org.junit.Before;
@@ -32,7 +33,7 @@ import static org.junit.Assume.assumeTrue;
 
 public abstract class RequiresMongoDB implements Serializable {
 
-    private transient SparkContext sc;
+    private transient JavaSparkContext jsc;
 
     private static final MongoDBDefaults mongoDBDefaults = new MongoDBDefaults();
 
@@ -60,20 +61,20 @@ public abstract class RequiresMongoDB implements Serializable {
         return mongoDBDefaults.getSparkConf(collectionName);
     }
 
-    public SparkContext getSparkContext() {
-        if (sc != null) {
-            sc.stop();
+    public JavaSparkContext getJavaSparkContext() {
+        if (jsc != null) {
+            jsc.stop();
         }
-        sc = new SparkContext(getSparkConf());
-        return sc;
+        jsc = new JavaSparkContext(new SparkContext(getSparkConf()));
+        return jsc;
     }
 
-    public SparkContext getSparkContext(final String collectionName) {
-        if (sc != null) {
-            sc.stop();
+    public JavaSparkContext getJavaSparkContext(final String collectionName) {
+        if (jsc != null) {
+            jsc.stop();
         }
-        sc = new SparkContext(getSparkConf(collectionName));
-        return sc;
+        jsc = new JavaSparkContext(new SparkContext(getSparkConf(collectionName)));
+        return jsc;
     }
 
     public String getDatabaseName() {
@@ -88,15 +89,15 @@ public abstract class RequiresMongoDB implements Serializable {
     public void setUp() {
         assumeTrue(mongoDBDefaults.isMongoDBOnline());
         mongoDBDefaults.dropDB();
-        sc = null;
+        jsc = null;
     }
 
     @After
     public void tearDown() {
         mongoDBDefaults.dropDB();
-        if (sc != null) {
-            sc.stop();
-            sc = null;
+        if (jsc != null) {
+            jsc.stop();
+            jsc = null;
         }
     }
 }

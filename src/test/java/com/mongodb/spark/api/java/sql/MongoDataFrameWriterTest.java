@@ -1,5 +1,6 @@
 package com.mongodb.spark.api.java.sql;
 
+import com.mongodb.spark.api.java.MongoSpark;
 import com.mongodb.spark.api.java.RequiresMongoDB;
 import com.mongodb.spark.config.ReadConfig;
 import com.mongodb.spark.config.WriteConfig;
@@ -32,11 +33,25 @@ public final class MongoDataFrameWriterTest extends RequiresMongoDB {
     );
 
     @Test
+    public void shouldBeEasilyCreatedFromMongoSpark() {
+        // Given
+        JavaSparkContext jsc = getJavaSparkContext();
+        JavaRDD<Character> people = jsc.parallelize(characters).map(JsonToCharacter);
+        SQLContext sqlContext = new SQLContext(jsc);
+
+        // When
+        MongoSpark.write(sqlContext.createDataFrame(people, Character.class)).save();
+
+        // Then
+        assertEquals(MongoSpark.read(sqlContext).load().count(), 9);
+    }
+
+    @Test
     public void shouldBeEasilyCreatedFromADataFrameAndSaveToMongo() {
         // Given
-        JavaSparkContext sc = new JavaSparkContext(getSparkContext());
-        JavaRDD<Character> people = sc.parallelize(characters).map(JsonToCharacter);
-        SQLContext sqlContext = new SQLContext(sc);
+        JavaSparkContext jsc = getJavaSparkContext();
+        JavaRDD<Character> people = jsc.parallelize(characters).map(JsonToCharacter);
+        SQLContext sqlContext = new SQLContext(jsc);
 
         // When
         sqlContext.createDataFrame(people, Character.class).write().format("com.mongodb.spark.sql").save();
@@ -45,13 +60,14 @@ public final class MongoDataFrameWriterTest extends RequiresMongoDB {
         assertEquals(sqlContext.read().format("com.mongodb.spark.sql").load().count(), 9);
     }
 
+
     @Test
     public void shouldTakeACustomOptions() {
         // Given
         String saveToCollectionName = getCollectionName() + "_new";
         Map<String, String> options = new HashMap<String, String>();
         options.put("collection", saveToCollectionName);
-        JavaSparkContext sc = new JavaSparkContext(getSparkContext());
+        JavaSparkContext sc = getJavaSparkContext();
         WriteConfig writeConfig = WriteConfig.create(sc.getConf()).withJavaOptions(options);
         ReadConfig readConfig = ReadConfig.create(sc.getConf()).withJavaOptions(options);
 

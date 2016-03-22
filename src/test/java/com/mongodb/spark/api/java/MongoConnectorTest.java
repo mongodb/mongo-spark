@@ -42,6 +42,19 @@ public final class MongoConnectorTest extends RequiresMongoDB {
     }
 
     @Test
+    public void shouldCreateMongoConnectorFromJavaSparkContext() {
+        MongoConnector mongoConnector = MongoConnectors.create(getJavaSparkContext());
+        Boolean created = mongoConnector.withMongoClientDo(new AbstractFunction1<MongoClient, Boolean>() {
+            @Override
+            public Boolean apply(final MongoClient v1) {
+                return true;
+            }
+        });
+
+        assertTrue(created);
+    }
+
+    @Test
     public void shouldCreateMongoConnectorWithCustomMongoClientFactory() {
         MongoConnector mongoConnector = MongoConnectors.create(new JavaMongoClientFactory(getMongoClientURI()));
         Boolean created = mongoConnector.withMongoClientDo(new AbstractFunction1<MongoClient, Boolean>() {

@@ -1,0 +1,220 @@
+# Mongo Spark Connector Java API
+
+The following code snippets can be found in [JavaIntroduction.java](../examples/src/test/java/tour/JavaIntroduction.java).
+
+## Prerequisites
+
+Have MongoDB up and running and the Spark 1.6.x downloaded. See the [introduction](0-introduction.md) for more information on getting started.
+
+## The Java API Basics
+
+The main Java API feeds off the `com.mongodb.spark.api.java.MongoSpark` helper that provides an easy way to interact with MongoDB.
+The configuration classes also have Java friendly `create` methods that should be preferred over using the native scala `apply` methods.
+
+### Saving RDD data
+
+Following the Scala introduction examples we'll walk through saving and loading data from MongoDB using Java and the Java friendly API's.
+
+*Note:* When saving `RDD` data into MongoDB, it must be a type that can be converted into a Bson document. 
+You may have add a `map` step to transform the data into a `Document` (or `BsonDocument` a `DBObject`).
+
+Add Documents to the collection using a `JavaSparkContext`:
+
+```java
+import com.mongodb.spark.api.java.MongoSpark;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.function.Function;
+import static java.util.Arrays.asList;
+
+JavaSparkContext jsc; // Create a Java Spark Context
+
+JavaRDD<Document> documents = jsc.parallelize(asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)).map
+        (new Function<Integer, Document>() {
+    @Override
+    public Document call(final Integer i) throws Exception {
+        return Document.parse("{test: " + i + "}");
+    }
+});
+
+MongoSpark.save(documents);
+```
+
+To change which collection the data is inserted into or how the data is inserted, also supply a `WriteConfig` to the `MongoSpark#save` method. 
+The following example saves data to the "spark" collection, with a `majority` WriteConcern:
+                                                                                                                             
+```java
+import com.mongodb.spark.config.WriteConfig;
+
+// Saving data with a custom WriteConfig
+WriteConfig defaultWriteConfig = WriteConfig.create(jsc);
+Map<String, String> writeOverrides = new HashMap<String, String>();
+writeOverrides.put("collection", "spark");
+writeOverrides.put("writeConcern.w", "majority");
+WriteConfig writeConfig = WriteConfig.create(writeOverrides, defaultWriteConfig);
+
+JavaRDD<Document> sparkDocuments = jsc.parallelize(asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)).map
+    (new Function<Integer, Document>() {
+        @Override
+        public Document call(final Integer i) throws Exception {
+            return Document.parse("{spark: " + i + "}");
+        }
+    });
+        
+// Saving data from an RDD to MongoDB
+MongoSpark.save(sparkDocuments, writeConfig);
+```
+
+### Loading data as RDDs
+
+You can pass a `JavaSparkContext` or a `SQLContext` to the `MongoSpark#load` for easy reading from MongoDB into an `JavaRDD`. The following
+example loads the data we previously saved into the "coll" collection in the "test" database.
+
+```java
+// Loading and analyzing data from MongoDB
+JavaMongoRDD<Document> rdd = MongoSpark.load(jsc);
+System.out.println(rdd.count());
+System.out.println(rdd.first().toJson());
+```
+
+To change where the data is read from or how the data is read, supply a `ReadConfig` to the `MongoSpark#load` method. 
+The following example reads from the "spark" collection, with a `secondaryPreferred` ReadPreference:
+
+```java
+// Loading data with a custom ReadConfig
+ReadConfig defaultReadConfig = ReadConfig.create(jsc);
+Map<String, String> readOverrides = new HashMap<String, String>();
+readOverrides.put("collection", "spark");
+readOverrides.put("readPreference.name", "secondaryPreferred");
+ReadConfig readConfig = ReadConfig.create(readOverrides, defaultReadConfig);
+
+JavaMongoRDD<Document> customRdd = MongoSpark.load(jsc);
+
+System.out.println(customRdd.count());
+System.out.println(customRdd.first().toJson());
+```
+
+Where possible filter data in MongoDB, so less data has to be passed over the wire into Spark.  A `JavaMongoRDD` instance can be 
+passed an [aggregation pipeline](https://docs.mongodb.org/manual/core/aggregation-pipeline/) allowing data to be filtered from 
+MongoDB before its passed to Spark.
+
+The following example also filters all documents where the "test" field has a value greater than 5 but only those matching documents are 
+passed to Spark.
+
+```java
+// Filtering an rdd using an aggregation pipeline before passing data to Spark
+JavaMongoRDD<Document> aggregatedRdd = rdd.withPipeline(singletonList(Document.parse("{ $match: { test : { $gt : 5 } } }")));
+System.out.println(aggregatedRdd.count());
+System.out.println(aggregatedRdd.first().toJson());
+```
+
+## DataFrames and DataSets
+
+Creating a dataframe is easy you can either load the data via `DefaultSource` or use the `JavaMongoRDD#toDF` method.
+
+First, in an empty collection we load the following data:
+
+```java
+List<String> characters = asList(
+    "{'name': 'Bilbo Baggins', 'age': 50}",
+    "{'name': 'Gandalf', 'age': 1000}",
+    "{'name': 'Thorin', 'age': 195}",
+    "{'name': 'Balin', 'age': 178}",
+    "{'name': 'Kíli', 'age': 77}",
+    "{'name': 'Dwalin', 'age': 169}",
+    "{'name': 'Óin', 'age': 167}",
+    "{'name': 'Glóin', 'age': 158}",
+    "{'name': 'Fíli', 'age': 82}",
+    "{'name': 'Bombur'}"
+);
+MongoSpark.save(jsc.parallelize(characters).map(new Function<String, Document>() {
+    @Override
+    public Document call(final String json) throws Exception {
+        return Document.parse(json);
+    }
+}));
+```
+
+Then to load the characters into a DataFrame via the standard source method:
+
+```java
+SQLContext sqlContext = new SQLContext(jsc);
+DataFrame df = sqlContext.read().format("com.mongodb.spark.sql").load();
+df.printSchema();
+```
+
+Will return:
+
+```
+root
+ |-- _id: string (nullable = true)
+ |-- age: integer (nullable = true)
+ |-- name: string (nullable = true)
+```
+
+Loading via a `JavaMongoRDD` is simpler as the following example shows:
+
+```java
+DataFrame rddDf = MongoSpark.load(sqlContext).toDF();
+rddDf.printSchema();
+```
+
+By default reading from MongoDB in a `SQLContext` infers the schema by sampling documents from the database. 
+If you know the shape of your documents then you can use a simple java bean to define the schema instead, thus preventing the extra queries.
+
+In the following example we define a `Character` Java bean and pass that to the `toDF` method:
+
+```java
+DataFrame explicitDF = MongoSpark.load(sqlContext).toDF(Character.class);
+explicitDF.printSchema();
+```
+Will return:
+
+```
+root
+ |-- age: integer (nullable = true)
+ |-- name: string (nullable = true)
+```
+
+*Note:* Use the `toDS` method to convert a `JavaMongoRDD` into a `DataSet`.
+
+### SQL
+
+Just like the Scala examples, SQL can be used to filter data. In the following example we register a temp table and then filter and output 
+the characters with ages under 100:
+
+```java
+explicitDF.registerTempTable("characters");
+DataFrame centenarians = sqlContext.sql("SELECT name, age FROM characters WHERE age >= 100");
+```
+
+*Note:* You must use the same `SQLContext` that registers the table and queries it. 
+
+### Saving DataFrames
+
+The connector provides the ability to persist data into MongoDB.
+
+In the following example we save the centenarians into the "hundredClub" collection:
+
+```scala
+MongoSpark.write(centenarians).option("collection", "hundredClub").save();
+
+// Load the data from the "hundredClub" collection
+MongoSpark.load(MongoSpark.read(sqlContext).option("collection", "hundredClub"), Character.class).show();
+```
+
+Outputs:
+
+```
++-------+----+
+|   name| age|
++-------+----+
+|Gandalf|1000|
+| Thorin| 195|
+|  Balin| 178|
+| Dwalin| 169|
+|    Óin| 167|
+|  Glóin| 158|
++-------+----+
+```
+
+[Next - Java API](3-java-api.md)
