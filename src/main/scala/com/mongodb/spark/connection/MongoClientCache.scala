@@ -20,16 +20,14 @@ package com.mongodb.spark.connection
 
 import java.util.concurrent.{Executors, ThreadFactory, TimeUnit}
 
+import com.mongodb.MongoClient
+import com.mongodb.spark.{Logging, MongoClientFactory}
+
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}
-
-import com.mongodb.spark.Logging
-
-import com.mongodb.spark.MongoClientFactory
-import com.mongodb.{MongoClient, ServerAddress}
 
 /**
  * A lockless cache for MongoClients.
@@ -41,29 +39,25 @@ import com.mongodb.{MongoClient, ServerAddress}
 private[spark] final class MongoClientCache(keepAlive: Duration) extends Logging {
 
   private val refCounter = new MongoClientRefCounter
-  private val cache = new TrieMap[Option[ServerAddress], MongoClient]
-  private val clientToKey = new TrieMap[MongoClient, Option[ServerAddress]]
+  private val cache = new TrieMap[MongoClientFactory, MongoClient]
+  private val clientToKey = new TrieMap[MongoClient, MongoClientFactory]
   private val deferredReleases = new TrieMap[MongoClient, ReleaseTask]
 
-  // scalastyle:off cyclomatic.complexity
   @tailrec
-  def acquire(key: Option[ServerAddress], mongoClientFactory: MongoClientFactory): MongoClient = {
-    cache.get(key) match {
+  def acquire(mongoClientFactory: MongoClientFactory): MongoClient = {
+    cache.get(mongoClientFactory) match {
       case Some(mongoClient) =>
         refCounter.canAcquire(mongoClient) match {
           case true  => mongoClient
-          case false => acquire(key, mongoClientFactory)
+          case false => acquire(mongoClientFactory)
         }
       case None =>
-        val createdMongoClient = key match {
-          case Some(serverAddress) => mongoClientFactory.withServerAddress(serverAddress).create()
-          case None                => mongoClientFactory.create()
-        }
+        val createdMongoClient = mongoClientFactory.create()
         logClient(createdMongoClient)
         refCounter.acquire(createdMongoClient)
-        cache.putIfAbsent(key, createdMongoClient) match {
+        cache.putIfAbsent(mongoClientFactory, createdMongoClient) match {
           case None =>
-            clientToKey.put(createdMongoClient, key)
+            clientToKey.put(createdMongoClient, mongoClientFactory)
             createdMongoClient
           case Some(existingMongoClient) =>
             logClient(createdMongoClient, closing = true)
@@ -71,12 +65,11 @@ private[spark] final class MongoClientCache(keepAlive: Duration) extends Logging
             refCounter.release(createdMongoClient)
             refCounter.canAcquire(existingMongoClient) match {
               case true  => existingMongoClient
-              case false => acquire(key, mongoClientFactory)
+              case false => acquire(mongoClientFactory)
             }
         }
     }
   }
-  // scalastyle:on cyclomatic.complexity
 
   /**
    * Releases previously acquired mongoClient. Once the mongoClient is released by all threads and
@@ -98,9 +91,7 @@ private[spark] final class MongoClientCache(keepAlive: Duration) extends Logging
     scheduledExecutorService.shutdown()
     while (deferredReleases.nonEmpty) {
       for ((mongoClient, task) <- deferredReleases.snapshot()) {
-        if (deferredReleases.remove(mongoClient, task)) {
-          task.run()
-        }
+        if (deferredReleases.remove(mongoClient, task)) task.run()
       }
     }
   }
@@ -119,7 +110,7 @@ private[spark] final class MongoClientCache(keepAlive: Duration) extends Logging
 
   @tailrec
   private def releaseDeferred(mongoClient: MongoClient, releaseDelay: Duration, count: Int): Unit = {
-    val newTime = System.currentTimeMillis() + releaseDelay.toMillis
+    val newTime = System.nanoTime() + releaseDelay.toNanos
     val newTask = deferredReleases.remove(mongoClient) match {
       case Some(oldTask) => ReleaseTask(mongoClient, oldTask.count + count, math.max(oldTask.scheduledTime, newTime))
       case None          => ReleaseTask(mongoClient, count, newTime)
@@ -134,7 +125,7 @@ private[spark] final class MongoClientCache(keepAlive: Duration) extends Logging
    * Called periodically by `scheduledExecutorService`
    */
   private def processPendingReleases() {
-    val now = System.currentTimeMillis()
+    val now = System.nanoTime()
     for ((mongoClient, task) <- deferredReleases)
       if (task.scheduledTime <= now)
         if (deferredReleases.remove(mongoClient, task)) task.run()

@@ -19,17 +19,15 @@ package com.mongodb.spark
 import java.io.{Closeable, Serializable}
 import java.util.concurrent.TimeUnit
 
-import scala.concurrent.duration.Duration
-import scala.reflect.ClassTag
-
-import org.apache.spark.api.java.function.{Function => JFunction}
-import org.apache.spark.{SparkConf, SparkContext}
-
-import org.bson.codecs.configuration.CodecRegistry
+import com.mongodb.MongoClient
 import com.mongodb.client.{MongoCollection, MongoDatabase}
 import com.mongodb.spark.config.{MongoCollectionConfig, ReadConfig, WriteConfig}
 import com.mongodb.spark.connection.{DefaultMongoClientFactory, MongoClientCache}
-import com.mongodb.{MongoClient, ServerAddress}
+import org.apache.spark.{SparkConf, SparkContext}
+import org.bson.codecs.configuration.CodecRegistry
+
+import scala.concurrent.duration.Duration
+import scala.reflect.ClassTag
 
 /**
  * The MongoConnector companion object
@@ -39,7 +37,7 @@ import com.mongodb.{MongoClient, ServerAddress}
 object MongoConnector {
 
   /**
-   * Creates a MongoConnector using the [[ReadConfig.mongoURIProperty]] from the `sparkConf`.
+   * Creates a MongoConnector using the [[com.mongodb.spark.config.ReadConfig.mongoURIProperty]] from the `sparkConf`.
    *
    * @param sparkContext the Spark context
    * @return the MongoConnector
@@ -47,7 +45,7 @@ object MongoConnector {
   def apply(sparkContext: SparkContext): MongoConnector = apply(sparkContext.getConf)
 
   /**
-   * Creates a MongoConnector using the [[ReadConfig.mongoURIProperty]] from the `sparkConf`.
+   * Creates a MongoConnector using the [[com.mongodb.spark.config.ReadConfig.mongoURIProperty]] from the `sparkConf`.
    *
    * @param sparkConf the Spark configuration.
    * @return the MongoConnector
@@ -98,20 +96,8 @@ case class MongoConnector(mongoClientFactory: MongoClientFactory)
    * @tparam T the result of the code function
    * @return the result
    */
-  def withMongoClientDo[T](code: MongoClient => T): T = withMongoClientDo(code, None)
-
-  /**
-   * Execute some code on a `MongoClient`
-   *
-   * *Note:* The MongoClient is reference counted and loaned to the `code` method and should only be used inside that function.
-   *
-   * @param code the code block that is executed
-   * @param serverAddress the optional serverAddress to connect to
-   * @tparam T the result of the code function
-   * @return the result
-   */
-  def withMongoClientDo[T](code: MongoClient => T, serverAddress: Option[ServerAddress]): T = {
-    val client = MongoConnector.mongoClientCache.acquire(serverAddress, mongoClientFactory)
+  def withMongoClientDo[T](code: MongoClient => T): T = {
+    val client = MongoConnector.mongoClientCache.acquire(mongoClientFactory)
     try {
       code(client)
     } finally {
@@ -124,53 +110,25 @@ case class MongoConnector(mongoClientFactory: MongoClientFactory)
    *
    * *Note:* The `MongoDatabase` is reference counted and loaned to the `code` method and should only be used inside that function.
    *
-   * @param config the [[MongoCollectionConfig]] determining which database to connect to
+   * @param config the [[com.mongodb.spark.config.MongoCollectionConfig]] determining which database to connect to
    * @param code the code block that is executed
    * @tparam T the result of the code function
    * @return the result
    */
-  def withDatabaseDo[T](config: MongoCollectionConfig, code: MongoDatabase => T): T = withDatabaseDo(config, code, None)
-
-  /**
-   * Execute some code on a database
-   *
-   * *Note:* The `MongoDatabase` is reference counted and loaned to the `code` method and should only be used inside that function.
-   *
-   * @param config the [[MongoCollectionConfig]] determining which database to connect to
-   * @param code the code block that is executed
-   * @param serverAddress the optional serverAddress to connect to
-   * @tparam T the result of the code function
-   * @return the result
-   */
-  def withDatabaseDo[T](config: MongoCollectionConfig, code: MongoDatabase => T, serverAddress: Option[ServerAddress]): T =
-    withMongoClientDo({ client => code(client.getDatabase(config.databaseName)) }, serverAddress)
+  def withDatabaseDo[T](config: MongoCollectionConfig, code: MongoDatabase => T): T =
+    withMongoClientDo({ client => code(client.getDatabase(config.databaseName)) })
 
   /**
    * Execute some code on a collection
    *
    * *Note:* The `MongoCollection` is reference counted and loaned to the `code` method and should only be used inside that function.
    *
-   * @param config the [[MongoCollectionConfig]] determining which database and collection to connect to
+   * @param config the [[com.mongodb.spark.config.MongoCollectionConfig]] determining which database and collection to connect to
    * @param code the code block that is executed
    * @tparam T the result of the code function
    * @return the result
    */
   def withCollectionDo[D, T](config: MongoCollectionConfig, code: MongoCollection[D] => T)(implicit ct: ClassTag[D]): T =
-    withCollectionDo[D, T](config, code, None)
-
-  /**
-   * Execute some code on a collection
-   *
-   * *Note:* The `MongoCollection` is reference counted and loaned to the `code` method and should only be used inside that function.
-   *
-   * @param config the [[MongoCollectionConfig]] determining which database and collection to connect to
-   * @param code the code block that is executed
-   * @param serverAddress the optional serverAddress to connect to
-   * @tparam T the result of the code function
-   * @return the result
-   */
-  def withCollectionDo[D, T](config: MongoCollectionConfig, code: MongoCollection[D] => T,
-                             serverAddress: Option[ServerAddress])(implicit ct: ClassTag[D]): T = {
     withDatabaseDo(config, { db =>
       val collection = db.getCollection[D](config.collectionName, classTagToClassOf(ct))
       code(config match {
@@ -178,8 +136,7 @@ case class MongoConnector(mongoClientFactory: MongoClientFactory)
         case readConfig: ReadConfig   => collection.withReadConcern(readConfig.readConcern).withReadPreference(readConfig.readPreference)
         case _                        => collection
       })
-    }, serverAddress)
-  }
+    })
 
   private[spark] def codecRegistry: CodecRegistry = withMongoClientDo({ client => client.getMongoClientOptions.getCodecRegistry })
 

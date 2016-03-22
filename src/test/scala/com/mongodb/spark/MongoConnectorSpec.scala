@@ -16,15 +16,20 @@
 
 package com.mongodb.spark
 
-import org.scalatest.FlatSpec
-
+import com.mongodb.MongoClient
 import com.mongodb.spark.connection.DefaultMongoClientFactory
-import com.mongodb.{MongoClient, ServerAddress}
+import org.scalatest.FlatSpec
 
 class MongoConnectorSpec extends FlatSpec with RequiresMongoDB {
 
   "MongoConnector" should "create a MongoClient" in {
     MongoConnector(mongoClientURI).withMongoClientDo({ client => true }) shouldBe true
+  }
+
+  it should "Use the cache for MongoClients" in {
+    MongoConnector(mongoClientURI).withMongoClientDo({ client =>
+      MongoConnector(mongoClientURI).withMongoClientDo({ client2 => client == client2 })
+    }) shouldBe true
   }
 
   it should "create a MongoClient with a custom MongoConnectionFactory" in {
@@ -35,8 +40,6 @@ class MongoConnectorSpec extends FlatSpec with RequiresMongoDB {
     private final val proxy: DefaultMongoClientFactory = new DefaultMongoClientFactory(connectionString)
 
     def create(): MongoClient = proxy.create()
-
-    def withServerAddress(serverAddress: ServerAddress): MongoClientFactory = proxy.withServerAddress(serverAddress)
   }
 
 }

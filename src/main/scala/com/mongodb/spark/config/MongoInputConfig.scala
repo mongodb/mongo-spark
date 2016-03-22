@@ -40,8 +40,6 @@ package com.mongodb.spark.config
  *  - [[sampleSizeProperty sampleSize]], the sample size to use when inferring the schema.
  *  - [[splitKeyProperty splitKey]], the partition key to split the data.
  *  - [[maxChunkSizeProperty maxChunkSize]], the maximum chunk size when partitioning data from an unsharded collection.
- *  - [[shardedConnectDirectlyProperty shardedConnectDirectly]]
- *  - [[shardedConnectToMongosProperty shardedConnectToMongos]]
  *
  */
 trait MongoInputConfig extends MongoConfig {
@@ -104,13 +102,4 @@ trait MongoInputConfig extends MongoConfig {
    */
   val maxChunkSizeProperty = "maxChunkSize".toLowerCase
 
-  /**
-   * The sharded connect directly property
-   */
-  val shardedConnectDirectlyProperty = "shardedConnectDirectly".toLowerCase
-
-  /**
-   * The sharded connect to mongos property
-   */
-  val shardedConnectToMongosProperty = "shardedConnectToMongos".toLowerCase
 }

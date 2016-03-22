@@ -169,7 +169,7 @@ class MongoRDD[D: ClassTag](
 
   override def toJavaRDD(): JavaMongoRDD[D] = JavaMongoRDD(this)
 
-  override def getPreferredLocations(split: Partition): Seq[String] = split.asInstanceOf[MongoPartition].locations.map(_.getHost)
+  override def getPreferredLocations(split: Partition): Seq[String] = split.asInstanceOf[MongoPartition].locations
 
   /**
    * Creates a `DataFrame` based on the schema derived from the optional type.

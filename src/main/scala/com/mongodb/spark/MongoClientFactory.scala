@@ -18,10 +18,13 @@ package com.mongodb.spark
 
 import java.io.Serializable
 
-import com.mongodb.{MongoClient, ServerAddress}
+import com.mongodb.MongoClient
 
 /**
  * A factory for creating MongoClients
+ *
+ * *Note:* Care should be taken to implement an `equals` method to ensure that the `MongoClientCache` can cache and reuse the resulting
+ * `MongoClient`.
  *
  * @since 1.0
  */
@@ -29,15 +32,9 @@ trait MongoClientFactory extends Serializable {
 
   /**
    * Creates a `MongoClient`
+   *
    * @return the new `MongoClient`
    */
   def create(): MongoClient
-
-  /**
-   * Creates a new `MongoClientFactory` with a specific `ServerAddress`
-   * @param serverAddress the server to connect to
-   * @return a new `MongoClientFactory`
-   */
-  def withServerAddress(serverAddress: ServerAddress): MongoClientFactory
 
 }

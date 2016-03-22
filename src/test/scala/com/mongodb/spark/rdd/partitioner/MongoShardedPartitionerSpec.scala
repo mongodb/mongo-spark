@@ -16,19 +16,20 @@
 
 package com.mongodb.spark.rdd.partitioner
 
-import org.scalatest.FlatSpec
-
-import org.bson.{BsonDocument, BsonMaxKey, BsonMinKey, Document}
-import com.mongodb.ServerAddress
+import com.mongodb.MongoException
 import com.mongodb.spark.RequiresMongoDB
+import org.bson.{BsonDocument, BsonMaxKey, BsonMinKey, Document}
+import org.scalatest.prop.PropertyChecks
 
-class MongoShardedPartitionerSpec extends FlatSpec with RequiresMongoDB {
+class MongoShardedPartitionerSpec extends RequiresMongoDB with PropertyChecks {
 
   "MongoShardedPartitioner" should "partition the database as expected" in {
     if (!isSharded) cancel("Not a Sharded MongoDB")
     loadSampleDataIntoShardedCollection(5) // scalastyle:ignore
 
-    MongoShardedPartitioner.partitions(mongoConnector, readConfig).length should be >= 2
+    val partitions = MongoShardedPartitioner.partitions(mongoConnector, readConfig)
+    partitions.length should be >= 2
+    partitions.head.locations should not be empty
   }
 
   it should "fallback to a single partition for a non sharded collections" in {
@@ -47,31 +48,65 @@ class MongoShardedPartitionerSpec extends FlatSpec with RequiresMongoDB {
     MongoShardedPartitioner.partitions(mongoConnector, readConfig)(0).queryBounds should equal(expectedBounds)
   }
 
-  it should "connect directly to the mongos if shardedConnectDirectly and shardedConnectToMongos" in {
-    val preferredLocations = MongoShardedPartitioner.getPreferredLocations(shardedConnectDirectly = true, shardedConnectToMongos = true,
-      shardsMap, mongosMap, "shard0001")
-    preferredLocations should contain theSameElementsInOrderAs Seq(new ServerAddress("sh1.example.com:27020"))
+  it should "calculate the expected hosts for a single node shard" in {
+    MongoShardedPartitioner.getHosts("sh0.example.com:27018") should contain theSameElementsInOrderAs Seq("sh0.example.com")
   }
 
-  it should "connect directly to the shard if shardedConnectDirectly and not shardedConnectToMongos" in {
-    val preferredLocations = MongoShardedPartitioner.getPreferredLocations(shardedConnectDirectly = true, shardedConnectToMongos = false,
-      shardsMap, mongosMap, "shard0001")
-    preferredLocations should contain theSameElementsInOrderAs Seq(new ServerAddress("sh1.example.com:27017"))
+  it should "calculate the expected hosts for a multi node shard" in {
+    val hosts = MongoShardedPartitioner.getHosts("tic/sh0.rs1.example.com:27018,sh0.rs2.example.com:27018,sh0.rs3.example.com:27018")
+    hosts should contain theSameElementsInOrderAs Seq("sh0.rs1.example.com", "sh0.rs2.example.com", "sh0.rs3.example.com")
   }
 
-  it should "not have a preferred location if not shardedConnectDirectly" in {
-    val preferredLocations = MongoShardedPartitioner.getPreferredLocations(shardedConnectDirectly = false, shardedConnectToMongos = false,
-      shardsMap, mongosMap, "shard0001")
-    preferredLocations should equal(Nil)
+  it should "return distinct hosts" in {
+    val hosts = MongoShardedPartitioner.getHosts("tic/sh0.example.com:27018,sh0.example.com:27019,sh0.example.com:27020")
+    hosts should contain theSameElementsInOrderAs Seq("sh0.example.com")
   }
 
-  it should "prefer any mongos if shardedConnectDirectly and shardedConnectToMongos but mongos host not found" in {
-    val preferredLocations = MongoShardedPartitioner.getPreferredLocations(shardedConnectDirectly = true, shardedConnectToMongos = true,
-      shardsMap, mongosMap, "shard0003")
-    preferredLocations should contain theSameElementsInOrderAs mongosMap.values.map(new ServerAddress(_)).toSeq
+  it should "throw an error with invalid hosts" in {
+    an[MongoException] should be thrownBy MongoShardedPartitioner.getHosts("alpha::12")
+    an[MongoException] should be thrownBy MongoShardedPartitioner.getHosts("alpha:brava")
   }
 
-  val shardsMap = Map("shard0000" -> "sh0.example.com:27017", "shard0001" -> "sh1.example.com:27017")
-  val mongosMap = Map("sh0.example.com" -> "sh0.example.com:27020", "sh1.example.com" -> "sh1.example.com:27020")
+  it should "calculate the expected Partitions" in {
+    forAll(shardsMaps) { (shardMap: Map[String, Seq[String]]) =>
+
+      val chunks: Seq[BsonDocument] =
+        """ { _id: "a", shard: "tic", min: { _id: { "$minKey" : 1 } }, max: { _id: { "$numberLong" : "0" } } }
+        |{ _id: "b", shard: "tac", min: { _id: { "$numberLong" : "0" } } , max: { _id : { "$numberLong" : "500000000000" } } }
+        |{ _id: "c", shard: "toe", min: { _id: { "$numberLong" : "500000000000" } }, "max" : { "_id" : { "$maxKey" : 1 } } }
+    """.trim.stripMargin.split("[\\r\\n]+").map(BsonDocument.parse)
+
+      val expectedPartitions = Array(
+        MongoPartition(
+          0,
+          BsonDocument.parse("""{_id: {$gte: { "$minKey" : 1 }, $lt: { "$numberLong" : "0" } } } }"""),
+          shardMap.getOrElse("tic", Nil)
+        ),
+        MongoPartition(
+          1,
+          BsonDocument.parse("""{_id: {$gte: { "$numberLong" : "0" }, $lt: { "$numberLong" : "500000000000" } } } }"""),
+          shardMap.getOrElse("tac", Nil)
+        ),
+        MongoPartition(
+          2,
+          BsonDocument.parse("""{_id: {$gte: { "$numberLong" : "500000000000" }, $lt: { "$maxKey" : 1  } } } }"""),
+          shardMap.getOrElse("toe", Nil)
+        )
+      )
+      MongoShardedPartitioner.generatePartitions(chunks, "_id", shardMap) should be(expectedPartitions)
+    }
+
+  }
+
+  val shardsMaps = Table(
+    "shardMaps",
+    Map.empty[String, Seq[String]],
+    Map("tic" -> Seq("tic.example.com"), "tac" -> Seq("tac.example.com"), "toe" -> Seq("toe.example.com")),
+    Map(
+      "tic" -> Seq("tic.rs1.example.com", "tic.rs2.example.com", "tic.rs3.example.com"),
+      "tac" -> Seq("tac.rs1.example.com", "tac.rs2.example.com", "tac.rs3.example.com"),
+      "toe" -> Seq("toe.rs1.example.com", "toe.rs2.example.com", "toe.rs3.example.com")
+    )
+  )
 
 }

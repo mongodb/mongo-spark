@@ -23,23 +23,4 @@ private[spark] case class DefaultMongoClientFactory(connectionString: String) ex
   @transient val parsedConnectionString = new ConnectionString(connectionString)
 
   override def create(): MongoClient = new MongoClient(new MongoClientURI(connectionString))
-
-  override def withServerAddress(serverAddress: ServerAddress): MongoClientFactory = {
-    val prefix = "mongodb://"
-    val withoutPrefix: String = connectionString.substring(prefix.length)
-    val (hostAndAuth, options) = withoutPrefix.lastIndexOf("/") match {
-      case n if n > -1 => (withoutPrefix.substring(0, n), withoutPrefix.substring(n))
-      case _           => (withoutPrefix, "/")
-    }
-    val auth = hostAndAuth.lastIndexOf("@") match {
-      case n if n > -1 => hostAndAuth.substring(0, n + 1)
-      case _           => ""
-    }
-    val host = serverAddress.getHost match {
-      case ipv6 if ipv6.contains(":") => s"[$ipv6]"
-      case h                          => h
-    }
-    val port = serverAddress.getPort
-    DefaultMongoClientFactory(s"$prefix$auth$host:$port$options")
-  }
 }

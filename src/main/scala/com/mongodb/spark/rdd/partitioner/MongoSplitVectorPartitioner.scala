@@ -40,7 +40,9 @@ private[partitioner] case object MongoSplitVectorPartitioner extends MongoPartit
 
     connector.withDatabaseDo(readConfig, { db =>
       Try(db.runCommand(splitVectorCommand, classOf[BsonDocument])) match {
-        case Success(result: BsonDocument) => createPartitions(readConfig.splitKey, result)
+        case Success(result: BsonDocument) =>
+          val locations: Seq[String] = connector.withMongoClientDo(mongoClient => mongoClient.getAllAddress.asScala.map(_.getHost).distinct)
+          createPartitions(readConfig.splitKey, result, locations)
         case Failure(e: MongoNotPrimaryException) =>
           logInfo(s"Splitting failed: '${e.getMessage}'. Continuing with a single partition.")
           MongoSinglePartitioner.partitions(connector, readConfig)
@@ -49,7 +51,7 @@ private[partitioner] case object MongoSplitVectorPartitioner extends MongoPartit
     })
   }
 
-  private def createPartitions(splitKey: String, result: BsonDocument): Array[MongoPartition] = {
+  private def createPartitions(splitKey: String, result: BsonDocument, locations: Seq[String]): Array[MongoPartition] = {
     result.getDouble("ok").getValue match {
       case 1.0 =>
         val minBounds = new BsonDocument(splitKey, new BsonMinKey())
@@ -71,7 +73,8 @@ private[partitioner] case object MongoSplitVectorPartitioner extends MongoPartit
                 splitKey,
                 minKey.get(splitKey),
                 maxKey.get(splitKey)
-              )
+              ),
+              locations
             )
         }).toArray
       case _ => throw new MongoSplitException(s"""Could not calculate standalone splits. Server errmsg: ${result.get("errmsg")}""")

@@ -17,7 +17,6 @@
 package com.mongodb.spark.api.java;
 
 import com.mongodb.MongoClient;
-import com.mongodb.ServerAddress;
 import com.mongodb.spark.MongoClientFactory;
 import com.mongodb.spark.MongoConnector;
 import com.mongodb.spark.connection.DefaultMongoClientFactory;
@@ -39,6 +38,22 @@ public final class MongoConnectorTest extends RequiresMongoDB {
         });
 
         assertTrue(created);
+    }
+
+    @Test
+    public void shouldUseTheMongoClientCache() {
+        Boolean sameClient = MongoConnectors.create(getMongoClientURI()).withMongoClientDo(new AbstractFunction1<MongoClient, Boolean>() {
+            @Override
+            public Boolean apply(final MongoClient client1) {
+                return MongoConnectors.create(getMongoClientURI()).withMongoClientDo(new AbstractFunction1<MongoClient, Boolean>() {
+                    @Override
+                    public Boolean apply(final MongoClient client2) {
+                        return client1.equals(client2);
+                    }
+                });
+            }
+        });
+        assertTrue(sameClient);
     }
 
     @Test
@@ -80,8 +95,13 @@ public final class MongoConnectorTest extends RequiresMongoDB {
         }
 
         @Override
-        public MongoClientFactory withServerAddress(final ServerAddress serverAddress) {
-            return proxy.withServerAddress(serverAddress);
+        public boolean equals(final Object o) {
+            return proxy.equals(o);
+        }
+
+        @Override
+        public int hashCode() {
+            return proxy.hashCode();
         }
     }
 

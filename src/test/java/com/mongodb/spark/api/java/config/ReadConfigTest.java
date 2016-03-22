@@ -36,7 +36,7 @@ public final class ReadConfigTest extends RequiresMongoDB {
     @Test
     public void shouldBeCreatableFromTheSparkConf() {
         ReadConfig readConfig = ReadConfig.create(getSparkConf());
-        ReadConfig expectedReadConfig = new ReadConfig(getDatabaseName(), getCollectionName(), 1000, 64, "_id", false, true,
+        ReadConfig expectedReadConfig = new ReadConfig(getDatabaseName(), getCollectionName(), 1000, 64, "_id",
                 ReadPreferenceConfig.create(getSparkConf()), ReadConcernConfig.create(getSparkConf()));
 
         assertEquals(readConfig, expectedReadConfig);
@@ -50,14 +50,12 @@ public final class ReadConfigTest extends RequiresMongoDB {
         options.put(ReadConfig.sampleSizeProperty(), "500");
         options.put(ReadConfig.maxChunkSizeProperty(), "99");
         options.put(ReadConfig.splitKeyProperty(), "ID");
-        options.put(ReadConfig.shardedConnectDirectlyProperty(), "true");
-        options.put(ReadConfig.shardedConnectToMongosProperty(), "true");
         options.put(ReadConfig.readPreferenceNameProperty(), "secondaryPreferred");
         options.put(ReadConfig.readPreferenceTagSetsProperty(), "[{dc: \"east\", use: \"production\"},{}]");
         options.put(ReadConfig.readConcernLevelProperty(), "majority");
 
         ReadConfig readConfig = ReadConfig.create(options);
-        ReadConfig expectedReadConfig = new ReadConfig("db", "collection", 500, 99, "ID", true, true,
+        ReadConfig expectedReadConfig = new ReadConfig("db", "collection", 500, 99, "ID",
                 ReadPreferenceConfig.create(ReadPreference.secondaryPreferred(
                         asList(new TagSet(asList(new Tag("dc", "east"), new Tag("use", "production"))), new TagSet()))),
                 ReadConcernConfig.create(ReadConcern.MAJORITY));
@@ -70,12 +68,11 @@ public final class ReadConfigTest extends RequiresMongoDB {
         Map<String, String> options = new HashMap<String, String>();
         options.put(ReadConfig.databaseNameProperty(), "db");
         options.put(ReadConfig.collectionNameProperty(), "collection");
-        options.put(ReadConfig.shardedConnectDirectlyProperty(), "true");
         options.put(ReadConfig.readPreferenceNameProperty(), "secondaryPreferred");
         options.put(ReadConfig.readConcernLevelProperty(), "majority");
 
         ReadConfig readConfig = ReadConfig.create(options, ReadConfig.create(getSparkConf()));
-        ReadConfig expectedReadConfig = new ReadConfig("db", "collection", 1000, 64, "_id", true, true,
+        ReadConfig expectedReadConfig = new ReadConfig("db", "collection", 1000, 64, "_id",
                 ReadPreferenceConfig.create(ReadPreference.secondaryPreferred()),
                 ReadConcernConfig.create(ReadConcern.MAJORITY));
 

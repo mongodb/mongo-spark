@@ -28,14 +28,14 @@ class ReadConfigSpec extends FlatSpec with Matchers {
 
   "ReadConfig" should "have the expected defaults" in {
     val readConfig = ReadConfig("db", "collection")
-    val expectedReadConfig = ReadConfig("db", "collection", 1000, 64, "_id", shardedConnectDirectly = false, shardedConnectToMongos = true,
+    val expectedReadConfig = ReadConfig("db", "collection", 1000, 64, "_id",
       ReadPreferenceConfig(ReadPreference.primary()), ReadConcernConfig(ReadConcern.DEFAULT))
 
     readConfig should equal(expectedReadConfig)
   }
 
   it should "be creatable from SparkConfig" in {
-    val expectedReadConfig = ReadConfig("db", "collection", 150, 32, "ID", shardedConnectDirectly = true, shardedConnectToMongos = false,
+    val expectedReadConfig = ReadConfig("db", "collection", 150, 32, "ID",
       ReadPreferenceConfig(ReadPreference.secondary()), ReadConcernConfig(ReadConcern.LOCAL))
 
     ReadConfig(sparkConf) should equal(expectedReadConfig)
@@ -46,7 +46,7 @@ class ReadConfigSpec extends FlatSpec with Matchers {
       "mongodb://localhost/db.collection?readPreference=secondaryPreferred&readPreferenceTags=dc:east,use:production&readPreferenceTags=&readconcernlevel=local"
     val readConfig = ReadConfig(Map("uri" -> uri))
 
-    val expectedReadConfig = ReadConfig("db", "collection", 1000, 64, "_id", shardedConnectDirectly = false, shardedConnectToMongos = true,
+    val expectedReadConfig = ReadConfig("db", "collection", 1000, 64, "_id",
       ReadPreferenceConfig(ReadPreference.secondaryPreferred(List(
         new TagSet(List(new Tag("dc", "east"), new Tag("use", "production")).asJava),
         new TagSet()
@@ -61,7 +61,7 @@ class ReadConfigSpec extends FlatSpec with Matchers {
       "mongodb://localhost/db.collection?readPreference=secondaryPreferred&readconcernlevel=local"
     val readConfig = ReadConfig(Map("uri" -> uri, "readPreference.name" -> "primaryPreferred", "readConcern.level" -> "majority"))
 
-    val expectedReadConfig = ReadConfig("db", "collection", 1000, 64, "_id", shardedConnectDirectly = false, shardedConnectToMongos = true,
+    val expectedReadConfig = ReadConfig("db", "collection", 1000, 64, "_id",
       ReadPreferenceConfig(ReadPreference.primaryPreferred()), ReadConcernConfig(ReadConcern.MAJORITY))
 
     readConfig should equal(expectedReadConfig)
@@ -69,7 +69,7 @@ class ReadConfigSpec extends FlatSpec with Matchers {
 
   it should "round trip options" in {
     val defaultReadConfig = ReadConfig(sparkConf)
-    val expectedReadConfig = ReadConfig("db", "collection", 200, 20, "foo", shardedConnectDirectly = true, shardedConnectToMongos = false,
+    val expectedReadConfig = ReadConfig("db", "collection", 200, 20, "foo",
       ReadPreferenceConfig(ReadPreference.secondaryPreferred(new TagSet(List(new Tag("dc", "east"), new Tag("use", "production")).asJava))),
       ReadConcernConfig(ReadConcern.MAJORITY))
 
@@ -77,7 +77,7 @@ class ReadConfigSpec extends FlatSpec with Matchers {
   }
 
   it should "be able to create a map" in {
-    val readConfig = ReadConfig("dbName", "collName", 200, 20, "foo", shardedConnectDirectly = true, shardedConnectToMongos = false,
+    val readConfig = ReadConfig("dbName", "collName", 200, 20, "foo",
       ReadPreferenceConfig(ReadPreference.secondaryPreferred(List(
         new TagSet(List(new Tag("dc", "east"), new Tag("use", "production")).asJava),
         new TagSet()
@@ -89,8 +89,6 @@ class ReadConfigSpec extends FlatSpec with Matchers {
       "collection" -> "collName",
       "maxchunksize" -> "20",
       "splitkey" -> "foo",
-      "shardedconnectdirectly" -> "true",
-      "shardedconnecttomongos" -> "false",
       "readpreference.name" -> "secondaryPreferred",
       "readpreference.tagsets" -> """[{dc:"east",use:"production"},{}]""",
       "readconcern.level" -> "majority",
@@ -121,8 +119,6 @@ class ReadConfigSpec extends FlatSpec with Matchers {
     .set("spark.mongodb.input.collection", "collection")
     .set("spark.mongodb.input.maxChunkSize", "32")
     .set("spark.mongodb.input.splitKey", "ID")
-    .set("spark.mongodb.input.shardedConnectDirectly", "true")
-    .set("spark.mongodb.input.shardedConnectToMongos", "false")
     .set("spark.mongodb.input.readPreference.name", "secondary")
     .set("spark.mongodb.input.readConcern.level", "local")
     .set("spark.mongodb.input.sampleSize", "150")

@@ -37,8 +37,6 @@ object ReadConfig extends MongoInputConfig {
   private val DefaultSampleSize: Int = 1000
   private val DefaultMaxChunkSize = 64 // 64 MB
   private val DefaultSplitKey = "_id"
-  private val DefaultShardingConnectDirectly = false
-  private val DefaultShardingConnectToMongos = true
 
   override def apply(options: collection.Map[String, String], default: Option[ReadConfig]): ReadConfig = {
     val cleanedOptions = prefixLessOptions(options)
@@ -48,12 +46,6 @@ object ReadConfig extends MongoInputConfig {
       sampleSize = getInt(cleanedOptions.get(sampleSizeProperty), default.map(conf => conf.sampleSize), DefaultSampleSize),
       maxChunkSize = getInt(cleanedOptions.get(maxChunkSizeProperty), default.map(conf => conf.maxChunkSize), DefaultMaxChunkSize),
       splitKey = getString(cleanedOptions.get(splitKeyProperty), default.map(conf => conf.splitKey), DefaultSplitKey),
-      shardedConnectDirectly = getBoolean(
-        cleanedOptions.get(shardedConnectDirectlyProperty), default.map(conf => conf.shardedConnectDirectly), DefaultShardingConnectDirectly
-      ),
-      shardedConnectToMongos = getBoolean(
-        cleanedOptions.get(shardedConnectToMongosProperty), default.map(conf => conf.shardedConnectToMongos), DefaultShardingConnectToMongos
-      ),
       readPreferenceConfig = ReadPreferenceConfig(cleanedOptions, default.map(conf => conf.readPreferenceConfig)),
       readConcernConfig = ReadConcernConfig(cleanedOptions, default.map(conf => conf.readConcernConfig))
     )
@@ -77,26 +69,19 @@ object ReadConfig extends MongoInputConfig {
  * @param sampleSize a positive integer sample size to draw from the collection when inferring the schema
  * @param maxChunkSize   the maximum chunkSize for non-sharded collections
  * @param splitKey the key to split the collection by for non-sharded collections or the "shard key" for sharded collection
- * @param shardedConnectDirectly for sharded collections connect directly to the shard when reading the data.
- *                                *Caution:* If [[shardedConnectToMongos]] is set to false then the balancer must be off to ensure that
- *                                there are no duplicated documents.
- * @param shardedConnectToMongos for sharded collections only read data via mongos. Used inconjunction with [[shardedConnectDirectly]].
- *                                Ensures that there are no duplicated chunks by connecting via a mongos.
  * @param readPreferenceConfig the readPreference configuration
  * @param readConcernConfig the readConcern configuration
  *
  * @since 1.0
  */
 case class ReadConfig(
-    databaseName:           String,
-    collectionName:         String,
-    sampleSize:             Int                  = ReadConfig.DefaultSampleSize,
-    maxChunkSize:           Int                  = ReadConfig.DefaultMaxChunkSize,
-    splitKey:               String               = ReadConfig.DefaultSplitKey,
-    shardedConnectDirectly: Boolean              = ReadConfig.DefaultShardingConnectDirectly,
-    shardedConnectToMongos: Boolean              = ReadConfig.DefaultShardingConnectToMongos,
-    readPreferenceConfig:   ReadPreferenceConfig = ReadPreferenceConfig(),
-    readConcernConfig:      ReadConcernConfig    = ReadConcernConfig()
+    databaseName:         String,
+    collectionName:       String,
+    sampleSize:           Int                  = ReadConfig.DefaultSampleSize,
+    maxChunkSize:         Int                  = ReadConfig.DefaultMaxChunkSize,
+    splitKey:             String               = ReadConfig.DefaultSplitKey,
+    readPreferenceConfig: ReadPreferenceConfig = ReadPreferenceConfig(),
+    readConcernConfig:    ReadConcernConfig    = ReadConcernConfig()
 ) extends MongoCollectionConfig with MongoSparkConfig {
   require(sampleSize > 0, s"sampleSize ($sampleSize) must be greater than 0")
 
@@ -110,9 +95,7 @@ case class ReadConfig(
       ReadConfig.collectionNameProperty -> collectionName,
       ReadConfig.sampleSizeProperty -> sampleSize.toString,
       ReadConfig.maxChunkSizeProperty -> maxChunkSize.toString,
-      ReadConfig.splitKeyProperty -> splitKey,
-      ReadConfig.shardedConnectDirectlyProperty -> shardedConnectDirectly.toString,
-      ReadConfig.shardedConnectToMongosProperty -> shardedConnectToMongos.toString
+      ReadConfig.splitKeyProperty -> splitKey
     ) ++ readPreferenceConfig.asOptions ++ readConcernConfig.asOptions
   }
 
