@@ -27,10 +27,12 @@ To load the Spark Shell, set the uri configuration and download the connector ru
 ```
 
 ------
-**Troubleshooting:** If there's an error loading the shell you may need to clear your local ivy cache (~/.ivy2/cache/org.mongodb.spark and ~/.ivy2/jars).
+#### Troubleshooting
 
-If you get a `java.net.BindException: Can't assign requested address` try passing   
+If you get a `java.net.BindException: Can't assign requested address` when loading the shell try passing   
 `--driver-java-options "-Djava.net.preferIPv4Stack=true"` to spark-shell.
+
+If there's an error running the examples you may need to clear your local ivy cache (~/.ivy2/cache/org.mongodb.spark and ~/.ivy2/jars).
 
 ------
 
