@@ -72,7 +72,7 @@ import com.mongodb.spark.config._
 val defaultWriteConfig = WriteConfig(sc)
 val writeConfig = WriteConfig(Map("collection" -> "spark", "writeConcern.w" -> "majority"), Some(defaultWriteConfig))
 
-val sparkDocuments = sc.parallelize(sc.parallelize((1 to 10).map(i => Document.parse(s"{spark: $i}"))))
+val sparkDocuments = sc.parallelize((1 to 10).map(i => Document.parse(s"{spark: $i}")))
 sparkDocuments.saveToMongoDB(writeConfig)
 ```
 
