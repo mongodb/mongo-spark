@@ -29,7 +29,7 @@ To load the Spark Shell, set the uri configuration and download the connector ru
 ------
 #### Troubleshooting
 
-If you get a `java.net.BindException: Can't assign requested address` when loading the shell try passing   
+If you get a `java.net.BindException: Can't assign requested address` when loading the shell, ensure you don't have spark already running. You can also try `export SPARK_LOCAL_IP=127.0.0.1` and/or passing  
 `--driver-java-options "-Djava.net.preferIPv4Stack=true"` to spark-shell.
 
 If there's an error running the examples you may need to clear your local ivy cache (~/.ivy2/cache/org.mongodb.spark and ~/.ivy2/jars).
