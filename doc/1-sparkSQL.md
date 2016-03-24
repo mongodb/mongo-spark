@@ -10,6 +10,7 @@ See the [introduction](0-introduction.md) for more information.
 Insert some sample data into an empty database:
 
 ```scala
+import org.bson.Document
 import com.mongodb.spark._
 
 val docs = """
