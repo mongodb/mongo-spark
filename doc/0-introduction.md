@@ -119,6 +119,12 @@ println(filteredRdd.count)
 println(filteredRdd.first.toJson)
 ```
 
+-----
+**Note:** If you get a `ERROR Executor: Exception in task 0.0 in stage 1.0 (TID 8) java.lang.NullPointerException` its because you
+have other data in your collection and the `filter` method doesn't handle `null` data. This is one of the challenges of working with a Document database.  You'll see that by using an aggregation pipeline we can mitigate that risk.
+
+-----
+
 Where possible filter the data in MongoDB and less data has to be passed over the wire into Spark.  A `MongoRDD` instance can be 
 passed an [aggregation pipeline](https://docs.mongodb.org/manual/core/aggregation-pipeline/) which allows a user to filter data from 
 MongoDB before its passed to Spark.
