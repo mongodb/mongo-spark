@@ -44,7 +44,12 @@ private[spark] object MongoRelationHelper {
       })
 
     val requiredValues = requiredColumns.nonEmpty match {
-      case true  => values.collect({ case (rowValue, rowField) if requiredColumns.contains(rowField.name) => (rowValue, rowField) })
+      case true =>
+        val requiredValueMap = Map(values.collect({
+          case (rowValue, rowField) if requiredColumns.contains(rowField.name) =>
+            (rowField.name, (rowValue, rowField))
+        }): _*)
+        requiredColumns.collect({ case name => requiredValueMap.getOrElse(name, null) }) // scalastyle:ignore
       case false => values
     }
     new GenericRowWithSchema(requiredValues.map(_._1), DataTypes.createStructType(requiredValues.map(_._2)))

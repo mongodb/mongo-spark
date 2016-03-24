@@ -16,16 +16,14 @@
 
 package com.mongodb.spark.sql
 
-import org.scalatest.FlatSpec
-
+import com.mongodb.spark.config.WriteConfig
+import com.mongodb.spark.{RequiresMongoDB, _}
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.catalyst.ScalaReflection
 import org.apache.spark.sql.types.DataTypes._
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
-
 import org.bson.Document
-import com.mongodb.spark.config.WriteConfig
-import com.mongodb.spark.{RequiresMongoDB, _}
+import org.scalatest.FlatSpec
 
 class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
   // scalastyle:off magic.number
@@ -40,10 +38,10 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
      | {"name": "Óin", "age": 167}
      | {"name": "Glóin", "age": 158}
      | {"name": "Fíli", "age": 82}
-     | {"name": "Bombur"}""".trim.stripMargin.split("[\\r\\n]+").toSeq
+     | {"name": "Bombur"}""".trim.stripMargin.split("[\\r\\n]+").toSeq.map(Document.parse)
 
   "DataFrameReader" should "should be easily created from the SQLContext and load from Mongo" in withSparkContext() { sc =>
-    sc.parallelize(characters.map(Document.parse)).saveToMongoDB()
+    sc.parallelize(characters).saveToMongoDB()
     val df = new SQLContext(sc).read.mongo()
 
     df.schema should equal(expectedSchema)
@@ -51,8 +49,17 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
     df.filter("age > 100").count() should equal(6)
   }
 
+  it should "handle selecting out of order columns" in withSparkContext() { sc =>
+    sc.parallelize(characters).saveToMongoDB()
+    val sqlContext = new SQLContext(sc)
+    val df = sqlContext.read.mongo()
+
+    df.select("name", "age").orderBy("age").rdd.map(r => (r.get(0), r.get(1))).collect() should
+      equal(characters.sortBy(_.getInteger("age", 0)).map(doc => (doc.getString("name"), doc.getInteger("age"))))
+  }
+
   it should "be easily created with a provided case class" in withSparkContext() { sc =>
-    sc.parallelize(characters.map(Document.parse)).saveToMongoDB()
+    sc.parallelize(characters).saveToMongoDB()
 
     val sqlContext = new SQLContext(sc)
     val df = sqlContext.read.mongo[Character]()
@@ -64,7 +71,7 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
   }
 
   it should "include any pipelines when inferring the schema" in withSparkContext() { sc =>
-    sc.parallelize(characters.map(json => Document.parse(json))).saveToMongoDB()
+    sc.parallelize(characters).saveToMongoDB()
     sc.parallelize(List("{counter: 1}", "{counter: 2}", "{counter: 3}").map(Document.parse)).saveToMongoDB()
     val sqlContext = new SQLContext(sc)
 
@@ -80,7 +87,7 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
   }
 
   it should "throw an exception if pipeline is invalid" in withSparkContext() { sc =>
-    sc.parallelize(characters.map(json => Document.parse(json))).saveToMongoDB()
+    sc.parallelize(characters).saveToMongoDB()
     sc.parallelize(List("{counter: 1}", "{counter: 2}", "{counter: 3}").map(Document.parse)).saveToMongoDB()
 
     an[IllegalArgumentException] should be thrownBy new SQLContext(sc).read.option("pipeline", "[1, 2, 3]").mongo()
@@ -89,7 +96,7 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
   "DataFrameWriter" should "be easily created from a DataFrame and save to Mongo" in withSparkContext() { sc =>
     val sqlContext = new SQLContext(sc)
     import sqlContext.implicits._
-    sc.parallelize(characters.map(Document.parse))
+    sc.parallelize(characters)
       .filter(_.containsKey("age")).map(doc => Character(doc.getString("name"), doc.getInteger("age")))
       .toDF().write.mongo()
 
@@ -102,7 +109,7 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
     val saveToCollectionName = s"${collectionName}_new"
     val writeConfig = WriteConfig(sc.getConf).withOptions(Map("collection" -> saveToCollectionName))
 
-    sc.parallelize(characters.map(Document.parse))
+    sc.parallelize(characters)
       .filter(_.containsKey("age")).map(doc => Character(doc.getString("name"), doc.getInteger("age")))
       .toDF().write.mongo(writeConfig)
 
