@@ -26,12 +26,12 @@ import java.util
  * @see [[ReadConfig]]
  * @since 1.0
  */
-trait MongoSparkConfig extends Serializable {
+trait MongoClassConfig extends Serializable {
 
   /**
    * Defines Self as a type that can be used to return a copy of the object i.e. a different instance of the same type
    */
-  type Self <: MongoSparkConfig
+  type Self <: MongoClassConfig
 
   /**
    * Creates a new config with the options applied

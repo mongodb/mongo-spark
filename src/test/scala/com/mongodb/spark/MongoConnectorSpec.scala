@@ -17,27 +17,36 @@
 package com.mongodb.spark
 
 import com.mongodb.MongoClient
+import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.connection.DefaultMongoClientFactory
+import org.apache.spark.SparkConf
 import org.scalatest.FlatSpec
 
 class MongoConnectorSpec extends FlatSpec with RequiresMongoDB {
 
   "MongoConnector" should "create a MongoClient" in {
-    MongoConnector(mongoClientURI).withMongoClientDo({ client => true }) shouldBe true
+    MongoConnector(sparkConf).withMongoClientDo({ client => true }) shouldBe true
+  }
+
+  it should "set the correct localThreshold" in {
+    val conf = sparkConf.clone().set(s"${ReadConfig.configPrefix}${ReadConfig.localThresholdProperty}", "5")
+    MongoConnector(conf).withMongoClientDo({ client =>
+      client.getMongoClientOptions.getLocalThreshold == 5
+    }) shouldBe true
   }
 
   it should "Use the cache for MongoClients" in {
-    MongoConnector(mongoClientURI).withMongoClientDo({ client =>
-      MongoConnector(mongoClientURI).withMongoClientDo({ client2 => client == client2 })
+    MongoConnector(sparkConf).withMongoClientDo({ client =>
+      MongoConnector(sparkConf).withMongoClientDo({ client2 => client == client2 })
     }) shouldBe true
   }
 
   it should "create a MongoClient with a custom MongoConnectionFactory" in {
-    MongoConnector(CustomMongoClientFactory(mongoClientURI)).withMongoClientDo({ client => true }) shouldBe true
+    MongoConnector(CustomMongoClientFactory(sparkConf)).withMongoClientDo({ client => true }) shouldBe true
   }
 
-  case class CustomMongoClientFactory(connectionString: String) extends MongoClientFactory {
-    private final val proxy: DefaultMongoClientFactory = new DefaultMongoClientFactory(connectionString)
+  case class CustomMongoClientFactory(sparkConf: SparkConf) extends MongoClientFactory {
+    private final val proxy: DefaultMongoClientFactory = DefaultMongoClientFactory(ReadConfig(sparkConf).asOptions)
 
     def create(): MongoClient = proxy.create()
   }

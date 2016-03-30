@@ -19,7 +19,9 @@ package com.mongodb.spark.api.java;
 import com.mongodb.MongoClient;
 import com.mongodb.spark.MongoClientFactory;
 import com.mongodb.spark.MongoConnector;
+import com.mongodb.spark.config.ReadConfig;
 import com.mongodb.spark.connection.DefaultMongoClientFactory;
+import org.apache.spark.SparkConf;
 import org.junit.Test;
 import scala.runtime.AbstractFunction1;
 
@@ -29,7 +31,7 @@ public final class MongoConnectorTest extends RequiresMongoDB {
 
     @Test
     public void shouldCreateMongoConnector() {
-        MongoConnector mongoConnector = MongoConnectors.create(getMongoClientURI());
+        MongoConnector mongoConnector = MongoConnectors.create(getSparkConf());
         Boolean created = mongoConnector.withMongoClientDo(new AbstractFunction1<MongoClient, Boolean>() {
             @Override
             public Boolean apply(final MongoClient v1) {
@@ -42,10 +44,10 @@ public final class MongoConnectorTest extends RequiresMongoDB {
 
     @Test
     public void shouldUseTheMongoClientCache() {
-        Boolean sameClient = MongoConnectors.create(getMongoClientURI()).withMongoClientDo(new AbstractFunction1<MongoClient, Boolean>() {
+        Boolean sameClient = MongoConnectors.create(getSparkConf()).withMongoClientDo(new AbstractFunction1<MongoClient, Boolean>() {
             @Override
             public Boolean apply(final MongoClient client1) {
-                return MongoConnectors.create(getMongoClientURI()).withMongoClientDo(new AbstractFunction1<MongoClient, Boolean>() {
+                return MongoConnectors.create(getSparkConf()).withMongoClientDo(new AbstractFunction1<MongoClient, Boolean>() {
                     @Override
                     public Boolean apply(final MongoClient client2) {
                         return client1.equals(client2);
@@ -71,7 +73,7 @@ public final class MongoConnectorTest extends RequiresMongoDB {
 
     @Test
     public void shouldCreateMongoConnectorWithCustomMongoClientFactory() {
-        MongoConnector mongoConnector = MongoConnectors.create(new JavaMongoClientFactory(getMongoClientURI()));
+        MongoConnector mongoConnector = MongoConnectors.create(new JavaMongoClientFactory(getSparkConf()));
         Boolean created = mongoConnector.withMongoClientDo(new AbstractFunction1<MongoClient, Boolean>() {
             @Override
             public Boolean apply(final MongoClient v1) {
@@ -85,8 +87,8 @@ public final class MongoConnectorTest extends RequiresMongoDB {
     class JavaMongoClientFactory implements MongoClientFactory {
         private final DefaultMongoClientFactory proxy;
 
-        JavaMongoClientFactory(final String connectionString) {
-            this.proxy = new DefaultMongoClientFactory(connectionString);
+        JavaMongoClientFactory(final SparkConf sparkConf) {
+            this.proxy = DefaultMongoClientFactory.apply(ReadConfig.create(sparkConf).asOptions());
         }
 
         @Override

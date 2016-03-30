@@ -14,6 +14,7 @@ Property name                              | Description                        
 spark.mongodb.input.uri                    | The connnection string                                            |
 spark.mongodb.input.database               | The database name to read data from                               |
 spark.mongodb.input.collection             | The collection name to read data from                             |
+spark.mongodb.input.localThreshold         | The threshold for choosing a server from multiple MongoDB servers | 15 ms
 spark.mongodb.input.readPreference.name    | The name of the `ReadPreference` to use                           | Primary
 spark.mongodb.input.readPreference.tagSets | The `ReadPreference` TagSets to use                               |
 spark.mongodb.input.readConcern.level      | The `ReadConcern` level to use                                    |
@@ -30,14 +31,15 @@ spark.mongodb.input.maxChunkSize           | The maximum chunk size for partitio
 
 The following options are available on `SparkConf` object:
 
-Property name                                | Description                                                     | Default value
----------------------------------------------|-----------------------------------------------------------------|--------------------
-spark.mongodb.output.uri                     | The connnection string                                          |
-spark.mongodb.output.database                | The database name to write data to                              |
-spark.mongodb.output.collection              | The collection name to write data to                            |
-spark.mongodb.output.writeConcern.w          | The write concern w value                                       | (WriteConcern.ACKNOWLEDGED)
-spark.mongodb.output.writeConcern.journal    | The write concern journal value                                 |
-spark.mongodb.output.writeConcern.wTimeoutMS | The write concern wTimeout value                                |
+Property name                                | Description                                                       | Default value
+---------------------------------------------|-------------------------------------------------------------------|--------------------
+spark.mongodb.output.uri                     | The connnection string                                            |
+spark.mongodb.output.database                | The database name to write data to                                |
+spark.mongodb.output.collection              | The collection name to write data to                              |
+spark.mongodb.input.localThreshold           | The threshold for choosing a server from multiple MongoDB servers | 15 ms
+spark.mongodb.output.writeConcern.w          | The write concern w value                                         | (WriteConcern.ACKNOWLEDGED)
+spark.mongodb.output.writeConcern.journal    | The write concern journal value                                   |
+spark.mongodb.output.writeConcern.wTimeoutMS | The write concern wTimeout value                                  |
 
 -----
 **Note**: When passing output configurations via an options Map then the prefix `spark.mongodb.output.` is not needed.
@@ -62,11 +64,11 @@ spark.mongodb.input.collection=collectionName
 spark.mongodb.input.readPreference.name=primaryPreferred
 ```
 
-## Cache configuration
+## Configuration via system properties
 
 The MongoConnector includes a cache for MongoClients, so workers can share the MongoClient across threads. As the cache is setup before the
 Spark Configuration is available it can only be configured via a System Property:
 
-System Property name                         | Description                                                     | Default value
----------------------------------------------|-----------------------------------------------------------------|--------------------
-spark.mongodb.keep_alive_ms                  | The length of time to keep a MongoClient available for sharing  | 5000
+System Property name         | Description                                                     | Default value
+-----------------------------|-----------------------------------------------------------------|--------------------
+spark.mongodb.keep_alive_ms  | The length of time to keep a MongoClient available for sharing  | 5000

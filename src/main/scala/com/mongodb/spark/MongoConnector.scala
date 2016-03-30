@@ -45,28 +45,22 @@ object MongoConnector {
   def apply(sparkContext: SparkContext): MongoConnector = apply(sparkContext.getConf)
 
   /**
-   * Creates a MongoConnector using the [[com.mongodb.spark.config.ReadConfig.mongoURIProperty]] from the `sparkConf`.
+   * Creates a MongoConnector using the [[com.mongodb.spark.config.ReadConfig]] from the `sparkConf`.
    *
    * @param sparkConf the Spark configuration.
    * @return the MongoConnector
    */
-  def apply(sparkConf: SparkConf): MongoConnector = {
-    require(sparkConf.contains(mongoReadURIProperty), s"Missing '$mongoReadURIProperty' property from sparkConfig")
-    MongoConnector(sparkConf.get(mongoReadURIProperty))
-  }
+  def apply(sparkConf: SparkConf): MongoConnector = apply(ReadConfig(sparkConf).asOptions)
 
   /**
    * Creates a MongoConnector
    *
-   * @param connectionString the connection string (`uri`)
+   * @param options the configuration options
    * @return the MongoConnector
    */
-  def apply(connectionString: String): MongoConnector = MongoConnector(DefaultMongoClientFactory(connectionString))
+  def apply(options: collection.Map[String, String]): MongoConnector = new MongoConnector(DefaultMongoClientFactory(options))
 
-  private[spark] val mongoReadURIProperty: String = s"${ReadConfig.configPrefix}${ReadConfig.mongoURIProperty}"
-  private[spark] val mongoWriteURIProperty: String = s"${ReadConfig.configPrefix}${ReadConfig.mongoURIProperty}"
   private[spark] val mongoClientKeepAlive = Duration(System.getProperty("spark.mongodb.keep_alive_ms", "5000").toInt, TimeUnit.MILLISECONDS)
-
   private val mongoClientCache = new MongoClientCache(mongoClientKeepAlive)
   Runtime.getRuntime.addShutdownHook(new Thread(new Runnable {
     def run() {

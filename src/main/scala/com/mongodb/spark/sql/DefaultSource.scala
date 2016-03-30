@@ -16,22 +16,20 @@
 
 package com.mongodb.spark.sql
 
-import scala.collection.JavaConverters._
-
-import org.apache.spark.SparkConf
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.SaveMode._
-import org.apache.spark.sql.sources._
-import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, SQLContext, SaveMode}
-
-import org.bson.conversions.Bson
-import org.bson.{BsonArray, BsonDocument, BsonType, Document}
 import com.mongodb.client.MongoCollection
 import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.sql.MongoRelationHelper._
 import com.mongodb.spark.{MongoConnector, toDocumentRDDFunctions}
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.SaveMode._
+import org.apache.spark.sql.sources._
+import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, SQLContext, SaveMode}
+import org.bson.conversions.Bson
+import org.bson.{BsonArray, BsonDocument, BsonType, Document}
+
+import scala.collection.JavaConverters._
 
 /**
  * A MongoDB based DataSource
@@ -126,18 +124,12 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
   }
 
   private def connectorAndReadConfig(sqlContext: SQLContext, parameters: Map[String, String]): (MongoConnector, ReadConfig) = {
-    val sparkConf: SparkConf = sqlContext.sparkContext.getConf
-    val uri: String = parameters.getOrElse("uri", sparkConf.get(MongoConnector.mongoReadURIProperty))
-    val mongoConnector: MongoConnector = MongoConnector(uri)
-    val readConfig: ReadConfig = ReadConfig(sparkConf).withOptions(parameters)
-    (mongoConnector, readConfig)
+    val readConfig = ReadConfig(sqlContext.sparkContext.getConf).withOptions(parameters)
+    (MongoConnector(readConfig.asOptions), readConfig)
   }
 
   private def connectorAndWriteConfig(sqlContext: SQLContext, parameters: Map[String, String]): (MongoConnector, WriteConfig) = {
-    val sparkConf: SparkConf = sqlContext.sparkContext.getConf
-    val uri: String = parameters.getOrElse("uri", sparkConf.get(MongoConnector.mongoWriteURIProperty))
-    val mongoConnector: MongoConnector = MongoConnector(uri)
-    val writeConfig: WriteConfig = WriteConfig(sparkConf).withOptions(parameters)
-    (mongoConnector, writeConfig)
+    val writeConfig = WriteConfig(sqlContext.sparkContext.getConf).withOptions(parameters)
+    (MongoConnector(writeConfig.asOptions), writeConfig)
   }
 }

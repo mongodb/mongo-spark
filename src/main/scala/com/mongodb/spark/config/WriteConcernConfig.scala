@@ -116,7 +116,7 @@ object WriteConcernConfig extends MongoOutputConfig {
  */
 case class WriteConcernConfig(private val w: Option[Int] = None, private val wName: Option[String] = None,
                               private val journal:  Option[Boolean]  = None,
-                              private val wTimeout: Option[Duration] = None) extends MongoSparkConfig {
+                              private val wTimeout: Option[Duration] = None) extends MongoClassConfig {
 
   require(Try(writeConcern).isSuccess, s"Invalid WriteConcernConfig configuration: $this")
 

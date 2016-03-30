@@ -18,6 +18,8 @@ package com.mongodb.spark.config
 
 import java.util
 
+import com.mongodb.spark.notNull
+
 import scala.collection.JavaConverters._
 import scala.collection.Map
 import scala.util.Try
@@ -73,15 +75,31 @@ object ReadConcernConfig extends MongoInputConfig {
    * @param readConcern the read concern
    * @return the configuration
    */
-  def create(readConcern: ReadConcern): ReadConcernConfig = apply(readConcern)
+  def create(readConcern: ReadConcern): ReadConcernConfig = {
+    notNull("readConcern", readConcern)
+    apply(readConcern)
+  }
 
-  override def create(sparkConf: SparkConf): ReadConcernConfig = apply(sparkConf)
+  override def create(sparkConf: SparkConf): ReadConcernConfig = {
+    notNull("sparkConf", sparkConf)
+    apply(sparkConf)
+  }
 
-  override def create(options: util.Map[String, String]): ReadConcernConfig = apply(options.asScala, None)
+  override def create(options: util.Map[String, String]): ReadConcernConfig = {
+    notNull("options", options)
+    apply(options.asScala)
+  }
 
-  override def create(options: util.Map[String, String], default: ReadConcernConfig): ReadConcernConfig = apply(options.asScala, Option(default))
+  override def create(options: util.Map[String, String], default: ReadConcernConfig): ReadConcernConfig = {
+    notNull("options", options)
+    notNull("default", default)
+    apply(options.asScala, Some(default))
+  }
 
-  override def create(javaSparkContext: JavaSparkContext): ReadConcernConfig = ???
+  override def create(javaSparkContext: JavaSparkContext): ReadConcernConfig = {
+    notNull("javaSparkContext", javaSparkContext)
+    apply(javaSparkContext.getConf)
+  }
 }
 
 /**
@@ -90,7 +108,7 @@ object ReadConcernConfig extends MongoInputConfig {
  * @param readConcernLevel the optional read concern level. If None the servers default level will be used.
  * @since 1.0
  */
-case class ReadConcernConfig(private val readConcernLevel: Option[String] = None) extends MongoSparkConfig {
+case class ReadConcernConfig(private val readConcernLevel: Option[String] = None) extends MongoClassConfig {
   require(Try(readConcern).isSuccess, s"Invalid ReadConcernConfig configuration")
 
   type Self = ReadConcernConfig

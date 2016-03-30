@@ -18,6 +18,8 @@ package com.mongodb.spark.config
 
 import java.util
 
+import com.mongodb.spark.notNull
+
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 import org.apache.spark.SparkConf
@@ -63,14 +65,6 @@ object ReadPreferenceConfig extends MongoInputConfig {
     new ReadPreferenceConfig(readPreference.getName, tagSets)
   }
 
-  /**
-   * Creates a `ReadPreferenceConfig` from a `ReadPreference` instance
-   *
-   * @param readPreference the read preference
-   * @return the configuration
-   */
-  def create(readPreference: ReadPreference): ReadPreferenceConfig = apply(readPreference)
-
   override def apply(options: scala.collection.Map[String, String], default: Option[ReadPreferenceConfig]): ReadPreferenceConfig = {
     val cleanedOptions = prefixLessOptions(options)
     val defaultReadPreferenceConfig: ReadPreferenceConfig = default.getOrElse(
@@ -92,13 +86,37 @@ object ReadPreferenceConfig extends MongoInputConfig {
     readPreferenceConfig.getOrElse(defaultReadPreferenceConfig)
   }
 
-  override def create(javaSparkContext: JavaSparkContext): ReadPreferenceConfig = apply(javaSparkContext.getConf)
+  /**
+   * Creates a `ReadPreferenceConfig` from a `ReadPreference` instance
+   *
+   * @param readPreference the read preference
+   * @return the configuration
+   */
+  def create(readPreference: ReadPreference): ReadPreferenceConfig = {
+    notNull("readPreference", readPreference)
+    apply(readPreference)
+  }
 
-  override def create(sparkConf: SparkConf): ReadPreferenceConfig = apply(sparkConf)
+  override def create(javaSparkContext: JavaSparkContext): ReadPreferenceConfig = {
+    notNull("javaSparkContext", javaSparkContext)
+    apply(javaSparkContext.getConf)
+  }
 
-  override def create(options: util.Map[String, String]): ReadPreferenceConfig = apply(options.asScala)
+  override def create(sparkConf: SparkConf): ReadPreferenceConfig = {
+    notNull("sparkConf", sparkConf)
+    apply(sparkConf)
+  }
 
-  override def create(options: util.Map[String, String], default: ReadPreferenceConfig): ReadPreferenceConfig = apply(options.asScala, Option(default))
+  override def create(options: util.Map[String, String]): ReadPreferenceConfig = {
+    notNull("options", options)
+    apply(options.asScala)
+  }
+
+  override def create(options: util.Map[String, String], default: ReadPreferenceConfig): ReadPreferenceConfig = {
+    notNull("options", options)
+    notNull("default", default)
+    apply(options.asScala, Some(default))
+  }
 
   private def tagSets(tagSets: String): util.List[TagSet] = {
     val parsedTagSets = Try(Document.parse(s"{tagSets: $tagSets}")).map(doc => doc.get("tagSets", classOf[util.List[Document]]).asScala.map(tagSet).asJava)
@@ -117,7 +135,7 @@ object ReadPreferenceConfig extends MongoInputConfig {
  * @param tagSets optional string of tagSets
  * @since 1.0
  */
-case class ReadPreferenceConfig(private val name: String = "primary", private val tagSets: Option[String] = None) extends MongoSparkConfig {
+case class ReadPreferenceConfig(private val name: String = "primary", private val tagSets: Option[String] = None) extends MongoClassConfig {
   require(Try(readPreference).isSuccess, s"Invalid ReadPreferenceConfig configuration: $this")
 
   type Self = ReadPreferenceConfig

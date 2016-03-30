@@ -37,9 +37,10 @@ package com.mongodb.spark.config
  *  - [[writeConcernWProperty writeConcern.w]], the write concern w value.
  *  - [[writeConcernJournalProperty writeConcern.journal]], the write concern journal value.
  *  - [[writeConcernWTimeoutMSProperty writeConcern.wTimeoutMS]], the write concern wTimeout value.
+ *  - [[localThresholdProperty localThreshold]], the number of milliseconds used when choosing among multiple MongoDB servers to send a request.
  *
  */
-trait MongoOutputConfig extends MongoConfig {
+trait MongoOutputConfig extends MongoCompanionConfig {
 
   override val configPrefix = "spark.mongodb.output."
 
@@ -73,4 +74,16 @@ trait MongoOutputConfig extends MongoConfig {
    * @see [[WriteConcernConfig]]
    */
   val writeConcernWTimeoutMSProperty = "writeConcern.wTimeoutMS".toLowerCase
+
+  /**
+   * The localThreshold property
+   *
+   * The local threshold in milliseconds is used when choosing among multiple MongoDB servers to send a request.
+   * Only servers whose ping time is less than or equal to the server with the fastest ping time *plus* the local threshold will be chosen.
+   *
+   * For example when choosing which MongoS to send a request through a `localThreshold` of 0 would pick the MongoS with the fastest ping time.
+   *
+   * Default: `15 ms`
+   */
+  val localThresholdProperty = MongoSharedConfig.localThresholdProperty
 }

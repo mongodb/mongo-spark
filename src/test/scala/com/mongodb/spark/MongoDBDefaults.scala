@@ -52,6 +52,7 @@ class MongoDBDefaults extends Logging {
       .set("spark.mongodb.input.uri", mongoClientURI)
       .set("spark.mongodb.input.database", DATABASE_NAME)
       .set("spark.mongodb.input.collection", collectionName)
+      .set("spark.mongodb.output.uri", mongoClientURI)
       .set("spark.mongodb.output.database", DATABASE_NAME)
       .set("spark.mongodb.output.collection", collectionName)
   }

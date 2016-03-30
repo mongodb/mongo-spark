@@ -74,7 +74,7 @@ trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with
 
   def loadSampleData(sizeInMB: Int): Unit = mongoDBDefaults.loadSampleData(readConfig.collectionName, sizeInMB)
 
-  def mongoConnector: MongoConnector = MongoConnector(mongoClientURI)
+  def mongoConnector: MongoConnector = MongoConnector(sparkConf)
 
   def sparkConf: SparkConf = sparkConf(collectionName)
 

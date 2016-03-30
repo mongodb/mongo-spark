@@ -21,9 +21,7 @@ import com.mongodb.ReadPreference;
 import com.mongodb.Tag;
 import com.mongodb.TagSet;
 import com.mongodb.spark.api.java.RequiresMongoDB;
-import com.mongodb.spark.config.ReadConcernConfig;
 import com.mongodb.spark.config.ReadConfig;
-import com.mongodb.spark.config.ReadPreferenceConfig;
 import org.junit.Test;
 
 import java.util.HashMap;
@@ -33,11 +31,12 @@ import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
 
 public final class ReadConfigTest extends RequiresMongoDB {
+
     @Test
     public void shouldBeCreatableFromTheSparkConf() {
         ReadConfig readConfig = ReadConfig.create(getSparkConf());
-        ReadConfig expectedReadConfig = new ReadConfig(getDatabaseName(), getCollectionName(), 1000, 64, "_id",
-                ReadPreferenceConfig.create(getSparkConf()), ReadConcernConfig.create(getSparkConf()));
+        ReadConfig expectedReadConfig = ReadConfig.create(getDatabaseName(), getCollectionName(), getMongoClientURI(), 1000, 64, "_id",
+                15, ReadPreference.primary(), ReadConcern.DEFAULT);
 
         assertEquals(readConfig, expectedReadConfig);
     }
@@ -50,15 +49,15 @@ public final class ReadConfigTest extends RequiresMongoDB {
         options.put(ReadConfig.sampleSizeProperty(), "500");
         options.put(ReadConfig.maxChunkSizeProperty(), "99");
         options.put(ReadConfig.splitKeyProperty(), "ID");
+        options.put(ReadConfig.localThresholdProperty(), "0");
         options.put(ReadConfig.readPreferenceNameProperty(), "secondaryPreferred");
         options.put(ReadConfig.readPreferenceTagSetsProperty(), "[{dc: \"east\", use: \"production\"},{}]");
         options.put(ReadConfig.readConcernLevelProperty(), "majority");
 
         ReadConfig readConfig = ReadConfig.create(options);
-        ReadConfig expectedReadConfig = new ReadConfig("db", "collection", 500, 99, "ID",
-                ReadPreferenceConfig.create(ReadPreference.secondaryPreferred(
-                        asList(new TagSet(asList(new Tag("dc", "east"), new Tag("use", "production"))), new TagSet()))),
-                ReadConcernConfig.create(ReadConcern.MAJORITY));
+        ReadConfig expectedReadConfig = ReadConfig.create("db", "collection", null, 500, 99, "ID", 0,
+                ReadPreference.secondaryPreferred(asList(new TagSet(asList(new Tag("dc", "east"), new Tag("use", "production"))), new TagSet())),
+                ReadConcern.MAJORITY);
 
         assertEquals(readConfig, expectedReadConfig);
     }
@@ -72,9 +71,8 @@ public final class ReadConfigTest extends RequiresMongoDB {
         options.put(ReadConfig.readConcernLevelProperty(), "majority");
 
         ReadConfig readConfig = ReadConfig.create(options, ReadConfig.create(getSparkConf()));
-        ReadConfig expectedReadConfig = new ReadConfig("db", "collection", 1000, 64, "_id",
-                ReadPreferenceConfig.create(ReadPreference.secondaryPreferred()),
-                ReadConcernConfig.create(ReadConcern.MAJORITY));
+        ReadConfig expectedReadConfig = ReadConfig.create("db", "collection", getMongoClientURI(), 1000, 64, "_id", 15,
+                ReadPreference.secondaryPreferred(), ReadConcern.MAJORITY);
 
         assertEquals(readConfig, expectedReadConfig);
     }

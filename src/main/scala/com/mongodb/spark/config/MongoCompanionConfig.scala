@@ -29,7 +29,7 @@ import org.apache.spark.api.java.JavaSparkContext
  *
  * @since 1.0
  */
-trait MongoConfig extends Serializable {
+trait MongoCompanionConfig extends Serializable {
 
   /**
    * The type of the `MongoConfig`
@@ -43,7 +43,7 @@ trait MongoConfig extends Serializable {
    *
    * Any values set in the connection string will override any default values for the configuration.
    */
-  val mongoURIProperty = "uri"
+  val mongoURIProperty = MongoSharedConfig.mongoURIProperty
 
   /**
    * The configuration prefix string for the current configuration scope
@@ -70,7 +70,7 @@ trait MongoConfig extends Serializable {
    * @param sparkConf the spark configuration
    * @return the configuration
    */
-  def apply(sparkConf: SparkConf): Self = apply(sparkConf.getAll.filter(kv => kv._1.startsWith(configPrefix)).toMap)
+  def apply(sparkConf: SparkConf): Self = apply(sparkConf.getAll.filter(_._1.startsWith(configPrefix)).toMap)
 
   /**
    * Create a configuration from the values in the `Map`
@@ -183,7 +183,8 @@ trait MongoConfig extends Serializable {
     }
   }
 
-  protected def connectionString(options: collection.Map[String, String]) = new ConnectionString(options.getOrElse(mongoURIProperty, DefaultConnectionString))
+  protected def connectionString(options: collection.Map[String, String]) =
+    new ConnectionString(options.getOrElse(mongoURIProperty, DefaultConnectionString))
 
   private val DefaultConnectionString = "mongodb://localhost/"
 

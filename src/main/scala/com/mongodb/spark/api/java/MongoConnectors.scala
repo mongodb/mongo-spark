@@ -19,8 +19,9 @@ package com.mongodb.spark.api.java
 import com.mongodb.spark.{MongoClientFactory, MongoConnector, notNull}
 import org.apache.spark.SparkConf
 import org.apache.spark.api.java.JavaSparkContext
-import org.apache.spark.api.java.function.{Function0 => JFunction0}
 import org.apache.spark.sql.SQLContext
+
+import scala.collection.JavaConverters._
 
 /**
  * A helper class to create a MongoConnector
@@ -65,12 +66,12 @@ object MongoConnectors {
   /**
    * Creates a MongoConnector
    *
-   * @param connectionString            the MongoClient connection string
+   * @param options the configuration options
    * @return the MongoConnector
    */
-  def create(connectionString: String): MongoConnector = {
-    notNull("connectionString", connectionString)
-    MongoConnector(connectionString)
+  def create(options: java.util.Map[String, String]): MongoConnector = {
+    notNull("options", options)
+    MongoConnector(options.asScala)
   }
 
   /**

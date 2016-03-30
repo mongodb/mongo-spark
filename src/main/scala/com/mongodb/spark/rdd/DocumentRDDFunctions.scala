@@ -38,7 +38,6 @@ import com.mongodb.spark.config.WriteConfig
 case class DocumentRDDFunctions[D](rdd: RDD[D])(implicit e: D DefaultsTo Document, ct: ClassTag[D]) {
 
   @transient val sparkConf = rdd.context.getConf
-  val mongoConnector = MongoConnector(sparkConf.get(MongoConnector.mongoWriteURIProperty))
 
   /**
    * Saves the RDD data to MongoDB using the given `WriteConfig`
@@ -46,11 +45,13 @@ case class DocumentRDDFunctions[D](rdd: RDD[D])(implicit e: D DefaultsTo Documen
    * @param writeConfig the [[com.mongodb.spark.config.WriteConfig]] to use
    * @return the rdd
    */
-  def saveToMongoDB(writeConfig: WriteConfig = WriteConfig(sparkConf)): Unit =
+  def saveToMongoDB(writeConfig: WriteConfig = WriteConfig(sparkConf)): Unit = {
+    val mongoConnector = MongoConnector(WriteConfig(sparkConf).asOptions)
     rdd.foreachPartition(iter => if (iter.nonEmpty) {
       mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[D] =>
         collection.insertMany(iter.toList.asJava)
       })
     })
+  }
 
 }

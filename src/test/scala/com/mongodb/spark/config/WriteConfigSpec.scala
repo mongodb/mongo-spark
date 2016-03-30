@@ -29,14 +29,14 @@ import com.mongodb.WriteConcern
 class WriteConfigSpec extends FlatSpec with Matchers {
 
   "WriteConfig" should "have the expected defaults" in {
-    val expectedWriteConfig = WriteConfig("db", "collection", WriteConcern.ACKNOWLEDGED)
+    val expectedWriteConfig = WriteConfig("db", "collection", MongoSharedConfig.DefaultLocalThreshold, WriteConcern.ACKNOWLEDGED)
 
     WriteConfig("db", "collection") should equal(expectedWriteConfig)
   }
 
   it should "be creatable from SparkConfig" in {
     forAll(writeConcerns) { writeConcern: WriteConcern =>
-      val expectedWriteConfig = WriteConfig("db", "collection", writeConcern)
+      val expectedWriteConfig = WriteConfig("db", "collection", MongoSharedConfig.DefaultLocalThreshold, writeConcern)
 
       val conf = sparkConf.clone()
       Option(writeConcern.getWObject).map(w => conf.set(s"${WriteConfig.configPrefix}${WriteConfig.writeConcernWProperty}", w.toString))
@@ -49,9 +49,11 @@ class WriteConfigSpec extends FlatSpec with Matchers {
   }
 
   it should "round trip options" in {
-    val defaultWriteConfig = WriteConfig("dbName", "collName", WriteConcern.ACKNOWLEDGED)
+    val uri = "mongodb://localhost/"
+    val localThreshold = 5
+    val defaultWriteConfig = WriteConfig("dbName", "collName", localThreshold, uri, WriteConcern.ACKNOWLEDGED)
     forAll(writeConcerns) { writeConcern: WriteConcern =>
-      val expectedWriteConfig = WriteConfig("db", "collection", writeConcern)
+      val expectedWriteConfig = WriteConfig("db", "collection", localThreshold, uri, writeConcern)
       defaultWriteConfig.withOptions(expectedWriteConfig.asOptions) should equal(expectedWriteConfig)
     }
   }

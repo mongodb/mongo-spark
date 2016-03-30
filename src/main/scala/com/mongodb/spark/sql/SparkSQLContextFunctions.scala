@@ -34,7 +34,7 @@ import com.mongodb.spark.rdd.MongoRDD
  * @param sqlContext the SQLContext
  * @since 1.0
  */
-case class SparkSQLContextFunctions(@transient val sqlContext: SQLContext) extends Serializable {
+case class SparkSQLContextFunctions(@transient sqlContext: SQLContext) extends Serializable {
 
   @transient private val sc: SparkContext = sqlContext.sparkContext
   @transient private val sparkConf: SparkConf = sc.getConf

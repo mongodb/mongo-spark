@@ -18,10 +18,12 @@ package com.mongodb.spark.config
 
 import java.util
 
-import scala.collection.JavaConverters._
-import org.apache.spark.SparkConf
+import com.mongodb.spark.notNull
 import com.mongodb.{ReadConcern, ReadPreference}
+import org.apache.spark.SparkConf
 import org.apache.spark.api.java.JavaSparkContext
+
+import scala.collection.JavaConverters._
 
 /**
  * The `ReadConfig` companion object
@@ -43,21 +45,68 @@ object ReadConfig extends MongoInputConfig {
     ReadConfig(
       databaseName = databaseName(databaseNameProperty, cleanedOptions, default.map(conf => conf.databaseName)),
       collectionName = collectionName(collectionNameProperty, cleanedOptions, default.map(conf => conf.collectionName)),
+      connectionString = cleanedOptions.get(mongoURIProperty).orElse(default.flatMap(conf => conf.connectionString)),
       sampleSize = getInt(cleanedOptions.get(sampleSizeProperty), default.map(conf => conf.sampleSize), DefaultSampleSize),
       maxChunkSize = getInt(cleanedOptions.get(maxChunkSizeProperty), default.map(conf => conf.maxChunkSize), DefaultMaxChunkSize),
       splitKey = getString(cleanedOptions.get(splitKeyProperty), default.map(conf => conf.splitKey), DefaultSplitKey),
+      localThreshold = getInt(cleanedOptions.get(localThresholdProperty), default.map(conf => conf.localThreshold),
+        MongoSharedConfig.DefaultLocalThreshold),
       readPreferenceConfig = ReadPreferenceConfig(cleanedOptions, default.map(conf => conf.readPreferenceConfig)),
       readConcernConfig = ReadConcernConfig(cleanedOptions, default.map(conf => conf.readConcernConfig))
     )
   }
 
-  override def create(javaSparkContext: JavaSparkContext): ReadConfig = apply(javaSparkContext.getConf)
+  // scalastyle:off parameter.number
+  /**
+   * Read Configuration used when reading data from MongoDB
+   *
+   * @param databaseName the database name
+   * @param collectionName the collection name
+   * @param connectionString the optional connection string used in the creation of this configuration
+   * @param sampleSize a positive integer sample size to draw from the collection when inferring the schema
+   * @param maxChunkSize   the maximum chunkSize for non-sharded collections
+   * @param splitKey the key to split the collection by for non-sharded collections or the "shard key" for sharded collection
+   * @param localThreshold the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.
+   *                       Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local
+   *                       threshold will be chosen.
+   * @param readPreference the readPreference configuration
+   * @param readConcern the readConcern configuration
+   *
+   * @since 1.0
+   */
+  def create(databaseName: String, collectionName: String, connectionString: String, sampleSize: Int, maxChunkSize: Int, splitKey: String,
+             localThreshold: Int, readPreference: ReadPreference, readConcern: ReadConcern): ReadConfig = {
+    notNull("databaseName", databaseName)
+    notNull("collectionName", collectionName)
+    notNull("splitKey", splitKey)
+    notNull("readPreference", readPreference)
+    notNull("readConcern", readConcern)
 
-  override def create(sparkConf: SparkConf): ReadConfig = apply(sparkConf)
+    new ReadConfig(databaseName, collectionName, Option(connectionString), sampleSize, maxChunkSize, splitKey, localThreshold,
+      ReadPreferenceConfig.apply(readPreference), ReadConcernConfig.apply(readConcern))
+  }
+  // scalastyle:on parameter.number
 
-  override def create(options: util.Map[String, String]): ReadConfig = apply(options.asScala)
+  override def create(javaSparkContext: JavaSparkContext): ReadConfig = {
+    notNull("javaSparkContext", javaSparkContext)
+    apply(javaSparkContext.getConf)
+  }
 
-  override def create(options: util.Map[String, String], default: ReadConfig): ReadConfig = apply(options.asScala, Option(default))
+  override def create(sparkConf: SparkConf): ReadConfig = {
+    notNull("sparkConf", sparkConf)
+    apply(sparkConf)
+  }
+
+  override def create(options: util.Map[String, String]): ReadConfig = {
+    notNull("options", options)
+    apply(options.asScala)
+  }
+
+  override def create(options: util.Map[String, String], default: ReadConfig): ReadConfig = {
+    notNull("options", options)
+    notNull("default", default)
+    apply(options.asScala, Option(default))
+  }
 
 }
 
@@ -66,9 +115,13 @@ object ReadConfig extends MongoInputConfig {
  *
  * @param databaseName the database name
  * @param collectionName the collection name
+ * @param connectionString the optional connection string used in the creation of this configuration
  * @param sampleSize a positive integer sample size to draw from the collection when inferring the schema
  * @param maxChunkSize   the maximum chunkSize for non-sharded collections
  * @param splitKey the key to split the collection by for non-sharded collections or the "shard key" for sharded collection
+ * @param localThreshold the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.
+ *                       Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local
+ *                       threshold will be chosen.
  * @param readPreferenceConfig the readPreference configuration
  * @param readConcernConfig the readConcern configuration
  *
@@ -77,26 +130,35 @@ object ReadConfig extends MongoInputConfig {
 case class ReadConfig(
     databaseName:         String,
     collectionName:       String,
+    connectionString:     Option[String]       = None,
     sampleSize:           Int                  = ReadConfig.DefaultSampleSize,
     maxChunkSize:         Int                  = ReadConfig.DefaultMaxChunkSize,
     splitKey:             String               = ReadConfig.DefaultSplitKey,
+    localThreshold:       Int                  = MongoSharedConfig.DefaultLocalThreshold,
     readPreferenceConfig: ReadPreferenceConfig = ReadPreferenceConfig(),
     readConcernConfig:    ReadConcernConfig    = ReadConcernConfig()
-) extends MongoCollectionConfig with MongoSparkConfig {
+) extends MongoCollectionConfig with MongoClassConfig {
   require(sampleSize > 0, s"sampleSize ($sampleSize) must be greater than 0")
+  require(localThreshold >= 0, s"localThreshold ($localThreshold) must be greater or equal to 0")
 
   type Self = ReadConfig
 
   override def withOptions(options: collection.Map[String, String]): ReadConfig = ReadConfig(options, Some(this))
 
   override def asOptions: collection.Map[String, String] = {
-    Map(
+    val options = Map(
       ReadConfig.databaseNameProperty -> databaseName,
       ReadConfig.collectionNameProperty -> collectionName,
       ReadConfig.sampleSizeProperty -> sampleSize.toString,
       ReadConfig.maxChunkSizeProperty -> maxChunkSize.toString,
-      ReadConfig.splitKeyProperty -> splitKey
+      ReadConfig.splitKeyProperty -> splitKey,
+      ReadConfig.localThresholdProperty -> localThreshold.toString
     ) ++ readPreferenceConfig.asOptions ++ readConcernConfig.asOptions
+
+    connectionString match {
+      case Some(uri) => options + (ReadConfig.mongoURIProperty -> uri)
+      case None      => options
+    }
   }
 
   override def withJavaOptions(options: util.Map[String, String]): ReadConfig = withOptions(options.asScala)

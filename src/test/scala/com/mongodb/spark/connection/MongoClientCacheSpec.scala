@@ -19,11 +19,10 @@ package com.mongodb.spark.connection
 import java.util.concurrent.TimeUnit
 
 import scala.concurrent.duration.Duration
-
 import org.scalamock.scalatest.proxy.MockFactory
-
 import com.mongodb.Implicits._
 import com.mongodb.spark.RequiresMongoDB
+import com.mongodb.spark.config.ReadConfig
 
 class MongoClientCacheSpec extends RequiresMongoDB with MockFactory {
 
@@ -31,7 +30,8 @@ class MongoClientCacheSpec extends RequiresMongoDB with MockFactory {
   val longDuration = Duration(1, TimeUnit.MINUTES)
   val keepAlive = Duration(250, TimeUnit.MILLISECONDS) // scalastyle:off
   val clientCache = new MongoClientCache(keepAlive)
-  val clientFactory = DefaultMongoClientFactory(mongoClientURI)
+  val clientFactory = DefaultMongoClientFactory(ReadConfig(sparkConf).asOptions)
+  val clientFactory2 = DefaultMongoClientFactory(ReadConfig(sparkConf).asOptions)
 
   "MongoClientCache" should "create a client and then close the client once released" in {
     val client = clientCache.acquire(clientFactory)
@@ -49,7 +49,7 @@ class MongoClientCacheSpec extends RequiresMongoDB with MockFactory {
 
   it should "return a different client once released " in {
     val client = clientCache.acquire(clientFactory)
-    val client2 = clientCache.acquire(clientFactory)
+    val client2 = clientCache.acquire(clientFactory2)
 
     client2 should be theSameInstanceAs client
 
