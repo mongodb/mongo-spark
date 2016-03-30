@@ -1,4 +1,4 @@
-# Mongo Spark Connector Python
+# Mongo Spark Connector SparkR
 
 The following code snippets can be found in [introduction.R](../examples/src/test/r/tour/introduction.R).
 
@@ -17,7 +17,7 @@ You can run the interactive sparkR shell like so:
 
 ## The Spark R API Basics
 
-The Spark API works via DataFrames and uses underlying Scala DataFrame.
+The Spark R API works via DataFrames and uses underlying Scala DataFrame.
 
 ## DataFrames and DataSets
 
