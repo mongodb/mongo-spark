@@ -65,10 +65,9 @@ object MongoConnector {
 
   private[spark] val mongoReadURIProperty: String = s"${ReadConfig.configPrefix}${ReadConfig.mongoURIProperty}"
   private[spark] val mongoWriteURIProperty: String = s"${ReadConfig.configPrefix}${ReadConfig.mongoURIProperty}"
-  private[spark] val mongoClientKeepAlive = Duration(10, TimeUnit.SECONDS) // scalastyle:ignore
+  private[spark] val mongoClientKeepAlive = Duration(System.getProperty("spark.mongodb.keep_alive_ms", "5000").toInt, TimeUnit.MILLISECONDS)
 
   private val mongoClientCache = new MongoClientCache(mongoClientKeepAlive)
-
   Runtime.getRuntime.addShutdownHook(new Thread(new Runnable {
     def run() {
       mongoClientCache.shutdown()

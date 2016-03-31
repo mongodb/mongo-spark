@@ -61,3 +61,12 @@ spark.mongodb.input.database=databaseName
 spark.mongodb.input.collection=collectionName
 spark.mongodb.input.readPreference.name=primaryPreferred
 ```
+
+## Cache configuration
+
+The MongoConnector includes a cache for MongoClients, so workers can share the MongoClient across threads. As the cache is setup before the
+Spark Configuration is available it can only be configured via a System Property:
+
+System Property name                         | Description                                                     | Default value
+---------------------------------------------|-----------------------------------------------------------------|--------------------
+spark.mongodb.keep_alive_ms                  | The length of time to keep a MongoClient available for sharing  | 5000
