@@ -34,8 +34,7 @@ object Publish {
 
   def settings: Seq[Def.Setting[_]] = {
     val defaults = Seq(
-        publishArtifact in (Compile, packageDoc) := publishDocs(scalaVersion.value),
-        publishArtifact in packageDoc := publishDocs(scalaVersion.value),
+        publishArtifact in packageDoc := true,
         sources in (Compile,doc) := publishDocSrcs(scalaVersion.value, (sources in (Compile,doc)).value)
     )
 
@@ -59,7 +58,6 @@ object Publish {
   }
 
   lazy val assemblySettings = Seq(
-    assemblyJarName in assembly := "mongo-spark-connector-alldep.jar",
     assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = false),
     test in assembly := {},
     artifact in (Compile, assembly) := {
@@ -117,11 +115,11 @@ object Publish {
     if(isSnapshot.value) Def.task { PgpKeys.publishSigned.value } else Def.task { }
   }
 
-  def publishDocs(scalaVersion: String): Boolean = CrossVersion.partialVersion(scalaVersion).exists(value => value != (2, 10))
+  def isScala210(scalaVersion: String): Boolean = CrossVersion.partialVersion(scalaVersion).exists(value => value != (2, 10))
   def publishDocSrcs(scalaVersion: String, defaultSources: Seq[File]): Seq[File] = {
-    publishDocs(scalaVersion) match {
+    isScala210(scalaVersion) match {
       case true => defaultSources
-      case false => Seq.empty
+      case false => defaultSources.filter(_.name == "SkipFieldType.scala")
     }
   }
 

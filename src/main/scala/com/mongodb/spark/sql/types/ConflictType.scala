@@ -31,4 +31,4 @@ private[sql] class ConflictType private () extends DataType with Serializable {
   override def toString: String = "ConflictType"
 }
 
-case object ConflictType extends ConflictType
+private[sql] case object ConflictType extends ConflictType
