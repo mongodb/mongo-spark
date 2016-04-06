@@ -96,7 +96,7 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
           documentRdd.saveToMongoDB(writeConfig)
         }
     }
-    createRelation(sqlContext, parameters ++ writeConfig.asOptions)
+    createRelation(sqlContext, parameters ++ writeConfig.asOptions, Some(data.schema))
   }
 
   override def insert(data: DataFrame, overwrite: Boolean): Unit = {
