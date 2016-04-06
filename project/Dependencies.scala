@@ -42,9 +42,10 @@ object Dependencies {
   val scalaMock         = "org.scalamock" %% "scalamock-scalatest-support" % scalaMockVersion % "test"
   val junit             = "junit" % "junit" % junitVersion % "test"
   val junitInterface    = "com.novocode" % "junit-interface" % junitInterfaceVersion % "test"
+  val sparkStreaming    = "org.apache.spark" %% "spark-streaming" % sparkVersion % "test"
 
   // Projects
   val coreDependencies     = Seq(mongodbDriver, sparkCore, sparkSql, slf4j)
-  val testDependencies     = Seq(scalaTest, scalaCheck, scalaMock, junit, junitInterface)
+  val testDependencies     = Seq(scalaTest, scalaCheck, scalaMock, junit, junitInterface, sparkStreaming)
 
   }

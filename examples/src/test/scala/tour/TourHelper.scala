@@ -29,7 +29,7 @@ private[tour] trait TourHelper {
   def getSparkContext(args: Array[String]): SparkContext = {
     val uri: String = args.headOption.getOrElse("mongodb://localhost/test.coll")
     val conf = new SparkConf()
-      .setMaster("local")
+      .setMaster("local[*]")
       .setAppName("MongoSparkConnectorTour")
       .set("spark.app.id", "MongoSparkConnectorTour")
       .set("spark.mongodb.input.uri", uri)

@@ -15,3 +15,43 @@ To achieve full data locality you should ensure:
   * If sharded you should have a `MongoS` on the same nodes and use `localThreshold` configuration to connect to the nearest `MongoS`.
 
 
+## How do I interact with Spark Streams?
+
+Spark streams can be considered as a potentially infinite source of RDDs, therefore anything you can do with an RDD you can do with the
+results of a Spark Stream. The following example is adapted from the 
+[Spark streaming guide](http://spark.apache.org/docs/latest/streaming-programming-guide.html) and  can be found in 
+[SparkStreams.scala](../examples/src/test/scala/tour/SparkStreams.scala):
+
+```scala
+import com.mongodb.spark.sql._
+import org.apache.spark.streaming._
+
+val sc = ...                // existing SparkContext
+val ssc = new StreamingContext(sc, Seconds(1))
+
+// Connect to netcat ( nc -lk 9999 )
+val lines = ssc.socketTextStream("localhost", 9999)
+
+// Calculate the word counts
+val words = lines.flatMap(_.split(" "))
+val pairs = words.map(word => (word, 1))
+val wordCounts = pairs.reduceByKey(_ + _)
+
+// Save the word counts for each 1 Second time window into MongoDB
+wordCounts.foreachRDD({ rdd =>
+  val sqlContext = new SQLContext(rdd.sparkContext)
+  import sqlContext.implicits._
+
+  val wordCounts = rdd.map({ case (word: String, count: Int) => WordCount(word, count) }).toDF()
+
+  // Save to MongoDB
+  wordCounts.write.mode("append").mongo()
+})
+
+// Start the computation and await for the computation to terminate
+ssc.start()
+ssc.awaitTermination()
+
+```
+
+Note: The Mongo Spark Connector only supports streams a sink.
