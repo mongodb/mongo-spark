@@ -70,3 +70,6 @@ Outputs:
 6   Gloin  158
 ```
 
+-----
+
+[Next - FAQs](6-FAQ.md)

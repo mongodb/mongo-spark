@@ -55,3 +55,7 @@ ssc.awaitTermination()
 ```
 
 Note: The Mongo Spark Connector only supports streams a sink.
+
+-----
+
+[Next - Changelog](7-Changelog.md)
