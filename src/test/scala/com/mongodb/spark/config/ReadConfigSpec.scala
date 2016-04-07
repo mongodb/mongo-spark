@@ -109,6 +109,12 @@ class ReadConfigSpec extends FlatSpec with Matchers {
 
   it should "validate the values" in {
     an[IllegalArgumentException] should be thrownBy ReadConfig("db", "collection", sampleSize = -1)
+    an[IllegalArgumentException] should be thrownBy ReadConfig("db", "collection", Some("localhost/db.coll"))
+    an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set("spark.mongodb.input.uri", "localhost/db.coll"))
+    an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set(
+      "spark.mongodb.input.uri",
+      "mongodb://localhost/db.coll/readPreference=AllNodes"
+    ))
     an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set("spark.mongodb.input.collection", "coll"))
     an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set("spark.mongodb.input.database", "db"))
     an[IllegalArgumentException] should be thrownBy ReadConfig(sparkConf.clone().set("spark.mongodb.input.localThreshold", "-1"))

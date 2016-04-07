@@ -18,12 +18,14 @@ package com.mongodb.spark.config
 
 import java.util
 
-import com.mongodb.WriteConcern
-import com.mongodb.spark.notNull
+import scala.collection.JavaConverters._
+import scala.util.Try
+
 import org.apache.spark.SparkConf
 import org.apache.spark.api.java.JavaSparkContext
 
-import scala.collection.JavaConverters._
+import com.mongodb.{ConnectionString, WriteConcern}
+import com.mongodb.spark.notNull
 
 /**
  * The `WriteConfig` companion object
@@ -46,31 +48,35 @@ object WriteConfig extends MongoOutputConfig {
    * @return the write config
    */
   def apply(databaseName: String, collectionName: String, localThreshold: Int, writeConcern: WriteConcern): WriteConfig =
-    WriteConfig(databaseName, collectionName, localThreshold, None, WriteConcernConfig(writeConcern))
+    WriteConfig(databaseName, collectionName, None, localThreshold, WriteConcernConfig(writeConcern))
 
   /**
    * Creates a WriteConfig
    *
    * @param databaseName the database name
    * @param collectionName the collection name
+   * @param connectionString the optional connection string used in the creation of this configuration
    * @param localThreshold the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.
    *                       Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local
    *                       threshold will be chosen.
-   * @param connectionString the optional connection string used in the creation of this configuration
    * @param writeConcern the WriteConcern to use
    * @return the write config
    */
-  def apply(databaseName: String, collectionName: String, localThreshold: Int, connectionString: String, writeConcern: WriteConcern): WriteConfig =
-    WriteConfig(databaseName, collectionName, localThreshold, Option(connectionString), WriteConcernConfig(writeConcern))
+  def apply(databaseName: String, collectionName: String, connectionString: String, localThreshold: Int, writeConcern: WriteConcern): WriteConfig =
+    WriteConfig(databaseName, collectionName, Option(connectionString), localThreshold, WriteConcernConfig(writeConcern))
 
   override def apply(options: collection.Map[String, String], default: Option[WriteConfig]): WriteConfig = {
     val cleanedOptions = prefixLessOptions(options)
+    val cachedConnectionString = connectionString(cleanedOptions)
+    val defaultDatabase = default.map(conf => conf.databaseName).orElse(Option(cachedConnectionString.getDatabase))
+    val defaultCollection = default.map(conf => conf.collectionName).orElse(Option(cachedConnectionString.getCollection))
+
     WriteConfig(
-      databaseName = databaseName(databaseNameProperty, cleanedOptions, default.map(writeConf => writeConf.databaseName)),
-      collectionName = collectionName(collectionNameProperty, cleanedOptions, default.map(writeConf => writeConf.collectionName)),
+      databaseName = databaseName(databaseNameProperty, cleanedOptions, defaultDatabase),
+      collectionName = collectionName(collectionNameProperty, cleanedOptions, defaultCollection),
+      connectionString = cleanedOptions.get(mongoURIProperty).orElse(default.flatMap(conf => conf.connectionString)),
       localThreshold = getInt(cleanedOptions.get(localThresholdProperty), default.map(conf => conf.localThreshold),
         MongoSharedConfig.DefaultLocalThreshold),
-      connectionString = cleanedOptions.get(mongoURIProperty).orElse(default.flatMap(conf => conf.connectionString)),
       writeConcernConfig = WriteConcernConfig(cleanedOptions, default.map(writeConf => writeConf.writeConcernConfig))
     )
   }
@@ -80,19 +86,19 @@ object WriteConfig extends MongoOutputConfig {
    *
    * @param databaseName the database name
    * @param collectionName the collection name
+   * @param connectionString the optional connection string used in the creation of this configuration
    * @param localThreshold the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.
    *                       Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local
    *                       threshold will be chosen.
-   * @param connectionString the optional connection string used in the creation of this configuration
    * @param writeConcern the WriteConcern to use
    * @return the write config
    */
-  def create(databaseName: String, collectionName: String, localThreshold: Int, connectionString: String, writeConcern: WriteConcern): WriteConfig = {
+  def create(databaseName: String, collectionName: String, connectionString: String, localThreshold: Int, writeConcern: WriteConcern): WriteConfig = {
     notNull("databaseName", databaseName)
     notNull("collectionName", collectionName)
     notNull("localThreshold", localThreshold)
     notNull("writeConcern", writeConcern)
-    apply(databaseName, collectionName, localThreshold, connectionString, writeConcern)
+    apply(databaseName, collectionName, connectionString, localThreshold, writeConcern)
   }
 
   override def create(javaSparkContext: JavaSparkContext): WriteConfig = {
@@ -123,20 +129,22 @@ object WriteConfig extends MongoOutputConfig {
  *
  * @param databaseName the database name
  * @param collectionName the collection name
+ * @param connectionString the optional connection string used in the creation of this configuration
  * @param localThreshold the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.
  *                       Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local
  *                       threshold will be chosen.
- * @param connectionString the optional connection string used in the creation of this configuration
  * @param writeConcernConfig the write concern configuration
  * @since 1.0
  */
 case class WriteConfig(
-    databaseName:                   String,
-    collectionName:                 String,
-    localThreshold:                 Int                = MongoSharedConfig.DefaultLocalThreshold,
-    connectionString:               Option[String]     = None,
-    private val writeConcernConfig: WriteConcernConfig = WriteConcernConfig.Default
+    databaseName:       String,
+    collectionName:     String,
+    connectionString:   Option[String]     = None,
+    localThreshold:     Int                = MongoSharedConfig.DefaultLocalThreshold,
+    writeConcernConfig: WriteConcernConfig = WriteConcernConfig.Default
 ) extends MongoCollectionConfig with MongoClassConfig {
+  require(localThreshold >= 0, s"localThreshold ($localThreshold) must be greater or equal to 0")
+  require(Try(connectionString.map(uri => new ConnectionString(uri))).isSuccess, s"Invalid uri: '${connectionString.get}'")
 
   type Self = WriteConfig
 

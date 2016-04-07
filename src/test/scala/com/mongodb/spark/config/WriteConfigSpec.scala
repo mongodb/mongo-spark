@@ -51,16 +51,23 @@ class WriteConfigSpec extends FlatSpec with Matchers {
   it should "round trip options" in {
     val uri = "mongodb://localhost/"
     val localThreshold = 5
-    val defaultWriteConfig = WriteConfig("dbName", "collName", localThreshold, uri, WriteConcern.ACKNOWLEDGED)
+    val defaultWriteConfig = WriteConfig("dbName", "collName", uri, localThreshold, WriteConcern.ACKNOWLEDGED)
     forAll(writeConcerns) { writeConcern: WriteConcern =>
-      val expectedWriteConfig = WriteConfig("db", "collection", localThreshold, uri, writeConcern)
+      val expectedWriteConfig = WriteConfig("db", "collection", uri, localThreshold, writeConcern)
       defaultWriteConfig.withOptions(expectedWriteConfig.asOptions) should equal(expectedWriteConfig)
     }
   }
 
   it should "validate the values" in {
-    an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().remove("spark.mongodb.output.database"))
-    an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().remove("spark.mongodb.output.collection"))
+    an[IllegalArgumentException] should be thrownBy WriteConfig("db", "collection", Some("localhost/db.coll"))
+    an[IllegalArgumentException] should be thrownBy WriteConfig(new SparkConf().set("spark.mongodb.output.uri", "localhost/db.coll"))
+    an[IllegalArgumentException] should be thrownBy WriteConfig(new SparkConf().set(
+      "spark.mongodb.output.uri",
+      "mongodb://localhost/db.coll/readPreference=AllNodes"
+    ))
+    an[IllegalArgumentException] should be thrownBy WriteConfig(new SparkConf().set("spark.mongodb.output.collection", "coll"))
+    an[IllegalArgumentException] should be thrownBy WriteConfig(new SparkConf().set("spark.mongodb.output.database", "db"))
+    an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().set("spark.mongodb.output.localThreshold", "-1"))
     an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().set("spark.mongodb.output.writeConcern.w", "-1"))
     an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().set("spark.mongodb.output.writeConcern.wTimeoutMS", "-1"))
   }

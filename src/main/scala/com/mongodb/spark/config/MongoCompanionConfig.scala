@@ -18,7 +18,10 @@ package com.mongodb.spark.config
 
 import java.util
 
+import scala.util.Try
+
 import org.apache.spark.{SparkConf, SparkContext}
+
 import com.mongodb.ConnectionString
 import org.apache.spark.api.java.JavaSparkContext
 
@@ -163,8 +166,7 @@ trait MongoCompanionConfig extends Serializable {
 
   protected def databaseName(databaseNameProperty: String, options: collection.Map[String, String], default: Option[String] = None): String = {
     val cleanedOptions = prefixLessOptions(options)
-    val defaultDatabaseName = default.getOrElse(connectionString(cleanedOptions).getDatabase)
-    Option(cleanedOptions.getOrElse(databaseNameProperty, defaultDatabaseName)) match {
+    cleanedOptions.get(databaseNameProperty).orElse(default) match {
       case Some(databaseName) => databaseName
       case None => throw new IllegalArgumentException(
         s"Missing database name. Set via the '$configPrefix$mongoURIProperty' or '$configPrefix$databaseNameProperty' property"
@@ -174,8 +176,7 @@ trait MongoCompanionConfig extends Serializable {
 
   protected def collectionName(collectionNameProperty: String, options: collection.Map[String, String], default: Option[String] = None): String = {
     val cleanedOptions = prefixLessOptions(options)
-    val defaultCollectionName = default.getOrElse(connectionString(cleanedOptions).getCollection)
-    Option(cleanedOptions.getOrElse(collectionNameProperty, defaultCollectionName)) match {
+    cleanedOptions.get(collectionNameProperty).orElse(default) match {
       case Some(collectionName) => collectionName
       case None => throw new IllegalArgumentException(
         s"Missing collection name. Set via the '$configPrefix$mongoURIProperty' or '$configPrefix$collectionNameProperty' property"
@@ -183,8 +184,12 @@ trait MongoCompanionConfig extends Serializable {
     }
   }
 
-  protected def connectionString(options: collection.Map[String, String]) =
-    new ConnectionString(options.getOrElse(mongoURIProperty, DefaultConnectionString))
+  protected def connectionString(options: collection.Map[String, String]) = {
+    val uri = options.getOrElse(mongoURIProperty, DefaultConnectionString)
+    val tryConnectionString = Try(new ConnectionString(uri))
+    require(tryConnectionString.isSuccess, s"Invalid uri: '$uri'")
+    tryConnectionString.get
+  }
 
   private val DefaultConnectionString = "mongodb://localhost/"
 

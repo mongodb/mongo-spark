@@ -19,11 +19,11 @@ package com.mongodb.spark.config
 import java.util
 
 import com.mongodb.spark.notNull
-import com.mongodb.{ReadConcern, ReadPreference}
+import com.mongodb.{ConnectionString, ReadConcern, ReadPreference}
 import org.apache.spark.SparkConf
 import org.apache.spark.api.java.JavaSparkContext
-
 import scala.collection.JavaConverters._
+import scala.util.Try
 
 /**
  * The `ReadConfig` companion object
@@ -42,9 +42,12 @@ object ReadConfig extends MongoInputConfig {
 
   override def apply(options: collection.Map[String, String], default: Option[ReadConfig]): ReadConfig = {
     val cleanedOptions = prefixLessOptions(options)
+    val cachedConnectionString = connectionString(cleanedOptions)
+    val defaultDatabase = default.map(conf => conf.databaseName).orElse(Option(cachedConnectionString.getDatabase))
+    val defaultCollection = default.map(conf => conf.collectionName).orElse(Option(cachedConnectionString.getCollection))
     ReadConfig(
-      databaseName = databaseName(databaseNameProperty, cleanedOptions, default.map(conf => conf.databaseName)),
-      collectionName = collectionName(collectionNameProperty, cleanedOptions, default.map(conf => conf.collectionName)),
+      databaseName = databaseName(databaseNameProperty, cleanedOptions, defaultDatabase),
+      collectionName = collectionName(collectionNameProperty, cleanedOptions, defaultCollection),
       connectionString = cleanedOptions.get(mongoURIProperty).orElse(default.flatMap(conf => conf.connectionString)),
       sampleSize = getInt(cleanedOptions.get(sampleSizeProperty), default.map(conf => conf.sampleSize), DefaultSampleSize),
       maxChunkSize = getInt(cleanedOptions.get(maxChunkSizeProperty), default.map(conf => conf.maxChunkSize), DefaultMaxChunkSize),
@@ -138,6 +141,7 @@ case class ReadConfig(
     readPreferenceConfig: ReadPreferenceConfig = ReadPreferenceConfig(),
     readConcernConfig:    ReadConcernConfig    = ReadConcernConfig()
 ) extends MongoCollectionConfig with MongoClassConfig {
+  require(Try(connectionString.map(uri => new ConnectionString(uri))).isSuccess, s"Invalid uri: '${connectionString.get}'")
   require(sampleSize > 0, s"sampleSize ($sampleSize) must be greater than 0")
   require(localThreshold >= 0, s"localThreshold ($localThreshold) must be greater or equal to 0")
 

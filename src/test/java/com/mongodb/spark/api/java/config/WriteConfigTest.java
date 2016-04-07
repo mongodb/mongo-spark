@@ -35,7 +35,7 @@ public final class WriteConfigTest extends RequiresMongoDB {
     @Test
     public void shouldBeCreatableFromTheSparkConf() {
         WriteConfig readConfig = WriteConfig.create(getSparkConf());
-        WriteConfig expectedReadConfig = WriteConfig.create(getDatabaseName(), getCollectionName(), localThreshold, getMongoClientURI(),
+        WriteConfig expectedReadConfig = WriteConfig.create(getDatabaseName(), getCollectionName(), getMongoClientURI(), localThreshold,
                 WriteConcern.ACKNOWLEDGED);
 
         assertEquals(readConfig, expectedReadConfig);
@@ -52,7 +52,7 @@ public final class WriteConfigTest extends RequiresMongoDB {
         options.put(WriteConfig.writeConcernWTimeoutMSProperty(), "100");
 
         WriteConfig writeConfig = WriteConfig.create(options);
-        WriteConfig expectedWriteConfig = WriteConfig.create("db", "collection", 5, null,
+        WriteConfig expectedWriteConfig = WriteConfig.create("db", "collection", null, 5,
                 WriteConcern.W1.withJournal(true).withWTimeout(100, TimeUnit.MILLISECONDS));
 
         assertEquals(writeConfig, expectedWriteConfig);
@@ -65,7 +65,8 @@ public final class WriteConfigTest extends RequiresMongoDB {
         options.put(ReadConfig.collectionNameProperty(), "collection");
 
         WriteConfig writeConfig = WriteConfig.create(options, WriteConfig.create(getSparkConf()));
-        WriteConfig expectedWriteConfig = WriteConfig.create("db", "collection", localThreshold, getMongoClientURI(), WriteConcern.ACKNOWLEDGED);
+        WriteConfig expectedWriteConfig = WriteConfig.create("db", "collection", getMongoClientURI(), localThreshold,
+                WriteConcern.ACKNOWLEDGED);
 
         assertEquals(writeConfig, expectedWriteConfig);
     }
