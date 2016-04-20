@@ -5,6 +5,15 @@ The following table describes the various configuration options for the Spark Co
 The following connection options can be set via the `SparkConf` object. These are prefixed with `spark.` so that they can be recognized
 from the spark-shell and can be passed via --conf settings or via $SPARK_HOME/conf/spark-default.conf.
 
+------
+**Note:** It is expected that users will configure all the settings in the `SparkConf` at the start and then the Mongo Connector will use those settings as the defaults.
+
+Various methods in the Mongo Connector API will also accept an override for a [`ReadConfig`](../src/main/scala/com/mongodb/spark/config/ReadConfig.scala) or a [`WriteConfig`](src/main/scala/com/mongodb/spark/config/WriteConfig.scala). This is so you can override any values set in the `SparkConf`. (Refer to the source for these methods but in general its where data is loaded or saved to MongoDB). 
+
+In the Spark API there are some methods that accept extra options in the form of a `Map[String, String]`.  For example the `DataFrameReader` or `DataFrameWriter` API's.  Custom `ReadConfig` or `WriteConfig` settings can easily be converted into a `Map` via the `asOptions()` method.
+
+------
+
 ## Input Configuration
 
 The following options are available on `SparkConf` object:
