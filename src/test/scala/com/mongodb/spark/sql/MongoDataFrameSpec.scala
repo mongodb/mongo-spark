@@ -16,13 +16,15 @@
 
 package com.mongodb.spark.sql
 
-import com.mongodb.spark.config.WriteConfig
-import com.mongodb.spark.{RequiresMongoDB, _}
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.catalyst.ScalaReflection
 import org.apache.spark.sql.types.DataTypes._
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
+
 import org.bson.Document
+import com.mongodb.spark.config.WriteConfig
+import com.mongodb.spark._
+
 import org.scalatest.FlatSpec
 
 class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
@@ -80,10 +82,8 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
     df.count() should equal(10)
     df.filter("age > 100").count() should equal(6)
 
-    df = sqlContext.read.option("pipeline", "{ $match: { name: { $exists: true } } }").mongo()
-    df.schema should equal(expectedSchema)
-    df.count() should equal(10)
-    df.filter("age > 100").count() should equal(6)
+    df = sqlContext.read.option("pipeline", "[{ $project: { _id: 0, age: 1 } }]").mongo()
+    df.schema should equal(createStructType(expectedSchema.fields.filter(p => p.name == "age")))
   }
 
   it should "throw an exception if pipeline is invalid" in withSparkContext() { sc =>
