@@ -90,11 +90,11 @@ case class MongoConnector(mongoClientFactory: MongoClientFactory)
    * @return the result
    */
   def withMongoClientDo[T](code: MongoClient => T): T = {
-    val client = MongoConnector.mongoClientCache.acquire(mongoClientFactory)
+    val client = acquireClient()
     try {
       code(client)
     } finally {
-      MongoConnector.mongoClientCache.release(client)
+      releaseClient(client)
     }
   }
 
@@ -131,6 +131,8 @@ case class MongoConnector(mongoClientFactory: MongoClientFactory)
       })
     })
 
+  private[spark] def acquireClient(): MongoClient = MongoConnector.mongoClientCache.acquire(mongoClientFactory)
+  private[spark] def releaseClient(client: MongoClient): Unit = MongoConnector.mongoClientCache.release(client)
   private[spark] def codecRegistry: CodecRegistry = withMongoClientDo({ client => client.getMongoClientOptions.getCodecRegistry })
 
   override def close(): Unit = MongoConnector.mongoClientCache.shutdown()

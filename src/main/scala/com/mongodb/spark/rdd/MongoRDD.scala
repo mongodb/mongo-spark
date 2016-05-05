@@ -21,6 +21,7 @@ import java.util
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
+import scala.util.Try
 
 import org.apache.spark._
 import org.apache.spark.broadcast.Broadcast
@@ -30,14 +31,15 @@ import org.apache.spark.sql.{DataFrame, Dataset, Encoders, SQLContext}
 
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
-import com.mongodb.client.{MongoCollection, MongoCursor}
+import com.mongodb.MongoClient
+import com.mongodb.client.MongoCursor
 import com.mongodb.connection.ServerVersion
 import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
 import com.mongodb.spark.rdd.partitioner.{DefaultMongoPartitioner, MongoPartition, MongoPartitioner}
 import com.mongodb.spark.sql.MongoInferSchema
 import com.mongodb.spark.sql.MongoRelationHelper.documentToRow
-import com.mongodb.spark.{MongoConnector, NotNothing}
+import com.mongodb.spark.{MongoConnector, NotNothing, classTagToClassOf}
 
 /**
  * The MongoRDD companion object
@@ -252,10 +254,12 @@ class MongoRDD[D: ClassTag](
   }
 
   override def compute(split: Partition, context: TaskContext): Iterator[D] = {
-    val cursor: MongoCursor[D] = getCursor(split.asInstanceOf[MongoPartition])
+    val client = connector.value.acquireClient()
+    val cursor = getCursor(client, split.asInstanceOf[MongoPartition])
     context.addTaskCompletionListener((ctx: TaskContext) => {
       log.debug("Task completed closing the MongoDB cursor")
-      cursor.close()
+      Try(cursor.close())
+      connector.value.releaseClient(client)
     })
     cursor.asScala
   }
@@ -265,9 +269,14 @@ class MongoRDD[D: ClassTag](
    *
    * @return the cursor
    */
-  private def getCursor(partition: MongoPartition): MongoCursor[D] = {
+  private def getCursor(client: MongoClient, partition: MongoPartition)(implicit ct: ClassTag[D]): MongoCursor[D] = {
     val partitionPipeline: Seq[Bson] = new BsonDocument("$match", partition.queryBounds) +: pipeline
-    connector.value.withCollectionDo(readConfig, { collection: MongoCollection[D] => collection.aggregate(partitionPipeline.asJava).iterator })
+    client.getDatabase(readConfig.databaseName)
+      .getCollection[D](readConfig.collectionName, classTagToClassOf(ct))
+      .withReadConcern(readConfig.readConcern)
+      .withReadPreference(readConfig.readPreference)
+      .aggregate(partitionPipeline.asJava)
+      .iterator
   }
 
   private def checkSparkContext(): Unit = {
