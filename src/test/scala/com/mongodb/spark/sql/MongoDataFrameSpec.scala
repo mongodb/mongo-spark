@@ -82,8 +82,8 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
     df.count() should equal(10)
     df.filter("age > 100").count() should equal(6)
 
-    df = sqlContext.read.option("pipeline", "[{ $project: { _id: 0, age: 1 } }]").mongo()
-    df.schema should equal(createStructType(expectedSchema.fields.filter(p => p.name == "age")))
+    df = sqlContext.read.option("pipeline", "[{ $project: { _id: 1, age: 1 } }]").mongo()
+    df.schema should equal(createStructType(expectedSchema.fields.filter(p => p.name != "name")))
   }
 
   it should "throw an exception if pipeline is invalid" in withSparkContext() { sc =>
