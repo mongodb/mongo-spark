@@ -16,14 +16,14 @@
 
 package com.mongodb.spark.sql
 
-import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.catalyst.ScalaReflection
 import org.apache.spark.sql.types.DataTypes._
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
+import org.apache.spark.sql.{SQLContext, SaveMode}
 
 import org.bson.Document
-import com.mongodb.spark.config.WriteConfig
 import com.mongodb.spark._
+import com.mongodb.spark.config.WriteConfig
 
 import org.scalatest.FlatSpec
 
@@ -84,6 +84,26 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
     val cached = df.cache()
     cached.count() should equal(3)
     cached.collect().map(r => r.get(0)) should equal(expectedData)
+  }
+
+  it should "handle array fields with null values" in withSparkContext() { sc =>
+    sc.parallelize(arrayFieldWithNulls).saveToMongoDB()
+
+    val saveToCollectionName = s"${collectionName}_new"
+    val readConf = readConfig.withOptions(Map("collection" -> saveToCollectionName))
+
+    new SQLContext(sc).read.mongo().write.mode(SaveMode.Overwrite).option("collection", saveToCollectionName).mongo()
+    sc.loadFromMongoDB(readConfig = readConfig).collect().toList should equal(arrayFieldWithNulls)
+  }
+
+  it should "handle document fields with null values" in withSparkContext() { sc =>
+    sc.parallelize(documentFieldWithNulls).saveToMongoDB()
+
+    val saveToCollectionName = s"${collectionName}_new"
+    val readConf = readConfig.withOptions(Map("collection" -> saveToCollectionName))
+
+    new SQLContext(sc).read.mongo().write.mode(SaveMode.Overwrite).option("collection", saveToCollectionName).mongo()
+    sc.loadFromMongoDB(readConfig = readConfig).collect().toList should equal(documentFieldWithNulls)
   }
 
   it should "be easily created with a provided case class" in withSparkContext() { sc =>
@@ -149,6 +169,8 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
     createStructType(Array(_idField, ageField, nameField))
   }
 
+  private val arrayFieldWithNulls: Seq[Document] = Seq("{_id: 1, a: [1,2,3]}", "{_id: 2, a: []}", "{_id: 3, a: null}").map(Document.parse)
+  private val documentFieldWithNulls: Seq[Document] = Seq("{_id: 1, a: {a: 1}}", "{_id: 2, a: {}}", "{_id: 3, a: null}").map(Document.parse)
   private val mixedLong: Seq[Document] = Seq(new Document("a", 1), new Document("a", 1), new Document("a", 1L))
   private val mixedDouble: Seq[Document] = Seq(new Document("a", 1), new Document("a", 1L), new Document("a", 1.0))
 

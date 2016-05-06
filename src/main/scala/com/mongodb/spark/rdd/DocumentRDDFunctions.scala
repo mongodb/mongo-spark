@@ -46,7 +46,7 @@ case class DocumentRDDFunctions[D](rdd: RDD[D])(implicit e: D DefaultsTo Documen
    * @return the rdd
    */
   def saveToMongoDB(writeConfig: WriteConfig = WriteConfig(sparkConf)): Unit = {
-    val mongoConnector = MongoConnector(WriteConfig(sparkConf).asOptions)
+    val mongoConnector = MongoConnector(writeConfig.asOptions)
     rdd.foreachPartition(iter => if (iter.nonEmpty) {
       mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[D] =>
         collection.insertMany(iter.toList.asJava)

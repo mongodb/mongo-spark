@@ -60,9 +60,9 @@ private[spark] object MongoRelationHelper {
     row.schema.fields.zipWithIndex.foreach({
       case (field, i) =>
         val data = field.dataType match {
-          case arrayField: ArrayType   => arrayTypeToData(arrayField, row.getSeq(i))
-          case subDocument: StructType => rowToDocument(row.getStruct(i))
-          case _                       => row.get(i)
+          case arrayField: ArrayType if !row.isNullAt(i) => arrayTypeToData(arrayField, row.getSeq(i))
+          case subDocument: StructType if !row.isNullAt(i) => rowToDocument(row.getStruct(i))
+          case _ => row.get(i)
         }
         document.append(field.name, data)
     })
@@ -106,11 +106,14 @@ private[spark] object MongoRelationHelper {
     }
   }
 
-  private def convert(element: Any, elementType: DataType): Any = {
+  private def convert(data: Any, elementType: DataType): Any = {
     // TODO - refer to how spark handles errors with Json data
-    Try(castToDataType(element, elementType)) match {
-      case Success(value) => value
-      case Failure(ex)    => throw new RuntimeException(s"Could not convert $element to ${elementType.typeName}")
+    Option(data) match {
+      case Some(element) => Try(castToDataType(element, elementType)) match {
+        case Success(value) => value
+        case Failure(ex)    => throw new RuntimeException(s"Could not convert $element to ${elementType.typeName}")
+      }
+      case None => data
     }
   }
 
