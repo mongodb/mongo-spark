@@ -18,8 +18,10 @@ package com.mongodb.spark.sql
 
 import scala.collection.JavaConverters._
 
-import org.scalatest.FlatSpec
+import org.apache.spark.sql.types.DataTypes.{createStructField, createStructType}
+import org.apache.spark.sql.types.{DataTypes, StructField}
 
+import org.scalatest.FlatSpec
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
 import com.mongodb.MongoClient
@@ -103,6 +105,21 @@ class MongoInferSchemaSpec extends FlatSpec with MongoDataGenerator with Require
       data.schema should equal(MongoInferSchema(rdd))
       database.drop()
     }
+  }
+
+  it should "upscale number types based on numeric precedence" in withSparkContext() { sc =>
+    val _idField: StructField = createStructField("_id", DataTypes.StringType, true)
+    val longField: StructField = createStructField("a", DataTypes.LongType, true)
+    val doubleField: StructField = createStructField("a", DataTypes.DoubleType, true)
+
+    // Contains a long
+    sc.parallelize(Seq(new Document("a", -1), new Document("a", 1), new Document("a", Long.MaxValue))).saveToMongoDB()
+    MongoInferSchema(sc) should equal(createStructType(Array(_idField, longField)))
+    database.drop()
+
+    // Contains a double
+    sc.parallelize(Seq(new Document("a", -1), new Document("a", 1.0), new Document("a", Long.MaxValue))).saveToMongoDB()
+    MongoInferSchema(sc) should equal(createStructType(Array(_idField, doubleField)))
   }
 
   implicit class DocHelpers(val pipeline: Seq[Bson]) {

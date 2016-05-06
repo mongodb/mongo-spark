@@ -123,7 +123,18 @@ private[spark] object MongoRelationHelper {
         element.asInstanceOf[util.List[_]].asScala.map(innerElement => convert(innerElement, innerElementType))
       case schema: StructType => documentToRow(element.asInstanceOf[Document], schema)
       case _: StringType if element.isInstanceOf[ObjectId] => element.asInstanceOf[ObjectId].toHexString
+      case numericType: NumericType => convertNumber(element, numericType)
       case _ => element
+    }
+  }
+
+  // Numeric precedence means that Long columns may contain Ints and Double columns may contain Longs and Ints
+  private def convertNumber(element: Any, numericType: NumericType): Any = {
+    numericType match {
+      case LongType if element.isInstanceOf[Int]    => element.asInstanceOf[Int].toLong
+      case DoubleType if element.isInstanceOf[Int]  => element.asInstanceOf[Int].toDouble
+      case DoubleType if element.isInstanceOf[Long] => element.asInstanceOf[Long].toDouble
+      case _                                        => element
     }
   }
 

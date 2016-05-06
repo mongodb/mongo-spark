@@ -60,6 +60,32 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
       equal(characters.sortBy(_.getInteger("age", 0)).map(doc => (doc.getString("name"), doc.getInteger("age"))))
   }
 
+  it should "handle mixed numerics with long precedence" in withSparkContext() { sc =>
+    sc.parallelize(mixedLong).saveToMongoDB()
+    val expectedData = List(1L, 1L, 1L)
+    val df = new SQLContext(sc).read.mongo().select("a")
+
+    df.count() should equal(3)
+    df.collect().map(r => r.get(0)) should equal(expectedData)
+
+    val cached = df.cache()
+    cached.count() should equal(3)
+    cached.collect().map(r => r.get(0)) should equal(expectedData)
+  }
+
+  it should "handle mixed numerics with double precedence" in withSparkContext() { sc =>
+    sc.parallelize(mixedDouble).saveToMongoDB()
+    val expectedData = List(1.0, 1.0, 1.0)
+    val df = new SQLContext(sc).read.mongo().select("a")
+
+    df.count() should equal(3)
+    df.collect().map(r => r.get(0)) should equal(expectedData)
+
+    val cached = df.cache()
+    cached.count() should equal(3)
+    cached.collect().map(r => r.get(0)) should equal(expectedData)
+  }
+
   it should "be easily created with a provided case class" in withSparkContext() { sc =>
     sc.parallelize(characters).saveToMongoDB()
 
@@ -122,6 +148,9 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
     val ageField: StructField = createStructField("age", DataTypes.IntegerType, true)
     createStructType(Array(_idField, ageField, nameField))
   }
+
+  private val mixedLong: Seq[Document] = Seq(new Document("a", 1), new Document("a", 1), new Document("a", 1L))
+  private val mixedDouble: Seq[Document] = Seq(new Document("a", 1), new Document("a", 1L), new Document("a", 1.0))
 
   // scalastyle:on magic.number
 }
