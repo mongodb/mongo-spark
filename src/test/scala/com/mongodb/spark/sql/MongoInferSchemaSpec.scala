@@ -18,17 +18,20 @@ package com.mongodb.spark.sql
 
 import scala.collection.JavaConverters._
 
-import org.apache.spark.sql.types.DataTypes.{createStructField, createStructType}
+import org.apache.spark.sql.types.DataTypes.{createArrayType, createStructField, createStructType}
 import org.apache.spark.sql.types.{DataTypes, StructField}
 
-import org.scalatest.FlatSpec
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
 import com.mongodb.MongoClient
 import com.mongodb.spark._
 import com.mongodb.spark.rdd.MongoRDD
+import com.mongodb.spark.sql.types.ConflictType
 
-class MongoInferSchemaSpec extends FlatSpec with MongoDataGenerator with RequiresMongoDB {
+import org.scalatest.FlatSpec
+import org.scalatest.prop.TableDrivenPropertyChecks
+
+class MongoInferSchemaSpec extends FlatSpec with MongoDataGenerator with RequiresMongoDB with TableDrivenPropertyChecks {
 
   "MongoSchemaHelper" should "be able to infer the schema from simple types" in withSparkContext() { sc =>
     forAll(genSimpleDataTypes) { (datum: Seq[MongoDataType]) =>
@@ -120,6 +123,57 @@ class MongoInferSchemaSpec extends FlatSpec with MongoDataGenerator with Require
     // Contains a double
     sc.parallelize(Seq(new Document("a", -1), new Document("a", 1.0), new Document("a", Long.MaxValue))).saveToMongoDB()
     MongoInferSchema(sc) should equal(createStructType(Array(_idField, doubleField)))
+  }
+
+  it should "be able to infer the schema from arrays with mixed keys" in withSparkContext() { sc =>
+    val _idField: StructField = createStructField("_id", DataTypes.StringType, true)
+    val elements = createStructType(Seq("b", "c", "d", "e").map(createStructField(_, DataTypes.IntegerType, true)).toArray)
+    val arrayField = createStructField("a", createArrayType(elements, true), true)
+    val expectedSchema = createStructType(Array(_idField, arrayField))
+    val validSchemas = Table(
+      "documents",
+      Seq("{a:[{b:1, c:2}]}", "{a: [{d:3, e:4}]}"),
+      Seq("{a:[{b:1, c:2}, {d:3, e:4}]}"),
+      Seq("{a:[{b:1, c:2}, {d:3}, {e:4}]}"),
+      Seq("{a:[{b:1, c:2}, {}, {e:3}, {d:4, e:5}]}")
+    )
+
+    forAll(validSchemas) { documents =>
+      sc.parallelize(documents.map(BsonDocument.parse)).saveToMongoDB()
+      MongoInferSchema(sc) should equal(expectedSchema)
+      database.drop()
+    }
+  }
+
+  it should "be able to infer the schema from nested arrays with mixed keys" in withSparkContext() { sc =>
+    val _idField: StructField = createStructField("_id", DataTypes.StringType, true)
+    val elements = createStructType(Seq("b", "c", "d", "e").map(createStructField(_, DataTypes.IntegerType, true)).toArray)
+    val arrayField = createStructField("a", createArrayType(createArrayType(elements, true), true), true)
+    val expectedSchema = createStructType(Array(_idField, arrayField))
+    val validSchemas = Table(
+      "documents",
+      Seq("{a:[[{b:1, c:2}]]}", "{a: [[{d:3, e:4}]]}"),
+      Seq("{a:[[{b:1, c:2}, {d:3, e:4}]]}"),
+      Seq("{a:[[], [{b:1}], [{c:2}], [{}], [{e:3}], [{d:4, e:5}]]}")
+    )
+
+    forAll(validSchemas) { documents =>
+      sc.parallelize(documents.map(BsonDocument.parse)).saveToMongoDB()
+      MongoInferSchema(sc) should equal(expectedSchema)
+      database.drop()
+    }
+  }
+
+  it should "still mark incompatible schemas with a ConflictType" in withSparkContext() { sc =>
+    val _idField: StructField = createStructField("_id", DataTypes.StringType, true)
+    val conflictSchema = createStructType(Array(_idField, createStructField("a", ConflictType, true)))
+    val conflictingSchemas = Table("documents", Seq("{a:[{b:1, c:2}]}", "{a: {b: 1}}"), Seq("{a:[{b:1, c:2}, {d:3, e:4}, [{b: 1}]]}"))
+
+    forAll(conflictingSchemas) { documents =>
+      sc.parallelize(documents.map(BsonDocument.parse)).saveToMongoDB()
+      MongoInferSchema(sc) should equal(conflictSchema)
+      database.drop()
+    }
   }
 
   implicit class DocHelpers(val pipeline: Seq[Bson]) {

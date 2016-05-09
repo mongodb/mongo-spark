@@ -184,14 +184,8 @@ object MongoInferSchema {
         bsonArray.takeWhile((bsonValue: BsonValue) => {
           val previous: Option[DataType] = arrayType
           arrayType = Some(getDataType(bsonValue))
-          previous.isEmpty match {
-            case true => true
-            case false => {
-              val areEqual: Boolean = arrayType == previous
-              if (!areEqual) arrayType = Some(ConflictType)
-              areEqual
-            }
-          }
+          if (previous.nonEmpty && arrayType != previous) arrayType = Some(compatibleType(arrayType.get, previous.get))
+          !arrayType.contains(ConflictType)
         })
         arrayType.get match {
           case SkipFieldType => SkipFieldType
