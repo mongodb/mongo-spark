@@ -16,20 +16,21 @@
 
 package com.mongodb.spark.sql
 
-import com.mongodb.client.MongoCollection
-import com.mongodb.spark.config.{ReadConfig, WriteConfig}
-import com.mongodb.spark.rdd.MongoRDD
-import com.mongodb.spark.sql.MongoRelationHelper._
-import com.mongodb.spark.{MongoConnector, toDocumentRDDFunctions}
+import scala.collection.JavaConverters._
+
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SaveMode._
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SQLContext, SaveMode}
+
 import org.bson.conversions.Bson
 import org.bson.{BsonArray, BsonDocument, BsonType, Document}
-
-import scala.collection.JavaConverters._
+import com.mongodb.client.MongoCollection
+import com.mongodb.spark.config.{ReadConfig, WriteConfig}
+import com.mongodb.spark.rdd.MongoRDD
+import com.mongodb.spark.sql.MongoRelationHelper._
+import com.mongodb.spark.{MongoConnector, toDocumentRDDFunctions}
 
 /**
  * A MongoDB based DataSource
@@ -69,7 +70,7 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
       case Some(s) => s
       case None    => MongoInferSchema(pipelinedRdd(MongoRDD[BsonDocument](sqlContext.sparkContext, mongoConnector, readConfig), pipeline))
     }
-    MongoRelation(pipelinedRdd(MongoRDD[Document](sqlContext.sparkContext, mongoConnector, readConfig), pipeline), Some(schema))(sqlContext)
+    MongoRelation(pipelinedRdd(MongoRDD[Document](sqlContext.sparkContext, mongoConnector, readConfig), pipeline), readConfig, Some(schema))(sqlContext)
   }
 
   override def createRelation(sqlContext: SQLContext, mode: SaveMode, parameters: Map[String, String], data: DataFrame): MongoRelation = {
@@ -124,12 +125,12 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
   }
 
   private def connectorAndReadConfig(sqlContext: SQLContext, parameters: Map[String, String]): (MongoConnector, ReadConfig) = {
-    val readConfig = ReadConfig(sqlContext.sparkContext.getConf).withOptions(parameters)
+    val readConfig = ReadConfig(sqlContext.sparkContext.getConf, parameters)
     (MongoConnector(readConfig.asOptions), readConfig)
   }
 
   private def connectorAndWriteConfig(sqlContext: SQLContext, parameters: Map[String, String]): (MongoConnector, WriteConfig) = {
-    val writeConfig = WriteConfig(sqlContext.sparkContext.getConf).withOptions(parameters)
+    val writeConfig = WriteConfig(sqlContext.sparkContext.getConf, parameters)
     (MongoConnector(writeConfig.asOptions), writeConfig)
   }
 }

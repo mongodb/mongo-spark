@@ -27,12 +27,10 @@ import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.sql.MongoRelationHelper.{createPipeline, documentToRow}
 
-case class MongoRelation(mongoRDD: MongoRDD[Document], _schema: Option[StructType])(@transient val sqlContext: SQLContext)
+case class MongoRelation(mongoRDD: MongoRDD[Document], readConfig: ReadConfig, _schema: Option[StructType])(@transient val sqlContext: SQLContext)
     extends BaseRelation
     with PrunedFilteredScan
     with Logging {
-
-  val readConfig: ReadConfig = ReadConfig(mongoRDD.context.getConf)
 
   override lazy val schema: StructType = _schema.getOrElse(MongoInferSchema(sqlContext.sparkContext))
 

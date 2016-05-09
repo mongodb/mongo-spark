@@ -73,7 +73,22 @@ trait MongoCompanionConfig extends Serializable {
    * @param sparkConf the spark configuration
    * @return the configuration
    */
-  def apply(sparkConf: SparkConf): Self = apply(sparkConf.getAll.filter(_._1.startsWith(configPrefix)).toMap)
+  def apply(sparkConf: SparkConf): Self = apply(sparkConf, Map.empty[String, String])
+
+  /**
+   * Create a configuration from the `sparkConf`
+   *
+   * Uses the prefixed properties that are set in the Spark configuration to create the config.
+   *
+   * @see [[configPrefix]]
+   * @param sparkConf the spark configuration
+   * @param options overloaded parameters
+   * @return the configuration
+   */
+  def apply(sparkConf: SparkConf, options: collection.Map[String, String]): Self = {
+    val defaults = sparkConf.getAll.filter(_._1.startsWith(configPrefix)).toMap
+    apply(prefixLessOptions(defaults) ++ prefixLessOptions(options))
+  }
 
   /**
    * Create a configuration from the values in the `Map`
@@ -83,7 +98,9 @@ trait MongoCompanionConfig extends Serializable {
    * @param options a map of properties and their string values
    * @return the configuration
    */
-  def apply(options: collection.Map[String, String]): Self = apply(options, None)
+  def apply(options: collection.Map[String, String]): Self = {
+    apply(options, None)
+  }
 
   /**
    * Create a configuration from the values in the `Map`, using the optional default configuration for any default values.

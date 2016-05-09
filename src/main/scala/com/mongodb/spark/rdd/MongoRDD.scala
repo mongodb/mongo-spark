@@ -297,7 +297,7 @@ class MongoRDD[D: ClassTag](
 
   private[spark] lazy val hasSampleAggregateOperator: Boolean = {
     val buildInfo: BsonDocument = connector.value.withDatabaseDo(
-      ReadConfig(sc.getConf).copy(databaseName = "test"),
+      readConfig.copy(databaseName = "test"),
       { db => db.runCommand(new Document("buildInfo", 1), classOf[BsonDocument]) }
     )
     val versionArray: util.List[Integer] = buildInfo.getArray("versionArray").asScala.take(3).map(_.asInt32().getValue.asInstanceOf[Integer]).asJava
