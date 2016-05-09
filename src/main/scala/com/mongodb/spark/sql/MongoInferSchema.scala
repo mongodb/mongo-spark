@@ -64,7 +64,7 @@ object MongoInferSchema {
         val sampleData: Seq[BsonDocument] = mongoRDD.appendPipeline(Seq(
           Aggregates.project(Projections.include("_id")), Aggregates.sort(Sorts.descending("_id")), Aggregates.limit(samplePool)
         )).takeSample(withReplacement = false, num = sampleSize).toSeq
-        Try(sampleData.map(_.getObjectId("_id")).asJava) match {
+        Try(sampleData.map(_.get("_id")).asJava) match {
           case Success(_ids) => mongoRDD.appendPipeline(Seq(Aggregates.`match`(Filters.in("_id", _ids))))
           case Failure(_) =>
             throw new IllegalArgumentException("The RDD must contain documents that include an '_id' key to infer data when using MongoDB < 3.2")
