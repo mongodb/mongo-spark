@@ -18,6 +18,8 @@ package com.mongodb.spark
 
 import scala.util.{Success, Try}
 
+import org.apache.spark.SparkContext
+
 import org.bson.Document
 import com.mongodb.MongoClientURI
 import com.mongodb.spark.config.ReadConfig
@@ -25,7 +27,8 @@ import com.mongodb.spark.rdd.MongoRDD
 
 class AuthConnectionSpec extends RequiresMongoDB {
 
-  "MongoRDD" should "be able to connect to an authenticated db" in withSparkContext() { sc =>
+  "MongoRDD" should "be able to connect to an authenticated db" in {
+    val sc = new SparkContext(sparkConf)
     val dbName = Option(new MongoClientURI(mongoClientURI).getDatabase).getOrElse(databaseName)
     val readConfig = ReadConfig(sc.getConf, Map("database" -> dbName))
     val mongoRDD: MongoRDD[Document] = sc.loadFromMongoDB(readConfig = readConfig)
