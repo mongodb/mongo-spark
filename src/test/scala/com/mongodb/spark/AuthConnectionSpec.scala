@@ -31,6 +31,17 @@ class AuthConnectionSpec extends RequiresMongoDB {
     val mongoRDD: MongoRDD[Document] = sc.loadFromMongoDB(readConfig = readConfig)
 
     Try(mongoRDD.count()) shouldBe a[Success[_]]
+    sc.stop()
+  }
+
+  override def beforeEach() {
+  }
+
+  override def beforeAll() {
+  }
+
+  override def afterAll() {
+    logInfo(s"Ended Test: '$suiteName'")
   }
 
 }
