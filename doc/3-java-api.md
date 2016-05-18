@@ -137,7 +137,7 @@ MongoSpark.save(jsc.parallelize(characters).map(new Function<String, Document>()
 Then to load the characters into a DataFrame via the standard source method:
 
 ```java
-SQLContext sqlContext = new SQLContext(jsc);
+SQLContext sqlContext = SQLContext.getOrCreate(jsc.sc());
 DataFrame df = sqlContext.read().format("com.mongodb.spark.sql").load();
 df.printSchema();
 ```

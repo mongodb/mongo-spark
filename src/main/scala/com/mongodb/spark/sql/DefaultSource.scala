@@ -68,9 +68,9 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
     val pipeline = parameters.get("pipeline")
     val schema: StructType = structType match {
       case Some(s) => s
-      case None    => MongoInferSchema(pipelinedRdd(MongoRDD[BsonDocument](sqlContext.sparkContext, mongoConnector, readConfig), pipeline))
+      case None    => MongoInferSchema(pipelinedRdd(MongoRDD[BsonDocument](sqlContext, mongoConnector, readConfig), pipeline))
     }
-    MongoRelation(pipelinedRdd(MongoRDD[BsonDocument](sqlContext.sparkContext, mongoConnector, readConfig), pipeline), readConfig, Some(schema))(sqlContext)
+    MongoRelation(pipelinedRdd(MongoRDD[BsonDocument](sqlContext, mongoConnector, readConfig), pipeline), readConfig, Some(schema))(sqlContext)
   }
 
   override def createRelation(sqlContext: SQLContext, mode: SaveMode, parameters: Map[String, String], data: DataFrame): MongoRelation = {

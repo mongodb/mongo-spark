@@ -1,5 +1,8 @@
 # Mongo Spark Connector Changelog
 
+## 0.3-SNAPSHOT
+  * [[SPARK-45](https://jira.mongodb.org/browse/SPARK-45)] Ensure that the SQLContext is reused correctly.
+
 ## 0.2
   * [[SPARK-43](https://jira.mongodb.org/browse/SPARK-43)] Ensure that Bson Types are preserved when round tripping dataframes 
     * Closed the type system to map `BsonValue` to Spark `DataTypes`

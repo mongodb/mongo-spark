@@ -36,7 +36,7 @@ The entry point to Spark SQL is the `SQLContext` class or one of its descendants
 import org.apache.spark.sql.SQLContext
 
 val sc: SparkContext // An existing SparkContext.
-val sqlContext = new SQLContext(sc)
+val sqlContext = SQLContext.getOrCreate(sc)
 ```
 
 First enable the Mongo Connector specific functions on the `SQLContext`:

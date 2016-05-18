@@ -51,7 +51,7 @@ object SparkSQL extends TourHelper {
     sc.parallelize(docs.map(Document.parse)).saveToMongoDB()
 
     // Create SQLContext
-    val sqlContext = new SQLContext(sc)
+    val sqlContext = SQLContext.getOrCreate(sc)
 
     // Import the SQL helper
     import com.mongodb.spark.sql._

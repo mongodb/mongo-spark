@@ -49,7 +49,7 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
 
   "DataFrameReader" should "should be easily created from the SQLContext and load from Mongo" in withSparkContext() { sc =>
     sc.parallelize(characters).saveToMongoDB()
-    val df = new SQLContext(sc).read.mongo()
+    val df = SQLContext.getOrCreate(sc).read.mongo()
 
     df.schema should equal(expectedSchema)
     df.count() should equal(10)
@@ -58,7 +58,7 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
 
   it should "handle selecting out of order columns" in withSparkContext() { sc =>
     sc.parallelize(characters).saveToMongoDB()
-    val sqlContext = new SQLContext(sc)
+    val sqlContext = SQLContext.getOrCreate(sc)
     val df = sqlContext.read.mongo()
 
     df.select("name", "age").orderBy("age").rdd.map(r => (r.get(0), r.get(1))).collect() should
@@ -68,7 +68,7 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
   it should "handle mixed numerics with long precedence" in withSparkContext() { sc =>
     sc.parallelize(mixedLong).saveToMongoDB()
     val expectedData = List(1L, 1L, 1L)
-    val df = new SQLContext(sc).read.mongo().select("a")
+    val df = SQLContext.getOrCreate(sc).read.mongo().select("a")
 
     df.count() should equal(3)
     df.collect().map(r => r.get(0)) should equal(expectedData)
@@ -81,7 +81,7 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
   it should "handle mixed numerics with double precedence" in withSparkContext() { sc =>
     sc.parallelize(mixedDouble).saveToMongoDB()
     val expectedData = List(1.0, 1.0, 1.0)
-    val df = new SQLContext(sc).read.mongo().select("a")
+    val df = SQLContext.getOrCreate(sc).read.mongo().select("a")
 
     df.count() should equal(3)
     df.collect().map(r => r.get(0)) should equal(expectedData)
@@ -97,7 +97,7 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
     val saveToCollectionName = s"${collectionName}_new"
     val readConf = readConfig.withOptions(Map("collection" -> saveToCollectionName))
 
-    new SQLContext(sc).read.mongo().write.mode(SaveMode.Overwrite).option("collection", saveToCollectionName).mongo()
+    SQLContext.getOrCreate(sc).read.mongo().write.mode(SaveMode.Overwrite).option("collection", saveToCollectionName).mongo()
     sc.loadFromMongoDB(readConfig = readConfig).collect().toList should equal(arrayFieldWithNulls)
   }
 
@@ -107,14 +107,14 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
     val saveToCollectionName = s"${collectionName}_new"
     val readConf = readConfig.withOptions(Map("collection" -> saveToCollectionName))
 
-    new SQLContext(sc).read.mongo().write.mode(SaveMode.Overwrite).option("collection", saveToCollectionName).mongo()
+    SQLContext.getOrCreate(sc).read.mongo().write.mode(SaveMode.Overwrite).option("collection", saveToCollectionName).mongo()
     sc.loadFromMongoDB(readConfig = readConfig).collect().toList should equal(documentFieldWithNulls)
   }
 
   it should "be easily created with a provided case class" in withSparkContext() { sc =>
     sc.parallelize(characters).saveToMongoDB()
 
-    val sqlContext = new SQLContext(sc)
+    val sqlContext = SQLContext.getOrCreate(sc)
     val df = sqlContext.read.mongo[Character]()
     val reflectedSchema: StructType = ScalaReflection.schemaFor[Character].dataType.asInstanceOf[StructType]
 
@@ -126,7 +126,7 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
   it should "include any pipelines when inferring the schema" in withSparkContext() { sc =>
     sc.parallelize(characters).saveToMongoDB()
     sc.parallelize(List("{counter: 1}", "{counter: 2}", "{counter: 3}").map(Document.parse)).saveToMongoDB()
-    val sqlContext = new SQLContext(sc)
+    val sqlContext = SQLContext.getOrCreate(sc)
 
     var df = sqlContext.read.option("pipeline", "[{ $match: { name: { $exists: true } } }]").mongo()
     df.schema should equal(expectedSchema)
@@ -141,11 +141,11 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
     sc.parallelize(characters).saveToMongoDB()
     sc.parallelize(List("{counter: 1}", "{counter: 2}", "{counter: 3}").map(Document.parse)).saveToMongoDB()
 
-    an[IllegalArgumentException] should be thrownBy new SQLContext(sc).read.option("pipeline", "[1, 2, 3]").mongo()
+    an[IllegalArgumentException] should be thrownBy SQLContext.getOrCreate(sc).read.option("pipeline", "[1, 2, 3]").mongo()
   }
 
   "DataFrameWriter" should "be easily created from a DataFrame and save to Mongo" in withSparkContext() { sc =>
-    val sqlContext = new SQLContext(sc)
+    val sqlContext = SQLContext.getOrCreate(sc)
     import sqlContext.implicits._
     sc.parallelize(characters)
       .filter(_.containsKey("age")).map(doc => Character(doc.getString("name"), doc.getInteger("age")))
@@ -155,7 +155,7 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
   }
 
   it should "take custom writeConfig" in withSparkContext() { sc =>
-    val sqlContext = new SQLContext(sc)
+    val sqlContext = SQLContext.getOrCreate(sc)
     import sqlContext.implicits._
     val saveToCollectionName = s"${collectionName}_new"
     val writeConfig = WriteConfig(sc.getConf).withOptions(Map("collection" -> saveToCollectionName))
@@ -171,7 +171,7 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
     database.getCollection(collectionName, classOf[BsonDocument]).insertOne(allBsonTypesDocument)
 
     val newCollectionName = s"${collectionName}_new"
-    new SQLContext(sc).read.mongo().write.option("collection", newCollectionName).mongo()
+    SQLContext.getOrCreate(sc).read.mongo().write.option("collection", newCollectionName).mongo()
 
     val original = database.getCollection(collectionName).find().iterator().asScala.toList
     val copied = database.getCollection(newCollectionName).find().iterator().asScala.toList

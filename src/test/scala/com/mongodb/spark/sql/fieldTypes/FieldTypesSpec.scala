@@ -59,7 +59,7 @@ class FieldTypesSpec extends RequiresMongoDB {
     database.getCollection(collectionName, classOf[BsonDocument]).insertOne(bsonDocument)
     val newCollectionName = s"${collectionName}_new"
 
-    new SQLContext(sc).read.mongo[BsonTypesCaseClass]().write.option("collection", newCollectionName).mongo()
+    SQLContext.getOrCreate(sc).read.mongo[BsonTypesCaseClass]().write.option("collection", newCollectionName).mongo()
     val original = database.getCollection(collectionName).find().iterator().asScala.toList.head
     val copied = database.getCollection(newCollectionName).find().iterator().asScala.toList.head
     copied should equal(original)

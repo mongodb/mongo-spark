@@ -39,7 +39,7 @@ object MongoSpark {
    * @param jsc the Spark context containing the MongoDB connection configuration
    * @return a MongoRDD
    */
-  def load(jsc: JavaSparkContext): JavaMongoRDD[Document] = load(new SQLContext(jsc), classOf[Document])
+  def load(jsc: JavaSparkContext): JavaMongoRDD[Document] = load(SQLContext.getOrCreate(jsc.sc), classOf[Document])
 
   /**
    * Load data from MongoDB
@@ -49,7 +49,7 @@ object MongoSpark {
    * @tparam D the type of Document to return
    * @return a MongoRDD
    */
-  def load[D](jsc: JavaSparkContext, clazz: Class[D]): JavaMongoRDD[D] = load(new SQLContext(jsc), MongoConnectors.create(jsc.getConf), clazz)
+  def load[D](jsc: JavaSparkContext, clazz: Class[D]): JavaMongoRDD[D] = load(SQLContext.getOrCreate(jsc.sc), MongoConnectors.create(jsc.getConf), clazz)
 
   /**
    * Load data from MongoDB
@@ -79,7 +79,7 @@ object MongoSpark {
    * @param connector the[[com.mongodb.spark.MongoConnector]]
    * @return a MongoRDD
    */
-  def load(jsc: JavaSparkContext, connector: MongoConnector): JavaMongoRDD[Document] = load(new SQLContext(jsc), connector, classOf[Document])
+  def load(jsc: JavaSparkContext, connector: MongoConnector): JavaMongoRDD[Document] = load(SQLContext.getOrCreate(jsc.sc), connector, classOf[Document])
 
   /**
    * Load data from MongoDB
@@ -91,7 +91,7 @@ object MongoSpark {
    * @return a MongoRDD
    */
   def load[D](jsc: JavaSparkContext, connector: MongoConnector, clazz: Class[D]): JavaMongoRDD[D] =
-    load(new SQLContext(jsc), connector, ReadConfig(jsc.getConf), clazz)
+    load(SQLContext.getOrCreate(jsc.sc), connector, ReadConfig(jsc.getConf), clazz)
 
   /**
    * Load data from MongoDB
@@ -102,7 +102,7 @@ object MongoSpark {
    * @return a MongoRDD
    */
   def load(jsc: JavaSparkContext, connector: MongoConnector, readConfig: ReadConfig): JavaMongoRDD[Document] =
-    load(new SQLContext(jsc), connector, readConfig, classOf[Document])
+    load(SQLContext.getOrCreate(jsc.sc), connector, readConfig, classOf[Document])
 
   /**
    * Load data from MongoDB
@@ -115,7 +115,7 @@ object MongoSpark {
    * @return a MongoRDD
    */
   def load[D](jsc: JavaSparkContext, connector: MongoConnector, readConfig: ReadConfig, clazz: Class[D]): JavaMongoRDD[D] =
-    load(new SQLContext(jsc), connector, readConfig, clazz)
+    load(SQLContext.getOrCreate(jsc.sc), connector, readConfig, clazz)
 
   /**
    * Load data from MongoDB
@@ -127,7 +127,7 @@ object MongoSpark {
    * @return a MongoRDD
    */
   def load(jsc: JavaSparkContext, connector: MongoConnector, readConfig: ReadConfig, pipeline: util.List[Bson]): JavaMongoRDD[Document] =
-    load(new SQLContext(jsc), connector, readConfig, pipeline, classOf[Document])
+    load(SQLContext.getOrCreate(jsc.sc), connector, readConfig, pipeline, classOf[Document])
 
   /**
    * Load data from MongoDB
@@ -141,7 +141,7 @@ object MongoSpark {
    * @return a MongoRDD
    */
   def load[D](jsc: JavaSparkContext, connector: MongoConnector, readConfig: ReadConfig, pipeline: util.List[Bson], clazz: Class[D]): JavaMongoRDD[D] =
-    load(new SQLContext(jsc), connector, readConfig, pipeline, clazz)
+    load(SQLContext.getOrCreate(jsc.sc), connector, readConfig, pipeline, clazz)
 
   /**
    * Load data from MongoDB

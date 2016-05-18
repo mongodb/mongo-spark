@@ -126,7 +126,7 @@ public final class JavaIntroduction {
 
 
         // Load inferring schema
-        SQLContext sqlContext = new SQLContext(jsc);
+        SQLContext sqlContext = SQLContext.getOrCreate(jsc.sc());
         DataFrame df = sqlContext.read().format("com.mongodb.spark.sql").load();
         df.printSchema();
         df.show();

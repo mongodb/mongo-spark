@@ -26,7 +26,7 @@ class MongoDataFrameNoConfSpec extends RequiresMongoDB {
   "DataFrame Readers and Writers" should "be able to accept just options" in {
     val characters = Seq(Character("Gandalf", 1000), Character("Bilbo Baggins", 50)) //scalastyle:ignore
 
-    val sqlContext = new SQLContext(sc)
+    val sqlContext = SQLContext.getOrCreate(sc)
     import sqlContext.implicits._
     sc.parallelize(characters).toDF().write
       .option("mode", "Overwrite")

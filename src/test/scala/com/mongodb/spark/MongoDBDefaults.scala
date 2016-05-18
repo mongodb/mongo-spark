@@ -48,6 +48,8 @@ class MongoDBDefaults extends Logging {
     new SparkConf()
       .setMaster("local")
       .setAppName("MongoSparkConnector")
+      .set("spark.driver.allowMultipleContexts", "false")
+      .set("spark.sql.allowMultipleContexts", "false")
       .set("spark.app.id", "MongoSparkConnector")
       .set("spark.mongodb.input.uri", mongoClientURI)
       .set("spark.mongodb.input.database", DATABASE_NAME)

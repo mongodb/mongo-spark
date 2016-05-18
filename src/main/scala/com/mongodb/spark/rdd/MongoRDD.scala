@@ -55,7 +55,7 @@ object MongoRDD {
    * @tparam D the type of Document to return
    * @return a MongoRDD
    */
-  def apply[D: ClassTag](sc: SparkContext): MongoRDD[D] = apply(new SQLContext(sc))
+  def apply[D: ClassTag](sc: SparkContext): MongoRDD[D] = apply(SQLContext.getOrCreate(sc))
 
   /**
    * Creates a MongoRDD
@@ -65,7 +65,7 @@ object MongoRDD {
    * @tparam D the type of Document to return
    * @return a MongoRDD
    */
-  def apply[D: ClassTag](sc: SparkContext, connector: MongoConnector): MongoRDD[D] = apply(new SQLContext(sc), connector)
+  def apply[D: ClassTag](sc: SparkContext, connector: MongoConnector): MongoRDD[D] = apply(SQLContext.getOrCreate(sc), connector)
 
   /**
    * Creates a MongoRDD
@@ -75,7 +75,7 @@ object MongoRDD {
    * @tparam D the type of Document to return
    * @return a MongoRDD
    */
-  def apply[D: ClassTag](sc: SparkContext, readConfig: ReadConfig): MongoRDD[D] = apply(new SQLContext(sc), readConfig)
+  def apply[D: ClassTag](sc: SparkContext, readConfig: ReadConfig): MongoRDD[D] = apply(SQLContext.getOrCreate(sc), readConfig)
 
   /**
    * Creates a MongoRDD
@@ -100,7 +100,7 @@ object MongoRDD {
    * @return a MongoRDD
    */
   def apply[D: ClassTag](sc: SparkContext, connector: MongoConnector, readConfig: ReadConfig, pipeline: Seq[Bson]): MongoRDD[D] =
-    apply(new SQLContext(sc), connector, readConfig, pipeline)
+    apply(SQLContext.getOrCreate(sc), connector, readConfig, pipeline)
 
   /**
    * Creates a MongoRDD
