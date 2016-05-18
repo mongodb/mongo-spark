@@ -50,4 +50,5 @@ package object sql {
    */
   implicit def toMongoDataFrameWriterFunctions(dfw: DataFrameWriter): MongoDataFrameWriterFunctions =
     new MongoDataFrameWriterFunctions(dfw)
+
 }

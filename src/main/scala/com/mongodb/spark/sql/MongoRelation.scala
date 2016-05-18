@@ -16,18 +16,19 @@
 
 package com.mongodb.spark.sql
 
-import com.mongodb.spark.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{Row, SQLContext}
 
-import org.bson.Document
+import org.bson.BsonDocument
+import com.mongodb.spark.Logging
 import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.rdd.MongoRDD
-import com.mongodb.spark.sql.MongoRelationHelper.{createPipeline, documentToRow}
+import com.mongodb.spark.sql.MapFunctions.documentToRow
+import com.mongodb.spark.sql.MongoRelationHelper.createPipeline
 
-case class MongoRelation(mongoRDD: MongoRDD[Document], readConfig: ReadConfig, _schema: Option[StructType])(@transient val sqlContext: SQLContext)
+case class MongoRelation(mongoRDD: MongoRDD[BsonDocument], readConfig: ReadConfig, _schema: Option[StructType])(@transient val sqlContext: SQLContext)
     extends BaseRelation
     with PrunedFilteredScan
     with Logging {

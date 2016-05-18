@@ -26,7 +26,7 @@ import org.bson.{BsonDocument, Document}
 import com.mongodb.MongoClient
 import com.mongodb.spark._
 import com.mongodb.spark.rdd.MongoRDD
-import com.mongodb.spark.sql.types.ConflictType
+import com.mongodb.spark.sql.types.{BsonCompatibility, ConflictType}
 
 import org.scalatest.FlatSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -111,7 +111,7 @@ class MongoInferSchemaSpec extends FlatSpec with MongoDataGenerator with Require
   }
 
   it should "upscale number types based on numeric precedence" in withSparkContext() { sc =>
-    val _idField: StructField = createStructField("_id", DataTypes.StringType, true)
+    val _idField: StructField = createStructField("_id", BsonCompatibility.ObjectId.structType, true)
     val longField: StructField = createStructField("a", DataTypes.LongType, true)
     val doubleField: StructField = createStructField("a", DataTypes.DoubleType, true)
 
@@ -126,7 +126,7 @@ class MongoInferSchemaSpec extends FlatSpec with MongoDataGenerator with Require
   }
 
   it should "be able to infer the schema from arrays with mixed keys" in withSparkContext() { sc =>
-    val _idField: StructField = createStructField("_id", DataTypes.StringType, true)
+    val _idField: StructField = createStructField("_id", BsonCompatibility.ObjectId.structType, true)
     val elements = createStructType(Seq("b", "c", "d", "e").map(createStructField(_, DataTypes.IntegerType, true)).toArray)
     val arrayField = createStructField("a", createArrayType(elements, true), true)
     val expectedSchema = createStructType(Array(_idField, arrayField))
@@ -145,8 +145,26 @@ class MongoInferSchemaSpec extends FlatSpec with MongoDataGenerator with Require
     }
   }
 
+  it should "be able to infer the schema from arrays with mixed numerics" in withSparkContext() { sc =>
+    val _idField: StructField = createStructField("_id", BsonCompatibility.ObjectId.structType, true)
+    val arrayField = createStructField("a", createArrayType(DataTypes.DoubleType, true), true)
+    val expectedSchema = createStructType(Array(_idField, arrayField))
+    val documents = Seq("{a: [1, 2, 3.0]}")
+    val validSchemas = Table(
+      "documents",
+      Seq("{a: [1, 2, 3.0]}"),
+      Seq("{a:[1, 2, 3]}", "{a:[1, 2.0, 3]}")
+    )
+
+    forAll(validSchemas) { documents =>
+      sc.parallelize(documents.map(BsonDocument.parse)).saveToMongoDB()
+      MongoInferSchema(sc) should equal(expectedSchema)
+      database.drop()
+    }
+  }
+
   it should "be able to infer the schema from nested arrays with mixed keys" in withSparkContext() { sc =>
-    val _idField: StructField = createStructField("_id", DataTypes.StringType, true)
+    val _idField: StructField = createStructField("_id", BsonCompatibility.ObjectId.structType, true)
     val elements = createStructType(Seq("b", "c", "d", "e").map(createStructField(_, DataTypes.IntegerType, true)).toArray)
     val arrayField = createStructField("a", createArrayType(createArrayType(elements, true), true), true)
     val expectedSchema = createStructType(Array(_idField, arrayField))
@@ -165,7 +183,7 @@ class MongoInferSchemaSpec extends FlatSpec with MongoDataGenerator with Require
   }
 
   it should "still mark incompatible schemas with a ConflictType" in withSparkContext() { sc =>
-    val _idField: StructField = createStructField("_id", DataTypes.StringType, true)
+    val _idField: StructField = createStructField("_id", BsonCompatibility.ObjectId.structType, true)
     val conflictSchema = createStructType(Array(_idField, createStructField("a", ConflictType, true)))
     val conflictingSchemas = Table("documents", Seq("{a:[{b:1, c:2}]}", "{a: {b: 1}}"), Seq("{a:[{b:1, c:2}, {d:3, e:4}, [{b: 1}]]}"))
 

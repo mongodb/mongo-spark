@@ -126,7 +126,7 @@ public final class MongoSparkTest extends RequiresMongoDB {
         MongoSpark.save(jsc.parallelize(counters));
         JavaMongoRDD<Document> mongoRDD = MongoSpark.load(jsc);
 
-        StructField _idField = createStructField("_id", DataTypes.StringType, true);
+        StructField _idField = createStructField("_id", ObjectIdStruct(), true);
         StructField countField = createStructField("counter", DataTypes.IntegerType, true);
         StructType expectedSchema = createStructType(asList(_idField, countField));
 
@@ -214,8 +214,6 @@ public final class MongoSparkTest extends RequiresMongoDB {
                 return counter.getCounter();
             }
         }, Encoders.INT());
-
-        System.out.println(test.collectAsList());
 
         // then - default values
         assertEquals(dataset.map(new MapFunction<Counter, Integer>(){

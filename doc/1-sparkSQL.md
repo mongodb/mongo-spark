@@ -183,4 +183,57 @@ Outputs:
 
 -----
 
+## DataTypes
+
+Spark supports a limited number of data types, to ensure that all bson types can be round tripped in and out of Spark DataFrames / 
+DataSets. Custom StructTypes are created for any unsupported Bson Types. The following table shows the mapping between the Bson Types and 
+Spark Types:
+
+Bson Type               | Spark Type
+------------------------|---------------------------------------------------------------------
+`Document`              | `StructType`
+`Array`                 | `ArrayType`
+`32-bit integer`        | `Integer`
+`64-bit integer`        | `Long`
+`Binary data`           | `Array[Byte]` or `StructType`: `{ subType: Byte, data: Array[Byte]}`
+`Boolean`               | `Boolean`
+`Date`                  | `java.sql.Timestamp`
+`DBPointer`             | `StructType`: `{ ref: String , oid: String}`
+`Double`                | `Double`
+`JavaScript`            | `StructType`: `{ code: String }`
+`JavaScript with scope` | `StructType`: `{ code: String , scope: String }`
+`Max key`               | `StructType`: `{ maxKey: Integer }`
+`Min key`               | `StructType`: `{ minKey: Integer }`
+`Null`                  | `null`
+`ObjectId`              | `StructType`: `{ oid: String }`
+`Regular Expression`    | `StructType`: `{ regex: String , options: String }`
+`String`                | `String`
+`Symbol`                | `StructType`: `{ symbol: String }`
+`Timestamp`             | `StructType`: `{ time: Integer , inc: Integer }`
+`Undefined`             | `StructType`: `{ undefined: Boolean }`
+
+### Dataset support
+
+To help better support DataSets, the following Scala case classes and JavaBean classes have been created to represent the unsupported Bson 
+Types:
+
+Bson Type               | Scala case class                       | JavaBean
+------------------------|----------------------------------------|----------------------------------------------
+                        | `com.mongodb.spark.sql.fieldTypes`     | `com.mongodb.spark.api.java.sql.fieldTypes.`
+`Binary data`           | `Binary`                               | `Binary`
+`DBPointer`             | `DBPointer`                            | `DBPointer`
+`JavaScript`            | `JavaScript`                           | `JavaScript`
+`JavaScript with scope` | `JavaScriptWithScope`                  | `JavaScriptWithScope`
+`Max key`               | `MaxKey`                               | `MaxKey`
+`Min key`               | `MinKey`                               | `MinKey`
+`ObjectId`              | `ObjectId`                             | `ObjectId`
+`Regular Expression`    | `RegularExpression`                    | `RegularExpression`
+`Symbol`                | `Symbol`                               | `Symbol`
+`Timestamp`             | `Timestamp`                            | `Timestamp`
+`Undefined`             | `Undefined`                            | `Undefined`
+
+For convenience all Bson Types can be represented as a String value as well, however these values lose all their type information and if 
+saved back to MongoDB they would be stored as a String.
+
+
 [Next - Configuring](2-configuring.md)

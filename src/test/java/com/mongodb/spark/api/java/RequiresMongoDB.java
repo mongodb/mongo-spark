@@ -20,9 +20,11 @@ import com.mongodb.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.spark.MongoDBDefaults;
+import com.mongodb.spark.sql.types.BsonCompatibility;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.sql.types.StructType;
 import org.bson.Document;
 import org.junit.After;
 import org.junit.Before;
@@ -83,6 +85,10 @@ public abstract class RequiresMongoDB implements Serializable {
 
     public String getCollectionName() {
         return this.getClass().getName();
+    }
+
+    public StructType ObjectIdStruct() {
+        return BsonCompatibility.ObjectId$.MODULE$.structType();
     }
 
     @Before

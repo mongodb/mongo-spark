@@ -18,7 +18,6 @@ package com.mongodb.spark.sql
 
 import java.util
 
-import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.reflect.runtime.universe._
 import scala.util.{Failure, Success, Try}
@@ -31,7 +30,7 @@ import org.apache.spark.sql.types._
 import org.bson._
 import com.mongodb.client.model.{Aggregates, Filters, Projections, Sorts}
 import com.mongodb.spark.rdd.MongoRDD
-import com.mongodb.spark.sql.types.{ConflictType, SkipFieldType}
+import com.mongodb.spark.sql.types.{ConflictType, BsonCompatibility, SkipFieldType}
 
 object MongoInferSchema {
 
@@ -70,7 +69,6 @@ object MongoInferSchema {
             throw new IllegalArgumentException("The RDD must contain documents that include an '_id' key to infer data when using MongoDB < 3.2")
         }
     }
-
     // perform schema inference on each row and merge afterwards
     val rootType: DataType = sampleData.mapPartitions(_.map(doc => getSchemaFromDocument(doc)))
       .treeAggregate[DataType](StructType(Seq()))(compatibleType, compatibleType)
@@ -136,14 +134,13 @@ object MongoInferSchema {
     HiveTypeCoercion.findTightestCommonTypeOfTwo(t1, t2).getOrElse {
       // t1 or t2 is a StructType, ArrayType, or an unexpected type.
       (t1, t2) match {
-        case (StructType(fields1), StructType(fields2)) => {
+        case (StructType(fields1), StructType(fields2)) =>
           val newFields = (fields1 ++ fields2).groupBy(field => field.name).map {
             case (name, fieldTypes) =>
               val dataType = fieldTypes.view.map(_.dataType).reduce(compatibleType)
               StructField(name, dataType, nullable = true)
           }
           StructType(newFields.toSeq.sortBy(_.name))
-        }
         case (ArrayType(elementType1, containsNull1), ArrayType(elementType2, containsNull2)) =>
           ArrayType(compatibleType(elementType1, elementType2), containsNull1 || containsNull2)
         // SkipFieldType Types
@@ -158,48 +155,57 @@ object MongoInferSchema {
   // scalastyle:off cyclomatic.complexity null
   private def getDataType(bsonValue: BsonValue): DataType = {
     bsonValue.getBsonType match {
-      case BsonType.NULL      => DataTypes.NullType
-      case BsonType.ARRAY     => getSchemaFromArray(bsonValue.asArray().asScala)
-      case BsonType.BINARY    => DataTypes.BinaryType
-      case BsonType.BOOLEAN   => DataTypes.BooleanType
-      case BsonType.DATE_TIME => DataTypes.DateType
-      case BsonType.DOCUMENT  => getSchemaFromDocument(bsonValue.asDocument())
-      case BsonType.DOUBLE    => DataTypes.DoubleType
-      case BsonType.INT32     => DataTypes.IntegerType
-      case BsonType.INT64     => DataTypes.LongType
-      case BsonType.OBJECT_ID => DataTypes.StringType
-      case BsonType.STRING    => DataTypes.StringType
-      case BsonType.TIMESTAMP => DataTypes.TimestampType
-      case _                  => ConflictType
+      case BsonType.NULL                  => DataTypes.NullType
+      case BsonType.ARRAY                 => getSchemaFromArray(bsonValue.asArray().asScala)
+      case BsonType.BINARY                => BsonCompatibility.Binary.getDataType(bsonValue.asBinary())
+      case BsonType.BOOLEAN               => DataTypes.BooleanType
+      case BsonType.DATE_TIME             => DataTypes.TimestampType
+      case BsonType.DOCUMENT              => getSchemaFromDocument(bsonValue.asDocument())
+      case BsonType.DOUBLE                => DataTypes.DoubleType
+      case BsonType.INT32                 => DataTypes.IntegerType
+      case BsonType.INT64                 => DataTypes.LongType
+      case BsonType.STRING                => DataTypes.StringType
+      case BsonType.OBJECT_ID             => BsonCompatibility.ObjectId.structType
+      case BsonType.TIMESTAMP             => BsonCompatibility.Timestamp.structType
+      case BsonType.MIN_KEY               => BsonCompatibility.MinKey.structType
+      case BsonType.MAX_KEY               => BsonCompatibility.MaxKey.structType
+      case BsonType.JAVASCRIPT            => BsonCompatibility.JavaScript.structType
+      case BsonType.JAVASCRIPT_WITH_SCOPE => BsonCompatibility.JavaScriptWithScope.structType
+      case BsonType.REGULAR_EXPRESSION    => BsonCompatibility.RegularExpression.structType
+      case BsonType.UNDEFINED             => BsonCompatibility.Undefined.structType
+      case BsonType.SYMBOL                => BsonCompatibility.Symbol.structType
+      case BsonType.DB_POINTER            => BsonCompatibility.DbPointer.structType
+      case _                              => ConflictType
     }
   }
 
-  @tailrec
   private def getSchemaFromArray(bsonArray: Seq[BsonValue]): DataType = {
     val arrayTypes: Seq[BsonType] = bsonArray.map(_.getBsonType).distinct
     arrayTypes.length match {
       case 0 => SkipFieldType
-      case 1 if Seq(BsonType.ARRAY, BsonType.DOCUMENT).contains(arrayTypes.head) => {
-        var arrayType: Option[DataType] = None
-        bsonArray.takeWhile((bsonValue: BsonValue) => {
-          val previous: Option[DataType] = arrayType
-          arrayType = Some(getDataType(bsonValue))
-          if (previous.nonEmpty && arrayType != previous) arrayType = Some(compatibleType(arrayType.get, previous.get))
-          arrayType != Some(ConflictType) // Option.contains was added in Scala 2.11
-        })
-        arrayType.get match {
-          case SkipFieldType => SkipFieldType
-          case ConflictType  => ConflictType
-          case dataType      => DataTypes.createArrayType(dataType, true)
-        }
-      }
+      case 1 if Seq(BsonType.ARRAY, BsonType.DOCUMENT).contains(arrayTypes.head) => getCompatibleArraySchema(bsonArray)
       case 1 => DataTypes.createArrayType(getDataType(bsonArray.head), true)
-      case 2 if arrayTypes.contains(BsonType.NULL) =>
-        getSchemaFromArray(bsonArray.filter((bsonValue: BsonValue) => bsonValue.getBsonType == BsonType.NULL))
-      case _ => ConflictType
+      case _ => getCompatibleArraySchema(bsonArray)
     }
   }
   // scalastyle:on cyclomatic.complexity null
+
+  def getCompatibleArraySchema(bsonArray: Seq[BsonValue]): DataType = {
+    var arrayType: Option[DataType] = Some(SkipFieldType)
+    bsonArray.takeWhile({
+      case (bsonValue: BsonNull) => true
+      case (bsonValue: BsonValue) =>
+        val previous: Option[DataType] = arrayType
+        arrayType = Some(getDataType(bsonValue))
+        if (previous.nonEmpty && arrayType != previous) arrayType = Some(compatibleType(arrayType.get, previous.get))
+        arrayType != Some(ConflictType) // Option.contains was added in Scala 2.11
+    })
+    arrayType.get match {
+      case SkipFieldType => SkipFieldType
+      case ConflictType  => ConflictType
+      case dataType      => DataTypes.createArrayType(dataType, true)
+    }
+  }
 
   def reflectSchema[T <: Product: TypeTag](): Option[StructType] = {
     typeOf[T] match {

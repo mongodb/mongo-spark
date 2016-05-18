@@ -22,17 +22,18 @@ import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.util.Random
 
+import org.apache.spark.sql.types._
+
+import org.bson.Document
+import org.bson.types.Binary
+import com.mongodb.spark.sql.types.BsonCompatibility
+
 import org.scalacheck.Gen
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 
-import org.apache.spark.sql.types._
-
-import org.bson.types.Binary
-import org.bson.{BsonTimestamp, Document}
-
 // scalastyle:off magic.number
 trait MongoDataGenerator extends GeneratorDrivenPropertyChecks {
-  val _idField: StructField = DataTypes.createStructField("_id", DataTypes.StringType, true)
+  val _idField: StructField = DataTypes.createStructField("_id", BsonCompatibility.ObjectId.structType, true)
   val sampleSize: Int = 10
   val sampleRatio: Double = 1.0
 
@@ -45,7 +46,7 @@ trait MongoDataGenerator extends GeneratorDrivenPropertyChecks {
 
   implicit override val generatorDrivenConfig = PropertyCheckConfig(minSuccessful, maxDiscarded, minSize, maxSize)
 
-  val simpleDataTypes: Seq[DataType] = Seq(DataTypes.NullType, DataTypes.BinaryType, DataTypes.BooleanType, DataTypes.DateType, DataTypes.DoubleType,
+  val simpleDataTypes: Seq[DataType] = Seq(DataTypes.NullType, DataTypes.BinaryType, DataTypes.BooleanType, DataTypes.DoubleType,
     DataTypes.IntegerType, DataTypes.LongType, DataTypes.StringType, DataTypes.TimestampType)
   val complexDataTypes: Seq[DataType] = Seq(ArrayTypePlaceholder, StructTypePlaceholder)
   val allDataTypes: Seq[DataType] = simpleDataTypes ++ complexDataTypes
@@ -66,7 +67,6 @@ trait MongoDataGenerator extends GeneratorDrivenPropertyChecks {
   def genInt: Gen[Int] = Gen.choose(Int.MinValue, Int.MaxValue)
   def genLong: Gen[Long] = Gen.choose(Long.MinValue, Long.MaxValue)
   def genString: Gen[String] = Gen.alphaStr
-  def genTimestamp: Gen[BsonTimestamp] = Gen.choose(0, Int.MaxValue).map(new BsonTimestamp(_, 0))
   def genArrayDataType(): Gen[ArrayDataType] = genArrayDataType(maxDepth)
   def genArrayDataType(maxDepth: Int): Gen[ArrayDataType] = Gen.choose(1, 5).map(x => ArrayDataType(maxDepth, subDataType))
   def genDocumentDataType(): Gen[DocumentDataType] = genDocumentDataType(maxDepth)
@@ -75,12 +75,11 @@ trait MongoDataGenerator extends GeneratorDrivenPropertyChecks {
     dataType match {
       case DataTypes.BinaryType    => Gen.oneOf(Seq(binaryValue))
       case DataTypes.BooleanType   => genBoolean
-      case DataTypes.DateType      => genDate
       case DataTypes.DoubleType    => genDouble
       case DataTypes.IntegerType   => genInt
       case DataTypes.LongType      => genLong
       case DataTypes.StringType    => genString
-      case DataTypes.TimestampType => genTimestamp
+      case DataTypes.TimestampType => genDate
       case _                       => Gen.oneOf(Seq(null)) // scalastyle:ignore
     }
   }

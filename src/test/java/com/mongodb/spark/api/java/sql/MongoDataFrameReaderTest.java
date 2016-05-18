@@ -173,7 +173,7 @@ public final class MongoDataFrameReaderTest extends RequiresMongoDB {
         }
     };
 
-    private StructField _idField = createStructField("_id", DataTypes.StringType, true);
+    private StructField _idField = createStructField("_id", ObjectIdStruct(), true);
     private StructField nameField = createStructField("name", DataTypes.StringType, true);
     private StructField ageField = createStructField("age", DataTypes.IntegerType, true);
 

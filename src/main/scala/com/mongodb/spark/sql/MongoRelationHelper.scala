@@ -16,58 +16,16 @@
 
 package com.mongodb.spark.sql
 
-import java.sql.Timestamp
-import java.util
-import java.util.Date
 import java.util.regex.Pattern
 
 import scala.collection.JavaConverters._
-import scala.util.{Failure, Success, Try}
 
-import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.sources._
-import org.apache.spark.sql.types._
 
 import org.bson.conversions.Bson
-import org.bson.types.ObjectId
-import org.bson.{BsonTimestamp, Document}
 import com.mongodb.client.model.{Aggregates, Filters, Projections}
 
 private[spark] object MongoRelationHelper {
-
-  def documentToRow(document: Document, schema: StructType, requiredColumns: Array[String] = Array.empty[String]): Row = {
-    val values: Array[(Any, StructField)] = schema.fields.map(field =>
-      document.containsKey(field.name) match {
-        case true  => (convert(document.get(field.name), field.dataType), field)
-        case false => (null, field) // scalastyle:ignore
-      })
-
-    val requiredValues = requiredColumns.nonEmpty match {
-      case true =>
-        val requiredValueMap = Map(values.collect({
-          case (rowValue, rowField) if requiredColumns.contains(rowField.name) =>
-            (rowField.name, (rowValue, rowField))
-        }): _*)
-        requiredColumns.collect({ case name => requiredValueMap.getOrElse(name, null) }) // scalastyle:ignore
-      case false => values
-    }
-    new GenericRowWithSchema(requiredValues.map(_._1), DataTypes.createStructType(requiredValues.map(_._2)))
-  }
-
-  def rowToDocument(row: Row): Document = {
-    val document = new Document()
-    row.schema.fields.zipWithIndex.foreach({
-      case (field, i) =>
-        val data = field.dataType match {
-          case arrayField: ArrayType if !row.isNullAt(i) => arrayTypeToData(arrayField, row.getSeq(i))
-          case subDocument: StructType if !row.isNullAt(i) => rowToDocument(row.getStruct(i))
-          case _ => row.get(i)
-        }
-        document.append(field.name, data)
-    })
-    document
-  }
 
   def createPipeline(requiredColumns: Array[String], filters: Array[Filter]): Seq[Bson] = {
     var pipeline: List[Bson] = List()
@@ -106,54 +64,4 @@ private[spark] object MongoRelationHelper {
     }
   }
 
-  private def convert(data: Any, elementType: DataType): Any = {
-    // TODO - refer to how spark handles errors with Json data
-    Option(data) match {
-      case Some(element) => Try(castToDataType(element, elementType)) match {
-        case Success(value) => value
-        case Failure(ex)    => throw new RuntimeException(s"Could not convert $element to ${elementType.typeName}")
-      }
-      case None => data
-    }
-  }
-
-  private def castToDataType(element: Any, elementType: DataType): Any = {
-    elementType match {
-      case _: TimestampType => new Timestamp(element.asInstanceOf[BsonTimestamp].getTime * 1000L)
-      case _: DateType      => new Date(element.asInstanceOf[Date].getTime)
-      case _: ArrayType =>
-        val innerElementType: DataType = elementType.asInstanceOf[ArrayType].elementType
-        element.asInstanceOf[util.List[_]].asScala.map(innerElement => convert(innerElement, innerElementType))
-      case schema: StructType => documentToRow(element.asInstanceOf[Document], schema)
-      case _: StringType if element.isInstanceOf[ObjectId] => element.asInstanceOf[ObjectId].toHexString
-      case numericType: NumericType => convertNumber(element, numericType)
-      case _ => element
-    }
-  }
-
-  // Numeric precedence means that Long columns may contain Ints and Double columns may contain Longs and Ints
-  private def convertNumber(element: Any, numericType: NumericType): Any = {
-    numericType match {
-      case LongType if element.isInstanceOf[Int]    => element.asInstanceOf[Int].toLong
-      case DoubleType if element.isInstanceOf[Int]  => element.asInstanceOf[Int].toDouble
-      case DoubleType if element.isInstanceOf[Long] => element.asInstanceOf[Long].toDouble
-      case _                                        => element
-    }
-  }
-
-  private def arrayTypeToData(arrayField: ArrayType, data: Seq[Any]): Any = {
-    arrayField.elementType match {
-      case subDocuments: StructType => data.map(x => rowToDocument(x.asInstanceOf[Row])).asJava
-      case subArray: ArrayType      => data.map(x => elementTypeToData(subArray.elementType, x.asInstanceOf[Seq[Any]])).asJava
-      case _                        => data.asJava
-    }
-  }
-
-  private def elementTypeToData(dataType: DataType, data: Seq[Any]): Any = {
-    dataType match {
-      case arrayField: ArrayType   => arrayTypeToData(arrayField, data)
-      case subDocument: StructType => data.map(x => rowToDocument(x.asInstanceOf[Row])).asJava
-      case _                       => data
-    }
-  }
 }

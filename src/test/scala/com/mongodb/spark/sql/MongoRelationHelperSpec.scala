@@ -16,121 +16,18 @@
 
 package com.mongodb.spark.sql
 
-import scala.reflect.runtime.universe._
+import org.apache.spark.sql.sources._
+
+import org.bson.BsonDocument
+import org.bson.conversions.Bson
+import com.mongodb.MongoClient
+import com.mongodb.spark.RequiresMongoDB
 
 import org.scalatest.FlatSpec
 import org.scalatest.prop.PropertyChecks
 
-import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.ScalaReflection
-import org.apache.spark.sql.sources._
-import org.apache.spark.sql.types._
-
-import org.bson.conversions.Bson
-import org.bson.{BsonDocument, Document}
-import com.mongodb.MongoClient
-import com.mongodb.spark.RequiresMongoDB
-
 class MongoRelationHelperSpec extends FlatSpec with PropertyChecks with RequiresMongoDB {
-  // scalastyle:off magic.number null
-  case class Person(name: String, age: Int)
-  case class Family(familyName: String, members: List[Person])
-  case class NestedFamily(familyName: String, members: List[List[Person]])
-
-  def schemaFor[T <: Product: TypeTag]: StructType = ScalaReflection.schemaFor[T].dataType.asInstanceOf[StructType]
-
-  "documentToRow" should "convert a Document into a Row with the given schema" in {
-    val schema: StructType = schemaFor[Person]
-    val document: Document = Document.parse("{name: 'John', age: 18}")
-
-    val row: Row = MongoRelationHelper.documentToRow(document, schema)
-    row.toSeq should equal(Array("John", 18))
-    row.schema should equal(schema)
-  }
-
-  it should "not prune the schema when using given a document with missing values" in {
-    val schema: StructType = schemaFor[Person]
-    val document: Document = Document.parse("{name: 'John'}")
-
-    val row: Row = MongoRelationHelper.documentToRow(document, schema)
-    row.toSeq should equal(Array("John", null))
-    row.schema should equal(schema)
-  }
-
-  it should "prune the schema when limited by passed required columns" in {
-    val schema: StructType = schemaFor[Person]
-    val document: Document = Document.parse("{name: 'John', age: 18}")
-
-    val row: Row = MongoRelationHelper.documentToRow(document, schema, Array("age"))
-    row.toSeq should equal(Array(18))
-    row.schema should equal(DataTypes.createStructType(Array(schema.fields(1))))
-  }
-
-  it should "ignore any extra data in the document that is not included in the schema" in {
-    val schema: StructType = schemaFor[Person]
-    val document: Document = Document.parse("{name: 'John', age: 18, height: 192}")
-
-    val row: Row = MongoRelationHelper.documentToRow(document, schema)
-    row.toSeq should equal(Array("John", 18))
-    row.schema should equal(schema)
-  }
-
-  it should "handle nested schemas" in {
-    val schema: StructType = schemaFor[Family]
-    val document: Document = Document.parse(
-      """{familyName: "Smith", members:[
-        |{name: "James", age: 48},
-        |{name: "Jane", age: 42},
-        |{name: 'Jeremy', age: 18},
-        |{name: 'John', age: 18}]}""".stripMargin
-    )
-
-    val row: Row = MongoRelationHelper.documentToRow(document, schema)
-    row.getAs[String]("familyName") should equal("Smith")
-    row.getSeq[Row](1).map(_.toSeq) should equal(Array(Array("James", 48), Array("Jane", 42), Array("Jeremy", 18), Array("John", 18)))
-    row.schema should equal(schema)
-  }
-
-  "rowToDocument" should "convert a Row into a Document" in {
-    val schema: StructType = schemaFor[Person]
-    val document: Document = Document.parse("{name: 'John', age: 18}")
-
-    val row: Row = MongoRelationHelper.documentToRow(document, schema)
-    val rowToDocument: Document = MongoRelationHelper.rowToDocument(row)
-
-    rowToDocument should equal(document)
-  }
-
-  it should "handle nested schemas" in {
-    val schema: StructType = schemaFor[Family]
-    val document: Document = Document.parse(
-      """{familyName: "Smith", members:[
-        |{name: "James", age: 48},
-        |{name: "Jane", age: 42},
-        |{name: 'Jeremy', age: 18},
-        |{name: 'John', age: 18}]}""".stripMargin
-    )
-
-    val row: Row = MongoRelationHelper.documentToRow(document, schema)
-    val rowToDocument: Document = MongoRelationHelper.rowToDocument(row)
-
-    rowToDocument should equal(document)
-  }
-
-  it should "handle nested schemas within nested arrays" in {
-    val schema: StructType = schemaFor[NestedFamily]
-    val document: Document = Document.parse(
-      """{familyName: "Smith", members:[
-        |[{name: "James", age: 48}, {name: "Jane", age: 42}],
-        |[{name: 'Jeremy', age: 18}, {name: 'John', age: 18}]]}""".stripMargin
-    )
-
-    val row: Row = MongoRelationHelper.documentToRow(document, schema)
-    val rowToDocument: Document = MongoRelationHelper.rowToDocument(row)
-
-    rowToDocument should equal(document)
-  }
-
+  // scalastyle:off magic.number
   "createPipeline" should "create an empty pipeline if no projection or filters" in {
     MongoRelationHelper.createPipeline(Array.empty[String], Array.empty[Filter]) shouldBe empty
   }
@@ -184,5 +81,5 @@ class MongoRelationHelperSpec extends FlatSpec with PropertyChecks with Requires
     def toBson: BsonDocument = BsonDocument.parse(json)
   }
 
-  // scalastyle:on magic.number null
+  // scalastyle:on magic.number
 }

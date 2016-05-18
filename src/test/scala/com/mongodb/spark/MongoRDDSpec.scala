@@ -17,7 +17,6 @@
 package com.mongodb.spark
 
 import org.scalatest.FlatSpec
-
 import org.apache.spark.SparkException
 import org.apache.spark.sql.catalyst.ScalaReflection
 import org.apache.spark.sql.types.DataTypes._
@@ -27,6 +26,7 @@ import org.apache.spark.sql.{DataFrame, Dataset}
 import org.bson.{BsonDocument, Document}
 import com.mongodb.client.model.{Aggregates, Filters}
 import com.mongodb.spark.rdd.MongoRDD
+import com.mongodb.spark.sql.types.BsonCompatibility
 
 class MongoRDDSpec extends FlatSpec with RequiresMongoDB {
   val counters =
@@ -66,7 +66,7 @@ class MongoRDDSpec extends FlatSpec with RequiresMongoDB {
   it should "be able to create a DataFrame by inferring the schema" in withSparkContext() { sc =>
     sc.parallelize(counters.map(Document.parse)).saveToMongoDB()
 
-    val _idField: StructField = createStructField("_id", DataTypes.StringType, true)
+    val _idField: StructField = createStructField("_id", BsonCompatibility.ObjectId.structType, true)
     val countField: StructField = createStructField("counter", DataTypes.IntegerType, true)
     val expectedSchema: StructType = createStructType(Array(_idField, countField))
 

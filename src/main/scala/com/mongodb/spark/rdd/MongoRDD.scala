@@ -38,7 +38,7 @@ import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
 import com.mongodb.spark.rdd.partitioner.{DefaultMongoPartitioner, MongoPartition, MongoPartitioner}
 import com.mongodb.spark.sql.MongoInferSchema
-import com.mongodb.spark.sql.MongoRelationHelper.documentToRow
+import com.mongodb.spark.sql.MapFunctions.documentToRow
 import com.mongodb.spark.{MongoConnector, NotNothing, classTagToClassOf}
 
 /**
@@ -291,7 +291,7 @@ class MongoRDD[D: ClassTag](
   }
 
   private def toDF(schema: StructType): DataFrame = {
-    val rowRDD = MongoRDD[Document](sc, connector.value, readConfig, pipeline).map(doc => documentToRow(doc, schema, Array()))
+    val rowRDD = MongoRDD[BsonDocument](sc, connector.value, readConfig, pipeline).map(doc => documentToRow(doc, schema, Array()))
     sqlContext.createDataFrame(rowRDD, schema)
   }
 

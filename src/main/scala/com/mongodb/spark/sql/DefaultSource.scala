@@ -29,7 +29,7 @@ import org.bson.{BsonArray, BsonDocument, BsonType, Document}
 import com.mongodb.client.MongoCollection
 import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.rdd.MongoRDD
-import com.mongodb.spark.sql.MongoRelationHelper._
+import com.mongodb.spark.sql.MapFunctions.rowToDocument
 import com.mongodb.spark.{MongoConnector, toDocumentRDDFunctions}
 
 /**
@@ -70,12 +70,12 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
       case Some(s) => s
       case None    => MongoInferSchema(pipelinedRdd(MongoRDD[BsonDocument](sqlContext.sparkContext, mongoConnector, readConfig), pipeline))
     }
-    MongoRelation(pipelinedRdd(MongoRDD[Document](sqlContext.sparkContext, mongoConnector, readConfig), pipeline), readConfig, Some(schema))(sqlContext)
+    MongoRelation(pipelinedRdd(MongoRDD[BsonDocument](sqlContext.sparkContext, mongoConnector, readConfig), pipeline), readConfig, Some(schema))(sqlContext)
   }
 
   override def createRelation(sqlContext: SQLContext, mode: SaveMode, parameters: Map[String, String], data: DataFrame): MongoRelation = {
     val (mongoConnector, writeConfig) = connectorAndWriteConfig(sqlContext, parameters)
-    val documentRdd: RDD[Document] = data.rdd.map(row => rowToDocument(row))
+    val documentRdd: RDD[BsonDocument] = data.rdd.map(row => rowToDocument(row))
 
     lazy val collectionExists: Boolean = mongoConnector.withDatabaseDo(
       writeConfig, { db => db.listCollectionNames().asScala.toList.contains(writeConfig.collectionName) }
