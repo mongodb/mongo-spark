@@ -17,6 +17,9 @@
 import java.io.FileInputStream
 import java.util.Properties
 
+import scala.xml.Elem
+import scala.xml.transform.{RewriteRule, RuleTransformer}
+
 import com.typesafe.sbt.pgp.{PgpKeys, PgpSettings}
 import sbt.Keys._
 import sbt._
@@ -35,7 +38,16 @@ object Publish {
   def settings: Seq[Def.Setting[_]] = {
     val defaults = Seq(
         publishArtifact in packageDoc := true,
-        sources in (Compile,doc) := publishDocSrcs(scalaVersion.value, (sources in (Compile,doc)).value)
+        sources in (Compile,doc) := publishDocSrcs(scalaVersion.value, (sources in (Compile,doc)).value),
+        pomPostProcess := { (node: xml.Node) =>
+          new RuleTransformer(new RewriteRule {
+            override def transform(node: xml.Node): Seq[xml.Node] = node match {
+              case e: Elem
+                if e.label == "dependency" && e.child.exists(child => child.label == "groupId" && child.text == "org.scoverage") => Nil
+              case _ => Seq(node)
+            }
+          }).transform(node).head
+        }
     )
 
     if (!propFile.exists) {
@@ -79,7 +91,7 @@ object Publish {
     publishArtifact in Test := false,
     pomIncludeRepository := { _ => false },
     pomExtra :=
-      <url>http://mongodb.github.io/mongo-scala-driver</url>
+      <url>http://github.com/mongo-spark</url>
         <licenses>
           <license>
             <name>Apache 2</name>
@@ -88,10 +100,8 @@ object Publish {
           </license>
         </licenses>
         <scm>
-          <url>//TODO
-          </url>
-          <connection>//TODO
-          </connection>
+          <url>git@github.com:mongodb/mongo-spark.git</url>
+          <connection>scm:git:git@github.com:mongodb/mongo-spark.git</connection>
         </scm>
         <developers>
           <developer>
