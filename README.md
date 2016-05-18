@@ -1,35 +1,12 @@
 # MongoDB Spark Connector 
 
-```
-                Here be dragons
-
-    Under heavy development as such change expect change and 
-          this to be broken at *any* time.
-
-                               ___, ____--'
-                          _,-.'_,-'      (
-                       ,-' _.-''....____(
-             ,))_     /  ,'\ `'-.     (          /\
-     __ ,+..a`  \(_   ) /   \    `'-..(         /  \
-     )`-;...,_   \(_ ) /     \  ('''    ;'^^`\ <./\.>
-         ,_   )   |( )/   ,./^``_..._  < /^^\ \_.))
-        `=;; (    (/_')-- -'^^`      ^^-.`_.-` >-'
-        `=\\ (                             _,./
-          ,\`(                         )^^^
-            ``;         __-'^^\       /
-              / _>emj^^^   `\..`-.    ``'.
-             / /               / /``'`; /
-            / /          ,-=='-`=-'  / /
-      ,-=='-`=-.               ,-=='-`=-.
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-```
 
 [![Build Status](https://travis-ci.org/mongodb/mongo-spark.svg?branch=master)]
 (https://travis-ci.org/mongodb/mongo-spark)  | [![Build Status](https://jenkins.10gen.com/job/mongo-spark/badge/icon)](https://jenkins.10gen.com/job/mongo-spark/)
 
 ## Documentation
 
-Draft documentation is available in the [docs folder](./doc/0-introduction.md)
+Draft documentation is available in the [docs folder](./doc/0-introduction.md).
 
 ## Support / Feedback
 
