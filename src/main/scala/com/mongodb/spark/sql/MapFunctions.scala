@@ -141,7 +141,7 @@ private[spark] object MapFunctions {
       case TimestampType        => new BsonDateTime(element.asInstanceOf[Timestamp].getTime)
       case arrayType: ArrayType => arrayTypeToBsonValue(arrayType.elementType, element.asInstanceOf[Seq[_]])
       case schema: StructType   => castFromStructType(element.asInstanceOf[Row], schema)
-      case _                    =>
+      case _ =>
         throw new MongoTypeConversionException(s"Cannot cast $element into a BsonValue. $elementType has no matching BsonValue.")
     }
   }
