@@ -32,13 +32,13 @@ object Dependencies {
 
   // Libraries
   val mongodbDriver     = "org.mongodb" % "mongo-java-driver" % mongodbDriverVersion
-  val sparkCore         = "org.apache.spark" %% "spark-core" % sparkVersion % "provided,test"
-  val sparkSql          = "org.apache.spark" %% "spark-sql" % sparkVersion % "provided,test"
-  val slf4j             = "org.slf4j" % "slf4j-api" % slf4jVersion % "provided,test"
+  val sparkCore         = "org.apache.spark" %% "spark-core" % sparkVersion % "provided"
+  val sparkSql          = "org.apache.spark" %% "spark-sql" % sparkVersion % "provided"
+  val slf4j             = "org.slf4j" % "slf4j-api" % slf4jVersion % "provided"
 
   // Test
   val scalaTest         = "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
-  val scalaCheck        =  "org.scalacheck" %% "scalacheck" % scalaCheckVersion % "test"
+  val scalaCheck        = "org.scalacheck" %% "scalacheck" % scalaCheckVersion % "test"
   val scalaMock         = "org.scalamock" %% "scalamock-scalatest-support" % scalaMockVersion % "test"
   val junit             = "junit" % "junit" % junitVersion % "test"
   val junitInterface    = "com.novocode" % "junit-interface" % junitInterfaceVersion % "test"
