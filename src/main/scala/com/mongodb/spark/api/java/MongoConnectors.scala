@@ -16,12 +16,13 @@
 
 package com.mongodb.spark.api.java
 
-import com.mongodb.spark.{MongoClientFactory, MongoConnector, notNull}
+import scala.collection.JavaConverters._
+
 import org.apache.spark.SparkConf
 import org.apache.spark.api.java.JavaSparkContext
 import org.apache.spark.sql.SQLContext
 
-import scala.collection.JavaConverters._
+import com.mongodb.spark.{MongoClientFactory, MongoConnector, notNull}
 
 /**
  * A helper class to create a MongoConnector

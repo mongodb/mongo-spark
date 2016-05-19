@@ -136,6 +136,18 @@ trait MongoCompanionConfig extends Serializable {
   def create(sparkConf: SparkConf): Self
 
   /**
+   * Create a configuration from the `sparkConf`
+   *
+   * Uses the prefixed properties that are set in the Spark configuration to create the config.
+   *
+   * @see [[configPrefix]]
+   * @param sparkConf the spark configuration
+   * @param options overloaded parameters
+   * @return the configuration
+   */
+  def create(sparkConf: SparkConf, options: util.Map[String, String]): Self
+
+  /**
    * Create a configuration easily from the Java API using the values in the `Map`
    *
    * *Note:* Values in the map do not need to be prefixed with the [[configPrefix]].

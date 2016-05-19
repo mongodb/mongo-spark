@@ -24,6 +24,7 @@ import com.mongodb.spark.sql.types.BsonCompatibility;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.Function;
 import org.apache.spark.sql.types.StructType;
 import org.bson.Document;
 import org.junit.After;
@@ -90,6 +91,13 @@ public abstract class RequiresMongoDB implements Serializable {
     public StructType ObjectIdStruct() {
         return BsonCompatibility.ObjectId$.MODULE$.structType();
     }
+
+    public static Function<String, Document> JsonToDocument = new Function<String, Document>() {
+        @Override
+        public Document call(final String json) throws Exception {
+            return Document.parse(json);
+        }
+    };
 
     @Before
     public void setUp() {

@@ -122,6 +122,12 @@ object WriteConfig extends MongoOutputConfig {
     apply(options.asScala, Some(default))
   }
 
+  override def create(sparkConf: SparkConf, options: util.Map[String, String]): WriteConfig = {
+    notNull("sparkConf", sparkConf)
+    notNull("options", options)
+    apply(sparkConf, options.asScala)
+  }
+
 }
 
 /**

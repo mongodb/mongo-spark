@@ -22,6 +22,14 @@ public class Character implements Serializable {
     private String name;
     private Integer age;
 
+    public Character() {
+    }
+
+    public Character(final String name, final Integer age) {
+        this.name = name;
+        this.age = age;
+    }
+
     public String getName() {
         return name;
     }
@@ -36,5 +44,32 @@ public class Character implements Serializable {
 
     public void setAge(final Integer age) {
         this.age = age;
+    }
+
+    @Override
+    public String toString() {
+        return "Character{" +
+                "name='" + name + "'" +
+                ", age=" + age +
+                '}';
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Character character = (Character) o;
+
+        if (getName() != null ? !getName().equals(character.getName()) : character.getName() != null) return false;
+        return getAge() != null ? getAge().equals(character.getAge()) : character.getAge() == null;
+
+    }
+
+    @Override
+    public int hashCode() {
+        int result = getName() != null ? getName().hashCode() : 0;
+        result = 31 * result + (getAge() != null ? getAge().hashCode() : 0);
+        return result;
     }
 }

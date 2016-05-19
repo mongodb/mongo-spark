@@ -100,6 +100,12 @@ object ReadConcernConfig extends MongoInputConfig {
     notNull("javaSparkContext", javaSparkContext)
     apply(javaSparkContext.getConf)
   }
+
+  override def create(sparkConf: SparkConf, options: util.Map[String, String]): ReadConcernConfig = {
+    notNull("sparkConf", sparkConf)
+    notNull("options", options)
+    apply(sparkConf, options.asScala)
+  }
 }
 
 /**

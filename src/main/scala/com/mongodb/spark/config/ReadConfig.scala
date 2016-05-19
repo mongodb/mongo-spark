@@ -74,7 +74,6 @@ object ReadConfig extends MongoInputConfig {
    *                       threshold will be chosen.
    * @param readPreference the readPreference configuration
    * @param readConcern the readConcern configuration
-   *
    * @since 1.0
    */
   def create(databaseName: String, collectionName: String, connectionString: String, sampleSize: Int, maxChunkSize: Int, splitKey: String,
@@ -111,6 +110,11 @@ object ReadConfig extends MongoInputConfig {
     apply(options.asScala, Option(default))
   }
 
+  override def create(sparkConf: SparkConf, options: util.Map[String, String]): ReadConfig = {
+    notNull("sparkConf", sparkConf)
+    notNull("options", options)
+    apply(sparkConf, options.asScala)
+  }
 }
 
 /**

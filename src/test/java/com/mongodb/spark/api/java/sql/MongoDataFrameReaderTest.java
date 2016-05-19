@@ -19,13 +19,11 @@ package com.mongodb.spark.api.java.sql;
 import com.mongodb.spark.api.java.MongoSpark;
 import com.mongodb.spark.api.java.RequiresMongoDB;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.api.java.function.Function;
 import org.apache.spark.sql.DataFrame;
 import org.apache.spark.sql.SQLContext;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
-import org.bson.Document;
 import org.junit.Test;
 
 import java.util.List;
@@ -165,13 +163,6 @@ public final class MongoDataFrameReaderTest extends RequiresMongoDB {
 
         new SQLContext(jsc).read().format("com.mongodb.spark.sql").option("pipeline", "[1, 2, 3]").load();
     }
-
-    private static Function<String, Document> JsonToDocument = new Function<String, Document>() {
-        @Override
-        public Document call(final String json) throws Exception {
-            return Document.parse(json);
-        }
-    };
 
     private StructField _idField = createStructField("_id", ObjectIdStruct(), true);
     private StructField nameField = createStructField("name", DataTypes.StringType, true);

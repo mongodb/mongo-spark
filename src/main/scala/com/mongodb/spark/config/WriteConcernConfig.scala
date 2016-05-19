@@ -23,9 +23,13 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.util.Try
+
 import org.apache.spark.SparkConf
+
 import com.mongodb.WriteConcern
 import org.apache.spark.api.java.JavaSparkContext
+
+import com.mongodb.spark.notNull
 
 /**
  * The `WriteConcernConfig` companion object
@@ -95,14 +99,32 @@ object WriteConcernConfig extends MongoOutputConfig {
    */
   def create(writeConcern: WriteConcern): WriteConcernConfig = apply(writeConcern)
 
-  override def create(javaSparkContext: JavaSparkContext): WriteConcernConfig = apply(javaSparkContext.getConf)
+  override def create(javaSparkContext: JavaSparkContext): WriteConcernConfig = {
+    notNull("javaSparkContext", javaSparkContext)
+    apply(javaSparkContext.getConf)
+  }
 
-  override def create(sparkConf: SparkConf): WriteConcernConfig = apply(sparkConf)
+  override def create(sparkConf: SparkConf): WriteConcernConfig = {
+    notNull("sparkConf", sparkConf)
+    apply(sparkConf)
+  }
 
-  override def create(options: util.Map[String, String]): WriteConcernConfig = apply(options.asScala)
+  override def create(options: util.Map[String, String]): WriteConcernConfig = {
+    notNull("options", options)
+    apply(options.asScala)
+  }
 
-  override def create(options: util.Map[String, String], default: WriteConcernConfig): WriteConcernConfig.Self = apply(options.asScala, Option(default))
+  override def create(options: util.Map[String, String], default: WriteConcernConfig): WriteConcernConfig = {
+    notNull("options", options)
+    notNull("default", default)
+    apply(options.asScala, Option(default))
+  }
 
+  override def create(sparkConf: SparkConf, options: util.Map[String, String]): WriteConcernConfig = {
+    notNull("sparkConf", sparkConf)
+    notNull("options", options)
+    apply(sparkConf, options.asScala)
+  }
 }
 
 /**

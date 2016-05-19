@@ -45,7 +45,6 @@ case class SparkContextFunctions(@transient sc: SparkContext) extends Serializab
   def loadFromMongoDB[D: ClassTag]()(implicit e: D DefaultsTo Document): MongoRDD[D] =
     MongoRDD[D](sc, MongoConnector(sc), ReadConfig(sc), Nil)
 
-
   /**
    * Creates a MongoRDD
    *
@@ -54,7 +53,7 @@ case class SparkContextFunctions(@transient sc: SparkContext) extends Serializab
    * @return a MongoRDD
    */
   def loadFromMongoDB[D: ClassTag](readConfig: ReadConfig)(implicit e: D DefaultsTo Document): MongoRDD[D] =
-    MongoRDD[D](sc, MongoConnector(readConfig.asOptions), readConfig, Nil)
+    MongoRDD[D](sc, MongoConnector(ReadConfig(sc.getConf, readConfig.asOptions).asOptions), readConfig, Nil)
 
   /**
    * Creates a MongoRDD

@@ -118,6 +118,12 @@ object ReadPreferenceConfig extends MongoInputConfig {
     apply(options.asScala, Some(default))
   }
 
+  override def create(sparkConf: SparkConf, options: util.Map[String, String]): ReadPreferenceConfig = {
+    notNull("sparkConf", sparkConf)
+    notNull("options", options)
+    apply(sparkConf, options.asScala)
+  }
+
   private def tagSets(tagSets: String): util.List[TagSet] = {
     val parsedTagSets = Try(Document.parse(s"{tagSets: $tagSets}")).map(doc => doc.get("tagSets", classOf[util.List[Document]]).asScala.map(tagSet).asJava)
     require(parsedTagSets.isSuccess, s"""Invalid tagSet, tagSets must be a Json array of documents eg: [{k1:v1,k2:v2}, {}]. '$tagSets'""")

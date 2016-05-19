@@ -58,7 +58,8 @@ object MongoSpark {
    * @param readConfig the [[com.mongodb.spark.config.ReadConfig]]
    * @return a MongoRDD
    */
-  def load(jsc: JavaSparkContext, readConfig: ReadConfig): JavaMongoRDD[Document] = load(jsc, MongoConnectors.create(jsc), readConfig)
+  def load(jsc: JavaSparkContext, readConfig: ReadConfig): JavaMongoRDD[Document] =
+    load(jsc, MongoConnectors.create(ReadConfig.create(jsc.getConf.getAll.toMap.asJava, readConfig).asJavaOptions), readConfig)
 
   /**
    * Load data from MongoDB
@@ -70,7 +71,7 @@ object MongoSpark {
    * @return a MongoRDD
    */
   def load[D](jsc: JavaSparkContext, readConfig: ReadConfig, clazz: Class[D]): JavaMongoRDD[D] =
-    load(jsc, MongoConnectors.create(jsc), readConfig, clazz)
+    load(jsc, MongoConnectors.create(ReadConfig.create(jsc.getConf.getAll.toMap.asJava, readConfig).asJavaOptions), readConfig, clazz)
 
   /**
    * Load data from MongoDB
