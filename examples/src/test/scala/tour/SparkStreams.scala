@@ -69,7 +69,7 @@ object SparkStreams extends TourHelper {
 
     def getInstance(sparkContext: SparkContext): SQLContext = {
       if (Option(instance).isEmpty) {
-        instance = new SQLContext(sparkContext)
+        instance = SQLContext.getOrCreate(sparkContext)
       }
       instance
     }

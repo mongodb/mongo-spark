@@ -56,7 +56,7 @@ public final class MongoDataFrameReaderTest extends RequiresMongoDB {
         StructType expectedSchema = createStructType(asList(_idField, ageField, nameField));
 
         // When
-        DataFrame df = MongoSpark.read(new SQLContext(jsc)).load();
+        DataFrame df = MongoSpark.read(SQLContext.getOrCreate(jsc.sc())).load();
 
         // Then
         assertEquals(df.schema(), expectedSchema);
@@ -72,7 +72,7 @@ public final class MongoDataFrameReaderTest extends RequiresMongoDB {
         StructType expectedSchema = createStructType(asList(_idField, ageField, nameField));
 
         // When
-        DataFrame df = MongoSpark.load(MongoSpark.read(new SQLContext(jsc)));
+        DataFrame df = MongoSpark.load(MongoSpark.read(SQLContext.getOrCreate(jsc.sc())));
 
         // Then
         assertEquals(df.schema(), expectedSchema);
@@ -88,7 +88,7 @@ public final class MongoDataFrameReaderTest extends RequiresMongoDB {
         StructType expectedSchema = createStructType(asList(_idField, ageField, nameField));
 
         // When
-        DataFrame df = new SQLContext(jsc).read().format("com.mongodb.spark.sql").load();
+        DataFrame df = SQLContext.getOrCreate(jsc.sc()).read().format("com.mongodb.spark.sql").load();
 
         // Then
         assertEquals(df.schema(), expectedSchema);
@@ -103,7 +103,7 @@ public final class MongoDataFrameReaderTest extends RequiresMongoDB {
         MongoSpark.save(jsc.parallelize(characters).map(JsonToDocument));
         MongoSpark.save(jsc.parallelize(asList("{counter: 1}", "{counter: 2}", "{counter: 3}")).map(JsonToDocument));
 
-        SQLContext sqlContext = new SQLContext(jsc);
+        SQLContext sqlContext = SQLContext.getOrCreate(jsc.sc());
         StructType expectedSchema = createStructType(asList(_idField, ageField, nameField));
 
         // When
@@ -131,7 +131,7 @@ public final class MongoDataFrameReaderTest extends RequiresMongoDB {
         StructType expectedSchema = createStructType(asList(ageField, nameField));
 
         // When
-        DataFrame df = MongoSpark.load(MongoSpark.read(new SQLContext(jsc)), Character.class);
+        DataFrame df = MongoSpark.load(MongoSpark.read(SQLContext.getOrCreate(jsc.sc())), Character.class);
 
         // Then
         assertEquals(df.schema(), expectedSchema);
@@ -161,7 +161,7 @@ public final class MongoDataFrameReaderTest extends RequiresMongoDB {
         JavaSparkContext jsc = getJavaSparkContext();
         MongoSpark.save(jsc.parallelize(characters).map(JsonToDocument));
 
-        new SQLContext(jsc).read().format("com.mongodb.spark.sql").option("pipeline", "[1, 2, 3]").load();
+        SQLContext.getOrCreate(jsc.sc()).read().format("com.mongodb.spark.sql").option("pipeline", "[1, 2, 3]").load();
     }
 
     private StructField _idField = createStructField("_id", ObjectIdStruct(), true);

@@ -37,7 +37,7 @@ public final class MongoDataFrameWriterTest extends RequiresMongoDB {
         // Given
         JavaSparkContext jsc = getJavaSparkContext();
         JavaRDD<Character> people = jsc.parallelize(characters).map(JsonToCharacter);
-        SQLContext sqlContext = new SQLContext(jsc);
+        SQLContext sqlContext = SQLContext.getOrCreate(jsc.sc());
 
         // When
         MongoSpark.write(sqlContext.createDataFrame(people, Character.class)).save();
@@ -51,7 +51,7 @@ public final class MongoDataFrameWriterTest extends RequiresMongoDB {
         // Given
         JavaSparkContext jsc = getJavaSparkContext();
         JavaRDD<Character> people = jsc.parallelize(characters).map(JsonToCharacter);
-        SQLContext sqlContext = new SQLContext(jsc);
+        SQLContext sqlContext = SQLContext.getOrCreate(jsc.sc());
 
         // When
         sqlContext.createDataFrame(people, Character.class).write().format("com.mongodb.spark.sql").save();
@@ -67,12 +67,12 @@ public final class MongoDataFrameWriterTest extends RequiresMongoDB {
         String saveToCollectionName = getCollectionName() + "_new";
         Map<String, String> options = new HashMap<String, String>();
         options.put("collection", saveToCollectionName);
-        JavaSparkContext sc = getJavaSparkContext();
-        WriteConfig writeConfig = WriteConfig.create(sc.getConf()).withJavaOptions(options);
-        ReadConfig readConfig = ReadConfig.create(sc.getConf()).withJavaOptions(options);
+        JavaSparkContext jsc = getJavaSparkContext();
+        WriteConfig writeConfig = WriteConfig.create(jsc.getConf()).withJavaOptions(options);
+        ReadConfig readConfig = ReadConfig.create(jsc.getConf()).withJavaOptions(options);
 
-        JavaRDD<Character> people = sc.parallelize(characters).map(JsonToCharacter);
-        SQLContext sqlContext = new SQLContext(sc);
+        JavaRDD<Character> people = jsc.parallelize(characters).map(JsonToCharacter);
+        SQLContext sqlContext = SQLContext.getOrCreate(jsc.sc());
 
         // When
         sqlContext.createDataFrame(people, Character.class).write().format("com.mongodb.spark.sql").options(writeConfig.asJavaOptions()).save();
