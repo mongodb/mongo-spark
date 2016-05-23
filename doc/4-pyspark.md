@@ -1,6 +1,6 @@
 # Mongo Spark Connector Python
 
-The following code snippets can be found in [introduction.py](../examples/src/test/python/tour/introduction.py).
+The following code snippets can be found in [introduction.py](../examples/src/test/python/introduction.py).
 
 ## Prerequisites
 
