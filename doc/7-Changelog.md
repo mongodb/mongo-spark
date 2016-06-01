@@ -1,6 +1,7 @@
 # Mongo Spark Connector Changelog
 
 ## 0.3-SNAPSHOT
+  * [[SPARK-59](https://jira.mongodb.org/browse/SPARK-59)] Fixed being able to directly connect to a single MongoD in a replicaSet.
   * [[SPARK-56](https://jira.mongodb.org/browse/SPARK-56)] Moved MongoSpark into the Scala API as the main gateway for configuring the connector
     Removed the now redundant `com.mongodb.spark.api.java` namespace.
   * Added abstract class `Logging` so that implementations can be extended easily in Java.

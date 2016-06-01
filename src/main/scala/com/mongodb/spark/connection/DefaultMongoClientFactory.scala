@@ -16,12 +16,11 @@
 
 package com.mongodb.spark.connection
 
+import scala.util.Try
+
 import com.mongodb._
 import com.mongodb.spark.MongoClientFactory
 import com.mongodb.spark.config.{MongoSharedConfig, ReadConfig}
-
-import scala.collection.JavaConverters._
-import scala.util.Try
 
 private[spark] object DefaultMongoClientFactory {
   def apply(options: collection.Map[String, String]): DefaultMongoClientFactory = {
@@ -35,13 +34,8 @@ private[spark] case class DefaultMongoClientFactory(connectionString: String, lo
 
   override def create(): MongoClient = {
     val builder = new MongoClientOptions.Builder
-    val clientURI = new MongoClientURI(connectionString, builder)
-    val hosts = clientURI.getHosts.asScala.map(new ServerAddress(_))
-    val credentials = Option(clientURI.getCredentials) match {
-      case Some(credential) => List(credential)
-      case None             => List.empty[MongoCredential]
-    }
     localThreshold.map(builder.localThreshold)
-    new MongoClient(hosts.asJava, credentials.asJava, clientURI.getOptions)
+    val clientURI = new MongoClientURI(connectionString, builder)
+    new MongoClient(clientURI)
   }
 }
