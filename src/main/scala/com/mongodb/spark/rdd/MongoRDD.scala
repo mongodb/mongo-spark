@@ -26,6 +26,7 @@ import scala.util.Try
 import org.apache.spark._
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, SQLContext}
 
 import org.bson.conversions.Bson
@@ -83,6 +84,14 @@ class MongoRDD[D: ClassTag](
    * @return a DataFrame
    */
   def toDF[T](beanClass: Class[T]): DataFrame = mongoSpark.toDF(beanClass)
+
+  /**
+   * Creates a `DataFrame` based on the provided schema.
+   *
+   * @param schema the schema representing the DataFrame.
+   * @return a DataFrame.
+   */
+  def toDF(schema: StructType): DataFrame = mongoSpark.toDF(schema)
 
   /**
    * Creates a `Dataset` from the collection strongly typed to the provided case class.

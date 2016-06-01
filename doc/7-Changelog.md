@@ -1,6 +1,7 @@
 # Mongo Spark Connector Changelog
 
 ## 0.3-SNAPSHOT
+  * [[SPARK-58](https://jira.mongodb.org/browse/SPARK-58)] Added the ability to explicitly pass schema when creating a DataFrame.
   * [[SPARK-59](https://jira.mongodb.org/browse/SPARK-59)] Fixed being able to directly connect to a single MongoD in a replicaSet.
   * [[SPARK-56](https://jira.mongodb.org/browse/SPARK-56)] Moved MongoSpark into the Scala API as the main gateway for configuring the connector
     Removed the now redundant `com.mongodb.spark.api.java` namespace.

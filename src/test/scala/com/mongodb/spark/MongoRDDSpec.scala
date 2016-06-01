@@ -27,8 +27,6 @@ import com.mongodb.client.model.{Aggregates, Filters}
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.sql.types.BsonCompatibility
 
-import org.scalatest.FlatSpec
-
 class MongoRDDSpec extends RequiresMongoDB {
   val counters =
     """
@@ -83,6 +81,17 @@ class MongoRDDSpec extends RequiresMongoDB {
     val dataFrame: DataFrame = sc.loadFromMongoDB().toDF[Counter]()
     dataFrame.schema should equal(expectedSchema)
     dataFrame.count() should equal(3)
+  }
+
+  it should "be able to create a DataFrame with a set schema" in withSparkContext() { sc =>
+    sc.parallelize(counters.map(Document.parse)).saveToMongoDB()
+
+    val _idField: StructField = createStructField("_id", BsonCompatibility.ObjectId.structType, true)
+    val countField: StructField = createStructField("counter", DataTypes.IntegerType, true)
+    val schema: StructType = createStructType(Array(_idField, countField))
+
+    val dataFrame: DataFrame = sc.loadFromMongoDB().toDF(schema)
+    dataFrame.schema should equal(sc.loadFromMongoDB().toDF().schema)
   }
 
   it should "be able to create a Dataset when provided a case class" in withSparkContext() { sc =>

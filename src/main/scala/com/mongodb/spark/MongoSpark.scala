@@ -473,6 +473,17 @@ case class MongoSpark(sqlContext: SQLContext, partitioner: MongoPartitioner, con
   def toDF[T](beanClass: Class[T]): DataFrame = toDF(MongoInferSchema.reflectSchema[T](beanClass))
 
   /**
+   * Creates a `DataFrame` based on the provided schema.
+   *
+   * @param schema the schema representing the DataFrame.
+   * @return a DataFrame.
+   */
+  def toDF(schema: StructType): DataFrame = {
+    val rowRDD = toBsonDocumentRDD.map(doc => documentToRow(doc, schema, Array()))
+    sqlContext.createDataFrame(rowRDD, schema)
+  }
+
+  /**
    * Creates a `Dataset` from the collection strongly typed to the provided case class.
    *
    * @tparam T The type of the data from MongoDB
@@ -491,11 +502,6 @@ case class MongoSpark(sqlContext: SQLContext, partitioner: MongoPartitioner, con
    * @return
    */
   def toDS[T](beanClass: Class[T]): Dataset[T] = toDF[T](beanClass).as(Encoders.bean(beanClass))
-
-  private def toDF(schema: StructType): DataFrame = {
-    val rowRDD = toBsonDocumentRDD.map(doc => documentToRow(doc, schema, Array()))
-    sqlContext.createDataFrame(rowRDD, schema)
-  }
 
   private def toBsonDocumentRDD: MongoRDD[BsonDocument] = {
     MongoSpark.builder()
