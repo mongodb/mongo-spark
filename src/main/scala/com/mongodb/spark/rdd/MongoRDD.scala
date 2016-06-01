@@ -57,7 +57,10 @@ class MongoRDD[D: ClassTag](
 ) extends RDD[D](sqlContext.sparkContext, Nil) {
 
   @transient val sc: SparkContext = sqlContext.sparkContext
-  private def mongoSpark = MongoSpark(sqlContext, mongoPartitioner, connector.value, readConfig, pipeline)
+  private def mongoSpark = {
+    checkSparkContext()
+    MongoSpark(sqlContext, mongoPartitioner, connector.value, readConfig, pipeline)
+  }
 
   override def toJavaRDD(): JavaMongoRDD[D] = JavaMongoRDD(this)
 
