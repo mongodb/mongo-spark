@@ -29,8 +29,9 @@ import org.apache.spark.sql.types._
 
 import org.bson._
 import com.mongodb.client.model.{Aggregates, Filters, Projections, Sorts}
+import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.rdd.MongoRDD
-import com.mongodb.spark.sql.types.{ConflictType, BsonCompatibility, SkipFieldType}
+import com.mongodb.spark.sql.types.{BsonCompatibility, ConflictType, SkipFieldType}
 
 object MongoInferSchema {
 
@@ -43,7 +44,7 @@ object MongoInferSchema {
    * @param sc                 the spark context
    * @return the schema for the collection
    */
-  def apply(sc: SparkContext): StructType = apply(MongoRDD[BsonDocument](sc))
+  def apply(sc: SparkContext): StructType = apply(MongoSpark.load[BsonDocument](sc))
 
   /**
    * Gets a schema for the specified mongo collection. It is required that the

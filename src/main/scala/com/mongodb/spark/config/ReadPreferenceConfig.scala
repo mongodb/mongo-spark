@@ -19,13 +19,15 @@ package com.mongodb.spark.config
 import java.util
 
 import com.mongodb.spark.notNull
-
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
+
 import org.apache.spark.SparkConf
+
 import org.bson.Document
 import com.mongodb.{ReadPreference, Tag, TagSet, TaggableReadPreference}
 import org.apache.spark.api.java.JavaSparkContext
+import org.apache.spark.sql.SQLContext
 
 /**
  * The `ReadPreferenceConfig` companion object
@@ -66,7 +68,7 @@ object ReadPreferenceConfig extends MongoInputConfig {
   }
 
   override def apply(options: scala.collection.Map[String, String], default: Option[ReadPreferenceConfig]): ReadPreferenceConfig = {
-    val cleanedOptions = prefixLessOptions(options)
+    val cleanedOptions = stripPrefix(options)
     val defaultReadPreferenceConfig: ReadPreferenceConfig = default.getOrElse(
       Option(connectionString(cleanedOptions).getReadPreference) match {
         case Some(readPref) => ReadPreferenceConfig(readPref)
@@ -124,6 +126,11 @@ object ReadPreferenceConfig extends MongoInputConfig {
     apply(sparkConf, options.asScala)
   }
 
+  override def create(sqlContext: SQLContext): ReadPreferenceConfig = {
+    notNull("sqlContext", sqlContext)
+    apply(sqlContext)
+  }
+
   private def tagSets(tagSets: String): util.List[TagSet] = {
     val parsedTagSets = Try(Document.parse(s"{tagSets: $tagSets}")).map(doc => doc.get("tagSets", classOf[util.List[Document]]).asScala.map(tagSet).asJava)
     require(parsedTagSets.isSuccess, s"""Invalid tagSet, tagSets must be a Json array of documents eg: [{k1:v1,k2:v2}, {}]. '$tagSets'""")
@@ -146,6 +153,8 @@ case class ReadPreferenceConfig(private val name: String = "primary", private va
 
   type Self = ReadPreferenceConfig
 
+  override def withOption(key: String, value: String): ReadPreferenceConfig = ReadPreferenceConfig(this.asOptions + (key -> value))
+
   override def withOptions(options: collection.Map[String, String]): Self = ReadPreferenceConfig(options, Some(this))
 
   override def asOptions: collection.Map[String, String] = {
@@ -156,7 +165,7 @@ case class ReadPreferenceConfig(private val name: String = "primary", private va
     }
   }
 
-  override def withJavaOptions(options: util.Map[String, String]): ReadPreferenceConfig = withOptions(options.asScala)
+  override def withOptions(options: util.Map[String, String]): ReadPreferenceConfig = withOptions(options.asScala)
 
   override def asJavaOptions: util.Map[String, String] = asOptions.asJava
 

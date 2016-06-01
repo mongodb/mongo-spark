@@ -22,7 +22,7 @@ import com.mongodb.spark.connection.DefaultMongoClientFactory
 import org.apache.spark.SparkConf
 import org.scalatest.FlatSpec
 
-class MongoConnectorSpec extends FlatSpec with RequiresMongoDB {
+class MongoConnectorSpec extends RequiresMongoDB {
 
   "MongoConnector" should "create a MongoClient" in {
     MongoConnector(sparkConf).withMongoClientDo({ client => true }) shouldBe true

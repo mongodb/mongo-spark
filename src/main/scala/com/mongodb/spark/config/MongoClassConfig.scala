@@ -36,6 +36,15 @@ trait MongoClassConfig extends Serializable {
   /**
    * Creates a new config with the options applied
    *
+   * @param key the configuration key
+   * @param value the configuration value
+   * @return an updated config
+   */
+  def withOption(key: String, value: String): Self
+
+  /**
+   * Creates a new config with the options applied
+   *
    * @param options a map of options to be applied to the config
    * @return an updated config
    */
@@ -54,7 +63,7 @@ trait MongoClassConfig extends Serializable {
    * @param options a map of options to be applied to the config
    * @return an updated config
    */
-  def withJavaOptions(options: util.Map[String, String]): Self
+  def withOptions(options: util.Map[String, String]): Self
 
   /**
    * Creates a map of options representing the configuration

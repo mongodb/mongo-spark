@@ -16,8 +16,8 @@
 
 package com.mongodb.spark.rdd.partitioner
 
-import com.mongodb.spark.{Logging, MongoConnector}
 import com.mongodb.spark.config.ReadConfig
+import com.mongodb.spark.{Logging, MongoConnector}
 
 /**
  * The MongoPartitioner provides the partitions of a collection

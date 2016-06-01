@@ -16,9 +16,10 @@
 
 package com.mongodb.spark.rdd.partitioner
 
+import org.bson.{BsonDocument, BsonMaxKey, BsonMinKey, Document}
 import com.mongodb.MongoException
 import com.mongodb.spark.RequiresMongoDB
-import org.bson.{BsonDocument, BsonMaxKey, BsonMinKey, Document}
+
 import org.scalatest.prop.PropertyChecks
 
 class MongoShardedPartitionerSpec extends RequiresMongoDB with PropertyChecks {

@@ -23,6 +23,7 @@ import scala.util.Try
 
 import org.apache.spark.SparkConf
 import org.apache.spark.api.java.JavaSparkContext
+import org.apache.spark.sql.SQLContext
 
 import com.mongodb.{ConnectionString, WriteConcern}
 import com.mongodb.spark.notNull
@@ -66,7 +67,7 @@ object WriteConfig extends MongoOutputConfig {
     WriteConfig(databaseName, collectionName, Option(connectionString), localThreshold, WriteConcernConfig(writeConcern))
 
   override def apply(options: collection.Map[String, String], default: Option[WriteConfig]): WriteConfig = {
-    val cleanedOptions = prefixLessOptions(options)
+    val cleanedOptions = stripPrefix(options)
     val cachedConnectionString = connectionString(cleanedOptions)
     val defaultDatabase = default.map(conf => conf.databaseName).orElse(Option(cachedConnectionString.getDatabase))
     val defaultCollection = default.map(conf => conf.collectionName).orElse(Option(cachedConnectionString.getCollection))
@@ -128,6 +129,11 @@ object WriteConfig extends MongoOutputConfig {
     apply(sparkConf, options.asScala)
   }
 
+  override def create(sqlContext: SQLContext): WriteConfig = {
+    notNull("sqlContext", sqlContext)
+    apply(sqlContext)
+  }
+
 }
 
 /**
@@ -154,6 +160,8 @@ case class WriteConfig(
 
   type Self = WriteConfig
 
+  override def withOption(key: String, value: String): WriteConfig = WriteConfig(this.asOptions + (key -> value))
+
   override def withOptions(options: collection.Map[String, String]): WriteConfig = WriteConfig(options, Some(this))
 
   override def asOptions: collection.Map[String, String] = {
@@ -164,7 +172,7 @@ case class WriteConfig(
     }
   }
 
-  override def withJavaOptions(options: util.Map[String, String]): WriteConfig = withOptions(options.asScala)
+  override def withOptions(options: util.Map[String, String]): WriteConfig = withOptions(options.asScala)
 
   override def asJavaOptions: util.Map[String, String] = asOptions.asJava
 

@@ -27,7 +27,14 @@ import com.mongodb.spark.MongoConnector
 import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.exceptions.MongoSplitException
 
-private[partitioner] case object MongoSplitVectorPartitioner extends MongoPartitioner {
+/**
+ * The SplitVector Partitioner.
+ *
+ * Uses the `SplitVector` command on the primary node to generate partitions for a collection.
+ *
+ * @since 1.0
+ */
+case object MongoSplitVectorPartitioner extends MongoPartitioner {
 
   override def partitions(connector: MongoConnector, readConfig: ReadConfig): Array[MongoPartition] = {
     val ns: String = s"${readConfig.databaseName}.${readConfig.collectionName}"
@@ -44,7 +51,7 @@ private[partitioner] case object MongoSplitVectorPartitioner extends MongoPartit
           val locations: Seq[String] = connector.withMongoClientDo(mongoClient => mongoClient.getAllAddress.asScala.map(_.getHost).distinct)
           createPartitions(readConfig.splitKey, result, locations)
         case Failure(e: MongoNotPrimaryException) =>
-          logInfo(s"Splitting failed: '${e.getMessage}'. Continuing with a single partition.")
+          logWarning(s"Splitting failed: '${e.getMessage}'. Continuing with a single partition.")
           MongoSinglePartitioner.partitions(connector, readConfig)
         case Failure(t: Throwable) => throw t
       }

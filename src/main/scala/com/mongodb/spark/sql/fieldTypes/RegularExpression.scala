@@ -17,7 +17,6 @@
 package com.mongodb.spark.sql.fieldTypes
 
 import java.util.regex.Pattern
-
 import scala.util.matching.Regex
 
 import org.bson.BsonRegularExpression

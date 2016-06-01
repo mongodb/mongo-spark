@@ -16,15 +16,13 @@
 
 package com.mongodb.spark.rdd
 
-import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 
 import org.apache.spark.rdd.RDD
 
 import org.bson.Document
-import com.mongodb.client.MongoCollection
 import com.mongodb.spark.DefaultHelper.DefaultsTo
-import com.mongodb.spark.MongoConnector
+import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config.WriteConfig
 
 /**
@@ -34,24 +32,19 @@ import com.mongodb.spark.config.WriteConfig
  * @param e the implicit datatype of the rdd
  * @param ct the implicit ClassTag of the datatype of the rdd
  * @tparam D the type of data in the RDD
+ *
+ * @since 1.0
  */
 case class DocumentRDDFunctions[D](rdd: RDD[D])(implicit e: D DefaultsTo Document, ct: ClassTag[D]) {
 
-  @transient val sparkConf = rdd.context.getConf
+  @transient val sparkContext = rdd.sparkContext
 
   /**
    * Saves the RDD data to MongoDB using the given `WriteConfig`
    *
-   * @param writeConfig the [[com.mongodb.spark.config.WriteConfig]] to use
+   * @param writeConfig the optional [[com.mongodb.spark.config.WriteConfig]] to use
    * @return the rdd
    */
-  def saveToMongoDB(writeConfig: WriteConfig = WriteConfig(sparkConf)): Unit = {
-    val mongoConnector = MongoConnector(writeConfig.asOptions)
-    rdd.foreachPartition(iter => if (iter.nonEmpty) {
-      mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[D] =>
-        collection.insertMany(iter.toList.asJava)
-      })
-    })
-  }
+  def saveToMongoDB(writeConfig: WriteConfig = WriteConfig(sparkContext)): Unit = MongoSpark.save(rdd, writeConfig)
 
 }

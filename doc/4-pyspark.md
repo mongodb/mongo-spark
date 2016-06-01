@@ -18,7 +18,7 @@ You can run the interactive pyspark shell like so:
 
 The python API works via DataFrames and uses underlying Scala DataFrame.
 
-## DataFrames and DataSets
+## DataFrames and Datasets
 
 Creating a dataframe is easy you can either load the data via `DefaultSource` ("com.mongodb.spark.sql.DefaultSource").
 

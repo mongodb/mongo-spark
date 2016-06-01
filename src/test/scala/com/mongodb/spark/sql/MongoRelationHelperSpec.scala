@@ -23,10 +23,9 @@ import org.bson.conversions.Bson
 import com.mongodb.MongoClient
 import com.mongodb.spark.RequiresMongoDB
 
-import org.scalatest.FlatSpec
 import org.scalatest.prop.PropertyChecks
 
-class MongoRelationHelperSpec extends FlatSpec with PropertyChecks with RequiresMongoDB {
+class MongoRelationHelperSpec extends RequiresMongoDB with PropertyChecks {
   // scalastyle:off magic.number
   "createPipeline" should "create an empty pipeline if no projection or filters" in {
     MongoRelationHelper.createPipeline(Array.empty[String], Array.empty[Filter]) shouldBe empty

@@ -35,26 +35,23 @@ object Introduction extends TourHelper {
     // Saving data from an RDD to MongoDB
     import org.bson.Document
     val documents = sc.parallelize((1 to 10).map(i => Document.parse(s"{test: $i}")))
-    documents.saveToMongoDB()
+    MongoSpark.save(documents)
 
     // Saving data with a custom WriteConfig
     import com.mongodb.spark.config._
-
-    val defaultWriteConfig = WriteConfig(sc)
-    val writeConfig = WriteConfig(Map("collection" -> "spark", "writeConcern.w" -> "majority"), Some(defaultWriteConfig))
+    val writeConfig = WriteConfig(Map("collection" -> "spark", "writeConcern.w" -> "majority"), Some(WriteConfig(sc)))
 
     val sparkDocuments = sc.parallelize((1 to 10).map(i => Document.parse(s"{spark: $i}")))
-    sparkDocuments.saveToMongoDB(writeConfig)
+    MongoSpark.save(sparkDocuments, writeConfig)
 
     // Loading and analyzing data from MongoDB
-    val rdd = sc.loadFromMongoDB()
+    val rdd = MongoSpark.load(sc)
     println(rdd.count)
     println(rdd.first.toJson)
 
     // Loading data with a custom ReadConfig
-    val defaultReadConfig = ReadConfig(sc)
-    val readConfig = ReadConfig(Map("collection" -> "spark", "readPreference.name" -> "secondaryPreferred"), Some(defaultReadConfig))
-    val customRdd = sc.loadFromMongoDB(readConfig = readConfig)
+    val readConfig = ReadConfig(Map("collection" -> "spark", "readPreference.name" -> "secondaryPreferred"), Some(ReadConfig(sc)))
+    val customRdd = MongoSpark.load(sc, readConfig)
     println(customRdd.count)
     println(customRdd.first.toJson)
 

@@ -30,7 +30,7 @@ import com.mongodb.client.MongoCollection
 import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.sql.MapFunctions.rowToDocument
-import com.mongodb.spark.{MongoConnector, toDocumentRDDFunctions}
+import com.mongodb.spark.{MongoConnector, MongoSpark, toDocumentRDDFunctions}
 
 /**
  * A MongoDB based DataSource
@@ -64,17 +64,25 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
     createRelation(sqlContext, parameters, Some(schema))
 
   private def createRelation(sqlContext: SQLContext, parameters: Map[String, String], structType: Option[StructType]): MongoRelation = {
-    val (mongoConnector, readConfig) = connectorAndReadConfig(sqlContext, parameters)
-    val pipeline = parameters.get("pipeline")
+    val rdd = pipelinedRdd(
+      MongoSpark.builder()
+        .sqlContext(sqlContext)
+        .readConfig(ReadConfig(sqlContext.sparkContext.getConf, parameters))
+        .build()
+        .toRDD[BsonDocument](),
+      parameters.get("pipeline")
+    )
+
     val schema: StructType = structType match {
       case Some(s) => s
-      case None    => MongoInferSchema(pipelinedRdd(MongoRDD[BsonDocument](sqlContext, mongoConnector, readConfig), pipeline))
+      case None    => MongoInferSchema(rdd)
     }
-    MongoRelation(pipelinedRdd(MongoRDD[BsonDocument](sqlContext, mongoConnector, readConfig), pipeline), readConfig, Some(schema))(sqlContext)
+    MongoRelation(rdd, Some(schema))(sqlContext)
   }
 
   override def createRelation(sqlContext: SQLContext, mode: SaveMode, parameters: Map[String, String], data: DataFrame): MongoRelation = {
-    val (mongoConnector, writeConfig) = connectorAndWriteConfig(sqlContext, parameters)
+    val writeConfig = WriteConfig(sqlContext.sparkContext.getConf, parameters)
+    val mongoConnector = MongoConnector(writeConfig.asOptions)
     val documentRdd: RDD[BsonDocument] = data.rdd.map(row => rowToDocument(row))
 
     lazy val collectionExists: Boolean = mongoConnector.withDatabaseDo(
@@ -122,15 +130,5 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
         rdd.withPipeline(pipeline)
       case None => rdd
     }
-  }
-
-  private def connectorAndReadConfig(sqlContext: SQLContext, parameters: Map[String, String]): (MongoConnector, ReadConfig) = {
-    val readConfig = ReadConfig(sqlContext.sparkContext.getConf, parameters)
-    (MongoConnector(readConfig.asOptions), readConfig)
-  }
-
-  private def connectorAndWriteConfig(sqlContext: SQLContext, parameters: Map[String, String]): (MongoConnector, WriteConfig) = {
-    val writeConfig = WriteConfig(sqlContext.sparkContext.getConf, parameters)
-    (MongoConnector(writeConfig.asOptions), writeConfig)
   }
 }

@@ -21,8 +21,7 @@ import org.apache.spark.{SparkConf, SparkContext}
 
 import org.bson.Document
 import com.mongodb.spark.config.{ReadConfig, WriteConfig}
-import com.mongodb.spark.sql._
-import com.mongodb.spark.sql.Character
+import com.mongodb.spark.sql.{Character, _}
 
 class NoSparkConfSpec extends RequiresMongoDB {
 
@@ -33,8 +32,9 @@ class NoSparkConfSpec extends RequiresMongoDB {
     val documents = sc.parallelize((1 to 10).map(i => Document.parse(s"{test: $i}")))
     documents.saveToMongoDB(writeConfig = writeConfig)
 
-    sc.loadFromMongoDB(readConfig = readConfig).count() should equal(10) //scalastyle:ignore
-    sc.loadFromMongoDB(readConfig = readConfig).map(_.getInteger("test")).collect().toList should equal((1 to 10).toList)
+    val rdd = MongoSpark.builder().sparkContext(sc).readConfig(readConfig).build().toRDD()
+    rdd.count() should equal(10) //scalastyle:ignore
+    rdd.map(_.getInteger("test")).collect().toList should equal((1 to 10).toList)
   }
 
   "DataFrame Readers and Writers" should "be able to accept just options" in {

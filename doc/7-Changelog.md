@@ -1,6 +1,13 @@
 # Mongo Spark Connector Changelog
 
 ## 0.3-SNAPSHOT
+  * [[SPARK-56](https://jira.mongodb.org/browse/SPARK-56)] Moved MongoSpark into the Scala API as the main gateway for configuring the connector
+    Removed the now redundant `com.mongodb.spark.api.java` namespace.
+  * Added abstract class `Logging` so that implementations can be extended easily in Java.
+  * [[SPARK-55](https://jira.mongodb.org/browse/SPARK-55)] Made Paritioners public.
+  * [[SPARK-52](https://jira.mongodb.org/browse/SPARK-52)] MongoConnector is accessible from the new MongoSpark class or directly. 
+         Added Java specific methods for withMongoClient, withMongoDatabase and withMongoCollection.
+  * [[SPARK-50](https://jira.mongodb.org/browse/SPARK-50)] Made MongoPartition public added tests for custom partitioners.
   * [[SPARK-45](https://jira.mongodb.org/browse/SPARK-45)] Ensure that the SQLContext is reused correctly.
 
 ## 0.2

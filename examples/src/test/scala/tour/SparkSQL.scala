@@ -19,6 +19,7 @@ package tour
 import org.apache.spark.sql.SQLContext
 
 import org.bson.Document
+import com.mongodb.spark.config.ReadConfig
 
 
 /**
@@ -48,34 +49,32 @@ object SparkSQL extends TourHelper {
                        |{"name": "Glóin", "age": 158}
                        |{"name": "Fíli", "age": 82}
                        |{"name": "Bombur"}""".trim.stripMargin.split("[\\r\\n]+").toSeq
-    sc.parallelize(docs.map(Document.parse)).saveToMongoDB()
+    MongoSpark.save(sc.parallelize(docs.map(Document.parse)))
 
     // Create SQLContext
     val sqlContext = SQLContext.getOrCreate(sc)
 
     // Import the SQL helper
-    import com.mongodb.spark.sql._
-
-    val df = sqlContext.read.mongo()
+    val df = MongoSpark.load(sqlContext)
     df.printSchema()
 
     // Characters yoounger than 100
     df.filter(df("age") < 100).show()
 
     // Explicitly declaring a schema
-    sqlContext.read.mongo[SparkSQL.Character]().printSchema()
+    MongoSpark.load[SparkSQL.Character](sqlContext).printSchema()
 
     // Spark SQL
-    val characters = sqlContext.loadFromMongoDB().toDF[SparkSQL.Character]()
+    val characters = MongoSpark.load[SparkSQL.Character](sqlContext)
     characters.registerTempTable("characters")
 
     val centenarians = sqlContext.sql("SELECT name, age FROM characters WHERE age >= 100")
     centenarians.show()
 
     // Save the centenarians
-    centenarians.write.option("collection", "hundredClub").mongo()
+    MongoSpark.save(centenarians.write.option("collection", "hundredClub"))
     println("Reading from the 'hundredClub' collection:")
-    sqlContext.read.option("collection", "hundredClub").mongo[SparkSQL.Character]().show()
+    MongoSpark.load[SparkSQL.Character](sqlContext, ReadConfig(Map("collection" -> "hundredClub"), Some(ReadConfig(sqlContext)))).show()
   }
 
   case class Character(name: String, age: Int)

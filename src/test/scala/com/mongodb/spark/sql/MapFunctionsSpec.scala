@@ -24,7 +24,7 @@ import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types._
 
 import org.bson.BsonDocument
-import com.mongodb.spark.RequiresMongoDB
+import com.mongodb.spark.{JavaRequiresMongoDB, RequiresMongoDB}
 import com.mongodb.spark.exceptions.MongoTypeConversionException
 import com.mongodb.spark.sql.MapFunctions.{documentToRow, rowToDocument}
 

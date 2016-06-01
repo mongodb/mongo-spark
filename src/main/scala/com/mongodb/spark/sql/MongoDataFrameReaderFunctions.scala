@@ -18,13 +18,13 @@ package com.mongodb.spark.sql
 
 import scala.reflect.runtime.universe._
 
-import com.mongodb.spark.Logging
+import com.mongodb.spark.LoggingTrait
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, DataFrameReader}
 
 import com.mongodb.spark.config.ReadConfig
 
-private[spark] case class MongoDataFrameReaderFunctions(@transient val dfr: DataFrameReader) extends Serializable with Logging {
+private[spark] case class MongoDataFrameReaderFunctions(@transient val dfr: DataFrameReader) extends Serializable with LoggingTrait {
 
   /**
    * Creates a [[DataFrame]] through schema inference via the `T` type, otherwise will sample the collection to

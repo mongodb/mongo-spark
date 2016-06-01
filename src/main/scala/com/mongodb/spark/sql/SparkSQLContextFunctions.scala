@@ -16,17 +16,12 @@
 
 package com.mongodb.spark.sql
 
-import scala.reflect.ClassTag
+import scala.reflect.runtime.universe._
 
-import org.apache.spark.sql.SQLContext
-import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.sql.{DataFrame, SQLContext}
 
-import org.bson.Document
-import org.bson.conversions.Bson
-import com.mongodb.spark.DefaultHelper.DefaultsTo
-import com.mongodb.spark.MongoConnector
+import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config.ReadConfig
-import com.mongodb.spark.rdd.MongoRDD
 
 /**
  * Helpers to create [[com.mongodb.spark.rdd.MongoRDD]] in the current `SQLContext`.
@@ -36,20 +31,16 @@ import com.mongodb.spark.rdd.MongoRDD
  */
 case class SparkSQLContextFunctions(@transient sqlContext: SQLContext) extends Serializable {
 
-  @transient private val sc: SparkContext = sqlContext.sparkContext
-  @transient private val sparkConf: SparkConf = sc.getConf
-
   /**
    * Creates a MongoRDD
    *
-   * @param connector    the [[com.mongodb.spark.MongoConnector]]
-   * @param readConfig   the [[com.mongodb.spark.config.ReadConfig]]
-   * @param pipeline the aggregate pipeline
-   * @tparam D the type of Document to return from MongoDB - defaults to Document
+   * Defaults to using the `SparkConf` for configuration, alternatively supply a [[com.mongodb.spark.config.ReadConfig]].
+   *
+   * @param readConfig the optional readConfig
+   *
+   *
    * @return a MongoRDD
    */
-  def loadFromMongoDB[D: ClassTag](connector: MongoConnector = MongoConnector(sc), readConfig: ReadConfig = ReadConfig(sc),
-                                   pipeline: Seq[Bson] = Nil)(implicit e: D DefaultsTo Document): MongoRDD[D] =
-    MongoRDD[D](sqlContext, connector, readConfig, pipeline)
-
+  def loadFromMongoDB[T <: Product: TypeTag](readConfig: ReadConfig = ReadConfig(sqlContext.sparkContext)): DataFrame =
+    MongoSpark.builder().sqlContext(sqlContext).readConfig(readConfig).build().toDF[T]()
 }

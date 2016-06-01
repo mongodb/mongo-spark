@@ -19,9 +19,10 @@ package com.mongodb.spark.connection
 import java.util.concurrent.TimeUnit
 
 import scala.concurrent.duration.Duration
+
 import org.scalamock.scalatest.proxy.MockFactory
 import com.mongodb.Implicits._
-import com.mongodb.spark.RequiresMongoDB
+import com.mongodb.spark.{JavaRequiresMongoDB, RequiresMongoDB}
 import com.mongodb.spark.config.ReadConfig
 
 class MongoClientCacheSpec extends RequiresMongoDB with MockFactory {

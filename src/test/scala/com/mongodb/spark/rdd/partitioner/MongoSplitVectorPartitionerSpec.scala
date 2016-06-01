@@ -17,11 +17,10 @@
 package com.mongodb.spark.rdd.partitioner
 
 import org.scalatest.FlatSpec
-
 import org.bson.{BsonDocument, BsonMaxKey, BsonMinKey, Document}
-import com.mongodb.spark.RequiresMongoDB
+import com.mongodb.spark.{JavaRequiresMongoDB, RequiresMongoDB}
 
-class MongoSplitVectorPartitionerSpec extends FlatSpec with RequiresMongoDB {
+class MongoSplitVectorPartitionerSpec extends RequiresMongoDB {
 
   // scalastyle:off magic.number
   "MongoSplitVectorPartitioner" should "partition the database as expected" in {

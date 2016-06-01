@@ -25,13 +25,11 @@ import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
 import com.mongodb.MongoClient
 import com.mongodb.spark._
-import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.sql.types.{BsonCompatibility, ConflictType}
 
-import org.scalatest.FlatSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 
-class MongoInferSchemaSpec extends FlatSpec with MongoDataGenerator with RequiresMongoDB with TableDrivenPropertyChecks {
+class MongoInferSchemaSpec extends RequiresMongoDB with MongoDataGenerator with TableDrivenPropertyChecks {
 
   "MongoSchemaHelper" should "be able to infer the schema from simple types" in withSparkContext() { sc =>
     forAll(genSimpleDataTypes) { (datum: Seq[MongoDataType]) =>
@@ -78,7 +76,8 @@ class MongoInferSchemaSpec extends FlatSpec with MongoDataGenerator with Require
   it should "be able to infer the schema with custom sampleSize" in withSparkContext() { sc =>
     forAll(genDocumentDataType()) { (data: MongoDataType) =>
       sc.parallelize(data.getDocuments.toBson).saveToMongoDB()
-      data.schema should equal(MongoInferSchema(MongoRDD[BsonDocument](sc, readConfig.copy(sampleSize = 200)))) // scalastyle:ignore
+      val rdd = MongoSpark.builder().sparkContext(sc).readConfig(readConfig.copy(sampleSize = 200)).build().toRDD[BsonDocument]() //scalastyle:ignore
+      data.schema should equal(MongoInferSchema(rdd))
       database.drop()
     }
   }
@@ -104,7 +103,7 @@ class MongoInferSchemaSpec extends FlatSpec with MongoDataGenerator with Require
       val allDocs = data.getDocuments ++ Seq("{badData: [1 ,2, 3]}", "{badData: 55}", "{badData: 'bad'}").map(Document.parse)
       sc.parallelize(allDocs.toBson).saveToMongoDB()
 
-      val rdd = MongoRDD[BsonDocument](sc).withPipeline(Seq(Document.parse("{ $match: { badData : { $exists : false } } }")))
+      val rdd = MongoSpark.load[BsonDocument](sc).withPipeline(Seq(Document.parse("{ $match: { badData : { $exists : false } } }")))
       data.schema should equal(MongoInferSchema(rdd))
       database.drop()
     }

@@ -18,10 +18,11 @@ package tour;
 
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientURI;
-import com.mongodb.spark.api.java.MongoSpark;
+import com.mongodb.spark.MongoSpark;
 import com.mongodb.spark.config.ReadConfig;
 import com.mongodb.spark.config.WriteConfig;
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD;
+
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -61,11 +62,10 @@ public final class JavaIntroduction {
         MongoSpark.save(documents);
 
         // Saving data with a custom WriteConfig
-        WriteConfig defaultWriteConfig = WriteConfig.create(jsc);
         Map<String, String> writeOverrides = new HashMap<String, String>();
         writeOverrides.put("collection", "spark");
         writeOverrides.put("writeConcern.w", "majority");
-        WriteConfig writeConfig = WriteConfig.create(writeOverrides, defaultWriteConfig);
+        WriteConfig writeConfig = WriteConfig.create(jsc).withOptions(writeOverrides);
 
         JavaRDD<Document> sparkDocuments = jsc.parallelize(asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)).map
                 (new Function<Integer, Document>() {
@@ -83,13 +83,12 @@ public final class JavaIntroduction {
         System.out.println(rdd.first().toJson());
 
         // Loading data with a custom ReadConfig
-        ReadConfig defaultReadConfig = ReadConfig.create(jsc);
         Map<String, String> readOverrides = new HashMap<String, String>();
         readOverrides.put("collection", "spark");
         readOverrides.put("readPreference.name", "secondaryPreferred");
-        ReadConfig readConfig = ReadConfig.create(readOverrides, defaultReadConfig);
+        ReadConfig readConfig = ReadConfig.create(jsc).withOptions(readOverrides);
 
-        JavaMongoRDD<Document> customRdd = MongoSpark.load(jsc);
+        JavaMongoRDD<Document> customRdd = MongoSpark.load(jsc, readConfig);
 
         System.out.println(customRdd.count());
         System.out.println(customRdd.first().toJson());
@@ -127,17 +126,12 @@ public final class JavaIntroduction {
 
         // Load inferring schema
         SQLContext sqlContext = SQLContext.getOrCreate(jsc.sc());
-        DataFrame df = sqlContext.read().format("com.mongodb.spark.sql").load();
+        DataFrame df = MongoSpark.load(jsc).toDF();
         df.printSchema();
         df.show();
 
-        // Via JavaMongoRDD
-        DataFrame rddDf = MongoSpark.load(sqlContext).toDF();
-        rddDf.printSchema();
-        df.show();
-
         // Declare the Schema via a Java Bean
-        DataFrame explicitDF = MongoSpark.load(sqlContext).toDF(Character.class);
+        DataFrame explicitDF = MongoSpark.load(jsc).toDF(Character.class);
         explicitDF.printSchema();
 
         // SQL
@@ -146,8 +140,7 @@ public final class JavaIntroduction {
 
         // Saving DataFrame
         MongoSpark.write(centenarians).option("collection", "hundredClub").save();
-
-        MongoSpark.load(MongoSpark.read(sqlContext).option("collection", "hundredClub"), Character.class).show();
+        MongoSpark.load(sqlContext, ReadConfig.create(sqlContext).withOption("collection", "hundredClub"), Character.class).show();
     }
 
     private static JavaSparkContext createJavaSparkContext(final String[] args) {

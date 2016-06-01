@@ -27,7 +27,7 @@ import com.mongodb.client.{MongoCollection, MongoDatabase}
 import com.mongodb.connection.ClusterType.{REPLICA_SET, SHARDED, STANDALONE}
 import com.mongodb.spark.config.ReadConfig
 
-trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with BeforeAndAfterEach with Logging {
+trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with BeforeAndAfterEach with LoggingTrait {
 
   private val mongoDBDefaults: MongoDBDefaults = MongoDBDefaults()
   private var _currentTestName: Option[String] = None

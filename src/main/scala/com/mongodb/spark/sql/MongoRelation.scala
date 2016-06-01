@@ -22,16 +22,15 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{Row, SQLContext}
 
 import org.bson.BsonDocument
-import com.mongodb.spark.Logging
-import com.mongodb.spark.config.ReadConfig
+import com.mongodb.spark.LoggingTrait
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.sql.MapFunctions.documentToRow
 import com.mongodb.spark.sql.MongoRelationHelper.createPipeline
 
-case class MongoRelation(mongoRDD: MongoRDD[BsonDocument], readConfig: ReadConfig, _schema: Option[StructType])(@transient val sqlContext: SQLContext)
+case class MongoRelation(mongoRDD: MongoRDD[BsonDocument], _schema: Option[StructType])(@transient val sqlContext: SQLContext)
     extends BaseRelation
     with PrunedFilteredScan
-    with Logging {
+    with LoggingTrait {
 
   override lazy val schema: StructType = _schema.getOrElse(MongoInferSchema(sqlContext.sparkContext))
 

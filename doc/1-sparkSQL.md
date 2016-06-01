@@ -45,12 +45,13 @@ First enable the Mongo Connector specific functions on the `SQLContext`:
 import com.mongodb.spark.sql._
 ```
 
-### DataFrames and DataSets
+### DataFrames and Datasets
 
-Creating a DataFrame is easy using the implicit `mongo` helper on the `DataFrameReader`:
+The Mongo Spark Connector provides the `com.mongodb.spark.sql.DefaultSource` class that creates DataFrames and Datasets from MongoDB.
+However, the easiest way to create a DataFrame is by using the `MongoSpark` helper:
 
 ```scala
-val df = sqlContext.read.mongo()
+val df = MongoSpark.load(sqlContext)  // Uses the SparkConf
 df.printSchema()
 ```
 
@@ -64,7 +65,20 @@ root
 ```
 
 -----
-*Note:* The `sqlContext.read.mongo()` implicit function is the equivalent of `sqlContext.read.format("com.mongodb.spark.sql").load()`
+`MongoSpark.load(sqlContext)` is shorthand for configuring and loading via the DataFrameReader. The following examples are alternative
+methods for creating DataFrames:
+
+```scala
+sqlContext.loadFromMongoDB() // Uses the SparkConf for configuration
+sqlContext.loadFromMongoDB(ReadConfig(Map("uri" -> "mongodb://example.com/database.collection"))) // Uses the ReadConfig
+
+sqlContext.read.mongo()
+sqlContext.read.format("com.mongodb.spark.sql").load()
+
+// Set custom options:
+sqlContext.read.mongo(customReadConfig)
+sqlContext.read.format("com.mongodb.spark.sql").options.(customReadConfig.asOptions).load()
+```
 
 -----
 
@@ -85,7 +99,8 @@ df.filter(df("age") < 100).show()
 ```
 
 -----
-*Note:* Unlike RDD's when using `filters` with DataFrames or SparkSQL the underlying Mongo Connector code will construct an aggregation pipeline to filter the data in MongoDB before sending it to Spark.
+*Note:* Unlike RDD's when using `filters` with DataFrames or SparkSQL the underlying Mongo Connector code will construct an aggregation 
+pipeline to filter the data in MongoDB before sending it to Spark.
 
 -----
 
@@ -103,7 +118,7 @@ The following example creates Character case class and then uses it to represent
 
 ```scala
 case class Character(name: String, age: Int)
-val explicitDF = sqlContext.read.mongo[Character]()
+val explicitDF = MongoSpark.load[Character](sqlContext)()
 explicitDF.printSchema()
 ```
 
@@ -115,20 +130,20 @@ root
 
 ```
 
-The following example converts the `DataFrame` into a `DataSet`:
+The following example converts the `DataFrame` into a `Dataset`:
 
 ```scala
 explicitDF.as[Character]
 ```
 
-#### RDD to DataFrame / DataSets
+#### RDD to DataFrame / Datasets
 
-The `MongoRDD` class provides helpers to create DataFrames and DataSets directly:
+The `MongoRDD` class provides helpers to create DataFrames and Datasets directly:
 
 ```scala
-val dataframeInferred = sqlContext.loadFromMongoDB().toDF()
-val dataframeExplicit = sqlContext.loadFromMongoDB().toDF[Character]()
-val dataset = sqlContext.loadFromMongoDB().toDS[Character]()
+val dataframeInferred = MongoSpark.load[Character](sqlContext)
+val dataframeExplicit = MongoSpark.load[Character](sqlContext)
+val dataset = MongoSpark.load[Character](sqlContext).as[Character]()
 ```
 
 ### SQL queries
@@ -139,7 +154,7 @@ over the data.
 The following example registers a "characters" table and then queries it to find all characters that are 100 or older.
 
 ```scala
-val characters = sqlContext.loadFromMongoDB().toDF[Character]()
+val characters = MongoSpark.load(sqlContext).toDF[Character]()
 characters.registerTempTable("characters")
 
 val centenarians = sqlContext.sql("SELECT name, age FROM characters WHERE age >= 100")
@@ -158,9 +173,9 @@ The connector provides the ability to persist data into MongoDB.
 In the following example we save the centenarians into the "hundredClub" collection:
 
 ```scala
-centenarians.write.option("collection", "hundredClub").mongo()
+MongoSpark.save(centenarians.write.option("collection", "hundredClub"))
 println("Reading from the 'hundredClub' collection:")
-sqlContext.read.option("collection", "hundredClub").mongo[Character]().show()
+MongoSpark.load[Character](sqlContext, ReadConfig(Map("collection" -> "hundredClub"), Some(ReadConfig(sqlContext)))).show()
 ```
 
 Outputs:
@@ -179,14 +194,20 @@ Outputs:
 ```
 
 -----
-**Note:** The `centenarians.write.mongo()` implicit function is the equivalent of `centenarians.write.format("com.mongodb.spark.sql").save()`
+`MongoSpark.save(dataFrameWriter)` is shorthand for configuring and saving via the DataFrameWriter. The following examples are alternative
+methods for writing DataFrames to MongoDB:
+
+```scala
+dataFrameWriter.write.mongo()
+dataFrameWriter.write.format("com.mongodb.spark.sql").save()
+```
 
 -----
 
 ## DataTypes
 
 Spark supports a limited number of data types, to ensure that all bson types can be round tripped in and out of Spark DataFrames / 
-DataSets. Custom StructTypes are created for any unsupported Bson Types. The following table shows the mapping between the Bson Types and 
+Datasets. Custom StructTypes are created for any unsupported Bson Types. The following table shows the mapping between the Bson Types and 
 Spark Types:
 
 Bson Type               | Spark Type
@@ -214,12 +235,12 @@ Bson Type               | Spark Type
 
 ### Dataset support
 
-To help better support DataSets, the following Scala case classes and JavaBean classes have been created to represent the unsupported Bson 
+To help better support Datasets, the following Scala case classes and JavaBean classes have been created to represent the unsupported Bson 
 Types:
 
 Bson Type               | Scala case class                       | JavaBean
 ------------------------|----------------------------------------|----------------------------------------------
-                        | `com.mongodb.spark.sql.fieldTypes`     | `com.mongodb.spark.api.java.sql.fieldTypes.`
+                        | `com.mongodb.spark.sql.fieldTypes`     | `com.mongodb.spark.sql.fieldTypes.api.java.`
 `Binary data`           | `Binary`                               | `Binary`
 `DBPointer`             | `DBPointer`                            | `DBPointer`
 `JavaScript`            | `JavaScript`                           | `JavaScript`

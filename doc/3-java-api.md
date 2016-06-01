@@ -21,7 +21,7 @@ You may have add a `map` step to transform the data into a `Document` (or `BsonD
 Add Documents to the collection using a `JavaSparkContext`:
 
 ```java
-import com.mongodb.spark.api.java.MongoSpark;
+import com.mongodb.spark.MongoSpark;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function;
 import static java.util.Arrays.asList;
@@ -46,11 +46,10 @@ The following example saves data to the "spark" collection, with a `majority` Wr
 import com.mongodb.spark.config.WriteConfig;
 
 // Saving data with a custom WriteConfig
-WriteConfig defaultWriteConfig = WriteConfig.create(jsc);
 Map<String, String> writeOverrides = new HashMap<String, String>();
 writeOverrides.put("collection", "spark");
 writeOverrides.put("writeConcern.w", "majority");
-WriteConfig writeConfig = WriteConfig.create(writeOverrides, defaultWriteConfig);
+WriteConfig writeConfig = WriteConfig.create(jsc).withOptions(writeOverrides);
 
 JavaRDD<Document> sparkDocuments = jsc.parallelize(asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)).map
     (new Function<Integer, Document>() {
@@ -81,13 +80,12 @@ The following example reads from the "spark" collection, with a `secondaryPrefer
 
 ```java
 // Loading data with a custom ReadConfig
-ReadConfig defaultReadConfig = ReadConfig.create(jsc);
 Map<String, String> readOverrides = new HashMap<String, String>();
 readOverrides.put("collection", "spark");
 readOverrides.put("readPreference.name", "secondaryPreferred");
-ReadConfig readConfig = ReadConfig.create(readOverrides, defaultReadConfig);
+ReadConfig readConfig = ReadConfig.create(jsc).withOptions(readOverrides);
 
-JavaMongoRDD<Document> customRdd = MongoSpark.load(jsc);
+JavaMongoRDD<Document> customRdd = MongoSpark.load(jsc, readConfig);
 
 System.out.println(customRdd.count());
 System.out.println(customRdd.first().toJson());
@@ -107,7 +105,7 @@ System.out.println(aggregatedRdd.count());
 System.out.println(aggregatedRdd.first().toJson());
 ```
 
-## DataFrames and DataSets
+## DataFrames and Datasets
 
 Creating a dataframe is easy you can either load the data via `DefaultSource` or use the `JavaMongoRDD#toDF` method.
 
@@ -138,7 +136,7 @@ Then to load the characters into a DataFrame via the standard source method:
 
 ```java
 SQLContext sqlContext = SQLContext.getOrCreate(jsc.sc());
-DataFrame df = sqlContext.read().format("com.mongodb.spark.sql").load();
+DataFrame df = MongoSpark.load(jsc).toDF();
 df.printSchema();
 ```
 
@@ -151,12 +149,6 @@ root
  |-- name: string (nullable = true)
 ```
 
-Loading via a `JavaMongoRDD` is simpler as the following example shows:
-
-```java
-DataFrame rddDf = MongoSpark.load(sqlContext).toDF();
-rddDf.printSchema();
-```
 
 By default reading from MongoDB in a `SQLContext` infers the schema by sampling documents from the database. 
 If you know the shape of your documents then you can use a simple java bean to define the schema instead, thus preventing the extra queries.
@@ -175,7 +167,10 @@ root
  |-- name: string (nullable = true)
 ```
 
-*Note:* Use the `toDS` method to convert a `JavaMongoRDD` into a `DataSet`.
+-----
+*Note:* Use the `toDS` method to convert a `JavaMongoRDD` into a `Dataset`.
+
+-----
 
 ### SQL
 
@@ -199,7 +194,7 @@ In the following example we save the centenarians into the "hundredClub" collect
 MongoSpark.write(centenarians).option("collection", "hundredClub").save();
 
 // Load the data from the "hundredClub" collection
-MongoSpark.load(MongoSpark.read(sqlContext).option("collection", "hundredClub"), Character.class).show();
+MongoSpark.load(sqlContext, ReadConfig.create(sqlContext).withOption("collection", "hundredClub"), Character.class).show();
 ```
 
 Outputs:

@@ -31,7 +31,7 @@ class AuthConnectionSpec extends RequiresMongoDB {
     val sc = new SparkContext(sparkConf)
     val dbName = Option(new MongoClientURI(mongoClientURI).getDatabase).getOrElse(databaseName)
     val readConfig = ReadConfig(sc.getConf, Map("database" -> dbName))
-    val mongoRDD: MongoRDD[Document] = sc.loadFromMongoDB(readConfig = readConfig)
+    val mongoRDD: MongoRDD[Document] = MongoSpark.builder().sparkContext(sc).readConfig(readConfig).build().toRDD()
 
     Try(mongoRDD.count()) shouldBe a[Success[_]]
     sc.stop()

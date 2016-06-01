@@ -52,32 +52,40 @@ As this is a quick introduction, we'll save some data via Spark into MongoDB fir
 **Note:** When saving `RDD` data into MongoDB, it must be a type that can be converted into a Bson document. 
 You may have add a `map` step to transform the data into a `Document` (or `BsonDocument` a `DBObject`). 
 
-Some Scala types eg: Lists are not supported and should be converted to their java equivalent. Use the `.asJava` method which becomes available after `import scala.collection.JavaConverters._`. to do convert from Scala into native types.
+Some Scala types eg: Lists are not supported and should be converted to their java equivalent. Use the `.asJava` method which becomes 
+available after `import scala.collection.JavaConverters._`. to do convert from Scala into native types.
 
 ------
 
-Add Documents to the collection:
+The `MongoSpark` class and companion provide an easy way to configure and load or save data to MongoDB. First we add some 
+documents to the collection:
 
 ```scala
 import org.bson.Document
 val documents = sc.parallelize((1 to 10).map(i => Document.parse(s"{test: $i}")))
-documents.saveToMongoDB()
+
+MongoSpark.save(documents) // Uses the SparkConf for configuration
 ```
 
 The `spark.mongodb.output` namespace configures outputting data. If using the default uri from above 
 *mongodb://127.0.0.1/test.coll* this will insert the documents into the *"coll"* collection in the *"test"* database.
 
-To change which collection the data is inserted into or how the data is inserted, supply a `WriteConfig` to the `sc.saveToMongoDB` method. 
+To change which collection the data is inserted into or how the data is inserted, supply a `WriteConfig` to the `MongoSpark.save` method. 
 The following example saves data to the "spark" collection with a `majority` WriteConcern:
 
 ```scala
 import com.mongodb.spark.config._
 
-val defaultWriteConfig = WriteConfig(sc)
-val writeConfig = WriteConfig(Map("collection" -> "spark", "writeConcern.w" -> "majority"), Some(defaultWriteConfig))
-
+val writeConfig = WriteConfig(Map("collection" -> "spark", "writeConcern.w" -> "majority"), Some(WriteConfig(sc))
 val sparkDocuments = sc.parallelize((1 to 10).map(i => Document.parse(s"{spark: $i}")))
-sparkDocuments.saveToMongoDB(writeConfig)
+MongoSpark.save(sparkDocuments, writeConfig)
+```
+
+Implicit helper methods on `RDD` can also be used to save data to MongoDB:
+
+```scala
+rdd.saveToMongoDB() // Uses the SparkConf for configuration
+rdd.saveToMongoDB(WriteConfig(Map("uri" -> "mongodb://example.com/database.collection"))) // Uses the WriteConfig
 ```
 
 ### Loading and analyzing data from MongoDB
@@ -85,7 +93,7 @@ sparkDocuments.saveToMongoDB(writeConfig)
 Now we have some data in MongoDB we can use the `sc.loadFromMongoDB` method to create an `RDD` representing a collection:
 
 ```scala
-val rdd = sc.loadFromMongoDB()
+val rdd = MongoSpark.load(sc)
 println(rdd.count)
 println(rdd.first.toJson)
 ```
@@ -99,17 +107,24 @@ The following example reads from the "spark" collection with a `secondaryPreferr
 ```scala
 import com.mongodb.spark.config._
 
-val defaultReadConfig = ReadConfig(sc)
-val readConfig = ReadConfig(Map("collection" -> "spark", "readPreference.name" -> "secondaryPreferred"), Some(defaultReadConfig))
-val customRdd = sc.loadFromMongoDB(readConfig = readConfig)
+val readConfig = ReadConfig(Map("collection" -> "spark", "readPreference.name" -> "secondaryPreferred"), Some(ReadConfig(sc)))
+val customRdd = MongoSpark.load(sc, readConfig)
 println(customRdd.count)
 println(customRdd.first.toJson)
+```
+
+Implicit helper methods on the `SparkContext` can also be used to load data from MongoDB:
+
+```scala
+sc.loadFromMongoDB() // Uses the SparkConf for configuration
+sc.loadFromMongoDB(ReadConfig(Map("uri" -> "mongodb://example.com/database.collection"))) // Uses the ReadConfig
 ```
 
 ### Aggregations
 
 As mentioned earlier, Spark RDDs only support two types of operations: *Transformations* and *Actions*. 
-Transformations such as mapping or filtering are saved and only applied once an action is called.  With RDD's its important to understand what data from MongoDB is loaded into Spark. Filtering data may seen a simple transformation but it 
+Transformations such as mapping or filtering are saved and only applied once an action is called.  With RDD's its important to understand 
+what data from MongoDB is loaded into Spark. Filtering data may seen a simple transformation but it 
 can be imperformant. The following example filters all documents where the "test" field has a value greater than 5:
 
 ```scala
@@ -139,5 +154,10 @@ println(aggregatedRdd.first.toJson)
 Any aggregation pipeline is valid, pre aggregating data in MongoDB may be more performant than doing it via Spark in certain circumstances.
 
 -----
+
+## MongoSpark.builder()
+
+If you require granular control over your configuration, then the `MongoSpark` companion provides a `builder()` method for configuring 
+all aspects of the Mongo Spark Connector.  It also provides easy methods for going on to create an `RDD`, `DataFrame` or `Dataset`.
 
 [Next - Spark SQL](1-sparkSQL.md)

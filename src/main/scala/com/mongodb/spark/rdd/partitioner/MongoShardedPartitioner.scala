@@ -27,7 +27,14 @@ import com.mongodb.client.model.{Filters, Projections}
 import com.mongodb.spark.MongoConnector
 import com.mongodb.spark.config.ReadConfig
 
-private[partitioner] case object MongoShardedPartitioner extends MongoPartitioner {
+/**
+ * The Sharded Partitioner
+ *
+ * Partitions collections by shard and chunk.
+ *
+ * @since 1.0
+ */
+case object MongoShardedPartitioner extends MongoPartitioner {
 
   override def partitions(connector: MongoConnector, readConfig: ReadConfig): Array[MongoPartition] = {
     val ns: String = s"${readConfig.databaseName}.${readConfig.collectionName}"
@@ -67,7 +74,7 @@ private[partitioner] case object MongoShardedPartitioner extends MongoPartitione
     }).toArray
   }
 
-  private def mapShards(connector: MongoConnector): Map[String, Seq[String]] = {
+  private[partitioner] def mapShards(connector: MongoConnector): Map[String, Seq[String]] = {
     connector.withCollectionDo(
       ReadConfig("config", "shards"), { collection: MongoCollection[BsonDocument] =>
         Map(collection.find().projection(Projections.include("_id", "host")).into(new util.ArrayList[BsonDocument]).asScala
@@ -77,5 +84,5 @@ private[partitioner] case object MongoShardedPartitioner extends MongoPartitione
   }
 
   private[partitioner] def getHosts(hosts: String): Seq[String] = hosts.split(",").toSeq.map(getHost).distinct
-  private def getHost(hostAndPort: String): String = new ServerAddress(hostAndPort.split("/").reverse.head).getHost
+  private[partitioner] def getHost(hostAndPort: String): String = new ServerAddress(hostAndPort.split("/").reverse.head).getHost
 }

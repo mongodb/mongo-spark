@@ -23,7 +23,16 @@ import com.mongodb.MongoCommandException
 import com.mongodb.spark.MongoConnector
 import com.mongodb.spark.config.ReadConfig
 
-private[rdd] case object DefaultMongoPartitioner extends MongoPartitioner {
+/**
+ * The default collection partitioner implementation
+ *
+ * Checks if the collection is sharded then:
+ *  - If sharded uses the [[MongoShardedPartitioner]] to partition the collection by shard chunks
+ *  - If non sharded uses the [[MongoSplitVectorPartitioner]] to partition the collection by using the `splitVector` command.
+ *
+ * @since 1.0
+ */
+case object DefaultMongoPartitioner extends MongoPartitioner {
 
   override def partitions(connector: MongoConnector, readConfig: ReadConfig): Array[MongoPartition] = {
     val collStatsCommand: Document = new Document("collStats", readConfig.collectionName)

@@ -20,14 +20,14 @@ package com.mongodb.spark.connection
 
 import java.util.concurrent.{Executors, ThreadFactory, TimeUnit}
 
-import com.mongodb.MongoClient
-import com.mongodb.spark.{Logging, MongoClientFactory}
-
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}
+
+import com.mongodb.MongoClient
+import com.mongodb.spark.{Logging, MongoClientFactory}
 
 /**
  * A lockless cache for MongoClients.

@@ -27,11 +27,12 @@ import org.bson._
 import org.bson.types.ObjectId
 import com.mongodb.spark._
 import com.mongodb.spark.config.WriteConfig
+import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.sql.types.BsonCompatibility
 
 import org.scalatest.FlatSpec
 
-class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
+class MongoDataFrameSpec extends RequiresMongoDB {
   // scalastyle:off magic.number
 
   val characters =
@@ -98,7 +99,7 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
     val readConf = readConfig.withOptions(Map("collection" -> saveToCollectionName))
 
     SQLContext.getOrCreate(sc).read.mongo().write.mode(SaveMode.Overwrite).option("collection", saveToCollectionName).mongo()
-    sc.loadFromMongoDB(readConfig = readConfig).collect().toList should equal(arrayFieldWithNulls)
+    MongoSpark.builder().sparkContext(sc).readConfig(readConfig).build().toRDD().collect().toList should equal(arrayFieldWithNulls)
   }
 
   it should "handle document fields with null values" in withSparkContext() { sc =>
@@ -108,7 +109,7 @@ class MongoDataFrameSpec extends FlatSpec with RequiresMongoDB {
     val readConf = readConfig.withOptions(Map("collection" -> saveToCollectionName))
 
     SQLContext.getOrCreate(sc).read.mongo().write.mode(SaveMode.Overwrite).option("collection", saveToCollectionName).mongo()
-    sc.loadFromMongoDB(readConfig = readConfig).collect().toList should equal(documentFieldWithNulls)
+    MongoSpark.builder().sparkContext(sc).readConfig(readConfig).build().toRDD().collect().toList should equal(documentFieldWithNulls)
   }
 
   it should "be easily created with a provided case class" in withSparkContext() { sc =>

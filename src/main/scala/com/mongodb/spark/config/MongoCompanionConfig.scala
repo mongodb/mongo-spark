@@ -24,6 +24,7 @@ import org.apache.spark.{SparkConf, SparkContext}
 
 import com.mongodb.ConnectionString
 import org.apache.spark.api.java.JavaSparkContext
+import org.apache.spark.sql.SQLContext
 
 /**
  * The Mongo configuration base trait
@@ -65,6 +66,17 @@ trait MongoCompanionConfig extends Serializable {
   def apply(sparkContext: SparkContext): Self = apply(sparkContext.getConf)
 
   /**
+   * Create a configuration from the `sqlContext`
+   *
+   * Uses the prefixed properties that are set in the Spark configuration to create the config.
+   *
+   * @see [[configPrefix]]
+   * @param sqlContext the SQL context
+   * @return the configuration
+   */
+  def apply(sqlContext: SQLContext): Self = apply(sqlContext.sparkContext.getConf)
+
+  /**
    * Create a configuration from the `sparkConf`
    *
    * Uses the prefixed properties that are set in the Spark configuration to create the config.
@@ -85,10 +97,8 @@ trait MongoCompanionConfig extends Serializable {
    * @param options overloaded parameters
    * @return the configuration
    */
-  def apply(sparkConf: SparkConf, options: collection.Map[String, String]): Self = {
-    val defaults = sparkConf.getAll.filter(_._1.startsWith(configPrefix)).toMap
-    apply(prefixLessOptions(defaults) ++ prefixLessOptions(options))
-  }
+  def apply(sparkConf: SparkConf, options: collection.Map[String, String]): Self =
+    apply(getOptionsFromConf(sparkConf) ++ stripPrefix(options))
 
   /**
    * Create a configuration from the values in the `Map`
@@ -123,6 +133,17 @@ trait MongoCompanionConfig extends Serializable {
    * @return the configuration
    */
   def create(javaSparkContext: JavaSparkContext): Self
+
+  /**
+   * Create a configuration easily from the Java API using the `JavaSparkContext`
+   *
+   * Uses the prefixed properties that are set in the Spark configuration to create the config.
+   *
+   * @see [[configPrefix]]
+   * @param sqlContext the SQL context
+   * @return the configuration
+   */
+  def create(sqlContext: SQLContext): Self
 
   /**
    * Create a configuration easily from the Java API using the `sparkConf`
@@ -169,8 +190,23 @@ trait MongoCompanionConfig extends Serializable {
    */
   def create(options: util.Map[String, String], default: Self): Self
 
-  protected def prefixLessOptions(options: collection.Map[String, String]): collection.Map[String, String] =
+  /**
+   * Strip the prefix from options
+   *
+   * @param options options that may contain the prefix
+   * @return prefixLess options
+   */
+  protected def stripPrefix(options: collection.Map[String, String]): collection.Map[String, String] =
     options.map(kv => (kv._1.toLowerCase.stripPrefix(configPrefix), kv._2))
+
+  /**
+   * Gets an options map from the `SparkConf`
+   *
+   * @param sparkConf the SparkConf
+   * @return the options
+   */
+  def getOptionsFromConf(sparkConf: SparkConf): collection.Map[String, String] =
+    stripPrefix(sparkConf.getAll.filter(_._1.startsWith(configPrefix)).toMap)
 
   protected def getInt(newValue: Option[String], existingValue: Option[Int] = None, defaultValue: Int): Int = {
     newValue match {
@@ -194,7 +230,7 @@ trait MongoCompanionConfig extends Serializable {
   }
 
   protected def databaseName(databaseNameProperty: String, options: collection.Map[String, String], default: Option[String] = None): String = {
-    val cleanedOptions = prefixLessOptions(options)
+    val cleanedOptions = stripPrefix(options)
     cleanedOptions.get(databaseNameProperty).orElse(default) match {
       case Some(databaseName) => databaseName
       case None => throw new IllegalArgumentException(
@@ -204,7 +240,7 @@ trait MongoCompanionConfig extends Serializable {
   }
 
   protected def collectionName(collectionNameProperty: String, options: collection.Map[String, String], default: Option[String] = None): String = {
-    val cleanedOptions = prefixLessOptions(options)
+    val cleanedOptions = stripPrefix(options)
     cleanedOptions.get(collectionNameProperty).orElse(default) match {
       case Some(collectionName) => collectionName
       case None => throw new IllegalArgumentException(

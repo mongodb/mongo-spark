@@ -16,10 +16,55 @@
 
 package com.mongodb.spark.rdd.partitioner
 
+import scala.collection.JavaConverters._
 import org.apache.spark.Partition
+
 import org.bson.BsonDocument
 
 /**
- * An identifier for a partition in a MongoRDD.
+ * The MongoPartition companion object
+ *
+ * @since 1.0
  */
-private[rdd] case class MongoPartition(index: Int, queryBounds: BsonDocument, locations: Seq[String] = Nil) extends Partition
+object MongoPartition {
+
+  /**
+   * Create a MongoPartition with no preferred locations
+   *
+   * @param index The partition's index within its parent RDD
+   * @param queryBounds The query bounds for the data within this partition
+   * @return the MongoPartition
+   */
+  def apply(index: Int, queryBounds: BsonDocument): MongoPartition = new MongoPartition(index, queryBounds, Nil)
+
+  /**
+   * Create a MongoPartition with no preferred locations from the Java API
+   *
+   * @param index The partition's index within its parent RDD
+   * @param queryBounds The query bounds for the data within this partition
+   * @return the MongoPartition
+   */
+  def create(index: Int, queryBounds: BsonDocument): MongoPartition = apply(index, queryBounds)
+
+  /**
+   * Create a MongoPartition from the Java API
+   *
+   * @param index The partition's index within its parent RDD
+   * @param queryBounds The query bounds for the data within this partition
+   * @param locations The preferred locations (hostnames) for the data
+   * @return the MongoPartition
+   */
+  def create(index: Int, queryBounds: BsonDocument, locations: java.util.List[String]): MongoPartition =
+    new MongoPartition(index, queryBounds, locations.asScala)
+}
+
+/**
+ * An identifier for a partition in a MongoRDD.
+ *
+ * @param index The partition's index within its parent RDD
+ * @param queryBounds The query bounds for the data within this partition
+ * @param locations The preferred locations (hostnames) for the data
+ *
+ * @since 1.0
+ */
+case class MongoPartition(index: Int, queryBounds: BsonDocument, locations: Seq[String]) extends Partition

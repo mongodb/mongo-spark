@@ -19,13 +19,15 @@ package com.mongodb.spark.config
 import java.util
 
 import com.mongodb.spark.notNull
-
 import scala.collection.JavaConverters._
 import scala.collection.Map
 import scala.util.Try
+
 import org.apache.spark.SparkConf
+
 import com.mongodb.{ReadConcern, ReadConcernLevel}
 import org.apache.spark.api.java.JavaSparkContext
+import org.apache.spark.sql.SQLContext
 
 /**
  * The `ReadConcernConfig` companion object
@@ -50,7 +52,7 @@ object ReadConcernConfig extends MongoInputConfig {
   }
 
   override def apply(options: collection.Map[String, String], default: Option[ReadConcernConfig]): ReadConcernConfig = {
-    val cleanedOptions = prefixLessOptions(options)
+    val cleanedOptions = stripPrefix(options)
 
     val defaultReadConcernConfig: ReadConcernConfig = default.getOrElse(
       Option(connectionString(cleanedOptions).getReadConcern) match {
@@ -106,6 +108,11 @@ object ReadConcernConfig extends MongoInputConfig {
     notNull("options", options)
     apply(sparkConf, options.asScala)
   }
+
+  override def create(sqlContext: SQLContext): ReadConcernConfig = {
+    notNull("sqlContext", sqlContext)
+    apply(sqlContext)
+  }
 }
 
 /**
@@ -124,9 +131,11 @@ case class ReadConcernConfig(private val readConcernLevel: Option[String] = None
     case None        => Map()
   }
 
+  override def withOption(key: String, value: String): ReadConcernConfig = ReadConcernConfig(this.asOptions + (key -> value))
+
   override def withOptions(options: collection.Map[String, String]): ReadConcernConfig = ReadConcernConfig(options, Some(this))
 
-  override def withJavaOptions(options: util.Map[String, String]): ReadConcernConfig = withOptions(options.asScala)
+  override def withOptions(options: util.Map[String, String]): ReadConcernConfig = withOptions(options.asScala)
 
   override def asJavaOptions: util.Map[String, String] = asOptions.asJava
 
@@ -141,4 +150,5 @@ case class ReadConcernConfig(private val readConcernLevel: Option[String] = None
       case None        => ReadConcern.DEFAULT
     }
   }
+
 }
