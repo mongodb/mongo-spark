@@ -23,7 +23,7 @@ import com.mongodb.MongoClient
 /**
  * A factory for creating MongoClients
  *
- * *Note:* Care should be taken to implement an `equals` method to ensure that the `MongoClientCache` can cache and reuse the resulting
+ * '''Note:''' Care should be taken to implement an `equals` method to ensure that the `MongoClientCache` can cache and reuse the resulting
  * `MongoClient`.
  *
  * @since 1.0

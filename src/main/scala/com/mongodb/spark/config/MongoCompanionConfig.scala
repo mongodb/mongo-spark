@@ -103,7 +103,7 @@ trait MongoCompanionConfig extends Serializable {
   /**
    * Create a configuration from the values in the `Map`
    *
-   * *Note:* Values in the map do not need to be prefixed with the [[configPrefix]].
+   * '''Note:''' Values in the map do not need to be prefixed with the [[configPrefix]].
    *
    * @param options a map of properties and their string values
    * @return the configuration
@@ -115,7 +115,7 @@ trait MongoCompanionConfig extends Serializable {
   /**
    * Create a configuration from the values in the `Map`, using the optional default configuration for any default values.
    *
-   * *Note:* Values in the map do not need to be prefixed with the [[configPrefix]].
+   * '''Note:''' Values in the map do not need to be prefixed with the [[configPrefix]].
    *
    * @param options a map of properties and their string values
    * @param default the optional default configuration, used for determining the default values for the properties
@@ -171,7 +171,7 @@ trait MongoCompanionConfig extends Serializable {
   /**
    * Create a configuration easily from the Java API using the values in the `Map`
    *
-   * *Note:* Values in the map do not need to be prefixed with the [[configPrefix]].
+   * '''Note:''' Values in the map do not need to be prefixed with the [[configPrefix]].
    *
    * @param options a map of properties and their string values
    * @return the configuration
@@ -182,7 +182,7 @@ trait MongoCompanionConfig extends Serializable {
    * Create a configuration easily from the Java API using the values in the `Map`, using the optional default configuration for any
    * default values.
    *
-   * *Note:* Values in the map do not need to be prefixed with the [[configPrefix]].
+   * '''Note:''' Values in the map do not need to be prefixed with the [[configPrefix]].
    *
    * @param options a map of properties and their string values
    * @param default the optional default configuration, used for determining the default values for the properties

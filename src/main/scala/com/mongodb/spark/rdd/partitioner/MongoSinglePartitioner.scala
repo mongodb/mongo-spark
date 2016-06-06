@@ -25,7 +25,7 @@ import com.mongodb.spark.config.ReadConfig
  *
  * Creates a single partition for the whole collection.
  *
- * *Note:* Using this partitioner loses any parallelism and therefore is not generally recommended.
+ * '''Note:''' Using this partitioner loses any parallelism and therefore is not generally recommended.
  *
  * @since 1.0
  */

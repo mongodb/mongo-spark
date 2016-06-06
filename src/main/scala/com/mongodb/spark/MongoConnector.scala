@@ -132,7 +132,7 @@ case class MongoConnector(mongoClientFactory: MongoClientFactory)
   /**
    * Execute some code on a `MongoClient`
    *
-   * *Note:* The MongoClient is reference counted and loaned to the `code` method and should only be used inside that function.
+   * '''Note:''' The MongoClient is reference counted and loaned to the `code` method and should only be used inside that function.
    *
    * @param code the code block that is passed
    * @tparam T the result of the code function
@@ -150,7 +150,7 @@ case class MongoConnector(mongoClientFactory: MongoClientFactory)
   /**
    * Execute some code on a database
    *
-   * *Note:* The `MongoDatabase` is reference counted and loaned to the `code` method and should only be used inside that function.
+   * '''Note:''' The `MongoDatabase` is reference counted and loaned to the `code` method and should only be used inside that function.
    *
    * @param config the [[com.mongodb.spark.config.MongoCollectionConfig]] determining which database to connect to
    * @param code the code block that is executed
@@ -163,7 +163,7 @@ case class MongoConnector(mongoClientFactory: MongoClientFactory)
   /**
    * Execute some code on a collection
    *
-   * *Note:* The `MongoCollection` is reference counted and loaned to the `code` method and should only be used inside that function.
+   * '''Note:''' The `MongoCollection` is reference counted and loaned to the `code` method and should only be used inside that function.
    *
    * @param config the [[com.mongodb.spark.config.MongoCollectionConfig]] determining which database and collection to connect to
    * @param code the code block that is executed
@@ -183,7 +183,7 @@ case class MongoConnector(mongoClientFactory: MongoClientFactory)
   /**
    * A Java friendly way to execute some code on a `MongoClient`
    *
-   * *Note:* The MongoClient is reference counted and loaned to the `code` method and should only be used inside that function.
+   * '''Note:''' The MongoClient is reference counted and loaned to the `code` method and should only be used inside that function.
    *
    * @param code the code block that is passed
    * @tparam T the result of the code function
@@ -194,7 +194,7 @@ case class MongoConnector(mongoClientFactory: MongoClientFactory)
   /**
    * A Java friendly way to execute some code on a database
    *
-   * *Note:* The `MongoDatabase` is reference counted and loaned to the `code` method and should only be used inside that function.
+   * '''Note:''' The `MongoDatabase` is reference counted and loaned to the `code` method and should only be used inside that function.
    *
    * @param config the [[com.mongodb.spark.config.MongoCollectionConfig]] determining which database to connect to
    * @param code the code block that is executed
@@ -207,7 +207,7 @@ case class MongoConnector(mongoClientFactory: MongoClientFactory)
   /**
    * A Java friendly way to execute some code on a collection
    *
-   * *Note:* The `MongoCollection` is reference counted and loaned to the `code` method and should only be used inside that function.
+   * '''Note:''' The `MongoCollection` is reference counted and loaned to the `code` method and should only be used inside that function.
    *
    * @param config the [[com.mongodb.spark.config.MongoCollectionConfig]] determining which database and collection to connect to
    * @param clazz the class representing documents from the collection

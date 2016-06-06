@@ -407,7 +407,7 @@ object MongoSpark {
 /**
  * The MongoSpark class
  *
- * *Note:* Creation of the class should be via [[MongoSpark#builder()]].
+ * '''Note:''' Creation of the class should be via [[MongoSpark#builder()]].
  *
  * @since 1.0
  */
