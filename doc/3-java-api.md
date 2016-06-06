@@ -8,7 +8,7 @@ Have MongoDB up and running and the Spark 1.6.x downloaded. See the [introductio
 
 ## The Java API Basics
 
-The main Java API feeds off the `com.mongodb.spark.api.java.MongoSpark` helper that provides an easy way to interact with MongoDB.
+The main Java API feeds off the `com.mongodb.spark.MongoSpark` helper that provides an easy way to interact with MongoDB.
 The configuration classes also have Java friendly `create` methods that should be preferred over using the native scala `apply` methods.
 
 ### Saving RDD data
