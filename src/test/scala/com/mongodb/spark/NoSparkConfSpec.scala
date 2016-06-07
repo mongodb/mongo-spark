@@ -58,7 +58,7 @@ class NoSparkConfSpec extends RequiresMongoDB {
     ds.collect().toList should equal(characters)
   }
 
-  val sc: SparkContext = new SparkContext(new SparkConf().setMaster("local").setAppName("MongoSparkConnector"))
+  val sc: SparkContext = new SparkContext(new SparkConf().setMaster("local").setAppName("MongoSparkConnector").set("spark.mongodb.input.uri", "mongodb://example.com/test"))
 
   override def beforeEach(): Unit = {
   }

@@ -184,12 +184,16 @@ object MongoSpark {
       require(sqlContext.isDefined, "The SQLContext must be set, either explicitly or via the SparkContext")
       val sqlCtxt = sqlContext.get
       val sc = sqlCtxt.sparkContext
+      val readConf = readConfig.isDefined match {
+        case true  => ReadConfig(options, readConfig)
+        case false => ReadConfig(sc.getConf, options)
+      }
 
       new MongoSpark(
         sqlCtxt,
         partitioner.getOrElse(DefaultMongoPartitioner),
-        connector.getOrElse(MongoConnector(ReadConfig(ReadConfig.getOptionsFromConf(sc.getConf) ++ options, readConfig).asOptions)),
-        readConfig.getOrElse(ReadConfig(sc.getConf, options)),
+        connector.getOrElse(MongoConnector(readConf)),
+        readConf,
         pipeline
       )
     }

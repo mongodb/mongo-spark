@@ -24,8 +24,12 @@ import com.mongodb.spark.config.{MongoSharedConfig, ReadConfig}
 
 private[spark] object DefaultMongoClientFactory {
   def apply(options: collection.Map[String, String]): DefaultMongoClientFactory = {
-    require(options.contains(MongoSharedConfig.mongoURIProperty), s"Missing '${MongoSharedConfig.mongoURIProperty}' property from options")
-    DefaultMongoClientFactory(options.get(MongoSharedConfig.mongoURIProperty).get, options.get(ReadConfig.localThresholdProperty).map(_.toInt))
+    val cleanedOptions = ReadConfig.stripPrefix(options)
+    require(cleanedOptions.contains(MongoSharedConfig.mongoURIProperty), s"Missing '${MongoSharedConfig.mongoURIProperty}' property from options")
+    DefaultMongoClientFactory(
+      cleanedOptions.get(MongoSharedConfig.mongoURIProperty).get,
+      cleanedOptions.get(ReadConfig.localThresholdProperty).map(_.toInt)
+    )
   }
 }
 

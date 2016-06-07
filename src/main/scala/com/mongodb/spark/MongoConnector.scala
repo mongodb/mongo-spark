@@ -60,6 +60,14 @@ object MongoConnector {
   /**
    * Creates a MongoConnector
    *
+   * @param readConfig the readConfig
+   * @return the MongoConnector
+   */
+  def apply(readConfig: ReadConfig): MongoConnector = apply(readConfig.asOptions)
+
+  /**
+   * Creates a MongoConnector
+   *
    * @param options the configuration options
    * @return the MongoConnector
    */

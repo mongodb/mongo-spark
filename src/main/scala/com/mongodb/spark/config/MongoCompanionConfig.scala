@@ -196,7 +196,7 @@ trait MongoCompanionConfig extends Serializable {
    * @param options options that may contain the prefix
    * @return prefixLess options
    */
-  protected def stripPrefix(options: collection.Map[String, String]): collection.Map[String, String] =
+  def stripPrefix(options: collection.Map[String, String]): collection.Map[String, String] =
     options.map(kv => (kv._1.toLowerCase.stripPrefix(configPrefix), kv._2))
 
   /**

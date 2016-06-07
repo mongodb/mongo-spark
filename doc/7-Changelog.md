@@ -1,5 +1,8 @@
 # Mongo Spark Connector Changelog
 
+## 0.4
+  * [[SPARK-61](https://jira.mongodb.org/browse/SPARK-61)] Ensure that MongoSpark builder applies overridden options correctly.
+
 ## 0.3
   * [[SPARK-58](https://jira.mongodb.org/browse/SPARK-58)] Added the ability to explicitly pass schema when creating a DataFrame.
   * [[SPARK-59](https://jira.mongodb.org/browse/SPARK-59)] Fixed being able to directly connect to a single MongoD in a replicaSet.
