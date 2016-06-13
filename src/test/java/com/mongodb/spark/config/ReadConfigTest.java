@@ -33,11 +33,19 @@ public final class ReadConfigTest extends JavaRequiresMongoDB {
 
     @Test
     public void shouldBeCreatableFromTheSparkConf() {
-        ReadConfig readConfig = ReadConfig.create(getSparkConf());
-        ReadConfig expectedReadConfig = ReadConfig.create(getDatabaseName(), getCollectionName(), getMongoClientURI(), 1000, 64, "_id",
-                15, ReadPreference.primary(), ReadConcern.DEFAULT);
+        ReadConfig readConfig = ReadConfig.create(getSparkConf().remove("spark.mongodb.input.partitioner"));
+        ReadConfig expectedReadConfig = ReadConfig.create(getDatabaseName(), getCollectionName(), getMongoClientURI(), 1000,
+                "DefaultMongoPartitioner$", new HashMap<String, String>(), 15, ReadPreference.primary(), ReadConcern.DEFAULT);
 
-        assertEquals(readConfig, expectedReadConfig);
+        assertEquals(readConfig.databaseName(), expectedReadConfig.databaseName());
+        assertEquals(readConfig.collectionName(), expectedReadConfig.collectionName());
+        assertEquals(readConfig.connectionString(), expectedReadConfig.connectionString());
+        assertEquals(readConfig.sampleSize(), expectedReadConfig.sampleSize());
+        assertEquals(readConfig.partitioner(), expectedReadConfig.partitioner());
+        assertEquals(readConfig.partitionerOptions(), expectedReadConfig.partitionerOptions());
+        assertEquals(readConfig.localThreshold(), expectedReadConfig.localThreshold());
+        assertEquals(readConfig.readPreferenceConfig(), expectedReadConfig.readPreferenceConfig());
+        assertEquals(readConfig.readConcernConfig(), expectedReadConfig.readConcernConfig());
     }
 
     @Test
@@ -46,19 +54,30 @@ public final class ReadConfigTest extends JavaRequiresMongoDB {
         options.put(ReadConfig.databaseNameProperty(), "db");
         options.put(ReadConfig.collectionNameProperty(), "collection");
         options.put(ReadConfig.sampleSizeProperty(), "500");
-        options.put(ReadConfig.maxChunkSizeProperty(), "99");
-        options.put(ReadConfig.splitKeyProperty(), "ID");
+        options.put(ReadConfig.partitionerProperty(), "MongoSamplePartitioner$");
+        options.put(ReadConfig.partitionerOptionsProperty() + ".partitionSizeMB", "10");
         options.put(ReadConfig.localThresholdProperty(), "0");
         options.put(ReadConfig.readPreferenceNameProperty(), "secondaryPreferred");
         options.put(ReadConfig.readPreferenceTagSetsProperty(), "[{dc: \"east\", use: \"production\"},{}]");
         options.put(ReadConfig.readConcernLevelProperty(), "majority");
 
         ReadConfig readConfig = ReadConfig.create(options);
-        ReadConfig expectedReadConfig = ReadConfig.create("db", "collection", null, 500, 99, "ID", 0,
+        HashMap<String, String> partitionerOptions = new HashMap<String, String>();
+        partitionerOptions.put(ReadConfig.partitionerOptionsProperty() + ".partitionSizeMB", "10");
+        ReadConfig expectedReadConfig = ReadConfig.create("db", "collection", null, 500, "MongoSamplePartitioner$",
+                partitionerOptions, 0,
                 ReadPreference.secondaryPreferred(asList(new TagSet(asList(new Tag("dc", "east"), new Tag("use", "production"))), new TagSet())),
                 ReadConcern.MAJORITY);
 
-        assertEquals(readConfig, expectedReadConfig);
+        assertEquals(readConfig.databaseName(), expectedReadConfig.databaseName());
+        assertEquals(readConfig.collectionName(), expectedReadConfig.collectionName());
+        assertEquals(readConfig.connectionString(), expectedReadConfig.connectionString());
+        assertEquals(readConfig.sampleSize(), expectedReadConfig.sampleSize());
+        assertEquals(readConfig.partitioner(), expectedReadConfig.partitioner());
+        assertEquals(readConfig.partitionerOptions(), expectedReadConfig.partitionerOptions());
+        assertEquals(readConfig.localThreshold(), expectedReadConfig.localThreshold());
+        assertEquals(readConfig.readPreferenceConfig(), expectedReadConfig.readPreferenceConfig());
+        assertEquals(readConfig.readConcernConfig(), expectedReadConfig.readConcernConfig());
     }
 
     @Test
@@ -69,10 +88,19 @@ public final class ReadConfigTest extends JavaRequiresMongoDB {
         options.put(ReadConfig.readPreferenceNameProperty(), "secondaryPreferred");
         options.put(ReadConfig.readConcernLevelProperty(), "majority");
 
-        ReadConfig readConfig = ReadConfig.create(options, ReadConfig.create(getSparkConf()));
-        ReadConfig expectedReadConfig = ReadConfig.create("db", "collection", getMongoClientURI(), 1000, 64, "_id", 15,
-                ReadPreference.secondaryPreferred(), ReadConcern.MAJORITY);
+        ReadConfig readConfig = ReadConfig.create(options, ReadConfig.create(getSparkConf().remove("spark.mongodb.input.partitioner")));
+        ReadConfig expectedReadConfig = ReadConfig.create("db", "collection", getMongoClientURI(), 1000,
+                "DefaultMongoPartitioner$", new HashMap<String, String>(), 15, ReadPreference.secondaryPreferred(),
+                ReadConcern.MAJORITY);
 
-        assertEquals(readConfig, expectedReadConfig);
+        assertEquals(readConfig.databaseName(), expectedReadConfig.databaseName());
+        assertEquals(readConfig.collectionName(), expectedReadConfig.collectionName());
+        assertEquals(readConfig.connectionString(), expectedReadConfig.connectionString());
+        assertEquals(readConfig.sampleSize(), expectedReadConfig.sampleSize());
+        assertEquals(readConfig.partitioner(), expectedReadConfig.partitioner());
+        assertEquals(readConfig.partitionerOptions(), expectedReadConfig.partitionerOptions());
+        assertEquals(readConfig.localThreshold(), expectedReadConfig.localThreshold());
+        assertEquals(readConfig.readPreferenceConfig(), expectedReadConfig.readPreferenceConfig());
+        assertEquals(readConfig.readConcernConfig(), expectedReadConfig.readConcernConfig());
     }
 }

@@ -16,15 +16,20 @@
 
 package com.mongodb.spark
 
-import org.scalatest._
+import scala.collection.JavaConverters._
+import java.util
 
+import scala.collection.mutable
+
+import org.scalatest._
 import org.apache.spark.{SparkConf, SparkContext}
 
-import org.bson.Document
+import org.bson.{BsonDocument, Document}
 import com.mongodb.Implicits._
 import com.mongodb.MongoClient
 import com.mongodb.client.{MongoCollection, MongoDatabase}
 import com.mongodb.connection.ClusterType.{REPLICA_SET, SHARDED, STANDALONE}
+import com.mongodb.connection.ServerVersion
 import com.mongodb.spark.config.ReadConfig
 
 trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with BeforeAndAfterEach with LoggingTrait {
@@ -60,6 +65,18 @@ trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with
   lazy val isReplicaSet: Boolean = mongoClient.cluster.getDescription.getType == REPLICA_SET
 
   lazy val isSharded: Boolean = mongoClient.cluster.getDescription.getType == SHARDED
+
+  val serverVersionMap: mutable.Map[String, Boolean] = mutable.Map.empty[String, Boolean]
+  def serverAtLeast(versions: Int*): Boolean = {
+    val fullVersion = versions.padTo(3, 0)
+    val versionString = fullVersion.mkString(".")
+    serverVersionMap.getOrElseUpdate(versionString, {
+      val buildInfo: BsonDocument = database.runCommand(new Document("buildInfo", 1), classOf[BsonDocument])
+      val serverVersionArray: util.List[Integer] = buildInfo.getArray("versionArray").asScala.take(3).map(_.asInt32().getValue.asInstanceOf[Integer]).asJava
+      val versionArray = fullVersion.toList.asJava.asInstanceOf[util.List[Integer]]
+      new ServerVersion(serverVersionArray).compareTo(new ServerVersion(versionArray)) >= 0
+    })
+  }
 
   def readConfig: ReadConfig = ReadConfig(sparkContext.getConf)
 

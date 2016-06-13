@@ -22,8 +22,8 @@ import com.mongodb.client.model.Projections
 import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.rdd.partitioner.{MongoPartition, MongoPartitioner}
 
-object HalfwayPartitioner extends MongoPartitioner {
-  override def partitions(connector: MongoConnector, readConfig: ReadConfig): Array[MongoPartition] = {
+class HalfwayPartitioner extends MongoPartitioner {
+  override def partitions(connector: MongoConnector, readConfig: ReadConfig, pipeline: Array[BsonDocument]): Array[MongoPartition] = {
     val midId = connector.withCollectionDo(readConfig, { collection: MongoCollection[BsonDocument] =>
       @transient val midPoint = collection.count() / 2
       collection.find().skip(midPoint.toInt).limit(1).projection(Projections.include("_id")).first().get("_id")
@@ -34,3 +34,5 @@ object HalfwayPartitioner extends MongoPartitioner {
     )
   }
 }
+
+case object HalfwayPartitioner extends HalfwayPartitioner

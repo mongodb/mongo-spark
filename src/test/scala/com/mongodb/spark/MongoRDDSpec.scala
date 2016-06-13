@@ -128,7 +128,23 @@ class MongoRDDSpec extends RequiresMongoDB {
   it should "be easy to use a custom partitioner" in withSparkContext() { sc =>
     sc.parallelize((1 to 100).map(i => Document.parse(s"{number: $i}"))).saveToMongoDB()
 
-    val mongoRDD: MongoRDD[Document] = MongoSpark.builder().sparkContext(sc).partitioner(HalfwayPartitioner).build().toRDD()
+    val mongoRDD: MongoRDD[Document] = MongoSpark.builder()
+      .sparkContext(sc)
+      .option("partitioner", "com.mongodb.spark.HalfwayPartitioner")
+      .build()
+      .toRDD()
+    mongoRDD.getNumPartitions should equal(2)
+    mongoRDD.mapPartitions(iter => Array(iter.size).iterator).collect() should equal(Array(50, 50)) // scalastyle:ignore
+  }
+
+  it should "be easy to use a custom partitioner that is an object " in withSparkContext() { sc =>
+    sc.parallelize((1 to 100).map(i => Document.parse(s"{number: $i}"))).saveToMongoDB()
+
+    val mongoRDD: MongoRDD[Document] = MongoSpark.builder()
+      .sparkContext(sc)
+      .option("partitioner", "com.mongodb.spark.HalfwayPartitioner$")
+      .build()
+      .toRDD()
     mongoRDD.getNumPartitions should equal(2)
     mongoRDD.mapPartitions(iter => Array(iter.size).iterator).collect() should equal(Array(50, 50)) // scalastyle:ignore
   }

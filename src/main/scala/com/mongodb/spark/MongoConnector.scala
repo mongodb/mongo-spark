@@ -17,22 +17,24 @@
 package com.mongodb.spark
 
 import java.io.{Closeable, Serializable}
+import java.util
 import java.util.concurrent.TimeUnit
 
 import scala.collection.JavaConverters._
-
-import com.mongodb.MongoClient
-import com.mongodb.client.{MongoCollection, MongoDatabase}
-import com.mongodb.spark.config.{MongoCollectionConfig, ReadConfig, WriteConfig}
-import com.mongodb.spark.connection.{DefaultMongoClientFactory, MongoClientCache}
-import org.apache.spark.{SparkConf, SparkContext}
-import org.apache.spark.api.java.function.Function
-
-import org.bson.codecs.configuration.CodecRegistry
 import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
 
 import org.apache.spark.api.java.JavaSparkContext
+import org.apache.spark.api.java.function.Function
+import org.apache.spark.{SparkConf, SparkContext}
+
+import org.bson.codecs.configuration.CodecRegistry
+import org.bson.{BsonDocument, Document}
+import com.mongodb.MongoClient
+import com.mongodb.client.{MongoCollection, MongoDatabase}
+import com.mongodb.connection.ServerVersion
+import com.mongodb.spark.config.{MongoCollectionConfig, ReadConfig, WriteConfig}
+import com.mongodb.spark.connection.{DefaultMongoClientFactory, MongoClientCache}
 
 /**
  * The MongoConnector companion object
@@ -226,6 +228,12 @@ case class MongoConnector(mongoClientFactory: MongoClientFactory)
   def withCollectionDo[D, T](config: MongoCollectionConfig, clazz: Class[D], code: Function[MongoCollection[D], T]): T = {
     implicit def ct: ClassTag[D] = ClassTag(clazz)
     withCollectionDo[D, T](config, { collection => code.call(collection) })
+  }
+
+  private[spark] def hasSampleAggregateOperator(readConfig: ReadConfig): Boolean = {
+    val buildInfo: BsonDocument = withDatabaseDo(readConfig, { db => db.runCommand(new Document("buildInfo", 1), classOf[BsonDocument]) })
+    val versionArray: util.List[Integer] = buildInfo.getArray("versionArray").asScala.take(3).map(_.asInt32().getValue.asInstanceOf[Integer]).asJava
+    new ServerVersion(versionArray).compareTo(new ServerVersion(3, 2)) >= 0
   }
 
   private[spark] def acquireClient(): MongoClient = MongoConnector.mongoClientCache.acquire(mongoClientFactory)

@@ -16,8 +16,6 @@
 
 package com.mongodb.spark.rdd
 
-import java.util
-
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
@@ -33,33 +31,30 @@ import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
 import com.mongodb.MongoClient
 import com.mongodb.client.MongoCursor
-import com.mongodb.connection.ServerVersion
 import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
-import com.mongodb.spark.rdd.partitioner.{MongoPartition, MongoPartitioner}
+import com.mongodb.spark.rdd.partitioner.MongoPartition
 import com.mongodb.spark.{MongoConnector, MongoSpark, NotNothing, classTagToClassOf}
 
 /**
  * MongoRDD Class
  *
  * @param connector the [[com.mongodb.spark.MongoConnector]]
- * @param mongoPartitioner the [[com.mongodb.spark.rdd.partitioner.MongoPartitioner]]
  * @param readConfig the [[com.mongodb.spark.config.ReadConfig]]
  * @param pipeline aggregate pipeline
  * @tparam D the type of the collection documents
  */
 class MongoRDD[D: ClassTag](
-    @transient val sqlContext:           SQLContext,
-    private[spark] val connector:        Broadcast[MongoConnector],
-    private[spark] val mongoPartitioner: MongoPartitioner,
-    private[spark] val readConfig:       ReadConfig,
-    private[spark] val pipeline:         Seq[Bson]
+    @transient val sqlContext:     SQLContext,
+    private[spark] val connector:  Broadcast[MongoConnector],
+    private[spark] val readConfig: ReadConfig,
+    private[spark] val pipeline:   Seq[BsonDocument]
 ) extends RDD[D](sqlContext.sparkContext, Nil) {
 
   @transient val sc: SparkContext = sqlContext.sparkContext
   private def mongoSpark = {
     checkSparkContext()
-    MongoSpark(sqlContext, mongoPartitioner, connector.value, readConfig, pipeline)
+    MongoSpark(sqlContext, connector.value, readConfig, pipeline)
   }
 
   override def toJavaRDD(): JavaMongoRDD[D] = JavaMongoRDD(this)
@@ -124,16 +119,14 @@ class MongoRDD[D: ClassTag](
    * Allows to copying of this RDD with changing some of the properties
    */
   def copy(
-    connector:        Broadcast[MongoConnector] = connector,
-    mongoPartitioner: MongoPartitioner          = mongoPartitioner,
-    readConfig:       ReadConfig                = readConfig,
-    pipeline:         Seq[Bson]                 = pipeline
+    connector:  Broadcast[MongoConnector] = connector,
+    readConfig: ReadConfig                = readConfig,
+    pipeline:   Seq[Bson]                 = pipeline
   ): MongoRDD[D] = {
     checkSparkContext()
     new MongoRDD[D](
       sqlContext = sqlContext,
       connector = connector,
-      mongoPartitioner = mongoPartitioner,
       readConfig = readConfig,
       pipeline = pipeline.map(x => x.toBsonDocument(classOf[Document], connector.value.codecRegistry)) // Convert to serializable BsonDocuments
     )
@@ -141,7 +134,7 @@ class MongoRDD[D: ClassTag](
 
   override protected def getPartitions: Array[Partition] = {
     checkSparkContext()
-    mongoPartitioner.partitions(connector.value, readConfig).asInstanceOf[Array[Partition]]
+    readConfig.partitioner.partitions(connector.value, readConfig, pipeline.toArray).asInstanceOf[Array[Partition]]
   }
 
   override def compute(split: Partition, context: TaskContext): Iterator[D] = {
@@ -181,14 +174,7 @@ class MongoRDD[D: ClassTag](
     )
   }
 
-  private[spark] lazy val hasSampleAggregateOperator: Boolean = {
-    val buildInfo: BsonDocument = connector.value.withDatabaseDo(
-      readConfig.copy(databaseName = "test"),
-      { db => db.runCommand(new Document("buildInfo", 1), classOf[BsonDocument]) }
-    )
-    val versionArray: util.List[Integer] = buildInfo.getArray("versionArray").asScala.take(3).map(_.asInt32().getValue.asInstanceOf[Integer]).asJava
-    new ServerVersion(versionArray).compareTo(new ServerVersion(3, 2)) >= 0
-  }
+  private[spark] lazy val hasSampleAggregateOperator: Boolean = connector.value.hasSampleAggregateOperator(readConfig)
 
   private[spark] def appendPipeline[B <: Bson](extraPipeline: Seq[B]): MongoRDD[D] = withPipeline(pipeline ++ extraPipeline)
 }

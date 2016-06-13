@@ -23,9 +23,9 @@ import org.bson.Document
 import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.sql.{Character, _}
 
-class NoSparkConfSpec extends RequiresMongoDB {
+class SparkConfOverrideSpec extends RequiresMongoDB {
 
-  "MongoRDD" should "be able to accept just Read / Write Configs" in {
+  "MongoRDD" should "be able to override partial configs with Read / Write Configs" in {
     val writeConfig = WriteConfig(Map("uri" -> mongoClientURI, "database" -> databaseName, "collection" -> collectionName))
     val readConfig = ReadConfig(Map("uri" -> mongoClientURI, "database" -> databaseName, "collection" -> collectionName,
       "partitioner" -> "TestPartitioner$"))
@@ -38,7 +38,7 @@ class NoSparkConfSpec extends RequiresMongoDB {
     rdd.map(_.getInteger("test")).collect().toList should equal((1 to 10).toList)
   }
 
-  "DataFrame Readers and Writers" should "be able to accept just options" in {
+  "DataFrame Readers and Writers" should "be able to able to override partial configs with options" in {
     val characters = Seq(Character("Gandalf", 1000), Character("Bilbo Baggins", 50)) //scalastyle:ignore
 
     val sqlContext = SQLContext.getOrCreate(sc)
@@ -60,7 +60,10 @@ class NoSparkConfSpec extends RequiresMongoDB {
     ds.collect().toList should equal(characters)
   }
 
-  val sc: SparkContext = new SparkContext(new SparkConf().setMaster("local").setAppName("MongoSparkConnector"))
+  val conf: SparkConf = new SparkConf().setMaster("local").setAppName("MongoSparkConnector")
+    .set("spark.mongodb.input.uri", "mongodb://example.com/test.test")
+    .set("spark.mongodb.output.uri", "mongodb://example.com/test.test")
+  val sc: SparkContext = new SparkContext(conf)
 
   override def beforeEach(): Unit = {
   }
@@ -71,3 +74,4 @@ class NoSparkConfSpec extends RequiresMongoDB {
   }
 
 }
+

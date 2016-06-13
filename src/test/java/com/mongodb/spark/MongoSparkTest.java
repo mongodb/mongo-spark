@@ -234,8 +234,11 @@ public final class MongoSparkTest extends JavaRequiresMongoDB {
         MongoSpark.save(jsc.parallelize(documents));
 
         // when
-        JavaMongoRDD<Document> mongoRDD =
-                MongoSpark.builder().javaSparkContext(jsc).partitioner(new JavaHalfwayPartitioner()).build().toJavaRDD();
+        JavaMongoRDD<Document> mongoRDD = MongoSpark.builder()
+                .javaSparkContext(jsc)
+                .option("partitioner", "com.mongodb.spark.JavaHalfwayPartitioner")
+                .build()
+                .toJavaRDD();
 
         // then - default values
         assertEquals(mongoRDD.getNumPartitions(), 2);

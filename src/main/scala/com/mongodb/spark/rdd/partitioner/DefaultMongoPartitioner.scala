@@ -16,39 +16,49 @@
 
 package com.mongodb.spark.rdd.partitioner
 
-import scala.util.{Failure, Success, Try}
-
-import org.bson.Document
-import com.mongodb.MongoCommandException
+import org.bson.BsonDocument
 import com.mongodb.spark.MongoConnector
 import com.mongodb.spark.config.ReadConfig
 
 /**
  * The default collection partitioner implementation
  *
- * Checks if the collection is sharded then:
- *  - If sharded uses the [[MongoShardedPartitioner]] to partition the collection by shard chunks
- *  - If non sharded uses the [[MongoSplitVectorPartitioner]] to partition the collection by using the `splitVector` command.
+ * Wraps the [[MongoSamplePartitioner]] and provides in-depth information for users of older MongoDBs.
  *
  * @since 1.0
  */
-case object DefaultMongoPartitioner extends MongoPartitioner {
+class DefaultMongoPartitioner extends MongoPartitioner {
 
-  override def partitions(connector: MongoConnector, readConfig: ReadConfig): Array[MongoPartition] = {
-    val collStatsCommand: Document = new Document("collStats", readConfig.collectionName)
-    val partitioner = Try(connector.withDatabaseDo(readConfig, { db => db.runCommand(collStatsCommand) })) match {
-      case Success(result) => result.getBoolean("sharded").asInstanceOf[Boolean] match {
-        case true  => MongoShardedPartitioner
-        case false => MongoSplitVectorPartitioner
-      }
-      case Failure(ex: MongoCommandException) if ex.getErrorMessage.endsWith("not found.") =>
-        logWarning(s"Could not find collection (${readConfig.collectionName}), using single partition")
-        MongoSinglePartitioner
-      case Failure(e) =>
-        logWarning(s"Could not get collection statistics, using single partition. Server errmsg: ${e.getMessage}")
-        MongoSinglePartitioner
+  override def partitions(connector: MongoConnector, readConfig: ReadConfig, pipeline: Array[BsonDocument]): Array[MongoPartition] = {
+    connector.hasSampleAggregateOperator(readConfig) match {
+      case true => MongoSamplePartitioner.partitions(connector, readConfig, pipeline)
+      case false =>
+        logError(
+          """
+            |----------------------------------------
+            |WARNING: MongoDB version < 3.2 detected.
+            |----------------------------------------
+            |
+            |With legacy MongoDB installations you will need to explicitly configure the Spark Connector with a partitioner.
+            |
+            |This can be done by:
+            | * Setting a "spark.mongodb.input.partitioner" in SparkConf.
+            | * Setting in the "partitioner" parameter in ReadConfig.
+            | * Passing the "partitioner" option to the DataFrameReader.
+            |
+            |The following Partitioners are available:
+            |
+            | * MongoShardedPartitioner - for sharded clusters, requires read access to the config database.
+            | * MongoSplitVectorPartitioner - for single nodes or replicaSets. Utilises the SplitVector command on the primary.
+            | * MongoPaginateByCountPartitioner - creates a specific number of partitions. Slow as requires a query for every partition.
+            | * MongoPaginateBySizePartitioner - creates partitions based on data size. Slow as requires a query for every partition.
+            |
+          """.stripMargin
+        )
+        throw new UnsupportedOperationException("The DefaultMongoPartitioner requires MongoDB >= 3.2")
     }
-    partitioner.partitions(connector, readConfig)
   }
 
 }
+
+case object DefaultMongoPartitioner extends DefaultMongoPartitioner

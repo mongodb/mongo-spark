@@ -19,9 +19,9 @@ package com.mongodb.spark.exceptions
 import com.mongodb.MongoException
 
 /**
- * A class for exceptions that come from the connector's MongoDB splitters.
+ * A class for exceptions that come from the connector's MongoDB partitioners.
  */
-class MongoSplitException(message: String, throwable: Throwable) extends MongoException(message, throwable) {
+class MongoPartitionerException(message: String, throwable: Throwable) extends MongoException(message, throwable) {
 
   def this(message: String) {
     this(message, null) // scalastyle:ignore

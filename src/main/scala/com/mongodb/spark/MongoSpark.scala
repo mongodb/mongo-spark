@@ -33,7 +33,6 @@ import com.mongodb.spark.DefaultHelper.DefaultsTo
 import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
-import com.mongodb.spark.rdd.partitioner.{DefaultMongoPartitioner, MongoPartitioner}
 import com.mongodb.spark.sql.MapFunctions.documentToRow
 import com.mongodb.spark.sql.MongoInferSchema
 
@@ -175,7 +174,6 @@ object MongoSpark {
   class Builder {
     private var sqlContext: Option[SQLContext] = None
     private var connector: Option[MongoConnector] = None
-    private var partitioner: Option[MongoPartitioner] = None
     private var readConfig: Option[ReadConfig] = None
     private var pipeline: Seq[Bson] = Nil
     private var options: collection.Map[String, String] = Map()
@@ -188,14 +186,10 @@ object MongoSpark {
         case true  => ReadConfig(options, readConfig)
         case false => ReadConfig(sc.getConf, options)
       }
+      val mongoConnector = connector.getOrElse(MongoConnector(readConf))
+      val bsonDocumentPipeline = pipeline.map(x => x.toBsonDocument(classOf[Document], mongoConnector.codecRegistry))
 
-      new MongoSpark(
-        sqlCtxt,
-        partitioner.getOrElse(DefaultMongoPartitioner),
-        connector.getOrElse(MongoConnector(readConf)),
-        readConf,
-        pipeline
-      )
+      new MongoSpark(sqlCtxt, mongoConnector, readConf, bsonDocumentPipeline)
     }
 
     /**
@@ -272,16 +266,6 @@ object MongoSpark {
      */
     def connector(connector: MongoConnector): Builder = {
       this.connector = Option(connector)
-      this
-    }
-
-    /**
-     * Sets the [[com.mongodb.spark.rdd.partitioner.MongoPartitioner]] to use
-     *
-     * @param partitioner the partitioner
-     */
-    def partitioner(partitioner: MongoPartitioner): Builder = {
-      this.partitioner = Option(partitioner)
       this
     }
 
@@ -415,11 +399,10 @@ object MongoSpark {
  *
  * @since 1.0
  */
-case class MongoSpark(sqlContext: SQLContext, partitioner: MongoPartitioner, connector: MongoConnector,
-                      readConfig: ReadConfig, pipeline: Seq[Bson]) {
+case class MongoSpark(sqlContext: SQLContext, connector: MongoConnector, readConfig: ReadConfig, pipeline: Seq[BsonDocument]) {
 
   private def rdd[D: ClassTag]()(implicit e: D DefaultsTo Document): MongoRDD[D] =
-    new MongoRDD[D](sqlContext, sqlContext.sparkContext.broadcast(connector), partitioner, readConfig, pipeline)
+    new MongoRDD[D](sqlContext, sqlContext.sparkContext.broadcast(connector), readConfig, pipeline)
 
   /**
    * Creates a `RDD` for the collection
@@ -510,7 +493,6 @@ case class MongoSpark(sqlContext: SQLContext, partitioner: MongoPartitioner, con
   private def toBsonDocumentRDD: MongoRDD[BsonDocument] = {
     MongoSpark.builder()
       .sqlContext(sqlContext)
-      .partitioner(partitioner)
       .connector(connector)
       .readConfig(readConfig)
       .pipeline(pipeline)

@@ -26,8 +26,9 @@ import org.bson.BsonDocument;
 import org.bson.BsonValue;
 
 public final class JavaHalfwayPartitioner implements MongoPartitioner {
+
     @Override
-    public MongoPartition[] partitions(final MongoConnector connector, final ReadConfig readConfig) {
+    public MongoPartition[] partitions(final MongoConnector connector, final ReadConfig readConfig, final BsonDocument[] pipeline) {
         BsonValue midId = connector.withCollectionDo(readConfig, BsonDocument.class, new Function<MongoCollection<BsonDocument>,
                 BsonValue>() {
             @Override
@@ -39,4 +40,5 @@ public final class JavaHalfwayPartitioner implements MongoPartitioner {
         return new MongoPartition[]{ MongoPartition.create(0, new BsonDocument("_id", new BsonDocument("$lt", midId))),
                                      MongoPartition.create(1, new BsonDocument("_id", new BsonDocument("$gte", midId)))};
     }
+
 }

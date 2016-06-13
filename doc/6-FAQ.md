@@ -56,6 +56,11 @@ ssc.awaitTermination()
 
 Note: The Mongo Spark Connector only supports streams a sink.
 
+## Unrecognized pipeline stage name: '$sample' error.
+
+In MongoDB deployments with mixed mongod versions, it is possible to get an `Unrecognized pipeline stage name: '$sample'` error.
+To mitigate this please explicitly configure which partitioner to use and explicitly define the Schema when using DataFrames.
+
 -----
 
 [Next - Changelog](7-Changelog.md)

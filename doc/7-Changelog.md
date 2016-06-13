@@ -1,6 +1,10 @@
 # Mongo Spark Connector Changelog
 
 ## 0.4
+  * [[SPARK-60](https://jira.mongodb.org/browse/SPARK-60)] Added partitioner to ReadConfig and added custom partitioner options.
+  * [[SPARK-54](https://jira.mongodb.org/browse/SPARK-54)] Added a sample and pagination based partitioners.
+  * [[SPARK-53](https://jira.mongodb.org/browse/SPARK-53)] Updated DefaultMongoPartitioner implementation.
+  * [[SPARK-51](https://jira.mongodb.org/browse/SPARK-51)] Documented partition permissions required.
   * [[SPARK-61](https://jira.mongodb.org/browse/SPARK-61)] Ensure that MongoSpark builder applies overridden options correctly.
 
 ## 0.3

@@ -32,14 +32,26 @@ import com.mongodb.spark.config.ReadConfig
  *
  * Partitions collections by shard and chunk.
  *
+ *  $configurationProperties
+ *
+ *  - [[MongoShardedPartitioner#shardKeyProperty shardKey]], the shardKey for the collection. Defaults to `_id`.
+ *
  * @since 1.0
  */
-case object MongoShardedPartitioner extends MongoPartitioner {
+class MongoShardedPartitioner extends MongoPartitioner {
 
-  override def partitions(connector: MongoConnector, readConfig: ReadConfig): Array[MongoPartition] = {
+  private val DefaultShardKey = "_id"
+
+  /**
+   * The shardKey property
+   */
+  val shardKeyProperty = "shardKey".toLowerCase()
+
+  override def partitions(connector: MongoConnector, readConfig: ReadConfig, pipeline: Array[BsonDocument]): Array[MongoPartition] = {
     val ns: String = s"${readConfig.databaseName}.${readConfig.collectionName}"
     logDebug(s"Getting split bounds for a sharded collection: $ns")
-
+    val partitionerOptions = readConfig.partitionerOptions.map(kv => (kv._1.toLowerCase, kv._2))
+    val shardKey = partitionerOptions.getOrElse(shardKeyProperty, DefaultShardKey)
     val chunks: Seq[BsonDocument] = connector.withCollectionDo(
       ReadConfig("config", "chunks"), { collection: MongoCollection[BsonDocument] =>
         collection.find(Filters.eq("ns", ns)).projection(Projections.include("min", "max", "shard"))
@@ -55,19 +67,19 @@ case object MongoShardedPartitioner extends MongoPartitioner {
         )
         MongoSinglePartitioner.partitions(connector, readConfig)
       case false =>
-        generatePartitions(chunks, readConfig.splitKey, mapShards(connector))
+        generatePartitions(chunks, shardKey, mapShards(connector))
     }
   }
 
-  private[partitioner] def generatePartitions(chunks: Seq[BsonDocument], splitKey: String, shardsMap: Map[String, Seq[String]]): Array[MongoPartition] = {
+  private[partitioner] def generatePartitions(chunks: Seq[BsonDocument], shardKey: String, shardsMap: Map[String, Seq[String]]): Array[MongoPartition] = {
     chunks.zipWithIndex.map({
       case (chunk: BsonDocument, i: Int) =>
         MongoPartition(
           i,
           PartitionerHelper.createBoundaryQuery(
-            splitKey,
-            chunk.getDocument("min").get(splitKey),
-            chunk.getDocument("max").get(splitKey)
+            shardKey,
+            chunk.getDocument("min").get(shardKey),
+            chunk.getDocument("max").get(shardKey)
           ),
           shardsMap.getOrElse(chunk.getString("shard").getValue, Nil)
         )
@@ -86,3 +98,5 @@ case object MongoShardedPartitioner extends MongoPartitioner {
   private[partitioner] def getHosts(hosts: String): Seq[String] = hosts.split(",").toSeq.map(getHost).distinct
   private[partitioner] def getHost(hostAndPort: String): String = new ServerAddress(hostAndPort.split("/").reverse.head).getHost
 }
+
+case object MongoShardedPartitioner extends MongoShardedPartitioner

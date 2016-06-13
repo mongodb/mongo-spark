@@ -16,37 +16,37 @@
 
 package com.mongodb.spark.rdd.partitioner
 
-import org.bson.{BsonDocument, BsonMaxKey, BsonMinKey, Document}
+import org.bson.{BsonDocument, Document}
 import com.mongodb.MongoException
-import com.mongodb.spark.RequiresMongoDB
+import com.mongodb.spark.{MongoConnector, RequiresMongoDB}
 
 import org.scalatest.prop.PropertyChecks
 
 class MongoShardedPartitionerSpec extends RequiresMongoDB with PropertyChecks {
 
+  private val partitionKey = "_id"
+  private val pipeline = Array.empty[BsonDocument]
+
   "MongoShardedPartitioner" should "partition the database as expected" in {
     if (!isSharded) cancel("Not a Sharded MongoDB")
     loadSampleDataIntoShardedCollection(5) // scalastyle:ignore
 
-    val partitions = MongoShardedPartitioner.partitions(mongoConnector, readConfig)
-    partitions.length should be >= 2
-    partitions.head.locations should not be empty
-  }
-
-  it should "fallback to a single partition for a non sharded collections" in {
-    if (!isSharded) cancel("Not a Sharded MongoDB")
-    loadSampleData(5) // scalastyle:ignore
-
-    MongoShardedPartitioner.partitions(mongoConnector, readConfig).length should equal(1)
+    val locations = PartitionerHelper.locations(MongoConnector(sparkConf))
+    val partitions = MongoShardedPartitioner.partitions(mongoConnector, readConfig, pipeline)
+    val zipped: Array[(MongoPartition, MongoPartition)] = partitions zip partitions.tail
+    zipped.foreach({
+      case (lt, gte) => lt.queryBounds.get("lt") should equal(gte.queryBounds.get("gte"))
+    })
+    partitions.head.locations should equal(locations)
   }
 
   it should "have a default bounds of min to max key" in {
     if (!isSharded) cancel("Not a Sharded MongoDB")
-    val expectedBounds: BsonDocument = new BsonDocument(readConfig.splitKey, new BsonDocument("$gte", new BsonMinKey).append("$lt", new BsonMaxKey))
     shardCollection()
     collection.insertOne(new Document())
 
-    MongoShardedPartitioner.partitions(mongoConnector, readConfig)(0).queryBounds should equal(expectedBounds)
+    val expectedPartitions = MongoSinglePartitioner.partitions(mongoConnector, readConfig, pipeline)
+    MongoShardedPartitioner.partitions(mongoConnector, readConfig, pipeline) should equal(expectedPartitions)
   }
 
   it should "calculate the expected hosts for a single node shard" in {

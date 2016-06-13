@@ -38,8 +38,8 @@ package com.mongodb.spark.config
  *  - [[readPreferenceTagSetsProperty readPreference.tagSets]], the `ReadPreference` TagSets to use.
  *  - [[readConcernLevelProperty readConcern.level]], the `ReadConcern` level to use.
  *  - [[sampleSizeProperty sampleSize]], the sample size to use when inferring the schema.
- *  - [[splitKeyProperty splitKey]], the partition key to split the data.
- *  - [[maxChunkSizeProperty maxChunkSize]], the maximum chunk size when partitioning data from an unsharded collection.
+ *  - [[partitionerProperty partitioner]], the name of the partitioner to use to partition the data.
+ *  - [[partitionerOptionsProperty partitionerOptions]], the custom options used to configure the partitioner.
  *  - [[localThresholdProperty localThreshold]], the number of milliseconds used when choosing among multiple MongoDB servers to send a request.
  *
  */
@@ -60,7 +60,7 @@ trait MongoInputConfig extends MongoCompanionConfig {
   /**
    * The `ReadPreference` name property
    *
-   * Default: `ACKNOWLEDGED`
+   * Default: `primary`
    * @see [[ReadPreferenceConfig]]
    */
   val readPreferenceNameProperty = "readPreference.name".toLowerCase
@@ -75,6 +75,7 @@ trait MongoInputConfig extends MongoCompanionConfig {
   /**
    * The `ReadConcern` level property
    *
+   * Default: `DEFAULT`
    * @see [[ReadConcernConfig]]
    */
   val readConcernLevelProperty = "readConcern.level".toLowerCase
@@ -88,20 +89,20 @@ trait MongoInputConfig extends MongoCompanionConfig {
   val sampleSizeProperty = "sampleSize".toLowerCase
 
   /**
-   * The split key property
+   * The partition property
    *
-   * Represents the key to be used when partitioning the data in the collection.
-   * Default: `_id`
+   * Represents the name of the partitioner to use when partitioning the data in the collection.
+   * Default: `MongoDefaultPartitioner`
    */
-  val splitKeyProperty = "splitKey".toLowerCase
+  val partitionerProperty = "partitioner".toLowerCase
 
   /**
-   * The max chunk size property
+   * The partitioner options property
    *
-   * Represents the max size (in MB) for each partition. Only used when partitioning non-sharded collections.
-   * Default: `64`
+   * Represents a map of options for customising the configuration of a partitioner.
+   * Default: `Map.empty[String, String]`
    */
-  val maxChunkSizeProperty = "maxChunkSize".toLowerCase
+  val partitionerOptionsProperty = "partitionerOptions".toLowerCase
 
   /**
    * The localThreshold property

@@ -16,46 +16,48 @@
 
 package com.mongodb.spark.rdd.partitioner
 
-import org.bson.{BsonDocument, Document}
+import org.bson._
 import com.mongodb.spark.{MongoConnector, RequiresMongoDB}
 
-class MongoSplitVectorPartitionerSpec extends RequiresMongoDB {
+class MongoSamplePartitionerSpec extends RequiresMongoDB {
 
   private val partitionKey = "_id"
   private val pipeline = Array.empty[BsonDocument]
 
   // scalastyle:off magic.number
-  "MongoSplitVectorPartitioner" should "partition the database as expected" in {
-    if (isSharded) cancel("Sharded MongoDB")
-    loadSampleData(5)
+  "MongoSamplePartitioner" should "partition the database as expected" in {
+    if (!serverAtLeast(3, 2)) cancel("MongoDB < 3.2")
+    loadSampleData(10)
 
+    val rightHandBoundaries = (1 to 100 by 10).map(x => new BsonString(f"$x%05d"))
     val locations = PartitionerHelper.locations(MongoConnector(sparkConf))
-    val partitions = MongoSplitVectorPartitioner.partitions(
+    val expectedPartitions = PartitionerHelper.createPartitions(partitionKey, rightHandBoundaries, locations)
+    val partitions = MongoSamplePartitioner.partitions(
       mongoConnector,
       readConfig.copy(partitionerOptions = Map("partitionSizeMB" -> "1")), pipeline
     )
-    val zipped: Array[(MongoPartition, MongoPartition)] = partitions zip partitions.tail
-    zipped.foreach({
-      case (lt, gte) => lt.queryBounds.get("lt") should equal(gte.queryBounds.get("gte"))
-    })
-    partitions.length should be >= 5
-    partitions.head.locations should equal(locations)
 
-    MongoSplitVectorPartitioner.partitions(
+    partitions should equal(expectedPartitions)
+
+    val singlePartition = PartitionerHelper.createPartitions(partitionKey, Seq.empty[BsonValue], locations)
+    val largerSizedPartitions = MongoSamplePartitioner.partitions(
       mongoConnector,
       readConfig.copy(partitionerOptions = Map("partitionSizeMB" -> "10")), pipeline
-    ).length shouldBe 1
+    )
+    largerSizedPartitions should equal(singlePartition)
   }
   // scalastyle:on magic.number
 
   it should "have a default bounds of min to max key" in {
+    if (!serverAtLeast(3, 2)) cancel("MongoDB < 3.2")
     collection.insertOne(new Document())
     val expectedPartitions = MongoSinglePartitioner.partitions(mongoConnector, readConfig, pipeline)
-    MongoSplitVectorPartitioner.partitions(mongoConnector, readConfig, pipeline) should equal(expectedPartitions)
+    MongoSamplePartitioner.partitions(mongoConnector, readConfig, pipeline) should equal(expectedPartitions)
   }
 
   it should "handle no collection" in {
+    if (!serverAtLeast(3, 2)) cancel("MongoDB < 3.2")
     val expectedPartitions = MongoSinglePartitioner.partitions(mongoConnector, readConfig, pipeline)
-    MongoSplitVectorPartitioner.partitions(mongoConnector, readConfig, pipeline) should equal(expectedPartitions)
+    MongoSamplePartitioner.partitions(mongoConnector, readConfig, pipeline) should equal(expectedPartitions)
   }
 }

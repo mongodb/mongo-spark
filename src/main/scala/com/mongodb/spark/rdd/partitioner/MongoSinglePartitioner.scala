@@ -16,7 +16,7 @@
 
 package com.mongodb.spark.rdd.partitioner
 
-import org.bson.BsonDocument
+import org.bson.{BsonDocument, BsonValue}
 import com.mongodb.spark.MongoConnector
 import com.mongodb.spark.config.ReadConfig
 
@@ -29,7 +29,13 @@ import com.mongodb.spark.config.ReadConfig
  *
  * @since 1.0
  */
-case object MongoSinglePartitioner extends MongoPartitioner {
-  override def partitions(connector: MongoConnector, readConfig: ReadConfig): Array[MongoPartition] =
-    Array(MongoPartition(0, new BsonDocument()))
+class MongoSinglePartitioner extends MongoPartitioner {
+
+  override def partitions(connector: MongoConnector, readConfig: ReadConfig,
+                          pipeline: Array[BsonDocument] = Array.empty[BsonDocument]): Array[MongoPartition] = {
+    PartitionerHelper.createPartitions("_id", Seq.empty[BsonValue], PartitionerHelper.locations(connector))
+  }
 }
+
+case object MongoSinglePartitioner extends MongoSinglePartitioner
+

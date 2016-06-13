@@ -17,28 +17,38 @@
 package com.mongodb.spark.config
 
 import scala.collection.JavaConverters._
-import org.scalatest.{FlatSpec, Matchers}
 
+import org.scalatest.{FlatSpec, Matchers}
 import org.apache.spark.SparkConf
 
-import com.mongodb.{Tag, TagSet, ReadConcern, ReadPreference}
+import com.mongodb.spark.rdd.partitioner.{DefaultMongoPartitioner, MongoShardedPartitioner, MongoSplitVectorPartitioner}
+import com.mongodb.{ReadConcern, ReadPreference, Tag, TagSet}
 
 // scalastyle:off magic.number
 class ReadConfigSpec extends FlatSpec with Matchers {
 
   "ReadConfig" should "have the expected defaults" in {
     val readConfig = ReadConfig("db", "collection")
-    val expectedReadConfig = ReadConfig("db", "collection", None, 1000, 64, "_id", 15,
+    val expectedReadConfig = ReadConfig("db", "collection", None, 1000, DefaultMongoPartitioner, Map.empty[String, String], 15,
       ReadPreferenceConfig(ReadPreference.primary()), ReadConcernConfig(ReadConcern.DEFAULT))
 
     readConfig should equal(expectedReadConfig)
   }
 
   it should "be creatable from SparkConfig" in {
-    val expectedReadConfig = ReadConfig("db", "collection", None, 150, 32, "ID", 0,
+    val expectedReadConfig = ReadConfig("db", "collection", None, 150, MongoShardedPartitioner, Map("shardkey" -> "ID"), 0,
       ReadPreferenceConfig(ReadPreference.secondary()), ReadConcernConfig(ReadConcern.LOCAL))
 
-    ReadConfig(sparkConf) should equal(expectedReadConfig)
+    val readConfig = ReadConfig(sparkConf)
+    readConfig.databaseName should equal(expectedReadConfig.databaseName)
+    readConfig.collectionName should equal(expectedReadConfig.collectionName)
+    readConfig.connectionString should equal(expectedReadConfig.connectionString)
+    readConfig.sampleSize should equal(expectedReadConfig.sampleSize)
+    readConfig.partitioner.getClass should equal(expectedReadConfig.partitioner.getClass)
+    readConfig.partitionerOptions should equal(expectedReadConfig.partitionerOptions)
+    readConfig.localThreshold should equal(expectedReadConfig.localThreshold)
+    readConfig.readPreferenceConfig should equal(expectedReadConfig.readPreferenceConfig)
+    readConfig.readConcernConfig should equal(expectedReadConfig.readConcernConfig)
   }
 
   it should "use the URI for default values" in {
@@ -46,7 +56,7 @@ class ReadConfigSpec extends FlatSpec with Matchers {
       "mongodb://localhost/db.collection?readPreference=secondaryPreferred&readPreferenceTags=dc:east,use:production&readPreferenceTags=&readconcernlevel=local"
     val readConfig = ReadConfig(Map("uri" -> uri))
 
-    val expectedReadConfig = ReadConfig("db", "collection", Some(uri), 1000, 64, "_id", 15,
+    val expectedReadConfig = ReadConfig("db", "collection", Some(uri), 1000, DefaultMongoPartitioner, Map.empty[String, String], 15,
       ReadPreferenceConfig(ReadPreference.secondaryPreferred(List(
         new TagSet(List(new Tag("dc", "east"), new Tag("use", "production")).asJava),
         new TagSet()
@@ -61,23 +71,35 @@ class ReadConfigSpec extends FlatSpec with Matchers {
       "mongodb://localhost/db.collection?readPreference=secondaryPreferred&readconcernlevel=local"
     val readConfig = ReadConfig(Map("uri" -> uri, "readPreference.name" -> "primaryPreferred", "readConcern.level" -> "majority"))
 
-    val expectedReadConfig = ReadConfig("db", "collection", Some(uri), 1000, 64, "_id", 15,
+    val expectedReadConfig = ReadConfig("db", "collection", Some(uri), 1000, DefaultMongoPartitioner, Map.empty[String, String], 15,
       ReadPreferenceConfig(ReadPreference.primaryPreferred()), ReadConcernConfig(ReadConcern.MAJORITY))
 
     readConfig should equal(expectedReadConfig)
   }
 
   it should "round trip options" in {
-    val defaultReadConfig = ReadConfig(sparkConf)
-    val expectedReadConfig = ReadConfig("db", "collection", Some("mongodb://localhost/"), 200, 20, "foo", 0,
+    val defaultReadConfig = ReadConfig(sparkConf.remove("spark.mongodb.input.partitionerOptions.shardKey"))
+    val expectedReadConfig = ReadConfig("db", "collection", Some("mongodb://localhost/"), 200, MongoSplitVectorPartitioner,
+      Map("partitioneroptions.partitionsizemb" -> "15"), 0,
       ReadPreferenceConfig(ReadPreference.secondaryPreferred(new TagSet(List(new Tag("dc", "east"), new Tag("use", "production")).asJava))),
       ReadConcernConfig(ReadConcern.MAJORITY))
 
-    defaultReadConfig.withOptions(expectedReadConfig.asOptions) should equal(expectedReadConfig)
+    val readConfig = defaultReadConfig.withOptions(expectedReadConfig.asOptions)
+
+    readConfig.databaseName should equal(expectedReadConfig.databaseName)
+    readConfig.collectionName should equal(expectedReadConfig.collectionName)
+    readConfig.connectionString should equal(expectedReadConfig.connectionString)
+    readConfig.sampleSize should equal(expectedReadConfig.sampleSize)
+    readConfig.partitioner should equal(expectedReadConfig.partitioner)
+    readConfig.partitionerOptions should equal(expectedReadConfig.partitionerOptions)
+    readConfig.localThreshold should equal(expectedReadConfig.localThreshold)
+    readConfig.readPreferenceConfig should equal(expectedReadConfig.readPreferenceConfig)
+    readConfig.readConcernConfig should equal(expectedReadConfig.readConcernConfig)
   }
 
   it should "be able to create a map" in {
-    val readConfig = ReadConfig("dbName", "collName", Some("mongodb://localhost/"), 200, 20, "foo", 10,
+    val readConfig = ReadConfig("dbName", "collName", Some("mongodb://localhost/"), 200, MongoSplitVectorPartitioner,
+      Map("partitionsizemb" -> "15"), 10,
       ReadPreferenceConfig(ReadPreference.secondaryPreferred(List(
         new TagSet(List(new Tag("dc", "east"), new Tag("use", "production")).asJava),
         new TagSet()
@@ -88,8 +110,8 @@ class ReadConfigSpec extends FlatSpec with Matchers {
       "database" -> "dbName",
       "collection" -> "collName",
       "uri" -> "mongodb://localhost/",
-      "maxchunksize" -> "20",
-      "splitkey" -> "foo",
+      "partitioner" -> "com.mongodb.spark.rdd.partitioner.MongoSplitVectorPartitioner$",
+      "partitioneroptions.partitionsizemb" -> "15",
       "localthreshold" -> "10",
       "readpreference.name" -> "secondaryPreferred",
       "readpreference.tagsets" -> """[{dc:"east",use:"production"},{}]""",
@@ -126,8 +148,8 @@ class ReadConfigSpec extends FlatSpec with Matchers {
   val sparkConf = new SparkConf()
     .set("spark.mongodb.input.database", "db")
     .set("spark.mongodb.input.collection", "collection")
-    .set("spark.mongodb.input.maxChunkSize", "32")
-    .set("spark.mongodb.input.splitKey", "ID")
+    .set("spark.mongodb.input.partitioner", "MongoShardedPartitioner$")
+    .set("spark.mongodb.input.partitionerOptions.shardKey", "ID")
     .set("spark.mongodb.input.localThreshold", "0")
     .set("spark.mongodb.input.readPreference.name", "secondary")
     .set("spark.mongodb.input.readConcern.level", "local")

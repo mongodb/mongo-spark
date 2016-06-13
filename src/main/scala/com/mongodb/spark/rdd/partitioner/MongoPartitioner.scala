@@ -16,11 +16,18 @@
 
 package com.mongodb.spark.rdd.partitioner
 
+import org.bson.BsonDocument
 import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.{Logging, MongoConnector}
 
 /**
  * The MongoPartitioner provides the partitions of a collection
+ *
+ * @define configurationProperties
+ *
+ * == Configuration Properties ==
+ *
+ * The prefix when using `sparkConf` is: `spark.mongodb.input.partitionerOptions` followed by the property name:
  *
  * @since 1.0
  */
@@ -33,6 +40,6 @@ trait MongoPartitioner extends Logging with Serializable {
    * @param readConfig the [[com.mongodb.spark.config.ReadConfig]]
    * @return the partitions
    */
-  def partitions(connector: MongoConnector, readConfig: ReadConfig): Array[MongoPartition]
+  def partitions(connector: MongoConnector, readConfig: ReadConfig, pipeline: Array[BsonDocument]): Array[MongoPartition]
 
 }

@@ -85,9 +85,10 @@ public final class NoSparkConfTest extends JavaRequiresMongoDB {
 
     private Map<String, String> getOptions() {
         Map<String, String> options = new HashMap<String, String>();
-        options.put("uri",  getMongoClientURI());
-        options.put("database",  getDatabaseName());
-        options.put("collection",  getCollectionName());
+        options.put("uri", getMongoClientURI());
+        options.put("database", getDatabaseName());
+        options.put("collection", getCollectionName());
+        options.put("partitioner", "TestPartitioner$");
         return options;
     }
 
