@@ -41,7 +41,7 @@ case object TestPartitioner extends MongoPartitioner {
         case true  => MongoShardedPartitioner
         case false => MongoSplitVectorPartitioner
       }
-      case Failure(ex: MongoCommandException) if ex.getErrorMessage.endsWith("not found.") =>
+      case Failure(ex: MongoCommandException) if ex.getErrorMessage.endsWith("not found.") || ex.getErrorCode == 26 =>
         logWarning(s"Could not find collection (${readConfig.collectionName}), using single partition")
         MongoSinglePartitioner
       case Failure(e) => throw e
