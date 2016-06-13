@@ -20,7 +20,16 @@ import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 
 import org.bson._
+import com.mongodb.spark.annotation.DeveloperApi
 
+/**
+ * :: DeveloperApi ::
+ *
+ * Ordering implement for BsonValues
+ *
+ * @since 1.0
+ */
+@DeveloperApi
 trait BsonValueOrdering extends Ordering[BsonValue] {
 
   // scalastyle:off cyclomatic.complexity

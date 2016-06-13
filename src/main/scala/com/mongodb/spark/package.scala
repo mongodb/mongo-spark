@@ -23,36 +23,48 @@ import org.apache.spark.rdd.RDD
 
 import org.bson.Document
 import com.mongodb.spark.DefaultHelper.DefaultsTo
+import com.mongodb.spark.annotation.DeveloperApi
 import com.mongodb.spark.rdd.DocumentRDDFunctions
 
 /**
  * The MongoDB Spark Connector
+ *
+ * @since 1.0
  */
 package object spark {
 
   /**
+   * :: DeveloperApi ::
+   *
    * Helper to get the class from a classTag
    *
    * @param ct the classTag we want to implicitly get the class of
    * @tparam C the class type
    * @return the classOf[C]
    */
+  @DeveloperApi
   implicit def classTagToClassOf[C](ct: ClassTag[C]): Class[C] = ct.runtimeClass.asInstanceOf[Class[C]]
 
   /**
+   * :: DeveloperApi ::
+   *
    * Helper to implicitly add MongoDB based functions to a SparkContext
    *
    * @param sc the current SparkContext
    * @return the MongoDB based Spark Context
    */
+  @DeveloperApi
   implicit def toSparkContextFunctions(sc: SparkContext): SparkContextFunctions = SparkContextFunctions(sc)
 
   /**
+   * :: DeveloperApi ::
+   *
    * Helper to implicitly add MongoDB based functions to a SparkContext
    *
    * @param rdd the RDD to save to MongoDB
    * @return the MongoDB based Spark Context
    */
+  @DeveloperApi
   implicit def toDocumentRDDFunctions[D](rdd: RDD[D])(implicit e: D DefaultsTo Document, ct: ClassTag[D]): DocumentRDDFunctions[D] =
     DocumentRDDFunctions(rdd)
 

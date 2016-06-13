@@ -17,13 +17,23 @@
 package com.mongodb.spark
 
 import scala.annotation.implicitNotFound
+import com.mongodb.spark.annotation.DeveloperApi
 
+/**
+ * :: DeveloperApi ::
+ *
+ * `NotNothing` bottom type constraint for methods allowing a generic type that is not `Nothing`.
+ */
+@DeveloperApi
 @implicitNotFound("You must explicitly provide a type.")
 trait NotNothing[T]
 
 /**
+ * :: DeveloperApi ::
+ *
  * `NotNothing` bottom type constraint for methods allowing a generic type that is not `Nothing`.
  */
+@DeveloperApi
 object NotNothing {
   private val evidence: NotNothing[Any] = new Object with NotNothing[Any]
   implicit def notNothingEv[T](implicit n: T =:= T): NotNothing[T] =

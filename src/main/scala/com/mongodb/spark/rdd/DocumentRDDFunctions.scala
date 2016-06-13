@@ -23,9 +23,12 @@ import org.apache.spark.rdd.RDD
 import org.bson.Document
 import com.mongodb.spark.DefaultHelper.DefaultsTo
 import com.mongodb.spark.MongoSpark
+import com.mongodb.spark.annotation.DeveloperApi
 import com.mongodb.spark.config.WriteConfig
 
 /**
+ * :: DeveloperApi ::
+ *
  * Functions for RDD's that allow the data to be saved to MongoDB.
  *
  * @param rdd the rdd
@@ -35,6 +38,7 @@ import com.mongodb.spark.config.WriteConfig
  *
  * @since 1.0
  */
+@DeveloperApi
 case class DocumentRDDFunctions[D](rdd: RDD[D])(implicit e: D DefaultsTo Document, ct: ClassTag[D]) {
 
   @transient val sparkContext = rdd.sparkContext

@@ -22,15 +22,19 @@ import org.apache.spark.SparkContext
 
 import org.bson.Document
 import com.mongodb.spark.DefaultHelper.DefaultsTo
+import com.mongodb.spark.annotation.DeveloperApi
 import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.rdd.MongoRDD
 
 /**
+ * :: DeveloperApi ::
+ *
  * Helpers to create [[com.mongodb.spark.rdd.MongoRDD]] in the current `SparkContext`.
  *
  * @param sc the Spark context
  * @since 1.0
  */
+@DeveloperApi
 case class SparkContextFunctions(@transient sc: SparkContext) extends Serializable {
 
   /**

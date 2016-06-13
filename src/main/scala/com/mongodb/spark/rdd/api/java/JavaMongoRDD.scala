@@ -28,6 +28,11 @@ import org.bson.conversions.Bson
 import com.mongodb.spark.notNull
 import com.mongodb.spark.rdd.MongoRDD
 
+/**
+ * Java specific version of [[com.mongodb.spark.rdd.MongoRDD]].
+ *
+ * @since 1.0
+ */
 case class JavaMongoRDD[D](override val rdd: MongoRDD[D])(implicit override val classTag: ClassTag[D]) extends JavaRDD[D](rdd)(classTag) {
 
   /**

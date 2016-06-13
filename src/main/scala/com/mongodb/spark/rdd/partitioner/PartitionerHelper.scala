@@ -20,8 +20,18 @@ import scala.collection.JavaConverters._
 
 import org.bson._
 import com.mongodb.spark.MongoConnector
+import com.mongodb.spark.annotation.DeveloperApi
 import com.mongodb.spark.config.ReadConfig
 
+
+/**
+ * :: DeveloperApi ::
+ *
+ * Helper methods for partitioner implementations
+ *
+ * @since 1.0
+ */
+@DeveloperApi
 object PartitionerHelper {
 
   /**

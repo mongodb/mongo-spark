@@ -1,6 +1,7 @@
 # Mongo Spark Connector Changelog
 
 ## 0.4
+  * [[SPARK-49](https://jira.mongodb.org/browse/SPARK-49)] Marked internal public code with DeveloperApi annotation.
   * [[SPARK-60](https://jira.mongodb.org/browse/SPARK-60)] Added partitioner to ReadConfig and added custom partitioner options.
   * [[SPARK-54](https://jira.mongodb.org/browse/SPARK-54)] Added a sample and pagination based partitioners.
   * [[SPARK-53](https://jira.mongodb.org/browse/SPARK-53)] Updated DefaultMongoPartitioner implementation.

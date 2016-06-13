@@ -18,11 +18,16 @@ package com.mongodb.spark
 
 import scala.language.implicitConversions
 
+import com.mongodb.spark.annotation.DeveloperApi
+
 /**
+ * :: DeveloperApi ::
+ *
  * A helper containing the sealed `DefaultsTo` trait which is used to determine the default type for a given method.
  *
  * @since 1.0
  */
+@DeveloperApi
 object DefaultHelper {
 
   /**
