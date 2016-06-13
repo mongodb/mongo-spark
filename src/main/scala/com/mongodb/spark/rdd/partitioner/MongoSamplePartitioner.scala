@@ -100,7 +100,7 @@ class MongoSamplePartitioner extends MongoPartitioner {
         }
 
         PartitionerHelper.createPartitions(partitionKey, rightHandBoundaries, PartitionerHelper.locations(connector))
-      case Failure(ex: MongoCommandException) if ex.getErrorMessage.endsWith("not found.") =>
+      case Failure(ex: MongoCommandException) if ex.getErrorMessage.endsWith("not found.") || ex.getErrorCode == 26 =>
         logInfo(s"Could not find collection (${readConfig.collectionName}), using a single partition")
         MongoSinglePartitioner.partitions(connector, readConfig, pipeline)
       case Failure(e) =>

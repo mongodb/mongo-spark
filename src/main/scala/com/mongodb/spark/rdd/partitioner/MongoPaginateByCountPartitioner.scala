@@ -16,13 +16,10 @@
 
 package com.mongodb.spark.rdd.partitioner
 
-import scala.collection.immutable.IndexedSeq
 import scala.util.{Failure, Success, Try}
 
-import org.bson.{BsonDocument, BsonValue}
+import org.bson.BsonDocument
 import com.mongodb.MongoCommandException
-import com.mongodb.client.MongoCollection
-import com.mongodb.client.model.{Projections, Sorts}
 import com.mongodb.spark.MongoConnector
 import com.mongodb.spark.config.ReadConfig
 
@@ -82,7 +79,7 @@ class MongoPaginateByCountPartitioner extends MongoPartitioner with MongoPaginat
 
         val rightHandBoundaries = calculatePartitions(connector, readConfig, partitionKey, count, numDocumentsPerPartition)
         PartitionerHelper.createPartitions(partitionKey, rightHandBoundaries, PartitionerHelper.locations(connector))
-      case Failure(ex: MongoCommandException) if ex.getErrorMessage.endsWith("not found.") =>
+      case Failure(ex: MongoCommandException) if ex.getErrorMessage.endsWith("not found.") || ex.getErrorCode == 26 =>
         logInfo(s"Could not find collection (${readConfig.collectionName}), using a single partition")
         MongoSinglePartitioner.partitions(connector, readConfig, pipeline)
       case Failure(e) =>
