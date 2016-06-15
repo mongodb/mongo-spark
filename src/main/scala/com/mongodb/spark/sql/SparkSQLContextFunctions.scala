@@ -21,14 +21,18 @@ import scala.reflect.runtime.universe._
 import org.apache.spark.sql.{DataFrame, SQLContext}
 
 import com.mongodb.spark.MongoSpark
+import com.mongodb.spark.annotation.DeveloperApi
 import com.mongodb.spark.config.ReadConfig
 
 /**
+ * :: DeveloperApi ::
+ *
  * Helpers to create [[com.mongodb.spark.rdd.MongoRDD]] in the current `SQLContext`.
  *
  * @param sqlContext the SQLContext
  * @since 1.0
  */
+@DeveloperApi
 case class SparkSQLContextFunctions(@transient sqlContext: SQLContext) extends Serializable {
 
   /**
