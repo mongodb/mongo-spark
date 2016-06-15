@@ -23,7 +23,6 @@ import com.mongodb.spark.MongoConnector
 import com.mongodb.spark.annotation.DeveloperApi
 import com.mongodb.spark.config.ReadConfig
 
-
 /**
  * :: DeveloperApi ::
  *
