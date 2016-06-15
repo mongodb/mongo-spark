@@ -18,7 +18,7 @@ package com.mongodb.spark
 
 import scala.language.implicitConversions
 
-import org.apache.spark.sql.{DataFrameReader, DataFrameWriter, SQLContext}
+import org.apache.spark.sql.{DataFrameReader, DataFrameWriter, SQLContext, SparkSession}
 
 import com.mongodb.spark.annotation.DeveloperApi
 
@@ -36,7 +36,19 @@ package object sql {
    * @return the MongoDB based SQLContext
    */
   @DeveloperApi
-  implicit def toSparkSQLContextFunctions(sqlContext: SQLContext): SparkSQLContextFunctions = SparkSQLContextFunctions(sqlContext)
+  @deprecated("As of Spark 2.0 SQLContext was replaced by SparkSession. Use the SparkSession method instead", "2.0.0")
+  implicit def toSparkSessionFunctions(sqlContext: SQLContext): SparkSessionFunctions = toSparkSessionFunctions(sqlContext.sparkSession)
+
+  /**
+   * :: DeveloperApi ::
+   *
+   * Helper to implicitly add MongoDB based functions to a SQLContext
+   *
+   * @param sparkSession the current SparkSession
+   * @return the MongoDB based SQLContext
+   */
+  @DeveloperApi
+  implicit def toSparkSessionFunctions(sparkSession: SparkSession): SparkSessionFunctions = SparkSessionFunctions(sparkSession)
 
   /**
    * :: DeveloperApi ::

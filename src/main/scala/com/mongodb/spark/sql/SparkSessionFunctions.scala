@@ -18,7 +18,7 @@ package com.mongodb.spark.sql
 
 import scala.reflect.runtime.universe._
 
-import org.apache.spark.sql.{DataFrame, SQLContext}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.annotation.DeveloperApi
@@ -27,13 +27,13 @@ import com.mongodb.spark.config.ReadConfig
 /**
  * :: DeveloperApi ::
  *
- * Helpers to create [[com.mongodb.spark.rdd.MongoRDD]] in the current `SQLContext`.
+ * Helpers to create [[com.mongodb.spark.rdd.MongoRDD]] in the current `SparkSession`.
  *
- * @param sqlContext the SQLContext
- * @since 1.0
+ * @param sparkSession the SparkSession
+ * @since 2.0
  */
 @DeveloperApi
-case class SparkSQLContextFunctions(@transient sqlContext: SQLContext) extends Serializable {
+case class SparkSessionFunctions(@transient sparkSession: SparkSession) extends Serializable {
 
   /**
    * Creates a MongoRDD
@@ -45,6 +45,6 @@ case class SparkSQLContextFunctions(@transient sqlContext: SQLContext) extends S
    *
    * @return a MongoRDD
    */
-  def loadFromMongoDB[T <: Product: TypeTag](readConfig: ReadConfig = ReadConfig(sqlContext.sparkContext)): DataFrame =
-    MongoSpark.builder().sqlContext(sqlContext).readConfig(readConfig).build().toDF[T]()
+  def loadFromMongoDB[T <: Product: TypeTag](readConfig: ReadConfig = ReadConfig(sparkSession.sparkContext)): DataFrame =
+    MongoSpark.builder().sparkSession(sparkSession).readConfig(readConfig).build().toDF[T]()
 }

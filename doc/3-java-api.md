@@ -137,7 +137,6 @@ MongoSpark.save(jsc.parallelize(characters).map(new Function<String, Document>()
 Then to load the characters into a DataFrame via the standard source method:
 
 ```java
-SQLContext sqlContext = SQLContext.getOrCreate(jsc.sc());
 Dataset<Row> df = MongoSpark.load(jsc).toDF();
 df.printSchema();
 ```
@@ -152,13 +151,15 @@ root
 ```
 
 
-By default reading from MongoDB in a `SQLContext` infers the schema by sampling documents from the database. 
+By default reading from MongoDB in a `SparkSession` infers the schema by sampling documents from the database. 
 If you know the shape of your documents then you can use a simple java bean to define the schema instead, thus preventing the extra queries.
 
 In the following example we define a `Character` Java bean and pass that to the `toDF` method:
 
 ```java
-Dataset<Row> explicitDF = MongoSpark.load(sqlContext).toDF(Character.class);
+
+SparkSession sparkSession = SparkSession.builder().getOrCreate();
+Dataset<Row> explicitDF = MongoSpark.load(sparkSession).toDF(Character.class);
 explicitDF.printSchema();
 ```
 Will return:

@@ -27,7 +27,7 @@ import org.apache.spark.SparkConf
 import org.bson.Document
 import com.mongodb.{ReadPreference, Tag, TagSet, TaggableReadPreference}
 import org.apache.spark.api.java.JavaSparkContext
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.{SQLContext, SparkSession}
 
 /**
  * The `ReadPreferenceConfig` companion object
@@ -126,9 +126,15 @@ object ReadPreferenceConfig extends MongoInputConfig {
     apply(sparkConf, options.asScala)
   }
 
+  @deprecated("As of Spark 2.0 SQLContext was replaced by SparkSession. Use the SparkSession method instead", "2.0.0")
   override def create(sqlContext: SQLContext): ReadPreferenceConfig = {
     notNull("sqlContext", sqlContext)
-    apply(sqlContext)
+    create(sqlContext.sparkSession)
+  }
+
+  override def create(sparkSession: SparkSession): ReadPreferenceConfig = {
+    notNull("sparkSession", sparkSession)
+    apply(sparkSession)
   }
 
   private def tagSets(tagSets: String): util.List[TagSet] = {

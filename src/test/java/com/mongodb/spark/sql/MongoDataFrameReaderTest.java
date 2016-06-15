@@ -16,12 +16,12 @@
 
 package com.mongodb.spark.sql;
 
-import com.mongodb.spark.MongoSpark;
 import com.mongodb.spark.JavaRequiresMongoDB;
+import com.mongodb.spark.MongoSpark;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
-import org.apache.spark.sql.SQLContext;
+import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
@@ -104,11 +104,11 @@ public final class MongoDataFrameReaderTest extends JavaRequiresMongoDB {
         MongoSpark.save(jsc.parallelize(characters).map(JsonToDocument));
         MongoSpark.save(jsc.parallelize(asList("{counter: 1}", "{counter: 2}", "{counter: 3}")).map(JsonToDocument));
 
-        SQLContext sqlContext = SQLContext.getOrCreate(jsc.sc());
+        SparkSession sparkSession = SparkSession.builder().getOrCreate();
         StructType expectedSchema = createStructType(asList(_idField, ageField, nameField));
 
         // When
-        Dataset<Row> df = sqlContext.read().format("com.mongodb.spark.sql").option("pipeline", "{ $match: { name: { $exists: true } } }").load();
+        Dataset<Row> df = sparkSession.read().format("com.mongodb.spark.sql").option("pipeline", "{ $match: { name: { $exists: true } } }").load();
 
         // Then
         assertEquals(df.schema(), expectedSchema);
@@ -116,7 +116,7 @@ public final class MongoDataFrameReaderTest extends JavaRequiresMongoDB {
         assertEquals(df.filter("age > 100").count(), 6);
 
         // When - single item pipeline
-        df = sqlContext.read().format("com.mongodb.spark.sql").option("pipeline", "{ $match: { name: { $exists: true } } }").load();
+        df = sparkSession.read().format("com.mongodb.spark.sql").option("pipeline", "{ $match: { name: { $exists: true } } }").load();
 
         // Then
         assertEquals(df.schema(), expectedSchema);
@@ -162,7 +162,7 @@ public final class MongoDataFrameReaderTest extends JavaRequiresMongoDB {
         JavaSparkContext jsc = getJavaSparkContext();
         MongoSpark.save(jsc.parallelize(characters).map(JsonToDocument));
 
-        SQLContext.getOrCreate(jsc.sc()).read().format("com.mongodb.spark.sql").option("pipeline", "[1, 2, 3]").load();
+        SparkSession.builder().getOrCreate().read().format("com.mongodb.spark.sql").option("pipeline", "[1, 2, 3]").load();
     }
 
     private StructField _idField = createStructField("_id", ObjectIdStruct(), true);

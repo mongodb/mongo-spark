@@ -1,13 +1,13 @@
 package com.mongodb.spark.sql;
 
-import com.mongodb.spark.MongoSpark;
 import com.mongodb.spark.JavaRequiresMongoDB;
+import com.mongodb.spark.MongoSpark;
 import com.mongodb.spark.config.ReadConfig;
 import com.mongodb.spark.config.WriteConfig;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
-import org.apache.spark.sql.SQLContext;
+import org.apache.spark.sql.SparkSession;
 import org.bson.Document;
 import org.junit.Test;
 
@@ -37,13 +37,13 @@ public final class MongoDataFrameWriterTest extends JavaRequiresMongoDB {
         // Given
         JavaSparkContext jsc = getJavaSparkContext();
         JavaRDD<CharacterBean> people = jsc.parallelize(characters).map(JsonToCharacter);
-        SQLContext sqlContext = SQLContext.getOrCreate(jsc.sc());
+        SparkSession sparkSession = SparkSession.builder().getOrCreate();
 
         // When
-        MongoSpark.write(sqlContext.createDataFrame(people, CharacterBean.class)).save();
+        MongoSpark.write(sparkSession.createDataFrame(people, CharacterBean.class)).save();
 
         // Then
-        assertEquals(MongoSpark.read(sqlContext).load().count(), 9);
+        assertEquals(MongoSpark.read(sparkSession).load().count(), 9);
     }
 
     @Test
@@ -51,13 +51,13 @@ public final class MongoDataFrameWriterTest extends JavaRequiresMongoDB {
         // Given
         JavaSparkContext jsc = getJavaSparkContext();
         JavaRDD<CharacterBean> people = jsc.parallelize(characters).map(JsonToCharacter);
-        SQLContext sqlContext = SQLContext.getOrCreate(jsc.sc());
+        SparkSession sparkSession = SparkSession.builder().getOrCreate();
 
         // When
-        MongoSpark.write(sqlContext.createDataFrame(people, CharacterBean.class)).save();
+        MongoSpark.write(sparkSession.createDataFrame(people, CharacterBean.class)).save();
 
         // Then
-        assertEquals(MongoSpark.read(sqlContext).load().count(), 9);
+        assertEquals(MongoSpark.read(sparkSession).load().count(), 9);
     }
 
 
@@ -72,13 +72,13 @@ public final class MongoDataFrameWriterTest extends JavaRequiresMongoDB {
         ReadConfig readConfig = ReadConfig.create(jsc.getConf()).withOptions(options);
 
         JavaRDD<CharacterBean> people = jsc.parallelize(characters).map(JsonToCharacter);
-        SQLContext sqlContext = SQLContext.getOrCreate(jsc.sc());
+        SparkSession sparkSession = SparkSession.builder().getOrCreate();
 
         // When
-        MongoSpark.write(sqlContext.createDataFrame(people, CharacterBean.class)).options(writeConfig.asOptions()).save();
+        MongoSpark.write(sparkSession.createDataFrame(people, CharacterBean.class)).options(writeConfig.asOptions()).save();
 
         // Then
-        assertEquals(MongoSpark.read(sqlContext).options(readConfig.asOptions()).load().count(), 9);
+        assertEquals(MongoSpark.read(sparkSession).options(readConfig.asOptions()).load().count(), 9);
     }
 
     private static Function<String, CharacterBean> JsonToCharacter = new Function<String, CharacterBean>() {

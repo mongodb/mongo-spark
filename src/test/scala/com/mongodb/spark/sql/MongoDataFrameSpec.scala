@@ -21,7 +21,7 @@ import scala.collection.JavaConverters._
 import org.apache.spark.sql.catalyst.ScalaReflection
 import org.apache.spark.sql.types.DataTypes._
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
-import org.apache.spark.sql.{SQLContext, SaveMode}
+import org.apache.spark.sql.{SQLContext, SaveMode, SparkSession}
 
 import org.bson._
 import org.bson.types.ObjectId
@@ -47,7 +47,7 @@ class MongoDataFrameSpec extends RequiresMongoDB {
 
   "DataFrameReader" should "should be easily created from the SQLContext and load from Mongo" in withSparkContext() { sc =>
     sc.parallelize(characters).saveToMongoDB()
-    val df = SQLContext.getOrCreate(sc).read.mongo()
+    val df = SparkSession.builder().getOrCreate().read.mongo()
 
     df.schema should equal(expectedSchema)
     df.count() should equal(10)
@@ -56,8 +56,8 @@ class MongoDataFrameSpec extends RequiresMongoDB {
 
   it should "handle selecting out of order columns" in withSparkContext() { sc =>
     sc.parallelize(characters).saveToMongoDB()
-    val sqlContext = SQLContext.getOrCreate(sc)
-    val df = sqlContext.read.mongo()
+    val sparkSession = SparkSession.builder().getOrCreate()
+    val df = sparkSession.read.mongo()
 
     df.select("name", "age").orderBy("age").rdd.map(r => (r.get(0), r.get(1))).collect() should
       equal(characters.sortBy(_.getInteger("age", 0)).map(doc => (doc.getString("name"), doc.getInteger("age"))))
@@ -66,7 +66,7 @@ class MongoDataFrameSpec extends RequiresMongoDB {
   it should "handle mixed numerics with long precedence" in withSparkContext() { sc =>
     sc.parallelize(mixedLong).saveToMongoDB()
     val expectedData = List(1L, 1L, 1L)
-    val df = SQLContext.getOrCreate(sc).read.mongo().select("a")
+    val df = SparkSession.builder().getOrCreate().read.mongo().select("a")
 
     df.count() should equal(3)
     df.collect().map(r => r.get(0)) should equal(expectedData)
@@ -79,7 +79,7 @@ class MongoDataFrameSpec extends RequiresMongoDB {
   it should "handle mixed numerics with double precedence" in withSparkContext() { sc =>
     sc.parallelize(mixedDouble).saveToMongoDB()
     val expectedData = List(1.0, 1.0, 1.0)
-    val df = SQLContext.getOrCreate(sc).read.mongo().select("a")
+    val df = SparkSession.builder().getOrCreate().read.mongo().select("a")
 
     df.count() should equal(3)
     df.collect().map(r => r.get(0)) should equal(expectedData)
@@ -95,7 +95,7 @@ class MongoDataFrameSpec extends RequiresMongoDB {
     val saveToCollectionName = s"${collectionName}_new"
     val readConf = readConfig.withOptions(Map("collection" -> saveToCollectionName))
 
-    SQLContext.getOrCreate(sc).read.mongo().write.mode(SaveMode.Overwrite).option("collection", saveToCollectionName).mongo()
+    SparkSession.builder().getOrCreate().read.mongo().write.mode(SaveMode.Overwrite).option("collection", saveToCollectionName).mongo()
     MongoSpark.builder().sparkContext(sc).readConfig(readConfig).build().toRDD().collect().toList should equal(arrayFieldWithNulls)
   }
 
@@ -105,15 +105,15 @@ class MongoDataFrameSpec extends RequiresMongoDB {
     val saveToCollectionName = s"${collectionName}_new"
     val readConf = readConfig.withOptions(Map("collection" -> saveToCollectionName))
 
-    SQLContext.getOrCreate(sc).read.mongo().write.mode(SaveMode.Overwrite).option("collection", saveToCollectionName).mongo()
+    SparkSession.builder().getOrCreate().read.mongo().write.mode(SaveMode.Overwrite).option("collection", saveToCollectionName).mongo()
     MongoSpark.builder().sparkContext(sc).readConfig(readConfig).build().toRDD().collect().toList should equal(documentFieldWithNulls)
   }
 
   it should "be easily created with a provided case class" in withSparkContext() { sc =>
     sc.parallelize(characters).saveToMongoDB()
 
-    val sqlContext = SQLContext.getOrCreate(sc)
-    val df = sqlContext.read.mongo[Character]()
+    val sparkSession = SparkSession.builder().getOrCreate()
+    val df = sparkSession.read.mongo[Character]()
     val reflectedSchema: StructType = ScalaReflection.schemaFor[Character].dataType.asInstanceOf[StructType]
 
     df.schema should equal(reflectedSchema)
@@ -124,14 +124,14 @@ class MongoDataFrameSpec extends RequiresMongoDB {
   it should "include any pipelines when inferring the schema" in withSparkContext() { sc =>
     sc.parallelize(characters).saveToMongoDB()
     sc.parallelize(List("{counter: 1}", "{counter: 2}", "{counter: 3}").map(Document.parse)).saveToMongoDB()
-    val sqlContext = SQLContext.getOrCreate(sc)
+    val sparkSession = SparkSession.builder().getOrCreate()
 
-    var df = sqlContext.read.option("pipeline", "[{ $match: { name: { $exists: true } } }]").mongo()
+    var df = sparkSession.read.option("pipeline", "[{ $match: { name: { $exists: true } } }]").mongo()
     df.schema should equal(expectedSchema)
     df.count() should equal(10)
     df.filter("age > 100").count() should equal(6)
 
-    df = sqlContext.read.option("pipeline", "[{ $project: { _id: 1, age: 1 } }]").mongo()
+    df = sparkSession.read.option("pipeline", "[{ $project: { _id: 1, age: 1 } }]").mongo()
     df.schema should equal(createStructType(expectedSchema.fields.filter(p => p.name != "name")))
   }
 
@@ -139,22 +139,22 @@ class MongoDataFrameSpec extends RequiresMongoDB {
     sc.parallelize(characters).saveToMongoDB()
     sc.parallelize(List("{counter: 1}", "{counter: 2}", "{counter: 3}").map(Document.parse)).saveToMongoDB()
 
-    an[IllegalArgumentException] should be thrownBy SQLContext.getOrCreate(sc).read.option("pipeline", "[1, 2, 3]").mongo()
+    an[IllegalArgumentException] should be thrownBy SparkSession.builder().getOrCreate().read.option("pipeline", "[1, 2, 3]").mongo()
   }
 
   "DataFrameWriter" should "be easily created from a DataFrame and save to Mongo" in withSparkContext() { sc =>
-    val sqlContext = SQLContext.getOrCreate(sc)
-    import sqlContext.implicits._
+    val sparkSession = SparkSession.builder().getOrCreate()
+    import sparkSession.implicits._
     sc.parallelize(characters)
       .filter(_.containsKey("age")).map(doc => Character(doc.getString("name"), doc.getInteger("age")))
       .toDF().write.mongo()
 
-    sqlContext.read.mongo[Character]().count() should equal(9)
+    sparkSession.read.mongo[Character]().count() should equal(9)
   }
 
   it should "take custom writeConfig" in withSparkContext() { sc =>
-    val sqlContext = SQLContext.getOrCreate(sc)
-    import sqlContext.implicits._
+    val sparkSession = SparkSession.builder().getOrCreate()
+    import sparkSession.implicits._
     val saveToCollectionName = s"${collectionName}_new"
     val writeConfig = WriteConfig(sc.getConf).withOptions(Map("collection" -> saveToCollectionName))
 
@@ -162,14 +162,14 @@ class MongoDataFrameSpec extends RequiresMongoDB {
       .filter(_.containsKey("age")).map(doc => Character(doc.getString("name"), doc.getInteger("age")))
       .toDF().write.mongo(writeConfig)
 
-    sqlContext.read.option("collection", saveToCollectionName).mongo[Character]().count() should equal(9)
+    sparkSession.read.option("collection", saveToCollectionName).mongo[Character]().count() should equal(9)
   }
 
   "DataFrames" should "round trip all bson types" in withSparkContext() { sc =>
     database.getCollection(collectionName, classOf[BsonDocument]).insertOne(allBsonTypesDocument)
 
     val newCollectionName = s"${collectionName}_new"
-    SQLContext.getOrCreate(sc).read.mongo().write.option("collection", newCollectionName).mongo()
+    SparkSession.builder().getOrCreate().read.mongo().write.option("collection", newCollectionName).mongo()
 
     val original = database.getCollection(collectionName).find().iterator().asScala.toList
     val copied = database.getCollection(newCollectionName).find().iterator().asScala.toList

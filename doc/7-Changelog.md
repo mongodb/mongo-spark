@@ -2,6 +2,7 @@
 
 ## 2.0.0
 
+  * [[SPARK-47](https://jira.mongodb.org/browse/SPARK-47)] Updated API to use SparkSession and deprecated public methods using SQLContext.
   * [[SPARK-20](https://jira.mongodb.org/browse/SPARK-20)] Updated Spark Version to 2.0.0
 
 ------

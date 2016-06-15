@@ -24,7 +24,7 @@ import org.apache.spark.{SparkConf, SparkContext}
 
 import com.mongodb.ConnectionString
 import org.apache.spark.api.java.JavaSparkContext
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.{SQLContext, SparkSession}
 
 /**
  * The Mongo configuration base trait
@@ -71,10 +71,22 @@ trait MongoCompanionConfig extends Serializable {
    * Uses the prefixed properties that are set in the Spark configuration to create the config.
    *
    * @see [[configPrefix]]
+   * @param sparkSession the SparkSession
+   * @return the configuration
+   */
+  def apply(sparkSession: SparkSession): Self = apply(sparkSession.sparkContext.getConf)
+
+  /**
+   * Create a configuration from the `sqlContext`
+   *
+   * Uses the prefixed properties that are set in the Spark configuration to create the config.
+   *
+   * @see [[configPrefix]]
    * @param sqlContext the SQL context
    * @return the configuration
    */
-  def apply(sqlContext: SQLContext): Self = apply(sqlContext.sparkContext.getConf)
+  @deprecated("As of Spark 2.0 SQLContext was replaced by SparkSession. Use the SparkSession method instead", "2.0.0")
+  def apply(sqlContext: SQLContext): Self = apply(sqlContext.sparkSession)
 
   /**
    * Create a configuration from the `sparkConf`
@@ -140,9 +152,21 @@ trait MongoCompanionConfig extends Serializable {
    * Uses the prefixed properties that are set in the Spark configuration to create the config.
    *
    * @see [[configPrefix]]
+   * @param sparkSession the SparkSession
+   * @return the configuration
+   */
+  def create(sparkSession: SparkSession): Self
+
+  /**
+   * Create a configuration easily from the Java API using the `JavaSparkContext`
+   *
+   * Uses the prefixed properties that are set in the Spark configuration to create the config.
+   *
+   * @see [[configPrefix]]
    * @param sqlContext the SQL context
    * @return the configuration
    */
+  @deprecated("As of Spark 2.0 SQLContext was replaced by SparkSession. Use the SparkSession method instead", "2.0.0")
   def create(sqlContext: SQLContext): Self
 
   /**

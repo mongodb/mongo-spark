@@ -27,7 +27,7 @@ import org.apache.spark.SparkConf
 
 import com.mongodb.{ReadConcern, ReadConcernLevel}
 import org.apache.spark.api.java.JavaSparkContext
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.{SQLContext, SparkSession}
 
 /**
  * The `ReadConcernConfig` companion object
@@ -109,9 +109,15 @@ object ReadConcernConfig extends MongoInputConfig {
     apply(sparkConf, options.asScala)
   }
 
+  @deprecated("As of Spark 2.0 SQLContext was replaced by SparkSession. Use the SparkSession method instead", "2.0.0")
   override def create(sqlContext: SQLContext): ReadConcernConfig = {
     notNull("sqlContext", sqlContext)
-    apply(sqlContext)
+    create(sqlContext.sparkSession)
+  }
+
+  override def create(sparkSession: SparkSession): ReadConcernConfig = {
+    notNull("sparkSession", sparkSession)
+    apply(sparkSession)
   }
 }
 

@@ -16,7 +16,7 @@
 
 package com.mongodb.spark
 
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.{SparkConf, SparkContext}
 
 import org.bson.Document
@@ -41,8 +41,8 @@ class SparkConfOverrideSpec extends RequiresMongoDB {
   "DataFrame Readers and Writers" should "be able to able to override partial configs with options" in {
     val characters = Seq(Character("Gandalf", 1000), Character("Bilbo Baggins", 50)) //scalastyle:ignore
 
-    val sqlContext = SQLContext.getOrCreate(sc)
-    import sqlContext.implicits._
+    val sparkSession = SparkSession.builder().getOrCreate()
+    import sparkSession.implicits._
     sc.parallelize(characters).toDF().write
       .option("mode", "Overwrite")
       .option("uri", mongoClientURI)
@@ -50,7 +50,7 @@ class SparkConfOverrideSpec extends RequiresMongoDB {
       .option("collection", collectionName)
       .mongo()
 
-    val ds = sqlContext.read
+    val ds = sparkSession.read
       .option("uri", mongoClientURI)
       .option("database", databaseName)
       .option("collection", collectionName)

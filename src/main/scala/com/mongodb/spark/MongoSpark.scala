@@ -77,33 +77,33 @@ object MongoSpark {
   /**
    * Load data from MongoDB
    *
-   * @param sqlContext the SQLContext containing the MongoDB connection configuration
+   * @param sparkSession the SparkSession containing the MongoDB connection configuration
    * @tparam D The optional class defining the schema for the data
    * @return a MongoRDD
    */
-  def load[D <: Product: TypeTag](sqlContext: SQLContext): DataFrame =
-    load[D](sqlContext, ReadConfig(sqlContext.sparkContext))
+  def load[D <: Product: TypeTag](sparkSession: SparkSession): DataFrame =
+    load[D](sparkSession, ReadConfig(sparkSession.sparkContext))
 
   /**
    * Load data from MongoDB
    *
-   * @param sqlContext the SQLContext containing the MongoDB connection configuration
+   * @param sparkSession the SparkSession containing the MongoDB connection configuration
    * @tparam D The optional class defining the schema for the data
    * @return a MongoRDD
    */
-  def load[D <: Product: TypeTag](sqlContext: SQLContext, readConfig: ReadConfig): DataFrame =
-    builder().sqlContext(sqlContext).readConfig(readConfig).build().toDF[D]()
+  def load[D <: Product: TypeTag](sparkSession: SparkSession, readConfig: ReadConfig): DataFrame =
+    builder().sparkSession(sparkSession).readConfig(readConfig).build().toDF[D]()
 
   /**
    * Load data from MongoDB
    *
-   * @param sqlContext the SQL context containing the MongoDB connection configuration
+   * @param sparkSession the SparkSession containing the MongoDB connection configuration
    * @param clazz   the class of the data contained in the RDD
    * @tparam D The bean class defining the schema for the data
    * @return a MongoRDD
    */
-  def load[D](sqlContext: SQLContext, readConfig: ReadConfig, clazz: Class[D]): DataFrame =
-    builder().sqlContext(sqlContext).readConfig(readConfig).build().toDF(clazz)
+  def load[D](sparkSession: SparkSession, readConfig: ReadConfig, clazz: Class[D]): Dataset[D] =
+    builder().sparkSession(sparkSession).readConfig(readConfig).build().toDS(clazz)
 
   /**
    * Save data to MongoDB
@@ -153,10 +153,10 @@ object MongoSpark {
   /**
    * Creates a DataFrameReader with `MongoDB` as the source
    *
-   * @param sqlContext the SQLContext
+   * @param sparkSession the SparkSession
    * @return the DataFrameReader
    */
-  def read(sqlContext: SQLContext): DataFrameReader = sqlContext.read.format("com.mongodb.spark.sql")
+  def read(sparkSession: SparkSession): DataFrameReader = sparkSession.read.format("com.mongodb.spark.sql")
 
   /**
    * Creates a DataFrameWriter with the `MongoDB` underlying output data source.
@@ -169,58 +169,62 @@ object MongoSpark {
   /**
    * Builder for configuring and creating a [[MongoSpark]]
    *
-   * It requires a `SparkContext` or `SQLContext`
+   * It requires a `SparkSession` or the `SparkContext`
    */
   class Builder {
-    private var sqlContext: Option[SQLContext] = None
+    private var sparkSession: Option[SparkSession] = None
     private var connector: Option[MongoConnector] = None
     private var readConfig: Option[ReadConfig] = None
     private var pipeline: Seq[Bson] = Nil
     private var options: collection.Map[String, String] = Map()
 
     def build(): MongoSpark = {
-      require(sqlContext.isDefined, "The SQLContext must be set, either explicitly or via the SparkContext")
-      val sqlCtxt = sqlContext.get
-      val sc = sqlCtxt.sparkContext
+      require(sparkSession.isDefined, "The SparkSession must be set, either explicitly or via the SparkContext")
+      val session = sparkSession.get
       val readConf = readConfig.isDefined match {
         case true  => ReadConfig(options, readConfig)
-        case false => ReadConfig(sc.getConf, options)
+        case false => ReadConfig(session.sparkContext.getConf, options)
       }
       val mongoConnector = connector.getOrElse(MongoConnector(readConf))
       val bsonDocumentPipeline = pipeline.map(x => x.toBsonDocument(classOf[Document], mongoConnector.codecRegistry))
 
-      new MongoSpark(sqlCtxt, mongoConnector, readConf, bsonDocumentPipeline)
+      new MongoSpark(session, mongoConnector, readConf, bsonDocumentPipeline)
     }
 
     /**
-     * Sets the SQLContext from the sparkContext
+     * Sets the SparkSession from the sparkContext
+     *
+     * @param sparkSession for the RDD
+     */
+    def sparkSession(sparkSession: SparkSession): Builder = {
+      this.sparkSession = Option(sparkSession)
+      this
+    }
+
+    /**
+     * Sets the SparkSession from the sparkContext
      *
      * @param sparkContext for the RDD
      */
     def sparkContext(sparkContext: SparkContext): Builder = {
-      this.sqlContext = Option(SQLContext.getOrCreate(sparkContext))
+      this.sparkSession = Option(SparkSession.builder().config(sparkContext.getConf).getOrCreate())
       this
     }
 
     /**
-     * Sets the SQLContext from the javaSparkContext
+     * Sets the SparkSession from the javaSparkContext
      *
      * @param javaSparkContext for the RDD
      */
-    def javaSparkContext(javaSparkContext: JavaSparkContext): Builder = {
-      this.sqlContext = Option(SQLContext.getOrCreate(javaSparkContext.sc))
-      this
-    }
+    def javaSparkContext(javaSparkContext: JavaSparkContext): Builder = sparkContext(javaSparkContext.sc)
 
     /**
-     * Sets the SQLContext
+     * Sets the SparkSession
      *
      * @param sqlContext for the RDD
      */
-    def sqlContext(sqlContext: SQLContext): Builder = {
-      this.sqlContext = Option(sqlContext)
-      this
-    }
+    @deprecated("As of Spark 2.0 SQLContext was replaced by SparkSession. Use the SparkSession method instead", "2.0.0")
+    def sqlContext(sqlContext: SQLContext): Builder = sparkSession(sqlContext.sparkSession)
 
     /**
      * Append a configuration option
@@ -390,6 +394,49 @@ object MongoSpark {
     save[D](javaRDD.rdd, writeConfig)
   }
 
+  // Deprecated APIs
+  /**
+   * Load data from MongoDB
+   *
+   * @param sqlContext the SQLContext containing the MongoDB connection configuration
+   * @tparam D The optional class defining the schema for the data
+   * @return a MongoRDD
+   */
+  @deprecated("As of Spark 2.0 SQLContext was replaced by SparkSession. Use the SparkSession method instead", "2.0.0")
+  def load[D <: Product: TypeTag](sqlContext: SQLContext): DataFrame = load[D](sqlContext.sparkSession)
+
+  /**
+   * Load data from MongoDB
+   *
+   * @param sqlContext the SQLContext containing the MongoDB connection configuration
+   * @tparam D The optional class defining the schema for the data
+   * @return a MongoRDD
+   */
+  @deprecated("As of Spark 2.0 SQLContext was replaced by SparkSession. Use the SparkSession method instead", "2.0.0")
+  def load[D <: Product: TypeTag](sqlContext: SQLContext, readConfig: ReadConfig): DataFrame =
+    load(sqlContext.sparkSession, readConfig)
+
+  /**
+   * Load data from MongoDB
+   *
+   * @param sqlContext the SQL context containing the MongoDB connection configuration
+   * @param clazz   the class of the data contained in the RDD
+   * @tparam D The bean class defining the schema for the data
+   * @return a MongoRDD
+   */
+  @deprecated("As of Spark 2.0 SQLContext was replaced by SparkSession. Use the SparkSession method instead", "2.0.0")
+  def load[D](sqlContext: SQLContext, readConfig: ReadConfig, clazz: Class[D]): DataFrame =
+    builder().sparkSession(sqlContext.sparkSession).readConfig(readConfig).build().toDF(clazz)
+
+  /**
+   * Creates a DataFrameReader with `MongoDB` as the source
+   *
+   * @param sqlContext the SQLContext
+   * @return the DataFrameReader
+   */
+  @deprecated("As of Spark 2.0 SQLContext was replaced by SparkSession. Use the SparkSession method instead", "2.0.0")
+  def read(sqlContext: SQLContext): DataFrameReader = read(sqlContext.sparkSession)
+
 }
 
 /**
@@ -399,10 +446,10 @@ object MongoSpark {
  *
  * @since 1.0
  */
-case class MongoSpark(sqlContext: SQLContext, connector: MongoConnector, readConfig: ReadConfig, pipeline: Seq[BsonDocument]) {
+case class MongoSpark(sparkSession: SparkSession, connector: MongoConnector, readConfig: ReadConfig, pipeline: Seq[BsonDocument]) {
 
   private def rdd[D: ClassTag]()(implicit e: D DefaultsTo Document): MongoRDD[D] =
-    new MongoRDD[D](sqlContext, sqlContext.sparkContext.broadcast(connector), readConfig, pipeline)
+    new MongoRDD[D](sparkSession, sparkSession.sparkContext.broadcast(connector), readConfig, pipeline)
 
   /**
    * Creates a `RDD` for the collection
@@ -467,7 +514,7 @@ case class MongoSpark(sqlContext: SQLContext, connector: MongoConnector, readCon
    */
   def toDF(schema: StructType): DataFrame = {
     val rowRDD = toBsonDocumentRDD.map(doc => documentToRow(doc, schema, Array()))
-    sqlContext.createDataFrame(rowRDD, schema)
+    sparkSession.createDataFrame(rowRDD, schema)
   }
 
   /**
@@ -492,7 +539,7 @@ case class MongoSpark(sqlContext: SQLContext, connector: MongoConnector, readCon
 
   private def toBsonDocumentRDD: MongoRDD[BsonDocument] = {
     MongoSpark.builder()
-      .sqlContext(sqlContext)
+      .sparkSession(sparkSession)
       .connector(connector)
       .readConfig(readConfig)
       .pipeline(pipeline)

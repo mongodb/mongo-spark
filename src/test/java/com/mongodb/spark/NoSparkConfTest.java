@@ -25,7 +25,7 @@ import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.sql.Encoders;
-import org.apache.spark.sql.SQLContext;
+import org.apache.spark.sql.SparkSession;
 import org.bson.Document;
 import org.junit.After;
 import org.junit.Test;
@@ -67,14 +67,14 @@ public final class NoSparkConfTest extends JavaRequiresMongoDB {
     @Test
     public void shouldBeAbleToUseConfigsWithDataFrames() {
         JavaSparkContext jsc = getJavaSparkContext();
-        SQLContext sqlContext = SQLContext.getOrCreate(jsc.sc());
+        SparkSession sparkSession = SparkSession.builder().getOrCreate();
         List<CharacterBean> characters = asList(new CharacterBean("Gandalf", 1000), new CharacterBean("Bilbo Baggins", 50));
 
-        MongoSpark.write(sqlContext.createDataFrame(jsc.parallelize(characters), CharacterBean.class))
+        MongoSpark.write(sparkSession.createDataFrame(jsc.parallelize(characters), CharacterBean.class))
                 .options(getOptions())
                 .save();
 
-        List<CharacterBean> ds = MongoSpark.read(sqlContext)
+        List<CharacterBean> ds = MongoSpark.read(sparkSession)
                 .options(getOptions())
                 .load()
                 .as(Encoders.bean(CharacterBean.class))

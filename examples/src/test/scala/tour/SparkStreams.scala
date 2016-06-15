@@ -18,7 +18,7 @@ package tour
 
 
 import org.apache.spark.SparkContext
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.{SQLContext, SparkSession}
 
 /**
  * The spark streams code example adapted from: http://spark.apache.org/docs/latest/streaming-programming-guide.html
@@ -48,8 +48,8 @@ object SparkStreams extends TourHelper {
     val pairs = words.map(word => (word, 1))
     val wordCounts = pairs.reduceByKey(_ + _)
     wordCounts.foreachRDD({ rdd =>
-      val sqlContext = SQLContextSingleton.getInstance(rdd.sparkContext)
-      import sqlContext.implicits._
+      val sparkSession = SparkSessionSingleton.getInstance(rdd.sparkContext)
+      import sparkSession.implicits._
 
       val wordCounts = rdd.map({ case (word: String, count: Int) => WordCount(word, count) }).toDF()
       wordCounts.write.mode("append").mongo()
@@ -63,13 +63,13 @@ object SparkStreams extends TourHelper {
   case class WordCount(word: String, count: Int)
 
   /** Lazily instantiated singleton instance of SQLContext */
-  object SQLContextSingleton {
+  object SparkSessionSingleton {
 
-    @transient private var instance: SQLContext = _
+    @transient private var instance: SparkSession = _
 
-    def getInstance(sparkContext: SparkContext): SQLContext = {
+    def getInstance(sparkContext: SparkContext): SparkSession = {
       if (Option(instance).isEmpty) {
-        instance = SQLContext.getOrCreate(sparkContext)
+        instance = SparkSession.builder().getOrCreate()
       }
       instance
     }

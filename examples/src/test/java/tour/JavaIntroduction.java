@@ -28,7 +28,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
-import org.apache.spark.sql.SQLContext;
+import org.apache.spark.sql.SparkSession;
 import org.bson.Document;
 
 import java.util.HashMap;
@@ -125,22 +125,22 @@ public final class JavaIntroduction {
 
 
         // Load inferring schema
-        SQLContext sqlContext = SQLContext.getOrCreate(jsc.sc());
         Dataset<Row> df = MongoSpark.load(jsc).toDF();
         df.printSchema();
         df.show();
 
         // Declare the Schema via a Java Bean
+        SparkSession sparkSession = SparkSession.builder().getOrCreate();
         Dataset<Row> explicitDF = MongoSpark.load(jsc).toDF(Character.class);
         explicitDF.printSchema();
 
         // SQL
         explicitDF.registerTempTable("characters");
-        Dataset<Row> centenarians = sqlContext.sql("SELECT name, age FROM characters WHERE age >= 100");
+        Dataset<Row> centenarians = sparkSession.sql("SELECT name, age FROM characters WHERE age >= 100");
 
         // Saving DataFrame
         MongoSpark.write(centenarians).option("collection", "hundredClub").save();
-        MongoSpark.load(sqlContext, ReadConfig.create(sqlContext).withOption("collection", "hundredClub"), Character.class).show();
+        MongoSpark.load(sparkSession, ReadConfig.create(sparkSession).withOption("collection", "hundredClub"), Character.class).show();
     }
 
     private static JavaSparkContext createJavaSparkContext(final String[] args) {

@@ -29,17 +29,17 @@ sc.parallelize(docs.map(Document.parse)).saveToMongoDB()
 
 ## Spark SQL
 
-The entry point to Spark SQL is the `SQLContext` class or one of its descendants. To create a basic `SQLContext` all you need is a
-`SparkContext`.
+The entry point to Spark SQL is the `SparkSession` class or one of its descendants. To create a basic `SparkSession` all you need is the
+`SparkSession.builder()`.
 
 ```scala
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.SparkSession
 
 val sc: SparkContext // An existing SparkContext.
-val sqlContext = SQLContext.getOrCreate(sc)
+val sparkSession = SparkSession.builder().getOrCreate()
 ```
 
-First enable the Mongo Connector specific functions on the `SQLContext`:
+First enable the Mongo Connector specific functions on the `SparkSession`:
 
 ```scala
 import com.mongodb.spark.sql._
@@ -51,7 +51,7 @@ The Mongo Spark Connector provides the `com.mongodb.spark.sql.DefaultSource` cla
 However, the easiest way to create a DataFrame is by using the `MongoSpark` helper:
 
 ```scala
-val df = MongoSpark.load(sqlContext)  // Uses the SparkConf
+val df = MongoSpark.load(sparkSession)  // Uses the SparkConf
 df.printSchema()
 ```
 
@@ -67,19 +67,19 @@ root
 *Note:* In Spark 2.0 the `DataFrame` class became a type alias to `DataSet[Row]`.
 
 -----
-`MongoSpark.load(sqlContext)` is shorthand for configuring and loading via the DataFrameReader. The following examples are alternative
+`MongoSpark.load(sparkSession)` is shorthand for configuring and loading via the DataFrameReader. The following examples are alternative
 methods for creating DataFrames:
 
 ```scala
-sqlContext.loadFromMongoDB() // Uses the SparkConf for configuration
-sqlContext.loadFromMongoDB(ReadConfig(Map("uri" -> "mongodb://example.com/database.collection"))) // Uses the ReadConfig
+sparkSession.loadFromMongoDB() // Uses the SparkConf for configuration
+sparkSession.loadFromMongoDB(ReadConfig(Map("uri" -> "mongodb://example.com/database.collection"))) // Uses the ReadConfig
 
-sqlContext.read.mongo()
-sqlContext.read.format("com.mongodb.spark.sql").load()
+sparkSession.read.mongo()
+sparkSession.read.format("com.mongodb.spark.sql").load()
 
 // Set custom options:
-sqlContext.read.mongo(customReadConfig)
-sqlContext.read.format("com.mongodb.spark.sql").options.(customReadConfig.asOptions).load()
+sparkSession.read.mongo(customReadConfig)
+sparkSession.read.format("com.mongodb.spark.sql").options.(customReadConfig.asOptions).load()
 ```
 
 -----
@@ -108,7 +108,7 @@ pipeline to filter the data in MongoDB before sending it to Spark.
 
 #### Schema inference and explicitly declaring a schema
 
-By default reading from MongoDB in a `SQLContext` infers the schema by sampling documents from the database. 
+By default reading from MongoDB in a `SparkSession` infers the schema by sampling documents from the database. 
 If you know the shape of your documents then you can use a simple case class to define the schema instead, thus preventing the extra queries.
 
 -----
@@ -120,7 +120,7 @@ The following example creates Character case class and then uses it to represent
 
 ```scala
 case class Character(name: String, age: Int)
-val explicitDF = MongoSpark.load[Character](sqlContext)()
+val explicitDF = MongoSpark.load[Character](sparkSession)()
 explicitDF.printSchema()
 ```
 
@@ -143,9 +143,9 @@ explicitDF.as[Character]
 The `MongoRDD` class provides helpers to create DataFrames and Datasets directly:
 
 ```scala
-val dataframeInferred = MongoSpark.load[Character](sqlContext)
-val dataframeExplicit = MongoSpark.load[Character](sqlContext)
-val dataset = MongoSpark.load[Character](sqlContext).as[Character]()
+val dataframeInferred = MongoSpark.load[Character](sparkSession)
+val dataframeExplicit = MongoSpark.load[Character](sparkSession)
+val dataset = MongoSpark.load[Character](sparkSession).as[Character]()
 ```
 
 ### SQL queries
@@ -153,18 +153,18 @@ val dataset = MongoSpark.load[Character](sqlContext).as[Character]()
 Spark SQL works on top of Datasets, to be able to use SQL you need to register a temporary table first and then you can run SQL queries
 over the data.
 
-The following example registers a "characters" table and then queries it to find all characters that are 100 or older.
+The following example creates the "characters" temporary table and then queries it to find all characters that are 100 or older.
 
 ```scala
-val characters = MongoSpark.load(sqlContext).toDF[Character]()
-characters.registerTempTable("characters")
+val characters = MongoSpark.load(sparkSession).toDF[Character]()
+characters.createOrReplaceTempView("characters")
 
-val centenarians = sqlContext.sql("SELECT name, age FROM characters WHERE age >= 100")
+val centenarians = sparkSession.sql("SELECT name, age FROM characters WHERE age >= 100")
 centenarians.show()
 ```
 
 -----
-**Note:** You must use the same `SQLContext` that registers the table when querying it. 
+**Note:** You must use the same `SparkSession` that registers the table when querying it. 
 
 -----
 
@@ -177,7 +177,7 @@ In the following example we save the centenarians into the "hundredClub" collect
 ```scala
 MongoSpark.save(centenarians.write.option("collection", "hundredClub"))
 println("Reading from the 'hundredClub' collection:")
-MongoSpark.load[Character](sqlContext, ReadConfig(Map("collection" -> "hundredClub"), Some(ReadConfig(sqlContext)))).show()
+MongoSpark.load[Character](sparkSession, ReadConfig(Map("collection" -> "hundredClub"), Some(ReadConfig(sparkSession)))).show()
 ```
 
 Outputs:

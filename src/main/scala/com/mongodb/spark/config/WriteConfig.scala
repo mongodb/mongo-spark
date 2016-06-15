@@ -23,7 +23,7 @@ import scala.util.Try
 
 import org.apache.spark.SparkConf
 import org.apache.spark.api.java.JavaSparkContext
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.{SQLContext, SparkSession}
 
 import com.mongodb.{ConnectionString, WriteConcern}
 import com.mongodb.spark.notNull
@@ -131,7 +131,12 @@ object WriteConfig extends MongoOutputConfig {
 
   override def create(sqlContext: SQLContext): WriteConfig = {
     notNull("sqlContext", sqlContext)
-    apply(sqlContext)
+    create(sqlContext.sparkSession)
+  }
+
+  override def create(sparkSession: SparkSession): WriteConfig = {
+    notNull("sparkSession", sparkSession)
+    apply(sparkSession)
   }
 
 }

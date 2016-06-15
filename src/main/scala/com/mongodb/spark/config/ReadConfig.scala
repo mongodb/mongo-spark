@@ -23,7 +23,7 @@ import scala.util.Try
 
 import org.apache.spark.SparkConf
 import org.apache.spark.api.java.JavaSparkContext
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.{SQLContext, SparkSession}
 
 import com.mongodb.spark.rdd.partitioner.{DefaultMongoPartitioner, MongoPartitioner}
 import com.mongodb.spark.{LoggingTrait, notNull}
@@ -103,9 +103,15 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
     apply(javaSparkContext.getConf)
   }
 
+  @deprecated("As of Spark 2.0 SQLContext was replaced by SparkSession. Use the SparkSession method instead", "2.0.0")
   override def create(sqlContext: SQLContext): ReadConfig = {
     notNull("sqlContext", sqlContext)
-    apply(sqlContext)
+    create(sqlContext.sparkSession)
+  }
+
+  override def create(sparkSession: SparkSession): ReadConfig = {
+    notNull("sparkSession", sparkSession)
+    apply(sparkSession)
   }
 
   override def create(sparkConf: SparkConf): ReadConfig = {
@@ -150,6 +156,7 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
     stripPrefix(options).map(kv => (kv._1.toLowerCase, kv._2))
       .filter(kv => kv._1.startsWith(partitionerOptionsProperty)).map(kv => (kv._1.stripPrefix(s"$partitionerOptionsProperty."), kv._2))
   }
+
 }
 
 /**

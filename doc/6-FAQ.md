@@ -39,8 +39,8 @@ val wordCounts = pairs.reduceByKey(_ + _)
 
 // Save the word counts for each 1 Second time window into MongoDB
 wordCounts.foreachRDD({ rdd =>
-  val sqlContext = SQLContext.getOrCreate(rdd.sparkContext)
-  import sqlContext.implicits._
+  val sparkSession = SparkSession.builder().getOrCreate()
+  import sparkSession.implicits._
 
   val wordCounts = rdd.map({ case (word: String, count: Int) => WordCount(word, count) }).toDF()
 

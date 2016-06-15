@@ -17,10 +17,9 @@
 package com.mongodb.spark.sql.fieldTypes
 
 import java.util.regex.Pattern
-
 import scala.collection.JavaConverters._
 
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.SparkSession
 
 import org.bson.{BsonBinary, _}
 import com.mongodb.spark._
@@ -59,7 +58,7 @@ class FieldTypesSpec extends RequiresMongoDB {
     database.getCollection(collectionName, classOf[BsonDocument]).insertOne(bsonDocument)
     val newCollectionName = s"${collectionName}_new"
 
-    SQLContext.getOrCreate(sc).read.mongo[BsonTypesCaseClass]().write.option("collection", newCollectionName).mongo()
+    SparkSession.builder().getOrCreate().read.mongo[BsonTypesCaseClass]().write.option("collection", newCollectionName).mongo()
     val original = database.getCollection(collectionName).find().iterator().asScala.toList.head
     val copied = database.getCollection(newCollectionName).find().iterator().asScala.toList.head
     copied should equal(original)

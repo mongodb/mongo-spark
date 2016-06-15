@@ -25,7 +25,7 @@ import org.apache.spark._
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, Dataset, SQLContext}
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
@@ -45,16 +45,16 @@ import com.mongodb.spark.{MongoConnector, MongoSpark, NotNothing, classTagToClas
  * @tparam D the type of the collection documents
  */
 class MongoRDD[D: ClassTag](
-    @transient val sqlContext:     SQLContext,
+    @transient val sparkSession:   SparkSession,
     private[spark] val connector:  Broadcast[MongoConnector],
     private[spark] val readConfig: ReadConfig,
     private[spark] val pipeline:   Seq[BsonDocument]
-) extends RDD[D](sqlContext.sparkContext, Nil) {
+) extends RDD[D](sparkSession.sparkContext, Nil) {
 
-  @transient val sc: SparkContext = sqlContext.sparkContext
+  @transient val sc: SparkContext = sparkSession.sparkContext
   private def mongoSpark = {
     checkSparkContext()
-    MongoSpark(sqlContext, connector.value, readConfig, pipeline)
+    MongoSpark(sparkSession, connector.value, readConfig, pipeline)
   }
 
   override def toJavaRDD(): JavaMongoRDD[D] = JavaMongoRDD(this)
@@ -125,7 +125,7 @@ class MongoRDD[D: ClassTag](
   ): MongoRDD[D] = {
     checkSparkContext()
     new MongoRDD[D](
-      sqlContext = sqlContext,
+      sparkSession = sparkSession,
       connector = connector,
       readConfig = readConfig,
       pipeline = pipeline.map(x => x.toBsonDocument(classOf[Document], connector.value.codecRegistry)) // Convert to serializable BsonDocuments

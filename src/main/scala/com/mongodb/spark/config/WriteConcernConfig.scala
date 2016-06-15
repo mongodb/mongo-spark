@@ -28,7 +28,7 @@ import org.apache.spark.SparkConf
 
 import com.mongodb.WriteConcern
 import org.apache.spark.api.java.JavaSparkContext
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.{SQLContext, SparkSession}
 
 import com.mongodb.spark.notNull
 
@@ -127,9 +127,15 @@ object WriteConcernConfig extends MongoOutputConfig {
     apply(sparkConf, options.asScala)
   }
 
+  @deprecated("As of Spark 2.0 SQLContext was replaced by SparkSession. Use the SparkSession method instead", "2.0.0")
   override def create(sqlContext: SQLContext): WriteConcernConfig = {
     notNull("sqlContext", sqlContext)
-    apply(sqlContext)
+    create(sqlContext.sparkSession)
+  }
+
+  override def create(sparkSession: SparkSession): WriteConcernConfig = {
+    notNull("sparkSession", sparkSession)
+    apply(sparkSession)
   }
 }
 
