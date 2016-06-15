@@ -59,7 +59,7 @@ package object sql {
    * @return the MongoDB based DataFrameWriter
    */
   @DeveloperApi
-  implicit def toMongoDataFrameWriterFunctions(dfw: DataFrameWriter): MongoDataFrameWriterFunctions =
+  implicit def toMongoDataFrameWriterFunctions(dfw: DataFrameWriter[_]): MongoDataFrameWriterFunctions =
     new MongoDataFrameWriterFunctions(dfw)
 
 }

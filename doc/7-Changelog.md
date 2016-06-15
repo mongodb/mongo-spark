@@ -1,5 +1,11 @@
 # Mongo Spark Connector Changelog
 
+## 2.0.0
+
+  * [[SPARK-20](https://jira.mongodb.org/browse/SPARK-20)] Updated Spark Version to 2.0.0
+
+------
+
 ## 0.4
   * [[SPARK-49](https://jira.mongodb.org/browse/SPARK-49)] Marked internal public code with DeveloperApi annotation.
   * [[SPARK-60](https://jira.mongodb.org/browse/SPARK-60)] Added partitioner to ReadConfig and added custom partitioner options.

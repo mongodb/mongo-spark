@@ -17,6 +17,7 @@
 package com.mongodb.spark.rdd.partitioner
 
 import scala.collection.JavaConverters._
+
 import org.apache.spark.Partition
 
 import org.bson.BsonDocument
@@ -67,4 +68,11 @@ object MongoPartition {
  *
  * @since 1.0
  */
-case class MongoPartition(index: Int, queryBounds: BsonDocument, locations: Seq[String]) extends Partition
+case class MongoPartition(index: Int, queryBounds: BsonDocument, locations: Seq[String]) extends Partition {
+  override def hashCode(): Int = super.hashCode()
+
+  override def equals(other: Any): Boolean = other match {
+    case p: MongoPartition if index.equals(p.index) && queryBounds.equals(p.queryBounds) && locations.equals(p.locations) => true
+    case _ => false
+  }
+}

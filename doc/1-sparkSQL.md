@@ -45,9 +45,9 @@ First enable the Mongo Connector specific functions on the `SQLContext`:
 import com.mongodb.spark.sql._
 ```
 
-### DataFrames and Datasets
+### Datasets
 
-The Mongo Spark Connector provides the `com.mongodb.spark.sql.DefaultSource` class that creates DataFrames and Datasets from MongoDB.
+The Mongo Spark Connector provides the `com.mongodb.spark.sql.DefaultSource` class that creates Datasets from MongoDB.
 However, the easiest way to create a DataFrame is by using the `MongoSpark` helper:
 
 ```scala
@@ -63,6 +63,8 @@ root
  |-- age: integer (nullable = true)
  |-- name: string (nullable = true)
 ```
+
+*Note:* In Spark 2.0 the `DataFrame` class became a type alias to `DataSet[Row]`.
 
 -----
 `MongoSpark.load(sqlContext)` is shorthand for configuring and loading via the DataFrameReader. The following examples are alternative
@@ -99,7 +101,7 @@ df.filter(df("age") < 100).show()
 ```
 
 -----
-*Note:* Unlike RDD's when using `filters` with DataFrames or SparkSQL the underlying Mongo Connector code will construct an aggregation 
+*Note:* Unlike RDD's when using `filters` with Datasets or SparkSQL the underlying Mongo Connector code will construct an aggregation 
 pipeline to filter the data in MongoDB before sending it to Spark.
 
 -----
@@ -130,7 +132,7 @@ root
 
 ```
 
-The following example converts the `DataFrame` into a `Dataset`:
+The following example converts the `DataFrame` into a `Dataset`. Or more correctly converts `Dataset[Row]` to `Dataset[Character]`:
 
 ```scala
 explicitDF.as[Character]
@@ -148,7 +150,7 @@ val dataset = MongoSpark.load[Character](sqlContext).as[Character]()
 
 ### SQL queries
 
-Spark SQL works on top of DataFrames, to be able to use SQL you need to register a temporary table first and then you can run SQL queries
+Spark SQL works on top of Datasets, to be able to use SQL you need to register a temporary table first and then you can run SQL queries
 over the data.
 
 The following example registers a "characters" table and then queries it to find all characters that are 100 or older.
@@ -166,7 +168,7 @@ centenarians.show()
 
 -----
 
-### Saving DataFrames
+### Saving Datasets
 
 The connector provides the ability to persist data into MongoDB.
 
@@ -206,8 +208,8 @@ dataFrameWriter.write.format("com.mongodb.spark.sql").save()
 
 ## DataTypes
 
-Spark supports a limited number of data types, to ensure that all bson types can be round tripped in and out of Spark DataFrames / 
-Datasets. Custom StructTypes are created for any unsupported Bson Types. The following table shows the mapping between the Bson Types and 
+Spark supports a limited number of data types, to ensure that all bson types can be round tripped in and out of Spark Datasets. 
+Custom StructTypes are created for any unsupported Bson Types. The following table shows the mapping between the Bson Types and 
 Spark Types:
 
 Bson Type               | Spark Type

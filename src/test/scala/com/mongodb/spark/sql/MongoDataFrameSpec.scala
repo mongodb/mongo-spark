@@ -27,10 +27,7 @@ import org.bson._
 import org.bson.types.ObjectId
 import com.mongodb.spark._
 import com.mongodb.spark.config.WriteConfig
-import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.sql.types.BsonCompatibility
-
-import org.scalatest.FlatSpec
 
 class MongoDataFrameSpec extends RequiresMongoDB {
   // scalastyle:off magic.number
@@ -187,9 +184,9 @@ class MongoDataFrameSpec extends RequiresMongoDB {
       nullValue = "null",
       int32 = "42",
       int64 = "52",
-      boolean = "true",
+      bool = "true",
       date = """{ "$date" : 1463497097 }""",
-      double = "62.0",
+      dbl = "62.0",
       string = "spark connector",
       minKey = """{ "$minKey" : 1 }""",
       maxKey = """{ "$maxKey" : 1 }""",
@@ -226,9 +223,9 @@ class MongoDataFrameSpec extends RequiresMongoDB {
     document.put("nullValue", new BsonNull())
     document.put("int32", new BsonInt32(42))
     document.put("int64", new BsonInt64(52L))
-    document.put("boolean", new BsonBoolean(true))
+    document.put("bool", new BsonBoolean(true))
     document.put("date", new BsonDateTime(1463497097))
-    document.put("double", new BsonDouble(62.0))
+    document.put("dbl", new BsonDouble(62.0))
     document.put("string", new BsonString("spark connector"))
     document.put("minKey", new BsonMinKey())
     document.put("maxKey", new BsonMaxKey())

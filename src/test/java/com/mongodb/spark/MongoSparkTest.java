@@ -26,7 +26,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.MapFunction;
-import org.apache.spark.sql.DataFrame;
+import org.apache.spark.sql.Row;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.catalyst.JavaTypeInference;
@@ -137,7 +137,7 @@ public final class MongoSparkTest extends JavaRequiresMongoDB {
         StructType expectedSchema = createStructType(asList(_idField, countField));
 
         // when
-        DataFrame dataFrame = mongoRDD.toDF();
+        Dataset<Row> dataFrame = mongoRDD.toDF();
 
         // then
         assertEquals(dataFrame.schema(), expectedSchema);
@@ -154,7 +154,7 @@ public final class MongoSparkTest extends JavaRequiresMongoDB {
         StructType expectedSchema = (StructType) JavaTypeInference.inferDataType(Counter.class)._1();
 
         // when
-        DataFrame dataFrame = mongoRDD.toDF(Counter.class);
+        Dataset<Row> dataFrame = mongoRDD.toDF(Counter.class);
 
         // then
         assertEquals(dataFrame.schema(), expectedSchema);
@@ -244,13 +244,13 @@ public final class MongoSparkTest extends JavaRequiresMongoDB {
         assertEquals(mongoRDD.getNumPartitions(), 2);
         assertThat(mongoRDD.mapPartitions(new FlatMapFunction<Iterator<Document>, Integer>() {
             @Override
-            public Iterable<Integer> call(final Iterator<Document> iterator) throws Exception {
+            public Iterator<Integer> call(final Iterator<Document> iterator) throws Exception {
                 int i = 0;
                 while(iterator.hasNext()) {
                     i++;
                     iterator.next();
                 }
-                return singletonList(i);
+                return singletonList(i).iterator();
             }
         }).collect(), is(asList(50, 50)));
     }

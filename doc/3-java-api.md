@@ -105,9 +105,11 @@ System.out.println(aggregatedRdd.count());
 System.out.println(aggregatedRdd.first().toJson());
 ```
 
-## DataFrames and Datasets
+## Datasets
 
-Creating a dataframe is easy you can either load the data via `DefaultSource` or use the `JavaMongoRDD#toDF` method.
+Creating a Dataset is easy you can either load the data via `DefaultSource` or use the `JavaMongoRDD#toDF` method.
+
+*Note:* In Spark 2.0 the `DataFrame` class became a type alias to `DataSet<Row>`. Java code must be updated to explicitly use `DataSet<Row>`.
 
 First, in an empty collection we load the following data:
 
@@ -136,7 +138,7 @@ Then to load the characters into a DataFrame via the standard source method:
 
 ```java
 SQLContext sqlContext = SQLContext.getOrCreate(jsc.sc());
-DataFrame df = MongoSpark.load(jsc).toDF();
+Dataset<Row> df = MongoSpark.load(jsc).toDF();
 df.printSchema();
 ```
 
@@ -156,7 +158,7 @@ If you know the shape of your documents then you can use a simple java bean to d
 In the following example we define a `Character` Java bean and pass that to the `toDF` method:
 
 ```java
-DataFrame explicitDF = MongoSpark.load(sqlContext).toDF(Character.class);
+Dataset<Row> explicitDF = MongoSpark.load(sqlContext).toDF(Character.class);
 explicitDF.printSchema();
 ```
 Will return:
@@ -179,12 +181,12 @@ the characters with ages under 100:
 
 ```java
 explicitDF.registerTempTable("characters");
-DataFrame centenarians = sqlContext.sql("SELECT name, age FROM characters WHERE age >= 100");
+Dataset<Row> centenarians = sqlContext.sql("SELECT name, age FROM characters WHERE age >= 100");
 ```
 
 *Note:* You must use the same `SQLContext` that registers the table and queries it. 
 
-### Saving DataFrames
+### Saving Datasets
 
 The connector provides the ability to persist data into MongoDB.
 
