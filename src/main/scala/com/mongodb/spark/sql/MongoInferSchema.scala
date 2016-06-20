@@ -31,6 +31,7 @@ import org.bson._
 import com.mongodb.client.model.{Aggregates, Filters, Projections, Sorts}
 import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.rdd.MongoRDD
+import com.mongodb.spark.rdd.partitioner.MongoSinglePartitioner
 import com.mongodb.spark.sql.types.{BsonCompatibility, ConflictType, SkipFieldType}
 
 object MongoInferSchema {
@@ -56,24 +57,23 @@ object MongoInferSchema {
    * @return the schema for the collection
    */
   def apply(mongoRDD: MongoRDD[BsonDocument]): StructType = {
-    val sampleData: MongoRDD[BsonDocument] = mongoRDD.hasSampleAggregateOperator match {
-      case true => mongoRDD.appendPipeline(Seq(Aggregates.sample(mongoRDD.readConfig.sampleSize)))
+    val singlePartitionRDD = mongoRDD.copy(readConfig = mongoRDD.readConfig.copy(partitioner = MongoSinglePartitioner))
+    val sampleData: MongoRDD[BsonDocument] = singlePartitionRDD.hasSampleAggregateOperator match {
+      case true => singlePartitionRDD.appendPipeline(Seq(Aggregates.sample(mongoRDD.readConfig.sampleSize)))
       case false =>
         val samplePool: Int = 10000
-        val sampleSize: Int = if (mongoRDD.readConfig.sampleSize > samplePool) samplePool else mongoRDD.readConfig.sampleSize
-        val sampleData: Seq[BsonDocument] = mongoRDD.appendPipeline(Seq(
+        val sampleSize: Int = if (singlePartitionRDD.readConfig.sampleSize > samplePool) samplePool else singlePartitionRDD.readConfig.sampleSize
+        val sampleData: Seq[BsonDocument] = singlePartitionRDD.appendPipeline(Seq(
           Aggregates.project(Projections.include("_id")), Aggregates.sort(Sorts.descending("_id")), Aggregates.limit(samplePool)
         )).takeSample(withReplacement = false, num = sampleSize).toSeq
         Try(sampleData.map(_.get("_id")).asJava) match {
-          case Success(_ids) => mongoRDD.appendPipeline(Seq(Aggregates.`match`(Filters.in("_id", _ids))))
+          case Success(_ids) => singlePartitionRDD.appendPipeline(Seq(Aggregates.`match`(Filters.in("_id", _ids))))
           case Failure(_) =>
             throw new IllegalArgumentException("The RDD must contain documents that include an '_id' key to infer data when using MongoDB < 3.2")
         }
     }
     // perform schema inference on each row and merge afterwards
-    val rootType: DataType = sampleData.mapPartitions(_.map(doc => getSchemaFromDocument(doc)))
-      .treeAggregate[DataType](StructType(Seq()))(compatibleType, compatibleType)
-
+    val rootType: DataType = sampleData.map(getSchemaFromDocument).treeAggregate[DataType](StructType(Seq()))(compatibleType, compatibleType)
     canonicalizeType(rootType) match {
       case Some(st: StructType) => st
       case _                    => StructType(Seq()) // canonicalizeType erases all empty structs, including the only one we want to keep
