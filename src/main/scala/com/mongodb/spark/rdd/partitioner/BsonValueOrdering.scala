@@ -237,13 +237,13 @@ trait BsonValueOrdering extends Ordering[BsonValue] {
     }.toSeq
   }
 
-  private object isBsonNumber {
+  private object isBsonNumber extends Serializable {
     val bsonNumberTypes = Set(BsonType.INT32, BsonType.INT64, BsonType.DOUBLE)
 
     def unapply(x: BsonType): Boolean = bsonNumberTypes.contains(x)
   }
 
-  private object isString {
+  private object isString extends Serializable {
     val bsonNumberTypes = Set(BsonType.SYMBOL, BsonType.STRING)
 
     def unapply(x: BsonType): Boolean = bsonNumberTypes.contains(x)
