@@ -91,8 +91,8 @@ class MongoSamplePartitioner extends MongoPartitioner {
             val samples = connector.withCollectionDo(readConfig, {
               coll: MongoCollection[BsonDocument] =>
                 coll.aggregate(List(
-                  Aggregates.project(Projections.include(partitionKey)),
                   Aggregates.sample(numberOfSamples),
+                  Aggregates.project(Projections.include(partitionKey)),
                   Aggregates.sort(Sorts.ascending(partitionKey))
                 ).asJava).into(new util.ArrayList[BsonDocument]()).asScala
             })
