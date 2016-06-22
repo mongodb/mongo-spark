@@ -1,6 +1,7 @@
 # Mongo Spark Connector Changelog
 
 ## 1.0.0
+  * [[SPARK-64](https://jira.mongodb.org/browse/SPARK-63)] MongoSamplePartitioner performance improvement, by projecting before sampling.
   * [[SPARK-63](https://jira.mongodb.org/browse/SPARK-63)] MongoInferSchema now operates on a single partition.
   * [[SPARK-62](https://jira.mongodb.org/browse/SPARK-62)] Made BsonValueOrdering fully serializable.
 
