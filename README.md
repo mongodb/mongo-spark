@@ -1,5 +1,6 @@
 # MongoDB Spark Connector 
 
+The official MongoDB Spark Connector.
 
 [![Build Status](https://travis-ci.org/mongodb/mongo-spark.svg?branch=master)]
 (https://travis-ci.org/mongodb/mongo-spark)  | [![Build Status](https://jenkins.10gen.com/job/mongo-spark/badge/icon)](https://jenkins.10gen.com/job/mongo-spark/)
