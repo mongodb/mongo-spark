@@ -7,7 +7,7 @@ The official MongoDB Spark Connector.
 
 ## Documentation
 
-Draft documentation is available in the [docs folder](./doc/0-introduction.md).
+See: https://docs.mongodb.com/spark-connector/.
 
 ## Support / Feedback
 
