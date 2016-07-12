@@ -9,7 +9,7 @@ The official MongoDB Spark Connector.
 
 See: https://docs.mongodb.com/spark-connector/
 
-[![API Documentation](https://www.javadoc.io/badge/org.mongodb.spark/mongo-spark-connector_2.11.svg?color=blue&label=API Documentation)](https://www.javadoc.io/doc/org.mongodb.spark/mongo-spark-connector_2.11)
+[API Documentation](https://www.javadoc.io/doc/org.mongodb.spark/mongo-spark-connector_2.11)
 
 ## Support / Feedback
 
