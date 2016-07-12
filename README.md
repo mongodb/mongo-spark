@@ -7,7 +7,7 @@ The official MongoDB Spark Connector.
 
 ## Documentation
 
-See: https://docs.mongodb.com/spark-connector/.
+See: https://docs.mongodb.com/spark-connector/
 
 ## Support / Feedback
 
@@ -70,3 +70,4 @@ $ ./sbt check
 * Ross Lawley          ross@mongodb.com
 
 Additional contributors can be found [here](https://github.com/mongodb/mongo-spark/graphs/contributors).
+[Api documentation](http://www.javadoc.io/doc/org.mongodb/mongo-spark-connector_2.10)
