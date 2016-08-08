@@ -23,9 +23,7 @@ object Resolvers {
   val typeSafeSnaps = "TypeSafe snapshots" at "http://repo.typesafe.com/typesafe/snapshots"
   val typeSafeRels  = "TypeSafe releases" at "http://repo.typesafe.com/typesafe/releases"
 
-  val apacheSnaps   = "Apache snapshots" at "http://repository.apache.org/snapshots/"
-
   val localMaven    = s"Local Maven Repository" at s"file://${Path.userHome.absolutePath}/.m2/repository"
 
-  val mongoScalaResolvers = Seq(sonatypeSnaps, apacheSnaps, localMaven, sonatypeRels, typeSafeSnaps, typeSafeRels)
+  val mongoScalaResolvers = Seq(sonatypeSnaps, localMaven, sonatypeRels, typeSafeSnaps, typeSafeRels)
 }
