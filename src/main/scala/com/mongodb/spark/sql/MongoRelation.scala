@@ -27,9 +27,20 @@ import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.sql.MapFunctions.documentToRow
 import com.mongodb.spark.sql.MongoRelationHelper.createPipeline
 
-case class MongoRelation(mongoRDD: MongoRDD[BsonDocument], _schema: Option[StructType])(@transient val sqlContext: SQLContext)
+object MongoRelation {
+
+  def apply(mongoRDD: MongoRDD[BsonDocument], _schema: Option[StructType])(sqlContext: SQLContext): MongoRelation =
+    new MongoRelation(mongoRDD, _schema, sqlContext)
+
+  def unapply(arg: MongoRelation): Option[(MongoRDD[BsonDocument], Option[StructType])] =
+    Some((arg.mongoRDD, arg._schema))
+
+}
+
+class MongoRelation(val mongoRDD: MongoRDD[BsonDocument], val _schema: Option[StructType], @transient val sqlContext: SQLContext)
     extends BaseRelation
     with PrunedFilteredScan
+    with Serializable
     with LoggingTrait {
 
   override lazy val schema: StructType = _schema.getOrElse(MongoInferSchema(sqlContext.sparkContext))
