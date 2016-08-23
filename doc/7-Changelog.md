@@ -1,5 +1,8 @@
 # Mongo Spark Connector Changelog
 
+## 1.1.0
+  * [[SPARK-69](https://jira.mongodb.org/browse/SPARK-69)] Added helpers for defining and querying unsupported MongoDB datatypes.
+
 ## 1.0.0
   * [[SPARK-65](https://jira.mongodb.org/browse/SPARK-65)] Performance improvement. Don't append the pipeline when using MongoSinglePartitioner.
   * [[SPARK-63](https://jira.mongodb.org/browse/SPARK-63)] MongoInferSchema now operates on a single partition.
@@ -20,23 +23,23 @@
     Removed the now redundant `com.mongodb.spark.api.java` namespace.
   * Added abstract class `Logging` so that implementations can be extended easily in Java.
   * [[SPARK-55](https://jira.mongodb.org/browse/SPARK-55)] Made Paritioners public.
-  * [[SPARK-52](https://jira.mongodb.org/browse/SPARK-52)] MongoConnector is accessible from the new MongoSpark class or directly. 
+  * [[SPARK-52](https://jira.mongodb.org/browse/SPARK-52)] MongoConnector is accessible from the new MongoSpark class or directly.
          Added Java specific methods for withMongoClient, withMongoDatabase and withMongoCollection.
   * [[SPARK-50](https://jira.mongodb.org/browse/SPARK-50)] Made MongoPartition public added tests for custom partitioners.
   * [[SPARK-45](https://jira.mongodb.org/browse/SPARK-45)] Ensure that the SQLContext is reused correctly.
 
 ## 0.2
-  * [[SPARK-43](https://jira.mongodb.org/browse/SPARK-43)] Ensure that Bson Types are preserved when round tripping dataframes 
+  * [[SPARK-43](https://jira.mongodb.org/browse/SPARK-43)] Ensure that Bson Types are preserved when round tripping dataframes
     * Closed the type system to map `BsonValue` to Spark `DataTypes`
     * Created Case Classes and Java Beans representing unsupported Spark `DataTypes`
-  * [[SPARK-42](https://jira.mongodb.org/browse/SPARK-42)] Allow Dataframe readers and writers be configurable just from options 
-  * [[SPARK-41](https://jira.mongodb.org/browse/SPARK-41)] Don't assume ObjectId's when sampling data 
-  * [[SPARK-40](https://jira.mongodb.org/browse/SPARK-40)] Fixed Schema inference on arrays with nested structs 
-  * [[SPARK-38](https://jira.mongodb.org/browse/SPARK-38)] Fixed DataFrame NPE issue handling null data 
-  * [[SPARK-37](https://jira.mongodb.org/browse/SPARK-37)] Fixed conversion to Numeric types after an RDD had been cached 
-  * [[SPARK-36](https://jira.mongodb.org/browse/SPARK-36)] Fixed race condition closing MongoClients in RDDs 
-  * [[SPARK-33](https://jira.mongodb.org/browse/SPARK-33)] Fixed schema inference when saving a DataFrame  
-  * [[SPARK-32](https://jira.mongodb.org/browse/SPARK-32)] Validated the URI in the Spark Configs.  
+  * [[SPARK-42](https://jira.mongodb.org/browse/SPARK-42)] Allow Dataframe readers and writers be configurable just from options
+  * [[SPARK-41](https://jira.mongodb.org/browse/SPARK-41)] Don't assume ObjectId's when sampling data
+  * [[SPARK-40](https://jira.mongodb.org/browse/SPARK-40)] Fixed Schema inference on arrays with nested structs
+  * [[SPARK-38](https://jira.mongodb.org/browse/SPARK-38)] Fixed DataFrame NPE issue handling null data
+  * [[SPARK-37](https://jira.mongodb.org/browse/SPARK-37)] Fixed conversion to Numeric types after an RDD had been cached
+  * [[SPARK-36](https://jira.mongodb.org/browse/SPARK-36)] Fixed race condition closing MongoClients in RDDs
+  * [[SPARK-33](https://jira.mongodb.org/browse/SPARK-33)] Fixed schema inference when saving a DataFrame
+  * [[SPARK-32](https://jira.mongodb.org/browse/SPARK-32)] Validated the URI in the Spark Configs.
   * Reorganised the connection string arg position in WriteConfig to match ReadConfig
 
 ## 0.1 - Initial release

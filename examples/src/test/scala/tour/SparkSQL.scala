@@ -19,6 +19,7 @@ package tour
 import org.apache.spark.sql.SQLContext
 
 import org.bson.Document
+import org.bson.types.ObjectId
 import com.mongodb.spark.config.ReadConfig
 
 
@@ -27,6 +28,7 @@ import com.mongodb.spark.config.ReadConfig
  */
 object SparkSQL extends TourHelper {
 
+  //scalastyle:off method.length
   /**
    * Run this main method to see the output of this quick example or copy the code into the spark shell
    *
@@ -58,7 +60,7 @@ object SparkSQL extends TourHelper {
     val df = MongoSpark.load(sqlContext)
     df.printSchema()
 
-    // Characters yoounger than 100
+    // Characters younger than 100
     df.filter(df("age") < 100).show()
 
     // Explicitly declaring a schema
@@ -75,7 +77,31 @@ object SparkSQL extends TourHelper {
     MongoSpark.save(centenarians.write.option("collection", "hundredClub"))
     println("Reading from the 'hundredClub' collection:")
     MongoSpark.load[SparkSQL.Character](sqlContext, ReadConfig(Map("collection" -> "hundredClub"), Some(ReadConfig(sqlContext)))).show()
+
+    // Drop database
+    MongoConnector(sc).withDatabaseDo(ReadConfig(sc), db => db.drop())
+
+    // Using the SQL helpers and StructFields helpers
+    val objectId = "123400000000000000000000"
+    val newDocs = Seq(new Document("_id", new ObjectId(objectId)).append("a", 1), new Document("_id", new ObjectId()).append("a", 2))
+    MongoSpark.save(sc.parallelize(newDocs))
+
+    // Set the schema using the ObjectId StructFields helper
+    import org.apache.spark.sql.types.DataTypes
+    import com.mongodb.spark.sql.helpers.StructFields
+
+    val schema = DataTypes.createStructType(Array(
+      StructFields.objectId("_id", nullable = false),
+      DataTypes.createStructField("a", DataTypes.IntegerType, false))
+    )
+
+    // Create a dataframe with the helper functions registered
+    val df1 = MongoSpark.read(sqlContext).schema(schema).option("registerSQLHelperFunctions", "true").load()
+
+    // Query using the ObjectId string
+    df1.filter(s"_id = ObjectId('$objectId')").show()
   }
+  //scalastyle:on method.length
 
   case class Character(name: String, age: Int)
 }

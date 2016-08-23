@@ -4,7 +4,8 @@ The following code snippets can be found in [introduction.py](../examples/src/te
 
 ## Prerequisites
 
-Have MongoDB up and running and the Spark 1.6.x downloaded. See the [introduction](0-introduction.md) for more information on getting started.
+Have MongoDB up and running and the Spark 1.6.x downloaded. See the [introduction](0-introduction.md) and the [SQL](1-sparkSQL.md)
+for more information on getting started.
 
 You can run the interactive pyspark shell like so:
 

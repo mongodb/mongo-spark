@@ -21,6 +21,8 @@ import java.util
 
 import scala.collection.mutable
 
+import org.apache.spark.sql.SQLContext
+
 import org.scalatest._
 import org.apache.spark.{SparkConf, SparkContext}
 
@@ -107,6 +109,21 @@ trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with
     try {
       logInfo(s"Running Test: '${_currentTestName.getOrElse(suiteName)}'")
       testCode(sparkContext) // "loan" the fixture to the test
+    } finally {
+      database.drop()
+    }
+  }
+
+  /**
+   * Test against a set SparkContext
+   *
+   * @param testCode the test case
+   */
+  def withSQLContext()(testCode: SQLContext => Any) {
+    checkMongoDB()
+    try {
+      logInfo(s"Running Test: '${_currentTestName.getOrElse(suiteName)}'")
+      testCode(SQLContext.getOrCreate(sparkContext)) // "loan" the fixture to the test
     } finally {
       database.drop()
     }

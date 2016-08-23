@@ -18,23 +18,29 @@ package tour;
 
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientURI;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.spark.MongoConnector;
 import com.mongodb.spark.MongoSpark;
 import com.mongodb.spark.config.ReadConfig;
 import com.mongodb.spark.config.WriteConfig;
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD;
-
+import com.mongodb.spark.sql.helpers.StructFields;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.sql.DataFrame;
 import org.apache.spark.sql.SQLContext;
+import org.apache.spark.sql.types.DataTypes;
+import org.apache.spark.sql.types.StructType;
 import org.bson.Document;
+import org.bson.types.ObjectId;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 
@@ -141,6 +147,32 @@ public final class JavaIntroduction {
         // Saving DataFrame
         MongoSpark.write(centenarians).option("collection", "hundredClub").save();
         MongoSpark.load(sqlContext, ReadConfig.create(sqlContext).withOption("collection", "hundredClub"), Character.class).show();
+
+        // Drop database
+        MongoConnector.apply(jsc.sc()).withDatabaseDo(ReadConfig.create(sqlContext), new Function<MongoDatabase, Void>() {
+            @Override
+            public Void call(final MongoDatabase db) throws Exception {
+                db.drop();
+                return null;
+            }
+        });
+
+        String objectId = "123400000000000000000000";
+        List<Document> docs = asList(
+                new Document("_id", new ObjectId(objectId)).append("a", 1),
+                new Document("_id", new ObjectId()).append("a", 2));
+        MongoSpark.save(jsc.parallelize(docs));
+
+        // Set the schema using the ObjectId helper
+        StructType schema = DataTypes.createStructType(asList(
+                StructFields.objectId("_id", false),
+                DataTypes.createStructField("a", DataTypes.IntegerType, false)));
+
+        // Create a dataframe with the helper functions registered
+        df = MongoSpark.read(sqlContext).schema(schema).option("registerSQLHelperFunctions", "true").load();
+
+        // Query using the ObjectId string
+        df.filter(format("_id = ObjectId('%s')", objectId)).show();
     }
 
     private static JavaSparkContext createJavaSparkContext(final String[] args) {

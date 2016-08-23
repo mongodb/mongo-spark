@@ -15,7 +15,7 @@ The configuration classes also have Java friendly `create` methods that should b
 
 Following the Scala introduction examples we'll walk through saving and loading data from MongoDB using Java and the Java friendly API's.
 
-*Note:* When saving `RDD` data into MongoDB, it must be a type that can be converted into a Bson document. 
+*Note:* When saving `RDD` data into MongoDB, it must be a type that can be converted into a Bson document.
 You may have add a `map` step to transform the data into a `Document` (or `BsonDocument` a `DBObject`).
 
 Add Documents to the collection using a `JavaSparkContext`:
@@ -39,9 +39,9 @@ JavaRDD<Document> documents = jsc.parallelize(asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 
 MongoSpark.save(documents);
 ```
 
-To change which collection the data is inserted into or how the data is inserted, also supply a `WriteConfig` to the `MongoSpark#save` method. 
+To change which collection the data is inserted into or how the data is inserted, also supply a `WriteConfig` to the `MongoSpark#save` method.
 The following example saves data to the "spark" collection, with a `majority` WriteConcern:
-                                                                                                                             
+
 ```java
 import com.mongodb.spark.config.WriteConfig;
 
@@ -58,7 +58,7 @@ JavaRDD<Document> sparkDocuments = jsc.parallelize(asList(1, 2, 3, 4, 5, 6, 7, 8
             return Document.parse("{spark: " + i + "}");
         }
     });
-        
+
 // Saving data from an RDD to MongoDB
 MongoSpark.save(sparkDocuments, writeConfig);
 ```
@@ -75,7 +75,7 @@ System.out.println(rdd.count());
 System.out.println(rdd.first().toJson());
 ```
 
-To change where the data is read from or how the data is read, supply a `ReadConfig` to the `MongoSpark#load` method. 
+To change where the data is read from or how the data is read, supply a `ReadConfig` to the `MongoSpark#load` method.
 The following example reads from the "spark" collection, with a `secondaryPreferred` ReadPreference:
 
 ```java
@@ -91,11 +91,11 @@ System.out.println(customRdd.count());
 System.out.println(customRdd.first().toJson());
 ```
 
-Where possible filter data in MongoDB, so less data has to be passed over the wire into Spark.  A `JavaMongoRDD` instance can be 
-passed an [aggregation pipeline](https://docs.mongodb.org/manual/core/aggregation-pipeline/) allowing data to be filtered from 
+Where possible filter data in MongoDB, so less data has to be passed over the wire into Spark.  A `JavaMongoRDD` instance can be
+passed an [aggregation pipeline](https://docs.mongodb.org/manual/core/aggregation-pipeline/) allowing data to be filtered from
 MongoDB before its passed to Spark.
 
-The following example also filters all documents where the "test" field has a value greater than 5 but only those matching documents are 
+The following example also filters all documents where the "test" field has a value greater than 5 but only those matching documents are
 passed to Spark.
 
 ```java
@@ -150,7 +150,7 @@ root
 ```
 
 
-By default reading from MongoDB in a `SQLContext` infers the schema by sampling documents from the database. 
+By default reading from MongoDB in a `SQLContext` infers the schema by sampling documents from the database.
 If you know the shape of your documents then you can use a simple java bean to define the schema instead, thus preventing the extra queries.
 
 In the following example we define a `Character` Java bean and pass that to the `toDF` method:
@@ -174,7 +174,7 @@ root
 
 ### SQL
 
-Just like the Scala examples, SQL can be used to filter data. In the following example we register a temp table and then filter and output 
+Just like the Scala examples, SQL can be used to filter data. In the following example we register a temp table and then filter and output
 the characters with ages under 100:
 
 ```java
@@ -182,7 +182,7 @@ explicitDF.registerTempTable("characters");
 DataFrame centenarians = sqlContext.sql("SELECT name, age FROM characters WHERE age >= 100");
 ```
 
-*Note:* You must use the same `SQLContext` that registers the table and queries it. 
+*Note:* You must use the same `SQLContext` that registers the table and queries it.
 
 ### Saving DataFrames
 
@@ -211,6 +211,45 @@ Outputs:
 |  Glóin| 158|
 +-------+----+
 ```
+
+### Defining and filtering unsupported bson data types
+
+As not all Bson types have equivalent Spark types querying them outside of using Datasets can be verbose and requires in depth knowledge of
+the `StructType` that can be used to represent those types. See the [sparkSQL](3-sparkSQL#defining-and-filtering-unsupported-bson-data-types)
+section for more information.
+
+Below is an example of using the helpers when defining and querying an `ObjectId` field:
+
+```java
+String objectId = "123400000000000000000000";
+List<Document> docs = asList(
+        new Document("_id", new ObjectId(objectId)).append("a", 1),
+        new Document("_id", new ObjectId()).append("a", 2));
+MongoSpark.save(jsc.parallelize(docs));
+
+// Set the schema using the ObjectId helper
+StructType schema = DataTypes.createStructType(asList(
+        StructFields.objectId("_id", false),
+        DataTypes.createStructField("a", DataTypes.IntegerType, false)));
+
+// Create a dataframe with the helper functions registered
+df = MongoSpark.read(sqlContext).schema(schema).option("registerSQLHelperFunctions", "true").load();
+
+// Query using the ObjectId string
+df.filter(format("_id = ObjectId('%s')", objectId)).show();
+
+```
+
+Outputs:
+
+```
++--------------------+---+
+|                 _id|  a|
++--------------------+---+
+|[1234000000000000...|  1|
++--------------------+---+
+```
+
 
 -----
 

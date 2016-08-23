@@ -44,6 +44,7 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
   private val DefaultPartitioner = DefaultMongoPartitioner
   private val DefaultPartitionerOptions = Map.empty[String, String]
   private val DefaultPartitionerPath = "com.mongodb.spark.rdd.partitioner."
+  private val DefaultRegisterSQLHelperFunctions = false
 
   override def apply(options: collection.Map[String, String], default: Option[ReadConfig]): ReadConfig = {
     val cleanedOptions = stripPrefix(options)
@@ -63,7 +64,11 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
       partitionerOptions = partitionerOptions,
       localThreshold = getInt(cleanedOptions.get(localThresholdProperty), default.map(conf => conf.localThreshold), MongoSharedConfig.DefaultLocalThreshold),
       readPreferenceConfig = ReadPreferenceConfig(cleanedOptions, default.map(conf => conf.readPreferenceConfig)),
-      readConcernConfig = ReadConcernConfig(cleanedOptions, default.map(conf => conf.readConcernConfig))
+      readConcernConfig = ReadConcernConfig(cleanedOptions, default.map(conf => conf.readConcernConfig)),
+      registerSQLHelperFunctions = getBoolean(
+        cleanedOptions.get(registerSQLHelperFunctions),
+        default.map(conf => conf.registerSQLHelperFunctions), DefaultRegisterSQLHelperFunctions
+      )
     )
   }
 
@@ -87,15 +92,41 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
   def create(databaseName: String, collectionName: String, connectionString: String, sampleSize: Int,
              partitioner: String, partitionerOptions: util.Map[String, String], localThreshold: Int, readPreference: ReadPreference,
              readConcern: ReadConcern): ReadConfig = {
+    create(databaseName, collectionName, connectionString, sampleSize, partitioner, partitionerOptions, localThreshold, readPreference,
+      readConcern, DefaultRegisterSQLHelperFunctions)
+  }
+
+  /**
+   * Read Configuration used when reading data from MongoDB
+   *
+   * @param databaseName the database name
+   * @param collectionName the collection name
+   * @param connectionString the optional connection string used in the creation of this configuration
+   * @param sampleSize a positive integer sample size to draw from the collection when inferring the schema
+   * @param partitioner the class name of the partitioner to use to create partitions
+   * @param partitionerOptions the configuration options for the partitioner
+   * @param localThreshold the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.
+   *                       Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local
+   *                       threshold will be chosen.
+   * @param readPreference the readPreference configuration
+   * @param readConcern the readConcern configuration
+   * @since 1.0
+   */
+  def create(databaseName: String, collectionName: String, connectionString: String, sampleSize: Int,
+             partitioner: String, partitionerOptions: util.Map[String, String], localThreshold: Int,
+             readPreference: ReadPreference, readConcern: ReadConcern, registerHelperFunctions: Boolean): ReadConfig = {
     notNull("databaseName", databaseName)
     notNull("collectionName", collectionName)
     notNull("partitioner", partitioner)
     notNull("readPreference", readPreference)
     notNull("readConcern", readConcern)
+    notNull("registerHelperFunctions", registerHelperFunctions)
 
     new ReadConfig(databaseName, collectionName, Option(connectionString), sampleSize, getPartitioner(partitioner),
-      getPartitionerOptions(partitionerOptions.asScala), localThreshold, ReadPreferenceConfig(readPreference), ReadConcernConfig(readConcern))
+      getPartitionerOptions(partitionerOptions.asScala), localThreshold, ReadPreferenceConfig(readPreference),
+      ReadConcernConfig(readConcern), registerHelperFunctions)
   }
+
   // scalastyle:on parameter.number
 
   override def create(javaSparkContext: JavaSparkContext): ReadConfig = {
@@ -169,15 +200,16 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
  * @since 1.0
  */
 case class ReadConfig(
-    databaseName:         String,
-    collectionName:       String,
-    connectionString:     Option[String]                 = None,
-    sampleSize:           Int                            = ReadConfig.DefaultSampleSize,
-    partitioner:          MongoPartitioner               = ReadConfig.DefaultPartitioner,
-    partitionerOptions:   collection.Map[String, String] = ReadConfig.DefaultPartitionerOptions,
-    localThreshold:       Int                            = MongoSharedConfig.DefaultLocalThreshold,
-    readPreferenceConfig: ReadPreferenceConfig           = ReadPreferenceConfig(),
-    readConcernConfig:    ReadConcernConfig              = ReadConcernConfig()
+    databaseName:               String,
+    collectionName:             String,
+    connectionString:           Option[String]                 = None,
+    sampleSize:                 Int                            = ReadConfig.DefaultSampleSize,
+    partitioner:                MongoPartitioner               = ReadConfig.DefaultPartitioner,
+    partitionerOptions:         collection.Map[String, String] = ReadConfig.DefaultPartitionerOptions,
+    localThreshold:             Int                            = MongoSharedConfig.DefaultLocalThreshold,
+    readPreferenceConfig:       ReadPreferenceConfig           = ReadPreferenceConfig(),
+    readConcernConfig:          ReadConcernConfig              = ReadConcernConfig(),
+    registerSQLHelperFunctions: Boolean                        = ReadConfig.DefaultRegisterSQLHelperFunctions
 ) extends MongoCollectionConfig with MongoClassConfig {
   require(Try(connectionString.map(uri => new ConnectionString(uri))).isSuccess, s"Invalid uri: '${connectionString.get}'")
   require(sampleSize > 0, s"sampleSize ($sampleSize) must be greater than 0")

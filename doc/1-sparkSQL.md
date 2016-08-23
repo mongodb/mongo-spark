@@ -99,14 +99,14 @@ df.filter(df("age") < 100).show()
 ```
 
 -----
-*Note:* Unlike RDD's when using `filters` with DataFrames or SparkSQL the underlying Mongo Connector code will construct an aggregation 
+*Note:* Unlike RDD's when using `filters` with DataFrames or SparkSQL the underlying Mongo Connector code will construct an aggregation
 pipeline to filter the data in MongoDB before sending it to Spark.
 
 -----
 
 #### Schema inference and explicitly declaring a schema
 
-By default reading from MongoDB in a `SQLContext` infers the schema by sampling documents from the database. 
+By default reading from MongoDB in a `SQLContext` infers the schema by sampling documents from the database.
 If you know the shape of your documents then you can use a simple case class to define the schema instead, thus preventing the extra queries.
 
 -----
@@ -162,7 +162,7 @@ centenarians.show()
 ```
 
 -----
-**Note:** You must use the same `SQLContext` that registers the table when querying it. 
+**Note:** You must use the same `SQLContext` that registers the table when querying it.
 
 -----
 
@@ -206,12 +206,12 @@ dataFrameWriter.write.format("com.mongodb.spark.sql").save()
 
 ## DataTypes
 
-Spark supports a limited number of data types, to ensure that all bson types can be round tripped in and out of Spark DataFrames / 
-Datasets. Custom StructTypes are created for any unsupported Bson Types. The following table shows the mapping between the Bson Types and 
+Spark supports a limited number of data types, to ensure that all bson types can be round tripped in and out of Spark DataFrames /
+Datasets. Custom StructTypes are created for any unsupported Bson Types. The following table shows the mapping between the Bson Types and
 Spark Types:
 
 Bson Type               | Spark Type
-------------------------|---------------------------------------------------------------------
+------------------------|----------------------------------------------------------------------
 `Document`              | `StructType`
 `Array`                 | `ArrayType`
 `32-bit integer`        | `Integer`
@@ -235,7 +235,7 @@ Bson Type               | Spark Type
 
 ### Dataset support
 
-To help better support Datasets, the following Scala case classes and JavaBean classes have been created to represent the unsupported Bson 
+To help better support Datasets, the following Scala case classes and JavaBean classes have been created to represent the unsupported Bson
 Types:
 
 Bson Type               | Scala case class                       | JavaBean
@@ -253,8 +253,71 @@ Bson Type               | Scala case class                       | JavaBean
 `Timestamp`             | `Timestamp`                            | `Timestamp`
 `Undefined`             | `Undefined`                            | `Undefined`
 
-For convenience all Bson Types can be represented as a String value as well, however these values lose all their type information and if 
+For convenience all Bson Types can be represented as a String value as well, however these values lose all their type information and if
 saved back to MongoDB they would be stored as a String.
 
+### Defining and filtering unsupported bson data types
+
+As not all Bson types have equivalent Spark types querying them outside of using Datasets can be verbose and requires in depth knowledge of
+the `StructType` that can be used to represent those types.
+
+To help users with these types there are `StructField` helpers that can be used when defining the schema for a DataFrame. There are also
+custom helpers that can be used as [User Defined Functions](https://spark.apache.org/docs/latest/api/scala/index.html#org.apache.spark.sql.expressions.UserDefinedFunction)
+to aid the queryability of the data. To enable all helper functions set the `registerSQLHelperFunctions` configuration option to true,
+alternatively you can manually register the required methods.
+
+Bson Type               | StructField helpers                  | User Defined Function helpers
+------------------------|--------------------------------------|--------------------------------------------------------------
+                        | `com.mongodb.spark.sql.StructFields` | `com.mongodb.spark.sql.helpers.UDF`
+`Binary data`           | `binary`                             | `binary` / `binaryWithSubType`
+`DBPointer`             | `dbPointer`                          | `dbPointer`
+`JavaScript`            | `javascript`                         | `javascript`
+`JavaScript with scope` | `javascriptWithScope`                | `javascriptWithScope`
+`Max key`               | `maxKey`                             | `maxKey`
+`Min key`               | `minKey`                             | `minKey`
+`ObjectId`              | `objectId`                           | `objectId`
+`Regular Expression`    | `regularExpression`                  | `regularExpression` / `regularExpressionWithOptions`
+`Symbol`                | `symbol`                             | `symbol`
+`Timestamp`             | `timestamp`                          | `timestamp`
+`Undefined`             | `undefined`                          | `undefined`
+
+Below is an example of using the helpers when defining and querying an `ObjectId` field:
+
+```scala
+// Load sample data
+import org.bson.Document
+import org.bson.types.ObjectId
+import com.mongodb.spark._
+import com.mongodb.spark.sql._
+
+val objectId = "123400000000000000000000"
+val newDocs = Seq(new Document("_id", new ObjectId(objectId)).append("a", 1), new Document("_id", new ObjectId()).append("a", 2))
+MongoSpark.save(sc.parallelize(newDocs))
+
+// Set the schema using the ObjectId StructFields helper
+import org.apache.spark.sql.types.DataTypes
+import com.mongodb.spark.sql.helpers.StructFields
+
+val schema = DataTypes.createStructType(Array(
+  StructFields.objectId("_id", nullable = false),
+  DataTypes.createStructField("a", DataTypes.IntegerType, false))
+)
+
+// Create a dataframe with the helper functions registered
+val df1 = MongoSpark.read(sqlContext).schema(schema).option("registerSQLHelperFunctions", "true").load()
+
+// Query using the ObjectId string
+df1.filter(s"_id = ObjectId('$objectId')").show()
+```
+
+Outputs:
+
+```
++--------------------+---+
+|                 _id|  a|
++--------------------+---+
+|[1234000000000000...|  1|
++--------------------+---+
+```
 
 [Next - Configuring](2-configuring.md)
