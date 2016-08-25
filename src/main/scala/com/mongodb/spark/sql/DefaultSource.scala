@@ -48,7 +48,7 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
    * @param parameters any user provided parameters
    * @return a MongoRelation
    */
-  override def createRelation(sqlContext: SQLContext, parameters: Map[String, String]): MongoRelation =
+  override def createRelation(sqlContext: SQLContext, parameters: Map[String, String]): BaseRelation =
     createRelation(sqlContext, parameters, None)
 
   /**
@@ -59,10 +59,10 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
    * @param schema     the provided schema for the documents
    * @return a MongoRelation
    */
-  override def createRelation(sqlContext: SQLContext, parameters: Map[String, String], schema: StructType): MongoRelation =
+  override def createRelation(sqlContext: SQLContext, parameters: Map[String, String], schema: StructType): BaseRelation =
     createRelation(sqlContext, parameters, Some(schema))
 
-  private def createRelation(sqlContext: SQLContext, parameters: Map[String, String], structType: Option[StructType]): MongoRelation = {
+  private def createRelation(sqlContext: SQLContext, parameters: Map[String, String], structType: Option[StructType]): BaseRelation = {
     val rdd = pipelinedRdd(
       MongoSpark.builder()
         .sparkSession(sqlContext.sparkSession)
@@ -79,7 +79,7 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
     MongoRelation(rdd, Some(schema))(sqlContext)
   }
 
-  override def createRelation(sqlContext: SQLContext, mode: SaveMode, parameters: Map[String, String], data: DataFrame): MongoRelation = {
+  override def createRelation(sqlContext: SQLContext, mode: SaveMode, parameters: Map[String, String], data: DataFrame): BaseRelation = {
     val writeConfig = WriteConfig(sqlContext.sparkContext.getConf, parameters)
     val mongoConnector = MongoConnector(writeConfig.asOptions)
     val documentRdd: RDD[BsonDocument] = data.rdd.map(row => rowToDocument(row))

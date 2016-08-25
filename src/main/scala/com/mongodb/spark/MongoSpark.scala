@@ -36,7 +36,7 @@ import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
 import com.mongodb.spark.sql.MapFunctions.documentToRow
 import com.mongodb.spark.sql.MongoRelationHelper.createPipeline
-import com.mongodb.spark.sql.{MongoInferSchema, MongoRelation, helpers}
+import com.mongodb.spark.sql.{MongoInferSchema, helpers}
 
 /**
  * The MongoSpark helper allows easy creation of RDDs, DataFrames or Datasets from MongoDB.
