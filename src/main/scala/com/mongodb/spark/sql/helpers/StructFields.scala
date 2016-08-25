@@ -130,16 +130,6 @@ object StructFields {
    */
   def timestamp(fieldName: String, nullable: Boolean): StructField = createStructField(fieldName, BsonCompatibility.Timestamp, nullable)
 
-  /**
-   * Represents the Bson Undefined type
-   *
-   * @see [[UDF.undefined]] for easy filtering of these types.
-   * @param fieldName the name of the field
-   * @param nullable  if the field is nullable
-   * @return the StructField containing a Bson Undefined value.
-   */
-  def undefined(fieldName: String, nullable: Boolean): StructField = createStructField(fieldName, BsonCompatibility.Undefined, nullable)
-
   private def createStructField[T <: BsonValue](fieldName: String, compat: CompatibilityBase[T], nullable: Boolean): StructField =
     DataTypes.createStructField(fieldName, DataTypes.createStructType(compat.fields.toArray), nullable)
 }

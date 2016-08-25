@@ -27,7 +27,7 @@ import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.sql.MapFunctions.documentToRow
 import com.mongodb.spark.sql.MongoRelationHelper.createPipeline
 
-case class MongoRelation(mongoRDD: MongoRDD[BsonDocument], _schema: Option[StructType])(@transient val sqlContext: SQLContext)
+private[spark] case class MongoRelation(mongoRDD: MongoRDD[BsonDocument], _schema: Option[StructType])(@transient val sqlContext: SQLContext)
     extends BaseRelation
     with PrunedFilteredScan
     with InsertableRelation
@@ -36,10 +36,13 @@ case class MongoRelation(mongoRDD: MongoRDD[BsonDocument], _schema: Option[Struc
   override lazy val schema: StructType = _schema.getOrElse(MongoInferSchema(sqlContext.sparkContext))
 
   override def buildScan(requiredColumns: Array[String], filters: Array[Filter]): RDD[Row] = {
-    if (requiredColumns.nonEmpty || filters.nonEmpty) {
-      logInfo(s"requiredColumns: ${requiredColumns.mkString(", ")}, filters: ${filters.mkString(", ")}")
+    // Fields that explicitly aren't nullable must also be added to the filters
+    val pipelineFilters = schema.fields.filter(!_.nullable).map(_.name).map(IsNotNull) ++ filters
+
+    if (requiredColumns.nonEmpty || pipelineFilters.nonEmpty) {
+      logWarning(s"requiredColumns: ${requiredColumns.mkString(", ")}, filters: ${pipelineFilters.mkString(", ")}")
     }
-    mongoRDD.appendPipeline(createPipeline(requiredColumns, filters)).map(doc => documentToRow(doc, schema, requiredColumns))
+    mongoRDD.appendPipeline(createPipeline(requiredColumns, pipelineFilters)).map(doc => documentToRow(doc, schema, requiredColumns))
   }
 
   override def insert(data: DataFrame, overwrite: Boolean): Unit = {

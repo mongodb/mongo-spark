@@ -24,6 +24,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.api.java.{JavaRDD, JavaSparkContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
+import org.apache.spark.sql.sources.{Filter, IsNotNull}
 import org.apache.spark.sql.types.StructType
 
 import org.bson.conversions.Bson
@@ -34,7 +35,8 @@ import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
 import com.mongodb.spark.sql.MapFunctions.documentToRow
-import com.mongodb.spark.sql.{MongoInferSchema, helpers}
+import com.mongodb.spark.sql.MongoRelationHelper.createPipeline
+import com.mongodb.spark.sql.{MongoInferSchema, MongoRelation, helpers}
 
 /**
  * The MongoSpark helper allows easy creation of RDDs, DataFrames or Datasets from MongoDB.
@@ -517,7 +519,10 @@ case class MongoSpark(sparkSession: SparkSession, connector: MongoConnector, rea
    * @return a DataFrame.
    */
   def toDF(schema: StructType): DataFrame = {
-    val rowRDD = toBsonDocumentRDD.map(doc => documentToRow(doc, schema, Array()))
+    val requiredColumns: Array[String] = schema.fields.map(_.name)
+    val pipelineFilters: Array[Filter] = schema.fields.filter(!_.nullable).map(_.name).map(IsNotNull)
+    val rowRDD = toBsonDocumentRDD.appendPipeline(createPipeline(requiredColumns, pipelineFilters))
+      .map(doc => documentToRow(doc, schema, requiredColumns))
     sparkSession.createDataFrame(rowRDD, schema)
   }
 

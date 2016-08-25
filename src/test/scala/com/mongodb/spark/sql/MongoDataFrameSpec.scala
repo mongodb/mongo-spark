@@ -117,7 +117,7 @@ class MongoDataFrameSpec extends RequiresMongoDB {
     val reflectedSchema: StructType = ScalaReflection.schemaFor[Character].dataType.asInstanceOf[StructType]
 
     df.schema should equal(reflectedSchema)
-    df.count() should equal(10)
+    df.count() should equal(9)
     df.filter("age > 100").count() should equal(6)
   }
 

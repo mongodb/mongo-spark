@@ -18,7 +18,7 @@ package com.mongodb.spark.sql.helpers
 
 import javax.xml.bind.DatatypeConverter
 
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.SparkSession
 
 import com.mongodb.spark.sql.{fieldTypes, types}
 
@@ -203,32 +203,18 @@ object UDF {
    */
   def timestamp(time: Int, inc: Int): fieldTypes.Timestamp = fieldTypes.Timestamp(time, inc)
 
-  /**
-   * This method can be used as a user defined function to aid the querying of Undefined values.
-   *
-   * Usage example:
-   * {{{
-   * sqlContext.udf.register("Undefined", udf.undefined _)
-   * df.filter(s"undefined = Undefined()")
-   * }}}
-   *
-   * @return a fieldType that can be used to query against
-   */
-  def undefined(): fieldTypes.Undefined = fieldTypes.Undefined()
-
-  private[spark] def registerFunctions(sqlContext: SQLContext): Unit = {
-    sqlContext.udf.register("Binary", UDF.binary _)
-    sqlContext.udf.register("BinaryWithSubType", UDF.binaryWithSubType _)
-    sqlContext.udf.register("DbPointer", UDF.dbPointer _)
-    sqlContext.udf.register("JavaScript", UDF.javaScript _)
-    sqlContext.udf.register("JavaScript", UDF.javaScriptWithScope _)
-    sqlContext.udf.register("maxKey", UDF.maxKey _)
-    sqlContext.udf.register("minKey", UDF.minKey _)
-    sqlContext.udf.register("ObjectId", UDF.objectId _)
-    sqlContext.udf.register("Regex", UDF.regularExpression _)
-    sqlContext.udf.register("Regex", UDF.regularExpressionWithOptions _)
-    sqlContext.udf.register("Symbol", UDF.symbol _)
-    sqlContext.udf.register("Timestamp", UDF.timestamp _)
-    sqlContext.udf.register("Undefined", UDF.undefined _)
+  private[spark] def registerFunctions(sparkSession: SparkSession): Unit = {
+    sparkSession.udf.register("Binary", UDF.binary _)
+    sparkSession.udf.register("BinaryWithSubType", UDF.binaryWithSubType _)
+    sparkSession.udf.register("DbPointer", UDF.dbPointer _)
+    sparkSession.udf.register("JavaScript", UDF.javaScript _)
+    sparkSession.udf.register("JavaScript", UDF.javaScriptWithScope _)
+    sparkSession.udf.register("maxKey", UDF.maxKey _)
+    sparkSession.udf.register("minKey", UDF.minKey _)
+    sparkSession.udf.register("ObjectId", UDF.objectId _)
+    sparkSession.udf.register("Regex", UDF.regularExpression _)
+    sparkSession.udf.register("Regex", UDF.regularExpressionWithOptions _)
+    sparkSession.udf.register("Symbol", UDF.symbol _)
+    sparkSession.udf.register("Timestamp", UDF.timestamp _)
   }
 }
