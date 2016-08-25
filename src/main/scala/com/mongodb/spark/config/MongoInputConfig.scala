@@ -116,4 +116,13 @@ trait MongoInputConfig extends MongoCompanionConfig {
    */
   val localThresholdProperty = MongoSharedConfig.localThresholdProperty
 
+  /**
+   * Register SQL Helper functions
+   *
+   * The SQL helper functions allow easy querying of Bson types inside SQL queries
+   *
+   * @since 1.1
+   */
+  val registerSQLHelperFunctions = "registerSQLHelperFunctions".toLowerCase()
+
 }

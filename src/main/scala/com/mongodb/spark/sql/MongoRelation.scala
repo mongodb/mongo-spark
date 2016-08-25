@@ -19,7 +19,7 @@ package com.mongodb.spark.sql
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{Row, SQLContext}
+import org.apache.spark.sql.{DataFrame, Row, SQLContext, SaveMode}
 
 import org.bson.BsonDocument
 import com.mongodb.spark.LoggingTrait
@@ -30,6 +30,7 @@ import com.mongodb.spark.sql.MongoRelationHelper.createPipeline
 case class MongoRelation(mongoRDD: MongoRDD[BsonDocument], _schema: Option[StructType])(@transient val sqlContext: SQLContext)
     extends BaseRelation
     with PrunedFilteredScan
+    with InsertableRelation
     with LoggingTrait {
 
   override lazy val schema: StructType = _schema.getOrElse(MongoInferSchema(sqlContext.sparkContext))
@@ -39,6 +40,14 @@ case class MongoRelation(mongoRDD: MongoRDD[BsonDocument], _schema: Option[Struc
       logInfo(s"requiredColumns: ${requiredColumns.mkString(", ")}, filters: ${filters.mkString(", ")}")
     }
     mongoRDD.appendPipeline(createPipeline(requiredColumns, filters)).map(doc => documentToRow(doc, schema, requiredColumns))
+  }
+
+  override def insert(data: DataFrame, overwrite: Boolean): Unit = {
+    val dfw = data.write.format("com.mongodb.spark.sql")
+    overwrite match {
+      case true  => dfw.mode(SaveMode.Overwrite).save()
+      case false => dfw.mode(SaveMode.ErrorIfExists).save()
+    }
   }
 
 }

@@ -4,14 +4,15 @@ The following code snippets can be found in [introduction.py](../examples/src/te
 
 ## Prerequisites
 
-Have MongoDB up and running and the Spark 1.6.x downloaded. See the [introduction](0-introduction.md) for more information on getting started.
+Have MongoDB up and running and the Spark 1.6.x downloaded. See the [introduction](0-introduction.md) and the [SQL](1-sparkSQL.md)
+for more information on getting started.
 
 You can run the interactive pyspark shell like so:
 
 ```
 ./bin/pyspark --conf "spark.mongodb.input.uri=mongodb://127.0.0.1/test.coll?readPreference=primaryPreferred" \
               --conf "spark.mongodb.output.uri=mongodb://127.0.0.1/test.coll" \
-              --packages org.mongodb.spark:mongo-spark-connector_2.10:0.4
+              --packages org.mongodb.spark:mongo-spark-connector_2.10:1.0.0
 ```
 
 ## The Python API Basics

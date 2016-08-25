@@ -35,8 +35,7 @@ import com.mongodb.spark.{MongoConnector, MongoSpark, toDocumentRDDFunctions}
 /**
  * A MongoDB based DataSource
  */
-class DefaultSource extends DataSourceRegister with RelationProvider with SchemaRelationProvider with CreatableRelationProvider
-    with InsertableRelation {
+class DefaultSource extends DataSourceRegister with RelationProvider with SchemaRelationProvider with CreatableRelationProvider {
 
   override def shortName(): String = "mongo"
 
@@ -106,14 +105,6 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
         }
     }
     createRelation(sqlContext, parameters ++ writeConfig.asOptions, Some(data.schema))
-  }
-
-  override def insert(data: DataFrame, overwrite: Boolean): Unit = {
-    val dfw = data.write
-    overwrite match {
-      case true  => dfw.mode(SaveMode.Overwrite).save()
-      case false => dfw.mode(SaveMode.ErrorIfExists).save()
-    }
   }
 
   private def pipelinedRdd[T](rdd: MongoRDD[T], pipelineJson: Option[String]): MongoRDD[T] = {

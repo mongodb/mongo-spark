@@ -30,6 +30,7 @@ object Timestamp {
    * Create a new instance
    *
    * @param date the date representing the seconds since epoch
+   * @param inc an incrementing ordinal for operations within a given second
    * @return the new instance
    */
   def apply(date: Date, inc: Int): Timestamp = new Timestamp((date.getTime / 1000).toInt, inc)
@@ -37,6 +38,7 @@ object Timestamp {
    * Create a new instance
    *
    * @param date the date representing the seconds since epoch
+   * @param inc an incrementing ordinal for operations within a given second
    * @return the new instance
    */
   def apply(date: java.sql.Date, inc: Int): Timestamp = new Timestamp((date.getTime / 1000).toInt, inc)

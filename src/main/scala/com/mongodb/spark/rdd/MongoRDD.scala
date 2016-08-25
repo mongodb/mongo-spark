@@ -33,7 +33,7 @@ import com.mongodb.MongoClient
 import com.mongodb.client.MongoCursor
 import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
-import com.mongodb.spark.rdd.partitioner.MongoPartition
+import com.mongodb.spark.rdd.partitioner.{MongoPartition, MongoSinglePartitioner}
 import com.mongodb.spark.{MongoConnector, MongoSpark, NotNothing, classTagToClassOf}
 
 /**
@@ -154,7 +154,10 @@ class MongoRDD[D: ClassTag](
    * @return the cursor
    */
   private def getCursor(client: MongoClient, partition: MongoPartition)(implicit ct: ClassTag[D]): MongoCursor[D] = {
-    val partitionPipeline: Seq[Bson] = new BsonDocument("$match", partition.queryBounds) +: pipeline
+    val partitionPipeline: Seq[BsonDocument] = readConfig.partitioner match {
+      case MongoSinglePartitioner => pipeline
+      case _                      => new BsonDocument("$match", partition.queryBounds) +: pipeline
+    }
     client.getDatabase(readConfig.databaseName)
       .getCollection[D](readConfig.collectionName, classTagToClassOf(ct))
       .withReadConcern(readConfig.readConcern)

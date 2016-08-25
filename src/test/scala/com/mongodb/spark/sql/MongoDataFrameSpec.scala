@@ -165,6 +165,27 @@ class MongoDataFrameSpec extends RequiresMongoDB {
     sparkSession.read.option("collection", saveToCollectionName).mongo[Character]().count() should equal(9)
   }
 
+  it should "support INSERT INTO SELECT statements" in withSparkContext() { sc =>
+    val sqlContext = SQLContext.getOrCreate(sc)
+    val df = sqlContext.read.mongo[Character]()
+
+    df.registerTempTable("people")
+    sqlContext.sql("INSERT INTO table people SELECT 'Mort', 1000")
+
+    sqlContext.read.mongo().count() should equal(1)
+  }
+
+  it should "support INSERT OVERWRITE SELECT statements" in withSparkContext() { sc =>
+    sc.parallelize(characters).saveToMongoDB()
+    val sqlContext = SQLContext.getOrCreate(sc)
+    val df = sqlContext.read.mongo[Character]()
+
+    df.registerTempTable("people")
+    sqlContext.sql("INSERT OVERWRITE table people SELECT 'Mort', 1000")
+
+    sqlContext.read.mongo().count() should equal(1)
+  }
+
   "DataFrames" should "round trip all bson types" in withSparkContext() { sc =>
     database.getCollection(collectionName, classOf[BsonDocument]).insertOne(allBsonTypesDocument)
 

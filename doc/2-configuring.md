@@ -1,6 +1,6 @@
 # Mongo Spark Connector Configuration
 
-The following table describes the various configuration options for the Spark Connector. 
+The following table describes the various configuration options for the Spark Connector.
 
 The following connection options can be set via the `SparkConf` object. These are prefixed with `spark.` so that they can be recognized
 from the spark-shell and can be passed via --conf settings or via $SPARK_HOME/conf/spark-default.conf.
@@ -8,7 +8,7 @@ from the spark-shell and can be passed via --conf settings or via $SPARK_HOME/co
 ------
 **Note:** Users can configure all the settings in the `SparkConf` then the Mongo Connector will use those settings as the defaults.
 
-Various methods in the Mongo Connector API will also accept an override for a [`ReadConfig`](../src/main/scala/com/mongodb/spark/config/ReadConfig.scala) or a [`WriteConfig`](src/main/scala/com/mongodb/spark/config/WriteConfig.scala). This is so you can override any values set in the `SparkConf`. (Refer to the source for these methods but in general its where data is loaded or saved to MongoDB). 
+Various methods in the Mongo Connector API will also accept an override for a [`ReadConfig`](../src/main/scala/com/mongodb/spark/config/ReadConfig.scala) or a [`WriteConfig`](src/main/scala/com/mongodb/spark/config/WriteConfig.scala). This is so you can override any values set in the `SparkConf`. (Refer to the source for these methods but in general its where data is loaded or saved to MongoDB).
 
 In the Spark API there are some methods that accept extra options in the form of a `Map[String, String]`. For example the `DataFrameReader` or `DataFrameWriter` API's.  Custom `ReadConfig` or `WriteConfig` settings can easily be converted into a `Map` via the `asOptions()` method.
 
@@ -18,17 +18,18 @@ In the Spark API there are some methods that accept extra options in the form of
 
 The following options are available:
 
-Property name          | Description                                                       | Default value
------------------------|-------------------------------------------------------------------|--------------------
-uri                    | The connection string                                             |
-database               | The database name to read data from                               |
-collection             | The collection name to read data from                             |
-localThreshold         | The threshold for choosing a server from multiple MongoDB servers | 15 ms
-readPreference.name    | The name of the `ReadPreference` to use                           | Primary
-readPreference.tagSets | The `ReadPreference` TagSets to use                               |
-readConcern.level      | The `ReadConcern` level to use                                    |
-sampleSize             | The sample size to use when inferring the schema                  | 1000
-partitioner            | The class name of the partitioner to use to partition the data    | MongoDefaultPartitioner
+Property name              | Description                                                       | Default value
+---------------------------|-------------------------------------------------------------------|--------------------
+uri                        | The connection string                                             |
+database                   | The database name to read data from                               |
+collection                 | The collection name to read data from                             |
+localThreshold             | The threshold for choosing a server from multiple MongoDB servers | 15 ms
+readPreference.name        | The name of the `ReadPreference` to use                           | Primary
+readPreference.tagSets     | The `ReadPreference` TagSets to use                               |
+readConcern.level          | The `ReadConcern` level to use                                    |
+sampleSize                 | The sample size to use when inferring the schema                  | 1000
+partitioner                | The class name of the partitioner to use to partition the data    | MongoDefaultPartitioner
+registerSQLHelperFunctions | Register helper methods for unsupported Mongo Datatypes           | false
 
 -----
 **Note**: When setting input configurations in the `SparkConf` then the prefix `spark.mongodb.input.` is required.
@@ -76,8 +77,8 @@ spark.mongodb.input.readPreference.name=primaryPreferred
 
 The default Partitioner is the `MongoDefaultPartitioner`, it samples the database and wraps the `MongoSamplePartitioner`.
 
-Alternative partitioner implementations can be configured via the `partitioner` configuration option. For custom implementations of the 
-`MongoPartitioner` trait the full class name must be provided. If no package names are provided then the default 
+Alternative partitioner implementations can be configured via the `partitioner` configuration option. For custom implementations of the
+`MongoPartitioner` trait the full class name must be provided. If no package names are provided then the default
 `com.mongodb.spark.rdd.partitioner` package is used.
 
 The available Partitioners are:
@@ -89,12 +90,12 @@ The available Partitioners are:
   * MongoPaginateByCountPartitioner. A slow general purpose partitioner for all deployments.
   * MongoPaginateBySizePartitioner. A slow general purpose partitioner for all deployments.
 
-Partitioners have use the following namespace for options `spark.mongodb.input.partitionerOptions`, for example to configure a partition key 
+Partitioners have use the following namespace for options `spark.mongodb.input.partitionerOptions`, for example to configure a partition key
 you would set the following configuration `spark.mongodb.input.partitionerOptions.partitionKey`.
 
 ### MongoSamplePartitioner
 
-A general purpose partitioner for all deployments. Uses the average document size and random sampling of the collection to determine suitable 
+A general purpose partitioner for all deployments. Uses the average document size and random sampling of the collection to determine suitable
 partitions for the collection. Requires MongoDB 3.2.
 
 Property name           | Description                                                                                      | Default value

@@ -34,7 +34,7 @@ import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
 import com.mongodb.spark.sql.MapFunctions.documentToRow
-import com.mongodb.spark.sql.MongoInferSchema
+import com.mongodb.spark.sql.{MongoInferSchema, helpers}
 
 /**
  * The MongoSpark helper allows easy creation of RDDs, DataFrames or Datasets from MongoDB.
@@ -450,6 +450,10 @@ case class MongoSpark(sparkSession: SparkSession, connector: MongoConnector, rea
 
   private def rdd[D: ClassTag]()(implicit e: D DefaultsTo Document): MongoRDD[D] =
     new MongoRDD[D](sparkSession, sparkSession.sparkContext.broadcast(connector), readConfig, pipeline)
+
+  if (readConfig.registerSQLHelperFunctions) {
+    helpers.UDF.registerFunctions(sparkSession)
+  }
 
   /**
    * Creates a `RDD` for the collection
