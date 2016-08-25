@@ -8,6 +8,7 @@
 ------
 
 ## 1.1.0
+  * [[SPARK-76](https://jira.mongodb.org/browse/SPARK-76)] IsNotNull filter improved so that it also checks the field exists
   * [[SPARK-68](https://jira.mongodb.org/browse/SPARK-68)] Moved InsertableRelation to MongoRelation as its a relation trait not a provider trait.
   * [[SPARK-69](https://jira.mongodb.org/browse/SPARK-69)] Added helpers for defining and querying unsupported MongoDB datatypes.
 
