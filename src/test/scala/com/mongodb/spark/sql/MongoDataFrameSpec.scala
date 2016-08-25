@@ -27,10 +27,7 @@ import org.bson._
 import org.bson.types.ObjectId
 import com.mongodb.spark._
 import com.mongodb.spark.config.WriteConfig
-import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.sql.types.BsonCompatibility
-
-import org.scalatest.FlatSpec
 
 class MongoDataFrameSpec extends RequiresMongoDB {
   // scalastyle:off magic.number
@@ -166,6 +163,27 @@ class MongoDataFrameSpec extends RequiresMongoDB {
       .toDF().write.mongo(writeConfig)
 
     sqlContext.read.option("collection", saveToCollectionName).mongo[Character]().count() should equal(9)
+  }
+
+  it should "support INSERT INTO SELECT statements" in withSparkContext() { sc =>
+    val sqlContext = SQLContext.getOrCreate(sc)
+    val df = sqlContext.read.mongo[Character]()
+
+    df.registerTempTable("people")
+    sqlContext.sql("INSERT INTO table people SELECT 'Mort', 1000")
+
+    sqlContext.read.mongo().count() should equal(1)
+  }
+
+  it should "support INSERT OVERWRITE SELECT statements" in withSparkContext() { sc =>
+    sc.parallelize(characters).saveToMongoDB()
+    val sqlContext = SQLContext.getOrCreate(sc)
+    val df = sqlContext.read.mongo[Character]()
+
+    df.registerTempTable("people")
+    sqlContext.sql("INSERT OVERWRITE table people SELECT 'Mort', 1000")
+
+    sqlContext.read.mongo().count() should equal(1)
   }
 
   "DataFrames" should "round trip all bson types" in withSparkContext() { sc =>
