@@ -181,11 +181,8 @@ the characters with ages under 100:
 
 ```java
 explicitDF.registerTempTable("characters");
-Dataset<Row> centenarians = sqlContext.sql("SELECT name, age FROM characters WHERE age >= 100");
+Dataset<Row> centenarians = sparkSession.sql("SELECT name, age FROM characters WHERE age >= 100");
 ```
-
-//TODO - CHECK ~tHIS - SparkSession?
-*Note:* You must use the same `SQLContext` that registers the table and queries it.
 
 ### Saving Datasets
 
@@ -197,7 +194,7 @@ In the following example we save the centenarians into the "hundredClub" collect
 MongoSpark.write(centenarians).option("collection", "hundredClub").save();
 
 // Load the data from the "hundredClub" collection
-MongoSpark.load(sqlContext, ReadConfig.create(sqlContext).withOption("collection", "hundredClub"), Character.class).show();
+MongoSpark.load(sparkSession, ReadConfig.create(sqlContext).withOption("collection", "hundredClub"), Character.class).show();
 ```
 
 Outputs:

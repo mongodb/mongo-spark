@@ -16,14 +16,12 @@
 
 package com.mongodb.spark
 
-import scala.collection.JavaConverters._
 import java.util
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-import org.apache.spark.sql.SQLContext
-
-import org.scalatest._
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.{SparkConf, SparkContext}
 
 import org.bson.{BsonDocument, Document}
@@ -33,6 +31,8 @@ import com.mongodb.client.{MongoCollection, MongoDatabase}
 import com.mongodb.connection.ClusterType.{REPLICA_SET, SHARDED, STANDALONE}
 import com.mongodb.connection.ServerVersion
 import com.mongodb.spark.config.ReadConfig
+
+import org.scalatest._
 
 trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with BeforeAndAfterEach with LoggingTrait {
 
@@ -115,15 +115,15 @@ trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with
   }
 
   /**
-   * Test against a set SparkContext
+   * Test against a set Spark Session
    *
    * @param testCode the test case
    */
-  def withSQLContext()(testCode: SQLContext => Any) {
+  def withSparkSession()(testCode: SparkSession => Any) {
     checkMongoDB()
     try {
       logInfo(s"Running Test: '${_currentTestName.getOrElse(suiteName)}'")
-      testCode(SQLContext.getOrCreate(sparkContext)) // "loan" the fixture to the test
+      testCode(SparkSession.builder().getOrCreate()) // "loan" the fixture to the test
     } finally {
       database.drop()
     }

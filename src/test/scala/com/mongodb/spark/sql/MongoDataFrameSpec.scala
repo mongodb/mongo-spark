@@ -21,7 +21,7 @@ import scala.collection.JavaConverters._
 import org.apache.spark.sql.catalyst.ScalaReflection
 import org.apache.spark.sql.types.DataTypes._
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
-import org.apache.spark.sql.{SQLContext, SaveMode, SparkSession}
+import org.apache.spark.sql.{SaveMode, SparkSession}
 
 import org.bson._
 import org.bson.types.ObjectId
@@ -165,25 +165,23 @@ class MongoDataFrameSpec extends RequiresMongoDB {
     sparkSession.read.option("collection", saveToCollectionName).mongo[Character]().count() should equal(9)
   }
 
-  it should "support INSERT INTO SELECT statements" in withSparkContext() { sc =>
-    val sqlContext = SQLContext.getOrCreate(sc)
-    val df = sqlContext.read.mongo[Character]()
+  it should "support INSERT INTO SELECT statements" in withSparkSession() { sparkSession =>
+    val df = sparkSession.read.mongo[Character]()
 
-    df.registerTempTable("people")
-    sqlContext.sql("INSERT INTO table people SELECT 'Mort', 1000")
+    df.createOrReplaceTempView("people")
+    sparkSession.sql("INSERT INTO table people SELECT 'Mort', 1000")
 
-    sqlContext.read.mongo().count() should equal(1)
+    sparkSession.read.mongo().count() should equal(1)
   }
 
-  it should "support INSERT OVERWRITE SELECT statements" in withSparkContext() { sc =>
-    sc.parallelize(characters).saveToMongoDB()
-    val sqlContext = SQLContext.getOrCreate(sc)
-    val df = sqlContext.read.mongo[Character]()
+  it should "support INSERT OVERWRITE SELECT statements" in withSparkSession() { sparkSession =>
+    sparkSession.sparkContext.parallelize(characters).saveToMongoDB()
+    val df = sparkSession.read.mongo[Character]()
 
-    df.registerTempTable("people")
-    sqlContext.sql("INSERT OVERWRITE table people SELECT 'Mort', 1000")
+    df.createOrReplaceTempView("people")
+    sparkSession.sql("INSERT OVERWRITE table people SELECT 'Mort', 1000")
 
-    sqlContext.read.mongo().count() should equal(1)
+    sparkSession.read.mongo().count() should equal(1)
   }
 
   "DataFrames" should "round trip all bson types" in withSparkContext() { sc =>
