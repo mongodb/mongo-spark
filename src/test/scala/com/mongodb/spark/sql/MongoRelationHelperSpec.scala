@@ -62,7 +62,7 @@ class MongoRelationHelperSpec extends RequiresMongoDB with PropertyChecks {
     (LessThanOrEqual("f", 1), "{$match: {f: {$lte: 1}}}"),
     (In("f", Array(1, 2, 3)), "{$match: {f: {$in: [1,2,3]}}}"),
     (IsNull("f"), "{$match: {f: null}}"),
-    (IsNotNull("f"), "{$match: {f: {$ne: null}}}"),
+    (IsNotNull("f"), "{$match: {f: {$exists: true, $ne: null}}}"),
     (StringStartsWith("f", "A"), """{$match: {f:  {$regex: "^A", $options: ""}}}"""),
     (StringEndsWith("f", "A"), """{$match: {f:  {$regex: "A$", $options: ""}}}"""),
     (StringContains("f", "A"), """{$match: {f:  {$regex: "A", $options: ""}}}"""),

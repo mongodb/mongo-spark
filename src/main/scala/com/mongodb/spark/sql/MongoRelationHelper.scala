@@ -45,7 +45,7 @@ private[spark] object MongoRelationHelper {
       case LessThan(field, value)           => Filters.lt(field, value)
       case LessThanOrEqual(field, value)    => Filters.lte(field, value)
       case IsNull(field)                    => Filters.eq(field, null)
-      case IsNotNull(field)                 => Filters.ne(field, null)
+      case IsNotNull(field)                 => Filters.and(Filters.exists(field), Filters.ne(field, null))
       case And(leftFilter, rightFilter)     => Filters.and(createMatch(Array(leftFilter)), createMatch(Array(rightFilter)))
       case Or(leftFilter, rightFilter)      => Filters.or(createMatch(Array(leftFilter)), createMatch(Array(rightFilter)))
       case Not(filter)                      => Filters.not(createMatch(Array(filter)))
