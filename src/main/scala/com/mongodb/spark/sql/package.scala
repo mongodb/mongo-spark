@@ -59,8 +59,7 @@ package object sql {
    * @return the MongoDB based DataFrameReader
    */
   @DeveloperApi
-  implicit def toMongoDataFrameReaderFunctions(dfr: DataFrameReader): MongoDataFrameReaderFunctions =
-    new MongoDataFrameReaderFunctions(dfr)
+  implicit def toMongoDataFrameReaderFunctions(dfr: DataFrameReader): MongoDataFrameReaderFunctions = MongoDataFrameReaderFunctions(dfr)
 
   /**
    * :: DeveloperApi ::
@@ -71,7 +70,6 @@ package object sql {
    * @return the MongoDB based DataFrameWriter
    */
   @DeveloperApi
-  implicit def toMongoDataFrameWriterFunctions(dfw: DataFrameWriter[_]): MongoDataFrameWriterFunctions =
-    new MongoDataFrameWriterFunctions(dfw)
+  implicit def toMongoDataFrameWriterFunctions(dfw: DataFrameWriter[_]): MongoDataFrameWriterFunctions = MongoDataFrameWriterFunctions(dfw)
 
 }

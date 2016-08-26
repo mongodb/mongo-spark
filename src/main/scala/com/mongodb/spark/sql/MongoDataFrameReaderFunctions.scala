@@ -24,7 +24,7 @@ import org.apache.spark.sql.{DataFrame, DataFrameReader}
 
 import com.mongodb.spark.config.ReadConfig
 
-private[spark] case class MongoDataFrameReaderFunctions(@transient val dfr: DataFrameReader) extends Serializable with LoggingTrait {
+private[spark] case class MongoDataFrameReaderFunctions(@transient dfr: DataFrameReader) extends LoggingTrait {
 
   /**
    * Creates a [[DataFrame]] through schema inference via the `T` type, otherwise will sample the collection to

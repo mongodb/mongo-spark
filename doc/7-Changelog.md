@@ -1,6 +1,7 @@
 # Mongo Spark Connector Changelog
 
 ## 2.0.0
+  * [[SPARK-78](https://jira.mongodb.org/browse/SPARK-78)] MongoDataFrameWriterFunctions is no longer public
   * [[SPARK-67](https://jira.mongodb.org/browse/SPARK-67)] MongoRelation no longer public and Default Source updated to return the expected type.
   * [[SPARK-77](https://jira.mongodb.org/browse/SPARK-77)] Removed UDF.undefined support as changes to the Dataset implement means it is removed when queried.
   * [[SPARK-47](https://jira.mongodb.org/browse/SPARK-47)] Updated API to use SparkSession and deprecated public methods using SQLContext.
