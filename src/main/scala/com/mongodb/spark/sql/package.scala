@@ -18,7 +18,7 @@ package com.mongodb.spark
 
 import scala.language.implicitConversions
 
-import org.apache.spark.sql.{DataFrameReader, DataFrameWriter, SQLContext}
+import org.apache.spark.sql.{DataFrameReader, DataFrameWriter, Row, SQLContext}
 
 import com.mongodb.spark.annotation.DeveloperApi
 
@@ -59,7 +59,7 @@ package object sql {
    * @return the MongoDB based DataFrameWriter
    */
   @DeveloperApi
-  implicit def toMongoDataFrameWriterFunctions(dfw: DataFrameWriter): MongoDataFrameWriterFunctions =
+  implicit def toMongoDataFrameWriterFunctions(dfw: DataFrameWriter[Row]): MongoDataFrameWriterFunctions =
     new MongoDataFrameWriterFunctions(dfw)
 
 }

@@ -19,7 +19,8 @@ package com.mongodb.spark.sql;
 import com.mongodb.spark.MongoSpark;
 import com.mongodb.spark.JavaRequiresMongoDB;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.sql.DataFrame;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SQLContext;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructField;
@@ -56,7 +57,7 @@ public final class MongoDataFrameReaderTest extends JavaRequiresMongoDB {
         StructType expectedSchema = createStructType(asList(_idField, ageField, nameField));
 
         // When
-        DataFrame df = MongoSpark.load(jsc).toDF();
+        Dataset<Row> df = MongoSpark.load(jsc).toDF();
 
         // Then
         assertEquals(df.schema(), expectedSchema);
@@ -72,7 +73,7 @@ public final class MongoDataFrameReaderTest extends JavaRequiresMongoDB {
         StructType expectedSchema = createStructType(asList(_idField, ageField, nameField));
 
         // When
-        DataFrame df = MongoSpark.load(jsc).toDF();
+        Dataset<Row> df = MongoSpark.load(jsc).toDF();
 
         // Then
         assertEquals(df.schema(), expectedSchema);
@@ -88,7 +89,7 @@ public final class MongoDataFrameReaderTest extends JavaRequiresMongoDB {
         StructType expectedSchema = createStructType(asList(_idField, ageField, nameField));
 
         // When
-        DataFrame df = MongoSpark.load(jsc).toDF();
+        Dataset<Row> df = MongoSpark.load(jsc).toDF();
 
         // Then
         assertEquals(df.schema(), expectedSchema);
@@ -107,7 +108,7 @@ public final class MongoDataFrameReaderTest extends JavaRequiresMongoDB {
         StructType expectedSchema = createStructType(asList(_idField, ageField, nameField));
 
         // When
-        DataFrame df = sqlContext.read().format("com.mongodb.spark.sql").option("pipeline", "{ $match: { name: { $exists: true } } }").load();
+        Dataset<Row> df = sqlContext.read().format("com.mongodb.spark.sql").option("pipeline", "{ $match: { name: { $exists: true } } }").load();
 
         // Then
         assertEquals(df.schema(), expectedSchema);
@@ -131,7 +132,7 @@ public final class MongoDataFrameReaderTest extends JavaRequiresMongoDB {
         StructType expectedSchema = createStructType(asList(ageField, nameField));
 
         // When
-        DataFrame df = MongoSpark.load(jsc).toDF(CharacterBean.class);
+        Dataset<Row> df = MongoSpark.load(jsc).toDF(CharacterBean.class);
 
         // Then
         assertEquals(df.schema(), expectedSchema);
@@ -148,7 +149,7 @@ public final class MongoDataFrameReaderTest extends JavaRequiresMongoDB {
         StructType expectedSchema = createStructType(asList(ageField, nameField));
 
         // When
-        DataFrame df = MongoSpark.load(jsc).toDF(CharacterBean.class);
+        Dataset<Row> df = MongoSpark.load(jsc).toDF(CharacterBean.class);
 
         // Then
         assertEquals(df.schema(), expectedSchema);

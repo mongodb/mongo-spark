@@ -23,7 +23,7 @@ import scala.reflect.runtime.universe._
 import scala.util.{Failure, Success, Try}
 
 import org.apache.spark.SparkContext
-import org.apache.spark.sql.catalyst.analysis.HiveTypeCoercion
+import org.apache.spark.sql.catalyst.analysis.TypeCoercion
 import org.apache.spark.sql.catalyst.{JavaTypeInference, ScalaReflection}
 import org.apache.spark.sql.types._
 
@@ -132,7 +132,7 @@ object MongoInferSchema {
    * @return the DataType that matches on the input DataTypes
    */
   private def compatibleType(t1: DataType, t2: DataType): DataType = {
-    HiveTypeCoercion.findTightestCommonTypeOfTwo(t1, t2).getOrElse {
+    TypeCoercion.findTightestCommonTypeOfTwo(t1, t2).getOrElse {
       // t1 or t2 is a StructType, ArrayType, or an unexpected type.
       (t1, t2) match {
         case (StructType(fields1), StructType(fields2)) =>

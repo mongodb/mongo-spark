@@ -16,7 +16,7 @@
 
 package com.mongodb.spark.sql
 
-case class BsonValuesAsStringClass(nullValue: String, int32: String, int64: String, boolean: String, date: String, double: String,
+case class BsonValuesAsStringClass(nullValue: String, int32: String, int64: String, bool: String, date: String, dbl: String,
                                    string: String, minKey: String, maxKey: String, objectId: String, code: String, codeWithScope: String,
                                    regex: String, symbol: String, timestamp: String, undefined: String, binary: String, oldBinary: String,
                                    arrayInt: String, document: String, dbPointer: String)

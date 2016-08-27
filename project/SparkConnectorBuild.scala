@@ -24,15 +24,14 @@ import sbt._
 
 object SparkConnectorBuild extends Build {
 
-  import Dependencies.{scalaCoreVersion, scalaVersions, coreDependencies, testDependencies}
+  import Dependencies.{scalaCoreVersion, coreDependencies, testDependencies}
   import Resolvers._
 
   val buildSettings = Seq(
     organization := "org.mongodb.spark",
     organizationHomepage := Some(url("http://www.mongodb.org")),
-    version := "1.0.0",
+    version := "2.0.0",
     scalaVersion := scalaCoreVersion,
-    crossScalaVersions := scalaVersions,
     libraryDependencies ++= coreDependencies,
     resolvers := mongoScalaResolvers,
     scalacOptions ++= scalacOptionsVersion(scalaVersion.value)

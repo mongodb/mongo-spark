@@ -139,7 +139,7 @@ object MongoSpark {
    *
    * @param dataFrameWriter the DataFrameWriter save to MongoDB
    */
-  def save(dataFrameWriter: DataFrameWriter): Unit = dataFrameWriter.format(defaultSource).save()
+  def save(dataFrameWriter: DataFrameWriter[Row]): Unit = dataFrameWriter.format(defaultSource).save()
 
   /**
    * Save data to MongoDB
@@ -147,7 +147,7 @@ object MongoSpark {
    * @param dataFrameWriter the DataFrameWriter save to MongoDB
    * @param writeConfig the writeConfig
    */
-  def save(dataFrameWriter: DataFrameWriter, writeConfig: WriteConfig): Unit =
+  def save(dataFrameWriter: DataFrameWriter[Row], writeConfig: WriteConfig): Unit =
     dataFrameWriter.format(defaultSource).options(writeConfig.asOptions).save()
 
   /**
@@ -164,7 +164,7 @@ object MongoSpark {
    * @param dataFrame the DataFrame to convert into a DataFrameWriter
    * @return the DataFrameWriter
    */
-  def write(dataFrame: DataFrame): DataFrameWriter = dataFrame.write.format("com.mongodb.spark.sql")
+  def write(dataFrame: DataFrame): DataFrameWriter[Row] = dataFrame.write.format("com.mongodb.spark.sql")
 
   /**
    * Builder for configuring and creating a [[MongoSpark]]
@@ -504,4 +504,3 @@ case class MongoSpark(sqlContext: SQLContext, connector: MongoConnector, readCon
   }
 
 }
-
