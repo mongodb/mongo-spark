@@ -17,11 +17,11 @@
 package com.mongodb.spark.sql
 
 import com.mongodb.spark.{LoggingTrait, MongoSpark}
-import org.apache.spark.sql.DataFrameWriter
+import org.apache.spark.sql.{DataFrameWriter, Row}
 
 import com.mongodb.spark.config.WriteConfig
 
-class MongoDataFrameWriterFunctions(@transient val dfw: DataFrameWriter) extends Serializable with LoggingTrait {
+class MongoDataFrameWriterFunctions(@transient val dfw: DataFrameWriter[Row]) extends Serializable with LoggingTrait {
 
   /**
    * Saves the contents of the `DataFrame` to MongoDB.

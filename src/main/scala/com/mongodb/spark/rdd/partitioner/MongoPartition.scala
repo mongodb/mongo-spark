@@ -67,4 +67,17 @@ object MongoPartition {
  *
  * @since 1.0
  */
-case class MongoPartition(index: Int, queryBounds: BsonDocument, locations: Seq[String]) extends Partition
+case class MongoPartition(index: Int, queryBounds: BsonDocument, locations: Seq[String]) extends Partition {
+  /**
+   * equals explicitly overriden here due to presence of equals implementation in Partition
+   * which prevents equals generation in MongoPartition case class by Scala compiler and
+   * breaks MongoPartition instances comparison
+   */
+  override def equals(other: Any): Boolean = other.isInstanceOf[MongoPartition] match {
+    case true =>
+      val o = other.asInstanceOf[MongoPartition]
+      index == o.index && queryBounds == o.queryBounds && locations == o.locations
+    case false => false
+  }
+  override def hashCode: Int = 47 + index.hashCode + queryBounds.hashCode + locations.hashCode
+}

@@ -25,6 +25,7 @@ import org.apache.spark.sql.{DataFrame, SQLContext}
 
 import org.bson._
 import org.bson.types.ObjectId
+import com.mongodb.Block
 import com.mongodb.spark.sql.helpers.{StructFields, UDF}
 import com.mongodb.spark.{MongoSpark, RequiresMongoDB}
 
@@ -33,7 +34,6 @@ class HelpersSpec extends RequiresMongoDB {
   override def beforeEach() {
     super.beforeEach()
     database.getCollection(collectionName, classOf[BsonDocument]).insertOne(allBsonTypesDocument)
-    database.getCollection(collectionName).insertOne(Document.parse("{_id: 1}"))
   }
 
   // scalastyle:off magic.number
