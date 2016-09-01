@@ -30,12 +30,12 @@ import org.apache.spark.sql.types.StructType
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
 import com.mongodb.client.MongoCollection
+import com.mongodb.client.model.{InsertOneModel, ReplaceOneModel, UpdateOptions}
 import com.mongodb.spark.DefaultHelper.DefaultsTo
 import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
-import com.mongodb.spark.sql.MapFunctions.documentToRow
-import com.mongodb.spark.sql.MongoRelationHelper.createPipeline
+import com.mongodb.spark.sql.MapFunctions.{documentToRow, rowToDocument}
 import com.mongodb.spark.sql.{MongoInferSchema, helpers}
 
 /**
@@ -132,6 +132,51 @@ object MongoSpark {
         iter.grouped(DefaultMaxBatchSize).foreach(batch => collection.insertMany(batch.toList.asJava))
       })
     })
+  }
+
+  /**
+   * Save data to MongoDB
+   *
+   * Uses the `SparkConf` for the database and collection information
+   *
+   * '''Note:''' If the dataFrame contains an `_id` field the data will upserted and replace any existing documents in the collection.
+   *
+   * @param dataset the dataset to save to MongoDB
+   * @tparam D
+   * @since 1.1.0
+   */
+  def save[D](dataset: Dataset[D]): Unit = save(dataset, WriteConfig(dataset.sparkSession.sparkContext.getConf))
+
+  /**
+   * Save data to MongoDB
+   *
+   * '''Note:''' If the dataFrame contains an `_id` field the data will upserted and replace any existing documents in the collection.
+   *
+   * @param dataset the dataset to save to MongoDB
+   * @param writeConfig the writeConfig
+   * @tparam D
+   * @since 1.1.0
+   */
+  def save[D](dataset: Dataset[D], writeConfig: WriteConfig): Unit = {
+    val mongoConnector = MongoConnector(writeConfig.asOptions)
+    val documentRdd: RDD[BsonDocument] = dataset.toDF().rdd.map(row => rowToDocument(row))
+    if (dataset.schema.fields.exists(_.name == "_id")) {
+      documentRdd.foreachPartition(iter => if (iter.nonEmpty) {
+        mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[BsonDocument] =>
+          iter.grouped(DefaultMaxBatchSize).foreach(batch => {
+            val updateOptions = new UpdateOptions().upsert(true)
+            val requests = batch.map(doc =>
+              Option(doc.get("_id")) match {
+                case Some(_id) => new ReplaceOneModel[BsonDocument](new BsonDocument("_id", _id), doc, updateOptions)
+                case None      => new InsertOneModel[BsonDocument](doc)
+              })
+            collection.bulkWrite(requests.toList.asJava)
+          })
+        })
+      })
+    } else {
+      MongoSpark.save(documentRdd, writeConfig)
+    }
   }
 
   /**
@@ -519,10 +564,7 @@ case class MongoSpark(sparkSession: SparkSession, connector: MongoConnector, rea
    * @return a DataFrame.
    */
   def toDF(schema: StructType): DataFrame = {
-    val requiredColumns: Array[String] = schema.fields.map(_.name)
-    val pipelineFilters: Array[Filter] = schema.fields.filter(!_.nullable).map(_.name).map(IsNotNull)
-    val rowRDD = toBsonDocumentRDD.appendPipeline(createPipeline(requiredColumns, pipelineFilters))
-      .map(doc => documentToRow(doc, schema, requiredColumns))
+    val rowRDD = toBsonDocumentRDD.map(doc => documentToRow(doc, schema, Array()))
     sparkSession.createDataFrame(rowRDD, schema)
   }
 

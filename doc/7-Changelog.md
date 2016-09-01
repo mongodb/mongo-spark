@@ -10,6 +10,7 @@
 ------
 
 ## 1.1.0
+  * [[SPARK-66](https://jira.mongodb.org/browse/SPARK-66)] Saving DataFrames that include an _id will now use a replaceOne with upsert.
   * [[SPARK-71](https://jira.mongodb.org/browse/SPARK-71)] Added support for Spark MapTypes in schemas.
   * [[SPARK-76](https://jira.mongodb.org/browse/SPARK-76)] IsNotNull filter improved so that it also checks the field exists
   * [[SPARK-68](https://jira.mongodb.org/browse/SPARK-68)] Moved InsertableRelation to MongoRelation as its a relation trait not a provider trait.

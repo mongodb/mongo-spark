@@ -54,7 +54,7 @@ private[spark] object MapFunctions {
   def rowToDocument(row: Row): BsonDocument = {
     val document = new BsonDocument()
     row.schema.fields.zipWithIndex.foreach({
-      case (field, i) if row.isNullAt(i) => document.append(field.name, new BsonNull())
+      case (field, i) if row.isNullAt(i) => if (field.dataType == NullType) document.append(field.name, new BsonNull())
       case (field, i)                    => document.append(field.name, convertToBsonValue(row.get(i), field.dataType))
     })
     document

@@ -239,6 +239,31 @@ class MongoDataFrameSpec extends RequiresMongoDB {
     savedDF.collectAsList() should equal(df.collectAsList())
   }
 
+  it should "be able to upsert and replace data in an existing collection" in withSparkContext() { sc =>
+    val sparkSession = SparkSession.builder().getOrCreate()
+    import sparkSession.implicits._
+    val originalData = Seq(SomeData(1, 100), SomeData(2, 200), SomeData(3, 300)).toDS()
+
+    originalData.saveToMongoDB()
+    MongoSpark.load(sc).toDS[SomeData]().collect() should contain theSameElementsAs originalData.collect()
+
+    val replacementData = Seq(SomeData(1, 1000), SomeData(2, 2000), SomeData(3, 3000)).toDS()
+
+    replacementData.toDF().write.mode("append").mongo()
+    MongoSpark.load(sc).toDS[SomeData]().collect() should contain theSameElementsAs replacementData.collect()
+  }
+
+  it should "be able to handle optional _id fields when upserting / replacing data in a collection" in withSparkContext() { sc =>
+    val sparkSession = SparkSession.builder().getOrCreate()
+    import sparkSession.implicits._
+    val originalData = characters.map(doc => CharacterWithOid(None, doc.getString("name"),
+      if (doc.containsKey("age")) Some(doc.getInteger("age")) else None))
+
+    originalData.toDS().saveToMongoDB()
+    val savedData = sparkSession.read.mongo[CharacterWithOid]().as[CharacterWithOid].map(c => (c.name, c.age)).collect()
+    originalData.map(c => (c.name, c.age)) should contain theSameElementsAs savedData
+  }
+
   private val expectedSchema: StructType = {
     val _idField: StructField = createStructField("_id", BsonCompatibility.ObjectId.structType, true)
     val nameField: StructField = createStructField("name", DataTypes.StringType, true)
@@ -279,3 +304,7 @@ class MongoDataFrameSpec extends RequiresMongoDB {
 
   // scalastyle:on magic.number
 }
+
+case class SomeData(_id: Int, count: Int)
+
+case class CharacterWithOid(_id: Option[fieldTypes.ObjectId], name: String, age: Option[Int])
