@@ -29,11 +29,12 @@ import org.apache.spark.sql.types.StructType
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
 import com.mongodb.client.MongoCollection
+import com.mongodb.client.model.{InsertOneModel, ReplaceOneModel, UpdateOptions}
 import com.mongodb.spark.DefaultHelper.DefaultsTo
 import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
-import com.mongodb.spark.sql.MapFunctions.documentToRow
+import com.mongodb.spark.sql.MapFunctions.{documentToRow, rowToDocument}
 import com.mongodb.spark.sql.{MongoInferSchema, helpers}
 
 /**
@@ -130,6 +131,77 @@ object MongoSpark {
         iter.grouped(DefaultMaxBatchSize).foreach(batch => collection.insertMany(batch.toList.asJava))
       })
     })
+  }
+
+  /**
+   * Save data to MongoDB
+   *
+   * Uses the `SparkConf` for the database and collection information
+   *
+   * '''Note:''' If the dataFrame contains an `_id` field the data will upserted and replace any existing documents in the collection.
+   *
+   * @param dataset the dataset to save to MongoDB
+   * @tparam D
+   * @since 1.1.0
+   */
+  def save[D](dataset: Dataset[D]): Unit = save(dataset.toDF())
+
+  /**
+   * Save data to MongoDB
+   *
+   * '''Note:''' If the dataFrame contains an `_id` field the data will upserted and replace any existing documents in the collection.
+   *
+   * @param dataset the dataset to save to MongoDB
+   * @param writeConfig the writeConfig
+   * @tparam D
+   * @since 1.1.0
+   */
+  def save[D](dataset: Dataset[D], writeConfig: WriteConfig): Unit = save(dataset.toDF(), writeConfig)
+
+  /**
+   * Save data to MongoDB
+   *
+   * Uses the `SparkConf` for the database and collection information
+   *
+   * '''Note:''' If the dataFrame contains an `_id` field the data will upserted and replace any existing documents in the collection.
+   *
+   * @param dataFrame the DataFrame to save to MongoDB
+   * @since 1.1.0
+   */
+  def save(dataFrame: DataFrame): Unit =
+    save(dataFrame, WriteConfig(dataFrame.sqlContext.sparkContext.getConf))
+
+  /**
+   * Save data to MongoDB
+   *
+   * '''Note:''' If the dataFrame contains an `_id` field the data will upserted and replace any existing documents in the collection.
+   *
+   * @param dataFrame the DataFrame to save to MongoDB
+   * @param writeConfig the writeConfig
+   * @since 1.1.0
+   */
+  def save(dataFrame: DataFrame, writeConfig: WriteConfig): Unit = {
+    val mongoConnector = MongoConnector(writeConfig.asOptions)
+    val documentRdd: RDD[BsonDocument] = dataFrame.rdd.map(row => rowToDocument(row))
+    if (dataFrame.schema.fields.exists(_.name == "_id")) {
+      documentRdd.foreachPartition(iter => if (iter.nonEmpty) {
+        mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[BsonDocument] =>
+          iter.grouped(DefaultMaxBatchSize).foreach(batch => {
+            val updateOptions = new UpdateOptions().upsert(true)
+            val requests = batch.map(doc =>
+              Option(doc.get("_id")) match {
+                case Some(_id) => {
+                  new ReplaceOneModel[BsonDocument](new BsonDocument("_id", _id), doc, updateOptions)
+                }
+                case None => new InsertOneModel[BsonDocument](doc)
+              })
+            collection.bulkWrite(requests.toList.asJava)
+          })
+        })
+      })
+    } else {
+      MongoSpark.save(documentRdd, writeConfig)
+    }
   }
 
   /**

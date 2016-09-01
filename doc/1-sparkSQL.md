@@ -203,6 +203,9 @@ dataFrameWriter.write.format("com.mongodb.spark.sql").save()
 ```
 
 -----
+**Note:** New in 1.1.0. Saving DataFrames or Datasets to MongoDB that contain an `_id` field will replace and upsert any existing documents.
+
+-----
 
 ## DataTypes
 
