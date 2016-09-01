@@ -281,6 +281,12 @@ Bson Type               | StructField helpers                  | User Defined Fu
 `Timestamp`             | `timestamp`                          | `timestamp`
 `Undefined`             | `undefined`                          | `undefined`
 
+-----
+**Note:**  Performance warning: UDF functions are high level functions that cannot be passed to MongoDB and converted into aggregation queries.
+
+-----
+
+
 Below is an example of using the helpers when defining and querying an `ObjectId` field:
 
 ```scala
