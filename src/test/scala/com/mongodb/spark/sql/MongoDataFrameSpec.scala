@@ -20,8 +20,8 @@ import scala.collection.JavaConverters._
 
 import org.apache.spark.sql.catalyst.ScalaReflection
 import org.apache.spark.sql.types.DataTypes._
-import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
-import org.apache.spark.sql.{SQLContext, SaveMode}
+import org.apache.spark.sql.types.{DataTypes, MapType, StructField, StructType}
+import org.apache.spark.sql.{Row, SQLContext, SaveMode}
 
 import org.bson._
 import org.bson.types.ObjectId
@@ -225,6 +225,20 @@ class MongoDataFrameSpec extends RequiresMongoDB {
       dbPointer = """{ "$ref" : "db.coll", "$id" : { "$oid" : "000000000000000000000000" } }"""
     )
     bsonValuesAsStrings should equal(expected)
+  }
+
+  it should "be able to round trip schemas containing MapTypes" in withSparkContext() { sc =>
+    val sqlContext = SQLContext.getOrCreate(sc)
+    val characterMap = characters.map(doc => Row(doc.getString("name"), Map("book" -> "The Hobbit", "author" -> "J. R. R. Tolkien")))
+    val schema = StructType(Seq(
+      StructField("name", StringType, nullable = false),
+      StructField("attributes", MapType(StringType, StringType), nullable = true)
+    ))
+    val df = sqlContext.createDataFrame(sc.parallelize(characterMap), schema)
+    df.write.mongo()
+
+    val savedDF = sqlContext.read.schema(schema).mongo()
+    savedDF.collectAsList() should equal(df.collectAsList())
   }
 
   private val expectedSchema: StructType = {

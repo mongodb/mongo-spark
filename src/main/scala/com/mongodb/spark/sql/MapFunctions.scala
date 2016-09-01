@@ -62,6 +62,7 @@ private[spark] object MapFunctions {
 
   private def convertToDataType(element: BsonValue, elementType: DataType): Any = {
     (element.getBsonType, elementType) match {
+      case (BsonType.DOCUMENT, mapType: MapType)  => element.asDocument().asScala.map(kv => (kv._1, convertToDataType(kv._2, mapType.valueType))).toMap
       case (BsonType.ARRAY, arrayType: ArrayType) => element.asArray().getValues.asScala.map(convertToDataType(_, arrayType.elementType))
       case (BsonType.BINARY, BinaryType)          => element.asBinary().getData
       case (BsonType.BOOLEAN, BooleanType)        => element.asBoolean().getValue
@@ -141,9 +142,25 @@ private[spark] object MapFunctions {
       case TimestampType        => new BsonDateTime(element.asInstanceOf[Timestamp].getTime)
       case arrayType: ArrayType => arrayTypeToBsonValue(arrayType.elementType, element.asInstanceOf[Seq[_]])
       case schema: StructType   => castFromStructType(element.asInstanceOf[Row], schema)
+      case mapType: MapType =>
+        mapType.keyType match {
+          case StringType => mapTypeToBsonValue(mapType.valueType, element.asInstanceOf[Map[String, _]])
+          case _ => throw new MongoTypeConversionException(
+            s"Cannot cast $element into a BsonValue. MapTypes must have keys of StringType for conversion into a BsonDocument"
+          )
+        }
       case _ =>
         throw new MongoTypeConversionException(s"Cannot cast $element into a BsonValue. $elementType has no matching BsonValue.")
     }
+  }
+
+  private def mapTypeToBsonValue(valueType: DataType, data: Map[String, Any]): BsonValue = {
+    val internalData = valueType match {
+      case subDocuments: StructType => data.map(kv => new BsonElement(kv._1, rowToDocument(kv._2.asInstanceOf[Row])))
+      case subArray: ArrayType      => data.map(kv => new BsonElement(kv._1, arrayTypeToBsonValue(subArray.elementType, kv._2.asInstanceOf[Seq[Any]])))
+      case _                        => data.map(kv => new BsonElement(kv._1, convertToBsonValue(kv._2, valueType)))
+    }
+    new BsonDocument(internalData.toList.asJava)
   }
 
   private def arrayTypeToBsonValue(elementType: DataType, data: Seq[Any]): BsonValue = {
