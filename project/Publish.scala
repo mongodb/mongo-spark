@@ -92,23 +92,16 @@ object Publish {
     pomIncludeRepository := { _ => false },
     pomExtra :=
       <url>http://github.com/mongo-spark</url>
-        <licenses>
-          <license>
-            <name>Apache 2</name>
-            <url>http://www.apache.org/licenses/LICENSE-2.0.html</url>
-            <distribution>repo</distribution>
-          </license>
-        </licenses>
-        <scm>
-          <url>git@github.com:mongodb/mongo-spark.git</url>
-          <connection>scm:git:git@github.com:mongodb/mongo-spark.git</connection>
-        </scm>
-        <developers>
-          <developer>
-            <name>Various</name>
-            <organization>MongoDB</organization>
-          </developer>
-        </developers>
+      <scm>
+        <url>git@github.com:mongodb/mongo-spark.git</url>
+        <connection>scm:git:git@github.com:mongodb/mongo-spark.git</connection>
+      </scm>
+      <developers>
+        <developer>
+          <name>Various</name>
+          <organization>MongoDB</organization>
+        </developer>
+      </developers>
   )
 
   lazy val noPublishing = Seq(
