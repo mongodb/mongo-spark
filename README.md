@@ -11,6 +11,9 @@ See: https://docs.mongodb.com/spark-connector/
 
 [API Documentation](https://www.javadoc.io/doc/org.mongodb.spark/mongo-spark-connector_2.11)
 
+See the [1.x](https://github.com/mongodb/mongo-spark/tree/1.x) branch for the Spark 1.6.x version of the driver.
+
+
 ## Support / Feedback
 
 For issues with, questions about, or feedback for the MongoDB Spark Connector, please look into
