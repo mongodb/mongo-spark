@@ -138,6 +138,12 @@ The following example converts the `DataFrame` into a `Dataset`. Or more correct
 explicitDF.as[Character]
 ```
 
+#### ConflictType
+
+When inferring the schema, if a collection contains a field with two incompatible data types then a `ConflictType` will be used. To work 
+around conflicting datatypes you can either filter out the invalid datatypes by providing your own pipeline filtering them out. Alternatively,
+you can manually declare the schema for the collection and replace the `ConflictType` with a `StringType` for a string representation of the data.
+
 #### RDD to DataFrame / Datasets
 
 The `MongoRDD` class provides helpers to create DataFrames and Datasets directly:
