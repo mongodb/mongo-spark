@@ -564,8 +564,9 @@ case class MongoSpark(sparkSession: SparkSession, connector: MongoConnector, rea
    * @return a DataFrame.
    */
   def toDF(schema: StructType): DataFrame = {
-    val rowRDD = toBsonDocumentRDD.map(doc => documentToRow(doc, schema, Array()))
-    sparkSession.createDataFrame(rowRDD, schema)
+    sparkSession.read.format("com.mongodb.spark.sql")
+      .schema(schema).option("pipeline", pipeline.map(_.toJson).mkString("[", ",", "]"))
+      .load()
   }
 
   /**
