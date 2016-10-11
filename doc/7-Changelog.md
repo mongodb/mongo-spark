@@ -1,6 +1,7 @@
 # Mongo Spark Connector Changelog
 
 ## 2.0.0
+  * [[SPARK-84](https://jira.mongodb.org/browse/SPARK-84)] Removed `ConflictType` its not compatible with Spark 2.0
   * [[SPARK-81](https://jira.mongodb.org/browse/SPARK-81)] Set allow disk use to true for all aggregations.
   * [[SPARK-78](https://jira.mongodb.org/browse/SPARK-78)] MongoDataFrameWriterFunctions is no longer public
   * [[SPARK-67](https://jira.mongodb.org/browse/SPARK-67)] MongoRelation no longer public and Default Source updated to return the expected type.
