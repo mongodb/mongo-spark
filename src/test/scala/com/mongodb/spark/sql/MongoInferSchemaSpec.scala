@@ -19,13 +19,13 @@ package com.mongodb.spark.sql
 import scala.collection.JavaConverters._
 
 import org.apache.spark.sql.types.DataTypes.{createArrayType, createStructField, createStructType}
-import org.apache.spark.sql.types.{DataTypes, StructField}
+import org.apache.spark.sql.types.{ArrayType, DataTypes, StringType, StructField}
 
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
 import com.mongodb.MongoClient
 import com.mongodb.spark._
-import com.mongodb.spark.sql.types.{BsonCompatibility, ConflictType}
+import com.mongodb.spark.sql.types.BsonCompatibility
 
 import org.scalatest.prop.TableDrivenPropertyChecks
 
@@ -181,10 +181,10 @@ class MongoInferSchemaSpec extends RequiresMongoDB with MongoDataGenerator with 
     }
   }
 
-  it should "still mark incompatible schemas with a ConflictType" in withSparkContext() { sc =>
+  it should "still mark incompatible schemas with a StringType" in withSparkContext() { sc =>
     val _idField: StructField = createStructField("_id", BsonCompatibility.ObjectId.structType, true)
-    val conflictSchema = createStructType(Array(_idField, createStructField("a", ConflictType, true)))
-    val conflictingSchemas = Table("documents", Seq("{a:[{b:1, c:2}]}", "{a: {b: 1}}"), Seq("{a:[{b:1, c:2}, {d:3, e:4}, [{b: 1}]]}"))
+    val conflictSchema = createStructType(Array(_idField, createStructField("a", ArrayType(StringType), true)))
+    val conflictingSchemas = Table("documents", Seq("{a:[{b:1, c:2}]}", "{a: [1, {b: 1}]}"), Seq("{a:[{b:1, c:2}, {d:3, e:4}, [{b: 1}]]}"))
 
     forAll(conflictingSchemas) { documents =>
       sc.parallelize(documents.map(BsonDocument.parse)).saveToMongoDB()
