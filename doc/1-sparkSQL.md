@@ -138,11 +138,12 @@ The following example converts the `DataFrame` into a `Dataset`. Or more correct
 explicitDF.as[Character]
 ```
 
-#### ConflictType
+#### Conflicting Types
 
-When inferring the schema, if a collection contains a field with two incompatible data types then a `ConflictType` will be used. To work 
-around conflicting datatypes you can either filter out the invalid datatypes by providing your own pipeline filtering them out. Alternatively,
-you can manually declare the schema for the collection and replace the `ConflictType` with a `StringType` for a string representation of the data.
+When inferring the schema, if a collection contains a field with two incompatible data types then a `StringType` will be used. To work
+around conflicting datatypes you can filter out the invalid datatypes by explicitly providing your own pipeline filtering them out. Note 
+that filters passed down to MongoDB on fields with Conflicts will not work as expected and the filtering must happen inside Spark. The 
+special functional helpers below can be used to ensure correct filtering.
 
 #### RDD to DataFrame / Datasets
 
