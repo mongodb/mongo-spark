@@ -163,6 +163,7 @@ class MongoRDD[D: ClassTag](
       .withReadConcern(readConfig.readConcern)
       .withReadPreference(readConfig.readPreference)
       .aggregate(partitionPipeline.asJava)
+      .allowDiskUse(true)
       .iterator
   }
 

@@ -94,7 +94,7 @@ class MongoSamplePartitioner extends MongoPartitioner {
                   Aggregates.sample(numberOfSamples),
                   Aggregates.project(Projections.include(partitionKey)),
                   Aggregates.sort(Sorts.ascending(partitionKey))
-                ).asJava).into(new util.ArrayList[BsonDocument]()).asScala
+                ).asJava).allowDiskUse(true).into(new util.ArrayList[BsonDocument]()).asScala
             })
             samples.zipWithIndex.collect { case (field, i) if i % samplesPerPartition == 0 => field.get("_id") }
         }
