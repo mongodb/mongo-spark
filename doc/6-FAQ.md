@@ -56,7 +56,8 @@ ssc.awaitTermination()
 
 Note: The Mongo Spark Connector only supports streams a sink.
 
-## Is connector supporting push down? (e.g. if you filter on Spark, does it create a query using that filter so that the data is filtered in MongoDB directly?)
+## Is the connector supporting push down?
+(e.g. if you filter on Spark, does it create a query using that filter so that the data is filtered in MongoDB directly?)
 
 Push down is supported when using DataFrames / SparkSQL as we implement the PrunedFilteredScan trait in the BaseRelation.  
 
