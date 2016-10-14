@@ -208,10 +208,10 @@ object MongoSpark {
   /**
    * Creates a DataFrameWriter with the `MongoDB` underlying output data source.
    *
-   * @param dataFrame the DataFrame to convert into a DataFrameWriter
+   * @param dataset the Dataset to convert into a DataFrameWriter
    * @return the DataFrameWriter
    */
-  def write(dataFrame: DataFrame): DataFrameWriter[Row] = dataFrame.write.format("com.mongodb.spark.sql")
+  def write[T](dataset: Dataset[T]): DataFrameWriter[T] = dataset.write.format("com.mongodb.spark.sql")
 
   /**
    * Builder for configuring and creating a [[MongoSpark]]
