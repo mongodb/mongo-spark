@@ -82,5 +82,5 @@ package object sql {
    * @since 1.1.0
    */
   @DeveloperApi
-  implicit def toMongoDataFrame(ds: Dataset[_]): MongoDataFrameFunctions = MongoDataFrameFunctions(ds.toDF())
+  implicit def toMongoDataFrame[T](ds: Dataset[T]): MongoDataFrameFunctions[Row] = MongoDataFrameFunctions[Row](ds.toDF())
 }
