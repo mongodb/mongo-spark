@@ -565,7 +565,9 @@ case class MongoSpark(sparkSession: SparkSession, connector: MongoConnector, rea
    */
   def toDF(schema: StructType): DataFrame = {
     sparkSession.read.format("com.mongodb.spark.sql")
-      .schema(schema).option("pipeline", pipeline.map(_.toJson).mkString("[", ",", "]"))
+      .schema(schema)
+      .options(readConfig.asOptions)
+      .option("pipeline", pipeline.map(_.toJson).mkString("[", ",", "]"))
       .load()
   }
 
