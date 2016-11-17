@@ -56,6 +56,13 @@ ssc.awaitTermination()
 
 Note: The Mongo Spark Connector only supports streams a sink.
 
+## Is the connector supporting push down?
+(e.g. if you filter on Spark, does it create a query using that filter so that the data is filtered in MongoDB directly?)
+
+Push down is supported when using DataFrames / SparkSQL as we implement the PrunedFilteredScan trait in the BaseRelation.  
+
+If you are just using RDD's then there is no mechanism in Spark to enable push down and you should either consider using DataFrames / SparkSQL or provide your own aggregation pipeline.
+
 ## Unrecognized pipeline stage name: '$sample' error.
 
 In MongoDB deployments with mixed mongod versions, it is possible to get an `Unrecognized pipeline stage name: '$sample'` error.
