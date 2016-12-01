@@ -35,7 +35,8 @@ object SparkConnectorBuild extends Build {
     crossScalaVersions := scalaVersions,
     libraryDependencies ++= coreDependencies,
     resolvers := mongoScalaResolvers,
-    scalacOptions ++= scalacOptionsVersion(scalaVersion.value)
+    scalacOptions ++= scalacOptionsVersion(scalaVersion.value),
+    javacOptions ++= Seq("-encoding", "UTF-8")
   )
 
   def scalacOptionsVersion(scalaVersion: String): Seq[String] = {
