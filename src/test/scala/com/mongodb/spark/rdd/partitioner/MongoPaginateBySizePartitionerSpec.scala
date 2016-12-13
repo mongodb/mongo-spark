@@ -63,6 +63,13 @@ class MongoPaginateBySizePartitionerSpec extends RequiresMongoDB {
     MongoPaginateBySizePartitioner.partitions(mongoConnector, readConfig, pipeline) should equal(expectedPartitions)
   }
 
+  it should "handle an empty collection" in {
+    collection.insertOne(new Document())
+    collection.deleteMany(new Document())
+    val expectedPartitions = MongoSinglePartitioner.partitions(mongoConnector, readConfig, pipeline)
+    MongoPaginateBySizePartitioner.partitions(mongoConnector, readConfig, pipeline) should equal(expectedPartitions)
+  }
+
   it should "throw a partitioner error if duplicate partitions are found" in {
     val sampleString: String = Random.alphanumeric.take(1000 * 1000).mkString
     collection.insertMany((1 to 100).map(i => new Document("a", 1).append("s", sampleString)).toList.asJava)

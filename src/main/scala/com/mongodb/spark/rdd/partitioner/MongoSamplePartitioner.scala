@@ -21,7 +21,7 @@ import java.util
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
-import org.bson.{BsonDocument, BsonValue}
+import org.bson.{BsonDocument, BsonInt64, BsonValue}
 import com.mongodb.MongoCommandException
 import com.mongodb.client.MongoCollection
 import com.mongodb.client.model.{Aggregates, Projections, Sorts}
@@ -81,7 +81,7 @@ class MongoSamplePartitioner extends MongoPartitioner {
         val samplesPerPartition = partitionerOptions.getOrElse(samplesPerPartitionProperty, DefaultSamplesPerPartition).toInt
 
         val count = results.getNumber("count").longValue()
-        val avgObjSizeInBytes = results.getNumber("avgObjSize").longValue()
+        val avgObjSizeInBytes = results.get("avgObjSize", new BsonInt64(0)).asNumber().longValue()
         val numDocumentsPerPartition: Int = math.floor(partitionSizeInBytes.toFloat / avgObjSizeInBytes).toInt
         val numberOfSamples = math.floor(samplesPerPartition * count / numDocumentsPerPartition.toFloat).toInt
 

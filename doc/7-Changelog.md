@@ -1,5 +1,8 @@
 # Mongo Spark Connector Changelog
 
+## 2.0.1
+  * [[SPARK-103](https://jira.mongodb.org/browse/SPARK-103)] Ensure partitioners handle empty collections
+
 ## 2.0.0
   * [[SPARK-84](https://jira.mongodb.org/browse/SPARK-84)] Removed `ConflictType` its not compatible with Spark 2.0
   * [[SPARK-81](https://jira.mongodb.org/browse/SPARK-81)] Set allow disk use to true for all aggregations.

@@ -49,6 +49,21 @@ class MongoShardedPartitionerSpec extends RequiresMongoDB with PropertyChecks {
     MongoShardedPartitioner.partitions(mongoConnector, readConfig, pipeline) should equal(expectedPartitions)
   }
 
+  it should "handle no  collection" in {
+    if (!isSharded) cancel("Not a Sharded MongoDB")
+    val expectedPartitions = MongoSinglePartitioner.partitions(mongoConnector, readConfig, pipeline)
+    MongoShardedPartitioner.partitions(mongoConnector, readConfig, pipeline) should equal(expectedPartitions)
+  }
+
+  it should "handle an empty collection" in {
+    if (!isSharded) cancel("Not a Sharded MongoDB")
+    shardCollection()
+    collection.insertOne(new Document())
+    collection.deleteMany(new Document())
+    val expectedPartitions = MongoSinglePartitioner.partitions(mongoConnector, readConfig, pipeline)
+    MongoShardedPartitioner.partitions(mongoConnector, readConfig, pipeline) should equal(expectedPartitions)
+  }
+
   it should "calculate the expected hosts for a single node shard" in {
     MongoShardedPartitioner.getHosts("sh0.example.com:27018") should contain theSameElementsInOrderAs Seq("sh0.example.com")
   }

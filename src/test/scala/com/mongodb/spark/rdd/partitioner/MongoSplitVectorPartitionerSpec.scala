@@ -58,4 +58,11 @@ class MongoSplitVectorPartitionerSpec extends RequiresMongoDB {
     val expectedPartitions = MongoSinglePartitioner.partitions(mongoConnector, readConfig, pipeline)
     MongoSplitVectorPartitioner.partitions(mongoConnector, readConfig, pipeline) should equal(expectedPartitions)
   }
+
+  it should "handle an empty collection" in {
+    collection.insertOne(new Document())
+    collection.deleteMany(new Document())
+    val expectedPartitions = MongoSinglePartitioner.partitions(mongoConnector, readConfig, pipeline)
+    MongoSplitVectorPartitioner.partitions(mongoConnector, readConfig, pipeline) should equal(expectedPartitions)
+  }
 }
