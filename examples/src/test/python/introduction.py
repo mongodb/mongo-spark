@@ -21,37 +21,28 @@
 # ./bin/spark-submit --master "local[4]"  \
 #                    --conf "spark.mongodb.input.uri=mongodb://127.0.0.1/test.coll?readPreference=primaryPreferred" \
 #                    --conf "spark.mongodb.output.uri=mongodb://127.0.0.1/test.coll" \
-#                    --packages org.mongodb.spark:mongo-spark-connector_2.10:1.0.0 \
+#                    --packages org.mongodb.spark:mongo-spark-connector_2.11:2.0.0 \
 #                    introduction.py
 
-from pyspark import SparkConf, SparkContext
-from pyspark.sql import SQLContext
-
+from pyspark.sql import SparkSession
 
 if __name__ == "__main__":
 
-    sparkConf = SparkConf().setMaster("local").setAppName("MongoSparkConnectorTour").set("spark.app.id", "MongoSparkConnectorTour")
-    sc = SparkContext(conf=sparkConf)
-    sqlContext = SQLContext(sc)
+    spark = SparkSession.builder.appName("Python Spark SQL basic example").getOrCreate()
 
-    logger = sc._jvm.org.apache.log4j
+    logger = spark._jvm.org.apache.log4j
     logger.LogManager.getRootLogger().setLevel(logger.Level.FATAL)
 
     # Save some data
-    charactersRdd = sc.parallelize([("Bilbo Baggins",  50), ("Gandalf", 1000), ("Thorin", 195), ("Balin", 178), ("Kili", 77),
-                                    ("Dwalin", 169), ("Oin", 167), ("Gloin", 158), ("Fili", 82), ("Bombur", None)])
-    characters = sqlContext.createDataFrame(charactersRdd, ["name", "age"])
+    characters = spark.createDataFrame([("Bilbo Baggins",  50), ("Gandalf", 1000), ("Thorin", 195), ("Balin", 178), ("Kili", 77), ("Dwalin", 169), ("Oin", 167), ("Gloin", 158), ("Fili", 82), ("Bombur", None)], ["name", "age"])
     characters.write.format("com.mongodb.spark.sql").mode("overwrite").save()
 
-    # Load the data
-    df = sqlContext.read.format("com.mongodb.spark.sql").load()
+    # print the schema
     print("Schema:")
-    df.printSchema()
+    characters.printSchema()
 
     # SQL
-    df.registerTempTable("characters")
-    centenarians = sqlContext.sql("SELECT name, age FROM characters WHERE age >= 100")
+    characters.registerTempTable("temp")
+    centenarians = spark.sql("SELECT name, age FROM temp WHERE age >= 100")
     print("Centenarians:")
     centenarians.show()
-
-    sc.stop()
