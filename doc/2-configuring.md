@@ -51,7 +51,7 @@ writeConcern.journal    | The write concern journal value                       
 writeConcern.wTimeoutMS | The write concern wTimeout value                                  |
 
 -----
-**Note**: When setting output configurations in the `SparkConf` then the prefix `spark.mongodb.input.` is required.
+**Note**: When setting output configurations in the `SparkConf` then the prefix `spark.mongodb.output.` is required.
 
 -----
 

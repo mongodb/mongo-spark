@@ -18,7 +18,7 @@ package com.mongodb.spark.rdd.partitioner
 
 import scala.util.{Failure, Success, Try}
 
-import org.bson.{BsonDocument, BsonValue}
+import org.bson.{BsonDocument, BsonInt64, BsonValue}
 import com.mongodb.MongoCommandException
 import com.mongodb.spark.MongoConnector
 import com.mongodb.spark.config.ReadConfig
@@ -70,7 +70,7 @@ class MongoPaginateBySizePartitioner extends MongoPartitioner with MongoPaginati
         val partitionKey = partitionerOptions.getOrElse(partitionKeyProperty, DefaultPartitionKey)
         val partitionSizeInBytes = partitionerOptions.getOrElse(partitionSizeMBProperty, DefaultPartitionSizeMB).toInt * 1024 * 1024
         val count = results.getNumber("count").longValue()
-        val avgObjSizeInBytes = results.getNumber("avgObjSize").longValue()
+        val avgObjSizeInBytes = results.get("avgObjSize", new BsonInt64(0)).asNumber().longValue()
         val numDocumentsPerPartition: Int = math.floor(partitionSizeInBytes.toFloat / avgObjSizeInBytes).toInt
 
         val rightHandBoundaries = numDocumentsPerPartition >= count match {

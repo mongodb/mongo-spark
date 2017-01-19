@@ -106,6 +106,7 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
     pipelineJson match {
       case Some(json) =>
         val pipeline: Seq[Bson] = BsonDocument.parse(s"{pipeline: $json}").get("pipeline") match {
+          case seq: BsonArray if seq.isEmpty => Seq[Bson]()
           case seq: BsonArray if seq.get(0).getBsonType == BsonType.DOCUMENT => seq.getValues.asScala.asInstanceOf[Seq[Bson]]
           case doc: BsonDocument => Seq(doc)
           case _ => throw new IllegalArgumentException(

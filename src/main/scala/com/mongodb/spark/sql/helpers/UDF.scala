@@ -20,14 +20,14 @@ import javax.xml.bind.DatatypeConverter
 
 import org.apache.spark.sql.SparkSession
 
-import com.mongodb.spark.sql.{fieldTypes, types}
+import com.mongodb.spark.sql.fieldTypes
 
 /**
  * The udf package provides User Defined Functions that can be used to support querying unsupported Bson Types in Spark.
  *
  * The unsupported types follow the [[http://docs.mongodb.com/manual/reference/mongodb-extended-json MongoDB Extended Json]] format.
  *
- * @see the [[types]] helpers which convert unsupported bson types into `StructTypes` so that they can be queried
+ * @see the [[StructFields]] helpers which convert unsupported bson types into `StructTypes` so that they can be queried
  * @since 1.1.0
  */
 object UDF {
@@ -38,7 +38,7 @@ object UDF {
    * Usage example:
    * {{{
    * sqlContext.udf.register("Binary", udf.binary _)
-   * df.filter(s"binary = Binary('$base64')")
+   * df.filter(s"binary = Binary('\$base64')")
    * }}}
    *
    * @param base64 the base 64 string that represents a binary value
@@ -52,7 +52,7 @@ object UDF {
    * Usage example:
    * {{{
    * sqlContext.udf.register("BinaryWithSubType", udf.binaryWithSubType _)
-   * df.filter(s"binaryWithSubType = BinaryWithSubType($subType, '$base64')")
+   * df.filter(s"binaryWithSubType = BinaryWithSubType(\$subType, '\$base64')")
    * }}}
    *
    * @param subType the binary sub type
@@ -67,7 +67,7 @@ object UDF {
    * Usage example:
    * {{{
    * sqlContext.udf.register("DbPointer", udf.dbPointer _)
-   * df.filter(s"dbPointer = DbPointer('$ref', '$oid')")
+   * df.filter(s"dbPointer = DbPointer('\$ref', '\$oid')")
    * }}}
    *
    * @param ref the namespace string
@@ -82,7 +82,7 @@ object UDF {
    * Usage example:
    * {{{
    * sqlContext.udf.register("JavaScript", udf.javaScript _)
-   * df.filter(s"code = JavaScript('$code')")
+   * df.filter(s"code = JavaScript('\$code')")
    * }}}
    *
    * @param code the JavaScript code
@@ -96,7 +96,7 @@ object UDF {
    * Usage example:
    * {{{
    * sqlContext.udf.register("JavaScript", udf.javaScriptWithScope _)
-   * df.filter(s"codeWithScope = JavaScript('$code', '$scope')")
+   * df.filter(s"codeWithScope = JavaScript('\$code', '\$scope')")
    * }}}
    *
    * @param code the JavaScript code
@@ -137,7 +137,7 @@ object UDF {
    * Usage example:
    * {{{
    * sqlContext.udf.register("ObjectId", udf.objectId _)
-   * df.filter(s"objectId = ObjectId('$oid')")
+   * df.filter(s"objectId = ObjectId('\$oid')")
    * }}}
    *
    * @param oid the ObjectId string
@@ -151,7 +151,7 @@ object UDF {
    * Usage example:
    * {{{
    * sqlContext.udf.register("Regex", udf.regularExpression _)
-   * df.filter(s"regex = Regex('$regex')")
+   * df.filter(s"regex = Regex('\$regex')")
    * }}}
    *
    * @param regex the regular expression string
@@ -165,7 +165,7 @@ object UDF {
    * Usage example:
    * {{{
    * sqlContext.udf.register("Regex", udf.regularExpressionWithOptions _)
-   * df.filter(s"regexWithOptions = Regex('$regex', '$options')")
+   * df.filter(s"regexWithOptions = Regex('\$regex', '\$options')")
    * }}}
    *
    * @param regex the regular expression string
@@ -180,7 +180,7 @@ object UDF {
    * Usage example:
    * {{{
    * sqlContext.udf.register("Symbol", udf.symbol _)
-   * df.filter(s"symbol = Symbol('$symbol')")
+   * df.filter(s"symbol = Symbol('\$symbol')")
    * }}}
    *
    * @param symbol the symbol
@@ -194,7 +194,7 @@ object UDF {
    * Usage example:
    * {{{
    * sqlContext.udf.register("Timestamp", udf.timestamp _)
-   * df.filter(s"timestamp = Timestamp($time, $inc)")
+   * df.filter(s"timestamp = Timestamp(\$time, \$inc)")
    * }}}
    *
    * @param time the time in seconds since epoch

@@ -40,7 +40,7 @@ private[spark] case class MongoRelation(mongoRDD: MongoRDD[BsonDocument], _schem
     val pipelineFilters = schema.fields.filter(!_.nullable).map(_.name).map(IsNotNull) ++ filters
 
     if (requiredColumns.nonEmpty || pipelineFilters.nonEmpty) {
-      logWarning(s"requiredColumns: ${requiredColumns.mkString(", ")}, filters: ${pipelineFilters.mkString(", ")}")
+      logInfo(s"requiredColumns: ${requiredColumns.mkString(", ")}, filters: ${pipelineFilters.mkString(", ")}")
     }
     mongoRDD.appendPipeline(createPipeline(requiredColumns, pipelineFilters)).map(doc => documentToRow(doc, schema, requiredColumns))
   }

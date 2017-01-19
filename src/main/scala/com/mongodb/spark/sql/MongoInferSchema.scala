@@ -29,12 +29,12 @@ import org.apache.spark.sql.types._
 
 import org.bson._
 import com.mongodb.client.model.{Aggregates, Filters, Projections, Sorts}
-import com.mongodb.spark.MongoSpark
+import com.mongodb.spark.{Logging, MongoSpark}
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.rdd.partitioner.MongoSinglePartitioner
 import com.mongodb.spark.sql.types.{BsonCompatibility, ConflictType, SkipFieldType}
 
-object MongoInferSchema {
+object MongoInferSchema extends Logging {
 
   /**
    * Gets a schema for the specified mongo collection. It is required that the
@@ -84,30 +84,27 @@ object MongoInferSchema {
    * Remove StructTypes with no fields or SkipFields
    */
   private def canonicalizeType: DataType => Option[DataType] = {
-    case at @ ArrayType(elementType, _) =>
-      for {
-        canonicalType <- canonicalizeType(elementType)
-      } yield {
-        at.copy(canonicalType)
-      }
-
+    case at @ ArrayType(elementType, _) => canonicalizeType(elementType).map(dt => at.copy(elementType = dt))
     case StructType(fields) =>
-      val canonicalFields = for {
-        field <- fields
-        if field.name.nonEmpty
-        if field.dataType != SkipFieldType
-        canonicalType <- canonicalizeType(field.dataType)
-      } yield {
-        field.copy(dataType = canonicalType)
-      }
-
+      val canonicalFields = fields.flatMap(field => {
+        if (field.name.isEmpty || field.dataType == SkipFieldType) {
+          None
+        } else {
+          if (fieldContainsConflictType(field.dataType)) {
+            val start = if (field.dataType.isInstanceOf[ArrayType]) "Array Field" else "Field"
+            logWarning(s"$start '${field.name}' contains conflicting types converting to StringType")
+          }
+          canonicalizeType(field.dataType).map(dt => field.copy(dataType = dt))
+        }
+      })
       if (canonicalFields.nonEmpty) {
         Some(StructType(canonicalFields))
       } else {
         // per SPARK-8093: empty structs should be deleted
         None
       }
-    case other => Some(other)
+    case other: ConflictType => Some(StringType)
+    case other               => Some(other)
   }
 
   private def getSchemaFromDocument(document: BsonDocument): StructType = {
@@ -191,6 +188,14 @@ object MongoInferSchema {
   }
   // scalastyle:on cyclomatic.complexity null
 
+  private def fieldContainsConflictType(dataType: DataType): Boolean = {
+    dataType match {
+      case ArrayType(elementType, _) if elementType == ConflictType => true
+      case ConflictType => true
+      case _ => false
+    }
+  }
+
   def getCompatibleArraySchema(bsonArray: Seq[BsonValue]): DataType = {
     var arrayType: Option[DataType] = Some(SkipFieldType)
     bsonArray.takeWhile({
@@ -203,7 +208,6 @@ object MongoInferSchema {
     })
     arrayType.get match {
       case SkipFieldType => SkipFieldType
-      case ConflictType  => ConflictType
       case dataType      => DataTypes.createArrayType(dataType, true)
     }
   }

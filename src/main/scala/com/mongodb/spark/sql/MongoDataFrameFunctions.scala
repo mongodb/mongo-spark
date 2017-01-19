@@ -16,12 +16,12 @@
 
 package com.mongodb.spark.sql
 
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.Dataset
 
 import com.mongodb.spark.config.WriteConfig
 import com.mongodb.spark.{LoggingTrait, MongoSpark}
 
-private[spark] case class MongoDataFrameFunctions(@transient df: DataFrame) extends LoggingTrait {
+private[spark] case class MongoDataFrameFunctions[T](@transient df: Dataset[T]) extends LoggingTrait {
 
   /**
    * Saves the contents of the `DataFrame` to MongoDB.

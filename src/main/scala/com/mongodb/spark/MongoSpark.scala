@@ -208,10 +208,10 @@ object MongoSpark {
   /**
    * Creates a DataFrameWriter with the `MongoDB` underlying output data source.
    *
-   * @param dataFrame the DataFrame to convert into a DataFrameWriter
+   * @param dataset the Dataset to convert into a DataFrameWriter
    * @return the DataFrameWriter
    */
-  def write(dataFrame: DataFrame): DataFrameWriter[Row] = dataFrame.write.format("com.mongodb.spark.sql")
+  def write[T](dataset: Dataset[T]): DataFrameWriter[T] = dataset.write.format("com.mongodb.spark.sql")
 
   /**
    * Builder for configuring and creating a [[MongoSpark]]
@@ -564,8 +564,11 @@ case class MongoSpark(sparkSession: SparkSession, connector: MongoConnector, rea
    * @return a DataFrame.
    */
   def toDF(schema: StructType): DataFrame = {
-    val rowRDD = toBsonDocumentRDD.map(doc => documentToRow(doc, schema, Array()))
-    sparkSession.createDataFrame(rowRDD, schema)
+    sparkSession.read.format("com.mongodb.spark.sql")
+      .schema(schema)
+      .options(readConfig.asOptions)
+      .option("pipeline", pipeline.map(_.toJson).mkString("[", ",", "]"))
+      .load()
   }
 
   /**

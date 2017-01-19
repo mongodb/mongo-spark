@@ -11,13 +11,19 @@ See: https://docs.mongodb.com/spark-connector/
 
 [API Documentation](https://www.javadoc.io/doc/org.mongodb.spark/mongo-spark-connector_2.11)
 
+See the [1.x](https://github.com/mongodb/mongo-spark/tree/1.x) branch for the Spark 1.6.x version of the driver.
+
+## Downloading
+
+The connector is published on [Spark packages](https://spark-packages.org/package/mongodb/mongo-spark); the community index of third-party packages for [Apache Spark](http://spark.apache.org/). The binaries and dependency information for Maven, SBT, Ivy and others can also be found on
+[maven central](http://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.mongodb.spark).
+
 ## Support / Feedback
 
 For issues with, questions about, or feedback for the MongoDB Spark Connector, please look into
 our [support channels](http://www.mongodb.org/about/support). Please
 do not email any of the developers directly with issues or
-questions - you're more likely to get an answer on the [mongodb-user]
-(http://groups.google.com/group/mongodb-user) list on Google Groups.
+questions - you're more likely to get an answer on the [mongodb-user](http://groups.google.com/group/mongodb-user) list on Google Groups.
 
 At a minimum, please include in your description the exact version of the driver that you are using.  If you are having
 connectivity issues, it's often also useful to paste in the spark configuration. You should also check your application logs for
@@ -52,10 +58,6 @@ almost always be binary compatible with prior minor releases from the same major
 Patch 1.x.y increments (such as 1.0.0 -> 1.0.1, 1.1.1 -> 1.1.2, etc) will occur for bug fixes only and will always be binary compatible
 with prior patch releases of the same minor release branch.
 
-## Binaries
-
-Binaries and dependency information for Maven, SBT, Ivy and others can be found at
-[http://search.maven.org](http://search.maven.org/#search%7Cga%7C1%7Cg%3Aorg.mongodb.spark).
 
 ## Build
 
@@ -65,6 +67,18 @@ To build the driver:
 $ git clone https://github.com/mongodb/mongo-spark.git
 $ cd mongo-spark
 $ ./sbt check
+```
+
+To publish the signed jars:
+
+```
+$ ./sbt +publish-signed
+```
+
+To publish to spark packages:
+
+```
+$ ./sbt +spPublish
 ```
 
 ## Maintainers

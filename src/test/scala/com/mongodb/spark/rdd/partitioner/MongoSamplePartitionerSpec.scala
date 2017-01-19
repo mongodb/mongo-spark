@@ -60,4 +60,12 @@ class MongoSamplePartitionerSpec extends RequiresMongoDB {
     val expectedPartitions = MongoSinglePartitioner.partitions(mongoConnector, readConfig, pipeline)
     MongoSamplePartitioner.partitions(mongoConnector, readConfig, pipeline) should equal(expectedPartitions)
   }
+
+  it should "handle an empty collection" in {
+    if (!serverAtLeast(3, 2)) cancel("MongoDB < 3.2")
+    collection.insertOne(new Document())
+    collection.deleteMany(new Document())
+    val expectedPartitions = MongoSinglePartitioner.partitions(mongoConnector, readConfig, pipeline)
+    MongoSamplePartitioner.partitions(mongoConnector, readConfig, pipeline) should equal(expectedPartitions)
+  }
 }
