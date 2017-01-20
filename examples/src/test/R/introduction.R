@@ -19,32 +19,28 @@
 # ./bin/spark-submit --master "local[4]"  \
 #                    --conf "spark.mongodb.input.uri=mongodb://127.0.0.1/test.coll?readPreference=primaryPreferred" \
 #                    --conf "spark.mongodb.output.uri=mongodb://127.0.0.1/test.coll" \
-#                    --packages org.mongodb.spark:mongo-spark-connector_2.10:1.0.0 \
+#                    --packages org.mongodb.spark:mongo-spark-connector_2.11:2.0.0 \
 #                    introduction.R
 
 # Load SparkR library into your R session
 library(SparkR)
 
-# Initialize SparkContext and SQLContext
-sc <- sparkR.init(appName="MongoSparkConnectorTour")
-sqlContext <- sparkRSQL.init(sc)
-
+# Initialize SparkSession
+sparkR.session()
+  
 # Save some data
 charactersRdf <- data.frame(list(name=c("Bilbo Baggins", "Gandalf", "Thorin", "Balin", "Kili", "Dwalin", "Oin", "Gloin", "Fili", "Bombur"),
                                  age=c(50, 1000, 195, 178, 77, 169, 167, 158, 82, NA)))
-charactersSparkdf <- createDataFrame(sqlContext, charactersRdf)
+charactersSparkdf <- createDataFrame(charactersRdf)
 write.df(charactersSparkdf, "", source = "com.mongodb.spark.sql.DefaultSource", mode = "overwrite")
 
 # Load the data
-characters <- read.df(sqlContext, source = "com.mongodb.spark.sql.DefaultSource")
+characters <- read.df("", source = "com.mongodb.spark.sql.DefaultSource")
 print("Schema:")
 printSchema(characters)
 
 # SQL
-registerTempTable(characters, "characters")
-centenarians <- sql(sqlContext, "SELECT name, age FROM characters WHERE age >= 100")
+createOrReplaceTempView(characters, "characters")
+centenarians <- sql("SELECT name, age FROM characters WHERE age >= 100")
 print("Centenarians:")
 head(centenarians)
-
-# Stop the SparkContext now
-sparkR.stop()
