@@ -47,6 +47,18 @@ root
  |-- age: integer (nullable = true)
  |-- name: string (nullable = true)
 ```
+Alternatively, you can specify the database and collection while reading the dataframe:
+
+```python
+df = spark.read.format("com.mongodb.spark.sql.DefaultSource")\
+    .option("spark.mongodb.input.uri", "mongodb://<host>:<port>/<db>.<collection>").load()
+```
+And to write a dataframe to a collection:
+
+```python
+df.write.format("com.mongodb.spark.sql.DefaultSource")\
+    .option("spark.mongodb.output.uri", "mongodb://<host>:<port>/<db>.<collection>").save()
+```
 
 ### SQL
 
