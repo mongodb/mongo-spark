@@ -121,7 +121,6 @@ class MongoSamplePartitioner extends MongoPartitioner {
     }
   }
   // scalastyle:on cyclomatic.complexity
-
 }
 
 case object MongoSamplePartitioner extends MongoSamplePartitioner

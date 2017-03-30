@@ -93,6 +93,8 @@ trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with
 
   def loadSampleData(sizeInMB: Int): Unit = mongoDBDefaults.loadSampleData(readConfig.collectionName, sizeInMB)
 
+  def loadSampleDataCompositeKey(sizeInMB: Int): Unit = mongoDBDefaults.loadSampleDataCompositeKey(readConfig.collectionName, sizeInMB)
+
   def mongoConnector: MongoConnector = MongoConnector(sparkConf)
 
   def sparkConf: SparkConf = sparkConf(collectionName)

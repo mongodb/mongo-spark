@@ -119,6 +119,29 @@ class MongoDBDefaults extends Logging {
     })
   }
 
+  def loadSampleDataCompositeKey(collectionName: String, sizeInMB: Int): Unit = {
+    assert(isMongoDBOnline(), "MongoDB offline")
+    assert(sizeInMB > 0, "Size in MB must be more than ")
+    logInfo(s"Loading sample Data: ~${sizeInMB}MB data into '$collectionName'")
+    val collection: MongoCollection[BsonDocument] = mongoClient.getDatabase(DATABASE_NAME)
+      .withReadPreference(ReadPreference.primary())
+      .getCollection(collectionName, classOf[BsonDocument])
+    val numberOfDocuments: Int = 10
+
+    val fieldLength: Int = (1024 * 1024 / numberOfDocuments) - 60 // One MB / number of Documents - Some padding
+    var counter = 0
+    (1 to sizeInMB).foreach({ x =>
+      val sampleString: String = Random.alphanumeric.take(fieldLength).mkString
+      val documents: IndexedSeq[BsonDocument] = (1 to numberOfDocuments).map(y => {
+        counter += 1
+        val idValue = new BsonString(f"$counter%05d")
+        val bValue = new BsonString(f"${counter%2}%05d")
+        new BsonDocument("_id", new BsonDocument("a", idValue).append("b", bValue)).append("s", new BsonString(sampleString))
+      })
+      collection.insertMany(documents.toList.asJava)
+    })
+  }
+
   lazy val adminDB: MongoDatabase = mongoClient.getDatabase("admin")
   lazy val configDB: MongoDatabase = mongoClient.getDatabase("config")
 

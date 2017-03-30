@@ -64,6 +64,22 @@ class MongoSamplePartitionerSpec extends RequiresMongoDB {
     partitions should equal(expectedPartitions)
   }
 
+  it should "partition with a composite key" in {
+    if (!serverAtLeast(3, 2)) cancel("MongoDB < 3.2")
+    loadSampleDataCompositeKey(10)
+
+    val rightHandBoundaries = (1 to 100 by 10).map(x =>
+      new BsonDocument("a", new BsonString(f"$x%05d")).append("b", new BsonString(f"${x%2}%05d")))
+    val locations = PartitionerHelper.locations(MongoConnector(sparkConf))
+    val expectedPartitions = PartitionerHelper.createPartitions("_id", rightHandBoundaries, locations)
+    val partitions = MongoSamplePartitioner.partitions(
+      mongoConnector,
+      readConfig.copy(partitionerOptions = Map("partitionSizeMB" -> "1", "partitionKey" -> "_id")), pipeline
+    )
+
+    partitions should equal(expectedPartitions)
+  }
+
   it should "use the provided pipeline for min and max keys" in {
     if (!serverAtLeast(3, 2)) cancel("MongoDB < 3.2")
     loadSampleData(10)
