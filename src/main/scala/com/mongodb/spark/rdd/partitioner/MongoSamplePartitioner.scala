@@ -71,6 +71,7 @@ class MongoSamplePartitioner extends MongoPartitioner {
    * @param readConfig the [[com.mongodb.spark.config.ReadConfig]]
    * @return the partitions
    */
+  // scalastyle:off cyclomatic.complexity
   override def partitions(connector: MongoConnector, readConfig: ReadConfig, pipeline: Array[BsonDocument]): Array[MongoPartition] = {
 
     Try(PartitionerHelper.collStats(connector, readConfig)) match {
@@ -96,7 +97,12 @@ class MongoSamplePartitioner extends MongoPartitioner {
                   Aggregates.sort(Sorts.ascending(partitionKey))
                 ).asJava).allowDiskUse(true).into(new util.ArrayList[BsonDocument]()).asScala
             })
-            samples.zipWithIndex.collect { case (field, i) if i % samplesPerPartition == 0 => field.get("_id") }
+            samples.zipWithIndex.collect {
+              case (field, i) if i % samplesPerPartition == 0 => {
+                val fieldId = field.get("_id")
+                if (partitionKey.startsWith("_id.")) fieldId.asDocument().get(partitionKey.substring("_id.".length)) else fieldId
+              }
+            }
         }
 
         PartitionerHelper.createPartitions(partitionKey, rightHandBoundaries, PartitionerHelper.locations(connector))
@@ -108,6 +114,7 @@ class MongoSamplePartitioner extends MongoPartitioner {
         throw e
     }
   }
+  // scalastyle:on cyclomatic.complexity
 }
 
 case object MongoSamplePartitioner extends MongoSamplePartitioner
