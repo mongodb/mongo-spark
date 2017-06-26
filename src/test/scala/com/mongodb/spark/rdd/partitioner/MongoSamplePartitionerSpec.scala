@@ -16,8 +16,10 @@
 
 package com.mongodb.spark.rdd.partitioner
 
+import org.apache.spark.sql.SparkSession
+
 import org.bson._
-import com.mongodb.spark.{MongoConnector, RequiresMongoDB}
+import com.mongodb.spark.{MongoConnector, MongoSpark, RequiresMongoDB}
 
 class MongoSamplePartitionerSpec extends RequiresMongoDB {
 
@@ -46,6 +48,36 @@ class MongoSamplePartitionerSpec extends RequiresMongoDB {
     )
     largerSizedPartitions should equal(singlePartition)
   }
+
+  it should "use the provided pipeline for min and max keys" in {
+    if (!serverAtLeast(3, 2)) cancel("MongoDB < 3.2")
+    loadSampleData(10)
+
+    val readConf = readConfig.copy(partitionerOptions = Map("partitionSizeMB" -> "1"))
+    val rangePipeline = Array(BsonDocument.parse(s"""{$$match: { $partitionKey: {$$gte: "00001", $$lt: "00031"}}}"""))
+
+    val rangePartitions = MongoSamplePartitioner.partitions(mongoConnector, readConf, rangePipeline)
+    getQueryBoundForKey(rangePartitions.head, "$gte") should equal("00001")
+    getQueryBoundForKey(rangePartitions.reverse.head, "$lte") should equal("00030")
+    rangePartitions.length should equal(3)
+  }
+
+  it should "use the users pipeline when set in a rdd / dataframe" in {
+    if (!serverAtLeast(3, 2)) cancel("MongoDB < 3.2")
+    loadSampleData(10)
+
+    val readConf = readConfig.copy(partitioner = MongoSamplePartitioner, partitionerOptions = Map("partitionSizeMB" -> "1"))
+    val rangePipeline = BsonDocument.parse(s"""{$$match: { $partitionKey: {$$gte: "00001", $$lt: "00031"}}}""")
+
+    val sparkSession = SparkSession.builder().getOrCreate()
+    val rdd = MongoSpark.load(sparkSession.sparkContext, readConf).withPipeline(Seq(rangePipeline))
+    rdd.count() should equal(30)
+    rdd.partitions.length should equal(3)
+
+    val df = MongoSpark.load(sparkSession, readConf).filter(s"""$partitionKey >= "00001" AND  $partitionKey < "00031"""")
+    df.count() should equal(30)
+    df.rdd.partitions.length should equal(3)
+  }
   // scalastyle:on magic.number
 
   it should "have a default bounds of min to max key" in {
@@ -68,4 +100,8 @@ class MongoSamplePartitionerSpec extends RequiresMongoDB {
     val expectedPartitions = MongoSinglePartitioner.partitions(mongoConnector, readConfig, pipeline)
     MongoSamplePartitioner.partitions(mongoConnector, readConfig, pipeline) should equal(expectedPartitions)
   }
+
+  private def getQueryBoundForKey(partition: MongoPartition, key: String): String =
+    partition.queryBounds.getDocument(partitionKey).getString(key).getValue
+
 }

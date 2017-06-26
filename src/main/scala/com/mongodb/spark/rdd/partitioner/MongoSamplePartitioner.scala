@@ -21,7 +21,7 @@ import java.util
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
-import org.bson.{BsonDocument, BsonInt64, BsonValue}
+import org.bson.{BsonDocument, BsonInt64}
 import com.mongodb.MongoCommandException
 import com.mongodb.client.MongoCollection
 import com.mongodb.client.model.{Aggregates, Projections, Sorts}
@@ -71,35 +71,47 @@ class MongoSamplePartitioner extends MongoPartitioner {
    * @param readConfig the [[com.mongodb.spark.config.ReadConfig]]
    * @return the partitions
    */
+  // scalastyle:off cyclomatic.complexity
   override def partitions(connector: MongoConnector, readConfig: ReadConfig, pipeline: Array[BsonDocument]): Array[MongoPartition] = {
-
     Try(PartitionerHelper.collStats(connector, readConfig)) match {
       case Success(results) =>
+        val matchQuery = PartitionerHelper.matchQuery(pipeline)
         val partitionerOptions = readConfig.partitionerOptions.map(kv => (kv._1.toLowerCase, kv._2))
         val partitionKey = partitionerOptions.getOrElse(partitionKeyProperty, DefaultPartitionKey)
         val partitionSizeInBytes = partitionerOptions.getOrElse(partitionSizeMBProperty, DefaultPartitionSizeMB).toInt * 1024 * 1024
         val samplesPerPartition = partitionerOptions.getOrElse(samplesPerPartitionProperty, DefaultSamplesPerPartition).toInt
 
-        val count = results.getNumber("count").longValue()
+        val count = if (matchQuery.isEmpty) {
+          results.getNumber("count").longValue()
+        } else {
+          connector.withCollectionDo(readConfig, { coll: MongoCollection[BsonDocument] => coll.count(matchQuery) })
+        }
         val avgObjSizeInBytes = results.get("avgObjSize", new BsonInt64(0)).asNumber().longValue()
         val numDocumentsPerPartition: Int = math.floor(partitionSizeInBytes.toFloat / avgObjSizeInBytes).toInt
         val numberOfSamples = math.floor(samplesPerPartition * count / numDocumentsPerPartition.toFloat).toInt
 
-        val rightHandBoundaries = numDocumentsPerPartition >= count match {
-          case true => Seq.empty[BsonValue]
-          case false =>
-            val samples = connector.withCollectionDo(readConfig, {
-              coll: MongoCollection[BsonDocument] =>
-                coll.aggregate(List(
-                  Aggregates.sample(numberOfSamples),
-                  Aggregates.project(Projections.include(partitionKey)),
-                  Aggregates.sort(Sorts.ascending(partitionKey))
-                ).asJava).allowDiskUse(true).into(new util.ArrayList[BsonDocument]()).asScala
-            })
-            samples.zipWithIndex.collect { case (field, i) if i % samplesPerPartition == 0 => field.get("_id") }
+        if (numDocumentsPerPartition >= count) {
+          MongoSinglePartitioner.partitions(connector, readConfig, pipeline)
+        } else {
+          val samples = connector.withCollectionDo(readConfig, {
+            coll: MongoCollection[BsonDocument] =>
+              coll.aggregate(List(
+                Aggregates.`match`(matchQuery),
+                Aggregates.sample(numberOfSamples),
+                Aggregates.project(Projections.include(partitionKey)),
+                Aggregates.sort(Sorts.ascending(partitionKey))
+              ).asJava).allowDiskUse(true).into(new util.ArrayList[BsonDocument]()).asScala
+          })
+          def collectSplit(i: Int): Boolean = (i % samplesPerPartition == 0) || !matchQuery.isEmpty && i == count - 1
+          val rightHandBoundaries = samples.zipWithIndex.collect {
+            case (field, i) if collectSplit(i) => field.get("_id")
+          }
+          val addMinMax = matchQuery.isEmpty
+          val partitions = PartitionerHelper.createPartitions(partitionKey, rightHandBoundaries, PartitionerHelper.locations(connector), addMinMax)
+          if (!addMinMax) PartitionerHelper.setLastBoundaryToLessThanOrEqualTo(partitionKey, partitions)
+          partitions
         }
 
-        PartitionerHelper.createPartitions(partitionKey, rightHandBoundaries, PartitionerHelper.locations(connector))
       case Failure(ex: MongoCommandException) if ex.getErrorMessage.endsWith("not found.") || ex.getErrorCode == 26 =>
         logInfo(s"Could not find collection (${readConfig.collectionName}), using a single partition")
         MongoSinglePartitioner.partitions(connector, readConfig, pipeline)
@@ -108,6 +120,8 @@ class MongoSamplePartitioner extends MongoPartitioner {
         throw e
     }
   }
+  // scalastyle:on cyclomatic.complexity
+
 }
 
 case object MongoSamplePartitioner extends MongoSamplePartitioner

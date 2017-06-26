@@ -19,9 +19,9 @@ package com.mongodb.spark.rdd.partitioner
 import scala.util.{Failure, Success, Try}
 
 import org.bson.{BsonDocument, Document}
-import com.mongodb.MongoCommandException
 import com.mongodb.spark.MongoConnector
 import com.mongodb.spark.config.ReadConfig
+import com.mongodb.{MongoClient, MongoCommandException}
 
 /**
  * The test collection partitioner implementation
@@ -34,12 +34,26 @@ import com.mongodb.spark.config.ReadConfig
  */
 case object TestPartitioner extends MongoPartitioner {
 
+  var _partitioner: Option[MongoPartitioner] = None
+  def getPartitioner(connector: MongoConnector): MongoPartitioner = {
+    if (_partitioner.isEmpty) {
+      val version: (Int, Int) = Try(connector.withMongoClientDo({ client: MongoClient =>
+        val buildinfo = client.getDatabase("admin").runCommand(Document.parse("{buildinfo: 1}"))
+        val version = buildinfo.getString("version").split("\\.").take(2).map(_.toInt)
+        (version.head, version(1))
+      })).getOrElse((1, 0))
+      val partitioner = if (version._1 > 3 || version._1 == 3 && version._2 >= 4) MongoSamplePartitioner else MongoSplitVectorPartitioner
+      _partitioner = Some(partitioner)
+    }
+    _partitioner.get
+  }
+
   override def partitions(connector: MongoConnector, readConfig: ReadConfig, pipeline: Array[BsonDocument]): Array[MongoPartition] = {
     val collStatsCommand: Document = new Document("collStats", readConfig.collectionName)
-    val partitioner = Try(connector.withDatabaseDo(readConfig, { db => db.runCommand(collStatsCommand) })) match {
+    val partitioner: MongoPartitioner = Try(connector.withDatabaseDo(readConfig, { db => db.runCommand(collStatsCommand) })) match {
       case Success(result) => result.getBoolean("sharded").asInstanceOf[Boolean] match {
         case true  => MongoShardedPartitioner
-        case false => MongoSplitVectorPartitioner
+        case false => getPartitioner(connector)
       }
       case Failure(ex: MongoCommandException) if ex.getErrorMessage.endsWith("not found.") || ex.getErrorCode == 26 =>
         logWarning(s"Could not find collection (${readConfig.collectionName}), using single partition")

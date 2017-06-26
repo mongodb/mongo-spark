@@ -22,10 +22,10 @@ import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
 import org.bson._
-import com.mongodb.{MongoCommandException, MongoNotPrimaryException}
 import com.mongodb.spark.MongoConnector
 import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.exceptions.MongoPartitionerException
+import com.mongodb.{MongoCommandException, MongoNotPrimaryException}
 
 /**
  * The SplitVector Partitioner.
@@ -64,15 +64,19 @@ class MongoSplitVectorPartitioner extends MongoPartitioner {
     val partitionSize = partitionerOptions.getOrElse(partitionSizeMBProperty, DefaultPartitionSizeMB).toInt
 
     val keyPattern: BsonDocument = new BsonDocument(partitionKey, new BsonInt32(1))
+    val minKeyMaxKey = PartitionerHelper.getSplitVectorRangeQuery(partitionKey, pipeline)
+
     val splitVectorCommand: BsonDocument = new BsonDocument("splitVector", new BsonString(ns))
       .append("keyPattern", keyPattern)
       .append("maxChunkSize", new BsonInt32(partitionSize))
+      .append("min", new BsonDocument(partitionKey, minKeyMaxKey._1))
+      .append("max", new BsonDocument(partitionKey, minKeyMaxKey._2))
 
     connector.withDatabaseDo(readConfig, { db =>
       Try(db.runCommand(splitVectorCommand, classOf[BsonDocument])) match {
         case Success(result: BsonDocument) =>
           val locations: Seq[String] = connector.withMongoClientDo(mongoClient => mongoClient.getAllAddress.asScala.map(_.getHost).distinct)
-          createPartitions(partitionKey, result, locations)
+          createPartitions(partitionKey, result, locations, minKeyMaxKey)
         case Failure(e: MongoNotPrimaryException) =>
           logWarning("The `SplitVector` command must be run on the primary node")
           throw e
@@ -84,11 +88,12 @@ class MongoSplitVectorPartitioner extends MongoPartitioner {
     })
   }
 
-  private def createPartitions(partitionKey: String, result: BsonDocument, locations: Seq[String]): Array[MongoPartition] = {
+  private def createPartitions(partitionKey: String, result: BsonDocument, locations: Seq[String], minMaxKey: (BsonValue, BsonValue)): Array[MongoPartition] = {
     result.getDouble("ok").getValue match {
       case 1.0 =>
-        val rightHandPartitionBoundaries = result.get("splitKeys").asInstanceOf[util.List[BsonDocument]].asScala.map(_.get(partitionKey))
-        val partitions = PartitionerHelper.createPartitions(partitionKey, rightHandPartitionBoundaries, locations)
+        val splitKeys = result.get("splitKeys").asInstanceOf[util.List[BsonDocument]].asScala.map(_.get(partitionKey))
+        val rightHandBoundaries = minMaxKey._1 +: splitKeys :+ minMaxKey._2
+        val partitions = PartitionerHelper.createPartitions(partitionKey, rightHandBoundaries, locations, false)
         if (partitions.length == 1) {
           logInfo(
             """No splitKeys were calculated by the splitVector command, proceeding with a single partition.

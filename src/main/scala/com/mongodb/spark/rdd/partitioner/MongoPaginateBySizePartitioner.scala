@@ -18,8 +18,9 @@ package com.mongodb.spark.rdd.partitioner
 
 import scala.util.{Failure, Success, Try}
 
-import org.bson.{BsonDocument, BsonInt64, BsonValue}
+import org.bson.{BsonDocument, BsonInt64}
 import com.mongodb.MongoCommandException
+import com.mongodb.client.MongoCollection
 import com.mongodb.spark.MongoConnector
 import com.mongodb.spark.config.ReadConfig
 
@@ -63,22 +64,35 @@ class MongoPaginateBySizePartitioner extends MongoPartitioner with MongoPaginati
    * @return the partitions
    */
   override def partitions(connector: MongoConnector, readConfig: ReadConfig, pipeline: Array[BsonDocument]): Array[MongoPartition] = {
-
     Try(PartitionerHelper.collStats(connector, readConfig)) match {
       case Success(results) =>
         val partitionerOptions = readConfig.partitionerOptions.map(kv => (kv._1.toLowerCase, kv._2))
         val partitionKey = partitionerOptions.getOrElse(partitionKeyProperty, DefaultPartitionKey)
         val partitionSizeInBytes = partitionerOptions.getOrElse(partitionSizeMBProperty, DefaultPartitionSizeMB).toInt * 1024 * 1024
-        val count = results.getNumber("count").longValue()
+
         val avgObjSizeInBytes = results.get("avgObjSize", new BsonInt64(0)).asNumber().longValue()
         val numDocumentsPerPartition: Int = math.floor(partitionSizeInBytes.toFloat / avgObjSizeInBytes).toInt
 
-        val rightHandBoundaries = numDocumentsPerPartition >= count match {
-          case true => Seq.empty[BsonValue]
-          case false =>
-            calculatePartitions(connector, readConfig, partitionKey, count, numDocumentsPerPartition)
+        val matchQuery = PartitionerHelper.matchQuery(pipeline)
+        val count = if (matchQuery.isEmpty) {
+          results.getNumber("count").longValue()
+        } else {
+          connector.withCollectionDo(readConfig, { coll: MongoCollection[BsonDocument] => coll.count(matchQuery) })
         }
-        PartitionerHelper.createPartitions(partitionKey, rightHandBoundaries, PartitionerHelper.locations(connector))
+        if (numDocumentsPerPartition >= count) {
+          if (count == 0) {
+            logInfo(s"Empty collection (${readConfig.collectionName}), using a single partition")
+          } else {
+            logInfo(s"Inefficient partitioning, creating a single partition. Decrease the `$partitionSizeMBProperty` property.")
+          }
+          MongoSinglePartitioner.partitions(connector, readConfig, pipeline)
+        } else {
+          val rightHandBoundaries = calculatePartitions(connector, readConfig, partitionKey, count, numDocumentsPerPartition, matchQuery)
+          val addMinMax = matchQuery.isEmpty
+          val partitions = PartitionerHelper.createPartitions(partitionKey, rightHandBoundaries, PartitionerHelper.locations(connector), addMinMax)
+          if (!addMinMax) PartitionerHelper.setLastBoundaryToLessThanOrEqualTo(partitionKey, partitions)
+          partitions
+        }
       case Failure(ex: MongoCommandException) if ex.getErrorMessage.endsWith("not found.") || ex.getErrorCode == 26 =>
         logInfo(s"Could not find collection (${readConfig.collectionName}), using a single partition")
         MongoSinglePartitioner.partitions(connector, readConfig, pipeline)

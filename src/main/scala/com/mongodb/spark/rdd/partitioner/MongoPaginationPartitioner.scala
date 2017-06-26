@@ -18,6 +18,7 @@ package com.mongodb.spark.rdd.partitioner
 
 import scala.annotation.tailrec
 
+import org.bson.conversions.Bson
 import org.bson.{BsonDocument, BsonMinKey, BsonValue}
 import com.mongodb.client.MongoCollection
 import com.mongodb.client.model.{Filters, Projections, Sorts}
@@ -30,29 +31,37 @@ private[partitioner] trait MongoPaginationPartitioner {
   private implicit object BsonValueOrdering extends BsonValueOrdering
 
   protected def calculatePartitions(connector: MongoConnector, readConfig: ReadConfig, partitionKey: String, count: Long,
-                                    numDocumentsPerPartition: Int): Seq[BsonValue] = {
+                                    numDocumentsPerPartition: Int, matchQuery: Bson): Seq[BsonValue] = {
 
     @tailrec
     def accumulatePartitions(results: List[BsonValue], position: Int): List[BsonValue] = {
-      position >= count match {
-        case true => results
-        case false =>
-          val (skipValue, preBsonValue) = results.isEmpty match {
-            case true  => (0, new BsonMinKey())
-            case false => (numDocumentsPerPartition, results.head)
+      if (position > count) {
+        results
+      } else {
+        val (skipValue: Int, filter: Bson, sort: Bson) = if (results.isEmpty) {
+          (0, Filters.and(matchQuery, Filters.gte(partitionKey, new BsonMinKey())), Sorts.ascending(partitionKey))
+        } else {
+          val query = Filters.and(matchQuery, Filters.gte(partitionKey, results.head))
+          val (skip, sort) = if (position + numDocumentsPerPartition > count) {
+            (0, Sorts.descending(partitionKey))
+          } else {
+            (numDocumentsPerPartition, Sorts.ascending(partitionKey))
           }
-          val newHead: Option[BsonValue] = connector.withCollectionDo(readConfig, { coll: MongoCollection[BsonDocument] =>
-            Option(coll.find()
-              .filter(Filters.gte(partitionKey, preBsonValue))
-              .skip(skipValue)
-              .projection(Projections.include(partitionKey))
-              .sort(Sorts.ascending(partitionKey))
-              .first()).map(doc => doc.get(partitionKey))
-          })
-          newHead.isDefined match {
-            case true  => accumulatePartitions(newHead.get :: results, position + numDocumentsPerPartition)
-            case false => results
-          }
+          (skip, query, sort)
+        }
+        val newHead: Option[BsonValue] = connector.withCollectionDo(readConfig, { coll: MongoCollection[BsonDocument] =>
+          Option(coll.find()
+            .filter(filter)
+            .skip(skipValue)
+            .sort(sort)
+            .projection(Projections.include(partitionKey))
+            .first()).map(doc => doc.get(partitionKey))
+        })
+        if (newHead.isEmpty || (results.nonEmpty && newHead.get == results.head)) {
+          results
+        } else {
+          accumulatePartitions(newHead.get :: results, position + numDocumentsPerPartition)
+        }
       }
     }
 
@@ -65,5 +74,4 @@ private[partitioner] trait MongoPaginationPartitioner {
     }
     partitions
   }
-
 }

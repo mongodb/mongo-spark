@@ -16,11 +16,10 @@
 
 package com.mongodb.spark.rdd.partitioner
 
-import scala.collection.JavaConverters._
+import org.apache.spark.sql.SparkSession
 
 import org.bson._
 import com.mongodb.spark._
-import com.mongodb.spark.exceptions.MongoPartitionerException
 
 class MongoPaginateByCountPartitionerSpec extends RequiresMongoDB {
 
@@ -41,16 +40,50 @@ class MongoPaginateByCountPartitionerSpec extends RequiresMongoDB {
     partitions should equal(expectedPartitions)
   }
 
+  // scalastyle:off magic.number
+  it should "use the provided pipeline for min and max keys" in withSparkContext() { sc =>
+    sc.parallelize((0 to 1000).map(i => BsonDocument.parse(s"{ _id: $i }"))).saveToMongoDB()
+
+    val readConf = readConfig.copy(partitionerOptions = Map("numberOfPartitions" -> "10"))
+    val rangePipeline = Array(BsonDocument.parse(s"""{$$match: { $partitionKey: {$$gte: 250, $$lt: 500}}}"""))
+
+    val rangePartitions = MongoPaginateByCountPartitioner.partitions(mongoConnector, readConf, rangePipeline)
+    getQueryBoundForKey(rangePartitions.head, "$gte") should equal(250)
+    getQueryBoundForKey(rangePartitions.reverse.head, "$lte") should equal(499)
+    rangePartitions.length should equal(10)
+  }
+
+  it should "use the users pipeline when set in a rdd / dataframe" in withSparkContext() { sc =>
+    sc.parallelize((0 to 1000).map(i => BsonDocument.parse(s"{ _id: $i }"))).saveToMongoDB()
+
+    val readConf = readConfig.copy(partitioner = MongoPaginateByCountPartitioner, partitionerOptions = Map("numberOfPartitions" -> "10"))
+    val rangePipeline = BsonDocument.parse(s"""{$$match: { $partitionKey: {$$gte: 250, $$lt: 500}}}""")
+
+    val sparkSession = SparkSession.builder().getOrCreate()
+    val rdd = MongoSpark.load(sparkSession.sparkContext, readConf).withPipeline(Seq(rangePipeline))
+    rdd.count() should equal(250)
+    val rddPartitions = rdd.partitions.toList
+    getQueryBoundForKey(rddPartitions.head.asInstanceOf[MongoPartition], "$gte") should equal(250)
+    getQueryBoundForKey(rddPartitions.reverse.head.asInstanceOf[MongoPartition], "$lte") should equal(499)
+
+    val df = MongoSpark.load(sparkSession, readConf).filter(s"""$partitionKey >= 250 AND  $partitionKey < 500""")
+    df.count() should equal(250)
+    val dfPartitions = df.rdd.partitions.toList
+    getQueryBoundForKey(dfPartitions.head.asInstanceOf[MongoPartition], "$gte") should equal(250)
+    getQueryBoundForKey(dfPartitions.reverse.head.asInstanceOf[MongoPartition], "$lte") should equal(499)
+  }
+  // scalastyle:on magic.number
+
   it should "handle fewer documents than partitions" in withSparkContext() { sc =>
     sc.parallelize((0 to 10).map(i => BsonDocument.parse(s"{ _id: $i }"))).saveToMongoDB()
 
     val rightHandBoundaries = (0 to 10).map(x => new BsonInt32(x))
     val locations = PartitionerHelper.locations(MongoConnector(sparkConf))
-    val expectedPartitions = PartitionerHelper.createPartitions(partitionKey, rightHandBoundaries, locations)
     val partitions = MongoPaginateByCountPartitioner.partitions(
       mongoConnector,
       readConfig.copy(partitionerOptions = Map("numberOfPartitions" -> "100")), pipeline
     )
+    val expectedPartitions = PartitionerHelper.createPartitions(partitionKey, rightHandBoundaries, locations)
     partitions should equal(expectedPartitions)
   }
 
@@ -59,11 +92,6 @@ class MongoPaginateByCountPartitionerSpec extends RequiresMongoDB {
     MongoPaginateByCountPartitioner.partitions(mongoConnector, readConfig, pipeline) should equal(expectedPartitions)
   }
 
-  it should "throw a partitioner error if duplicate partitions are found" in {
-    collection.insertMany((1 to 100).map(i => new Document("a", 1)).toList.asJava)
-    a[MongoPartitionerException] should be thrownBy MongoPaginateByCountPartitioner.partitions(
-      mongoConnector,
-      readConfig.copy(partitionerOptions = Map("partitionKey" -> "a")), pipeline
-    )
-  }
+  private def getQueryBoundForKey(partition: MongoPartition, key: String): Int =
+    partition.queryBounds.getDocument(partitionKey).getInt32(key).getValue
 }

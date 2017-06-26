@@ -16,6 +16,7 @@
 
 package com.mongodb.spark.rdd.partitioner
 
+import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 
 import org.bson._
@@ -48,12 +49,14 @@ object PartitionerHelper {
    * Creates partitions using a single Seq of documents representing the right handside of partitions
    *
    * @param partitionKey the key representing the partition most likely the `_id`.
-   * @param partitions the documents representing a split
+   * @param splitKeys the documents representing a split
    * @param locations the optional server hostnames for the data
+   * @param addMinMax add min and maxkey query bounds.
    * @return
    */
-  def createPartitions(partitionKey: String, partitions: Seq[BsonValue], locations: Seq[String] = Nil): Array[MongoPartition] = {
-    val minToMaxSplitKeys: Seq[BsonValue] = new BsonMinKey() +: partitions :+ new BsonMaxKey()
+  def createPartitions(partitionKey: String, splitKeys: Seq[BsonValue], locations: Seq[String] = Nil, addMinMax: Boolean = true): Array[MongoPartition] = {
+    val minKeyMaxKeys = (new BsonMinKey(), new BsonMaxKey())
+    val minToMaxSplitKeys: Seq[BsonValue] = if (addMinMax) minKeyMaxKeys._1 +: splitKeys :+ minKeyMaxKeys._2 else splitKeys
     val partitionPairs: Seq[(BsonValue, BsonValue)] = minToMaxSplitKeys zip minToMaxSplitKeys.tail
     partitionPairs.zipWithIndex.map({
       case ((min: BsonValue, max: BsonValue), i: Int) => MongoPartition(i, createBoundaryQuery(partitionKey, min, max), locations)
@@ -79,6 +82,74 @@ object PartitionerHelper {
   def collStats(connector: MongoConnector, readConfig: ReadConfig): BsonDocument = {
     val collStatsCommand: BsonDocument = new BsonDocument("collStats", new BsonString(readConfig.collectionName))
     connector.withDatabaseDo(readConfig, { db => db.runCommand(collStatsCommand, readConfig.readPreference, classOf[BsonDocument]) })
+  }
+
+  /**
+   * Returns the head `\$match` from a pipeline
+   *
+   * @param pipeline the users pipeline
+   * @return the head `\$match` or an empty `BsonDocument`.
+   */
+  def matchQuery(pipeline: Array[BsonDocument]): BsonDocument = {
+    val defaultQuery = new BsonDocument()
+    pipeline.headOption match {
+      case Some(document) => document.getDocument("$match", defaultQuery)
+      case None           => defaultQuery
+    }
+  }
+
+  /**
+   * Checks an aggregation pipeline to see if it starts with a range based query that is suitable for the `SplitVector` command.
+   *
+   * If it does it returns the `\$match` filter otherwise None
+   *
+   * @param pipeline the aggregation pipeline
+   * @return the min and max keys for the pipeline
+   * @since 2.1
+   */
+  def getSplitVectorRangeQuery(partitionKey: String, pipeline: Array[BsonDocument]): (BsonValue, BsonValue) = {
+    val filter = pipeline.headOption match {
+      case Some(document: BsonDocument) => getNestedDocument(Seq("$match", partitionKey), document)
+      case None                         => new BsonDocument()
+    }
+    (filter.get("$gte", new BsonMinKey()), filter.get("$lt", new BsonMaxKey()))
+  }
+
+  /**
+   * Sets the final boundary to use `\$lte` rather than `\$lt` so that boundaries with users provided queries have the correct upper bound
+   *
+   * @param partitionKey the partition key
+   * @param partitions the partitions
+   * @return the updated partitions
+   * @since 2.1
+   */
+  def setLastBoundaryToLessThanOrEqualTo(partitionKey: String, partitions: Array[MongoPartition]): Array[MongoPartition] = {
+    val lastPartition = partitions.reverse.head
+    val partitionQuery = lastPartition.queryBounds.getDocument(partitionKey)
+    partitionQuery.append("$lte", partitionQuery.remove("$lt"))
+    partitions
+  }
+
+  /**
+   * Gets a nested document from a document
+   *
+   * @param keys the keys for the document fields
+   * @param document the document to do a nested document lookup
+   * @return the subDocument
+   */
+  @tailrec
+  private def getNestedDocument(keys: Seq[String], document: BsonDocument): BsonDocument = {
+    if (keys.nonEmpty && document.containsKey(keys.head)) {
+      val bsonValue = document.get(keys.head)
+      if (bsonValue.isDocument) {
+        val subDoc = bsonValue.asDocument()
+        if (keys.tail.isEmpty) subDoc else getNestedDocument(keys.tail, subDoc)
+      } else {
+        new BsonDocument()
+      }
+    } else {
+      new BsonDocument()
+    }
   }
 
 }

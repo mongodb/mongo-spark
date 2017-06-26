@@ -16,12 +16,10 @@
 
 package com.mongodb.spark.rdd.partitioner
 
-import scala.collection.JavaConverters._
-import scala.util.Random
+import org.apache.spark.sql.SparkSession
 
 import org.bson._
-import com.mongodb.spark.exceptions.MongoPartitionerException
-import com.mongodb.spark.{MongoConnector, RequiresMongoDB}
+import com.mongodb.spark.{MongoConnector, MongoSpark, RequiresMongoDB}
 
 class MongoPaginateBySizePartitionerSpec extends RequiresMongoDB {
 
@@ -30,10 +28,10 @@ class MongoPaginateBySizePartitionerSpec extends RequiresMongoDB {
 
   // scalastyle:off magic.number
   "MongoPaginateBySizePartitioner" should "partition the database as expected" in {
-    if (!serverAtLeast(3, 2)) cancel("Testing on wiretiger only, so to have predictable partition sizes.")
+    if (!serverAtLeast(3, 2)) cancel("Testing on MongoDB 3.2+, so to have predictable partition sizes.")
     loadSampleData(10)
 
-    val rightHandBoundaries = (1 to 100 by 10).map(x => new BsonString(f"$x%05d"))
+    val rightHandBoundaries = (1 to 100 by 10).map(x => new BsonString(f"$x%05d")) :+ new BsonString("00100")
     val locations = PartitionerHelper.locations(MongoConnector(sparkConf))
     val expectedPartitions = PartitionerHelper.createPartitions(partitionKey, rightHandBoundaries, locations)
     val partitions = MongoPaginateBySizePartitioner.partitions(
@@ -42,13 +40,41 @@ class MongoPaginateBySizePartitionerSpec extends RequiresMongoDB {
     )
 
     partitions should equal(expectedPartitions)
-
     val singlePartition = PartitionerHelper.createPartitions(partitionKey, Seq.empty[BsonValue], locations)
     val largerSizedPartitions = MongoPaginateBySizePartitioner.partitions(
       mongoConnector,
       readConfig.copy(partitionerOptions = Map("partitionSizeMB" -> "10")), pipeline
     )
     largerSizedPartitions should equal(singlePartition)
+  }
+
+  it should "use the provided pipeline for min and max keys" in withSparkContext() { sc =>
+    if (!serverAtLeast(3, 2)) cancel("Testing on MongoDB 3.2+, so to have predictable partition sizes.")
+    loadSampleData(10)
+
+    val readConf = readConfig.copy(partitioner = MongoPaginateBySizePartitioner, partitionerOptions = Map("partitionSizeMB" -> "1"))
+    val rangePipeline = Array(BsonDocument.parse(s"""{$$match: { $partitionKey: {$$gte: "00001", $$lt: "00031"}}}"""))
+
+    val rangePartitions = MongoPaginateBySizePartitioner.partitions(mongoConnector, readConf, rangePipeline)
+    getQueryBoundForKey(rangePartitions.head, "$gte") should equal("00001")
+    getQueryBoundForKey(rangePartitions.reverse.head, "$lte") should equal("00030")
+    rangePartitions.length should equal(3)
+  }
+
+  it should "use the users pipeline when set in a rdd / dataframe" in withSparkContext() { sc =>
+    if (!serverAtLeast(3, 2)) cancel("Testing on MongoDB 3.2+, so to have predictable partition sizes.")
+    loadSampleData(10)
+
+    val readConf = readConfig.copy(partitioner = MongoPaginateBySizePartitioner, partitionerOptions = Map("partitionSizeMB" -> "1"))
+    val rangePipeline = BsonDocument.parse(s"""{$$match: { $partitionKey: {$$gte: "00001", $$lt: "00031"}}}""")
+    val sparkSession = SparkSession.builder().getOrCreate()
+    val rdd = MongoSpark.load(sparkSession.sparkContext, readConf).withPipeline(Seq(rangePipeline))
+    rdd.count() should equal(30)
+    rdd.partitions.length should equal(3)
+
+    val df = MongoSpark.load(sparkSession, readConf).filter(s"""$partitionKey >= "00001" AND  $partitionKey < "00031"""")
+    df.count() should equal(30)
+    df.rdd.partitions.length should equal(3)
   }
   // scalastyle:on magic.number
 
@@ -70,13 +96,8 @@ class MongoPaginateBySizePartitionerSpec extends RequiresMongoDB {
     MongoPaginateBySizePartitioner.partitions(mongoConnector, readConfig, pipeline) should equal(expectedPartitions)
   }
 
-  it should "throw a partitioner error if duplicate partitions are found" in {
-    val sampleString: String = Random.alphanumeric.take(1000 * 1000).mkString
-    collection.insertMany((1 to 100).map(i => new Document("a", 1).append("s", sampleString)).toList.asJava)
-    a[MongoPartitionerException] should be thrownBy MongoPaginateBySizePartitioner.partitions(
-      mongoConnector,
-      readConfig.copy(partitionerOptions = Map("partitionKey" -> "a", "partitionSizeMB" -> "1")), pipeline
-    )
-  }
+  private def getQueryBoundForKey(partition: MongoPartition, key: String): String =
+    partition.queryBounds.getDocument(partitionKey).getString(key).getValue
+
 }
 
