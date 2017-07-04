@@ -104,7 +104,7 @@ class MongoSamplePartitioner extends MongoPartitioner {
           })
           def collectSplit(i: Int): Boolean = (i % samplesPerPartition == 0) || !matchQuery.isEmpty && i == count - 1
           val rightHandBoundaries = samples.zipWithIndex.collect {
-            case (field, i) if collectSplit(i) => field.get("_id")
+            case (field, i) if collectSplit(i) => field.get(partitionKey)
           }
           val addMinMax = matchQuery.isEmpty
           val partitions = PartitionerHelper.createPartitions(partitionKey, rightHandBoundaries, PartitionerHelper.locations(connector), addMinMax)

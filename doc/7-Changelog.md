@@ -1,6 +1,7 @@
 # Mongo Spark Connector Changelog
 
 ## 2.1.0
+  * [[SPARK-112](https://jira.mongodb.org/browse/SPARK-112)] Fixed custom partition key bug in MongoSamplePartitioner
   * [[SPARK-122](https://jira.mongodb.org/browse/SPARK-122)] Ensure pagination partitioners can use a covered query
   * [[SPARK-101](https://jira.mongodb.org/browse/SPARK-101)] Add support for partial collection partitioning for non sharded partitioners
   * [[SPARK-103](https://jira.mongodb.org/browse/SPARK-103)] Ensure partitioners handle empty collections
