@@ -21,7 +21,7 @@ import scala.annotation.tailrec
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, BsonMinKey, BsonValue}
 import com.mongodb.client.MongoCollection
-import com.mongodb.client.model.{Filters, Projections, Sorts}
+import com.mongodb.client.model.{Filters, Sorts}
 import com.mongodb.spark.MongoConnector
 import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.exceptions.MongoPartitionerException
@@ -49,12 +49,17 @@ private[partitioner] trait MongoPaginationPartitioner {
           }
           (skip, query, sort)
         }
+        val projection = if (partitionKey == "_id") {
+          BsonDocument.parse(s"""{"$partitionKey": 1}""")
+        } else {
+          BsonDocument.parse(s"""{"$partitionKey": 1, "_id": 0}""")
+        }
         val newHead: Option[BsonValue] = connector.withCollectionDo(readConfig, { coll: MongoCollection[BsonDocument] =>
           Option(coll.find()
             .filter(filter)
             .skip(skipValue)
             .sort(sort)
-            .projection(Projections.include(partitionKey))
+            .projection(projection)
             .first()).map(doc => doc.get(partitionKey))
         })
         if (newHead.isEmpty || (results.nonEmpty && newHead.get == results.head)) {

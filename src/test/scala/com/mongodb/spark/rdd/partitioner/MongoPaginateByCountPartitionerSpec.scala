@@ -40,6 +40,20 @@ class MongoPaginateByCountPartitionerSpec extends RequiresMongoDB {
     partitions should equal(expectedPartitions)
   }
 
+  it should "partition on an alternative shardkey as expected" in withSparkContext() { sc =>
+    sc.parallelize((0 to 1000).map(i => BsonDocument.parse(s"{ pk: $i }"))).saveToMongoDB()
+
+    val rightHandBoundaries = (0 to 1000 by 100).map(x => new BsonInt32(x))
+    val locations = PartitionerHelper.locations(MongoConnector(sparkConf))
+    val expectedPartitions = PartitionerHelper.createPartitions("pk", rightHandBoundaries, locations)
+    val partitions = MongoPaginateByCountPartitioner.partitions(
+      mongoConnector,
+      readConfig.copy(partitionerOptions = Map("numberOfPartitions" -> "10", "partitionKey" -> "pk")), pipeline
+    )
+
+    partitions should equal(expectedPartitions)
+  }
+
   // scalastyle:off magic.number
   it should "use the provided pipeline for min and max keys" in withSparkContext() { sc =>
     sc.parallelize((0 to 1000).map(i => BsonDocument.parse(s"{ _id: $i }"))).saveToMongoDB()

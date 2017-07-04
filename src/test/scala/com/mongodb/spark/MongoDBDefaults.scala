@@ -106,13 +106,14 @@ class MongoDBDefaults extends Logging {
       .getCollection(collectionName, classOf[BsonDocument])
     val numberOfDocuments: Int = 10
 
-    val fieldLength: Int = (1024 * 1024 / numberOfDocuments) - 30 // One MB / number of Documents - Some padding
+    val fieldLength: Int = (1024 * 1024 / numberOfDocuments) - 60 // One MB / number of Documents - Some padding
     var counter = 0
     (1 to sizeInMB).foreach({ x =>
       val sampleString: String = Random.alphanumeric.take(fieldLength).mkString
       val documents: IndexedSeq[BsonDocument] = (1 to numberOfDocuments).map(y => {
         counter += 1
-        new BsonDocument("_id", new BsonString(f"$counter%05d")).append("s", new BsonString(sampleString))
+        val idValue = new BsonString(f"$counter%05d")
+        new BsonDocument("_id", idValue).append("pk", idValue).append("s", new BsonString(sampleString))
       })
       collection.insertMany(documents.toList.asJava)
     })

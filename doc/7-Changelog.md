@@ -1,6 +1,7 @@
 # Mongo Spark Connector Changelog
 
 ## 2.1.0
+  * [[SPARK-122](https://jira.mongodb.org/browse/SPARK-122)] Ensure pagination partitioners can use a covered query
   * [[SPARK-101](https://jira.mongodb.org/browse/SPARK-101)] Add support for partial collection partitioning for non sharded partitioners
   * [[SPARK-103](https://jira.mongodb.org/browse/SPARK-103)] Ensure partitioners handle empty collections
 
@@ -12,8 +13,6 @@
   * [[SPARK-77](https://jira.mongodb.org/browse/SPARK-77)] Removed UDF.undefined support as changes to the Dataset implementation means it is removed when queried.
   * [[SPARK-47](https://jira.mongodb.org/browse/SPARK-47)] Updated API to use SparkSession and deprecated public methods using SQLContext.
   * [[SPARK-20](https://jira.mongodb.org/browse/SPARK-20)] Updated Spark Version to 2.0.0
-
-------
 
 ## 1.1.0
   * [[SPARK-66](https://jira.mongodb.org/browse/SPARK-66)] Saving DataFrames that include an _id will now use a replaceOne with upsert.

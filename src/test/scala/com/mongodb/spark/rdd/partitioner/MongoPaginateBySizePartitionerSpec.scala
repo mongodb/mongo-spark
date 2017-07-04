@@ -48,6 +48,19 @@ class MongoPaginateBySizePartitionerSpec extends RequiresMongoDB {
     largerSizedPartitions should equal(singlePartition)
   }
 
+  it should "partition on an alternative shardkey as expected" in {
+    if (!serverAtLeast(3, 2)) cancel("Testing on MongoDB 3.2+, so to have predictable partition sizes.")
+    loadSampleData(10)
+
+    val rightHandBoundaries = (1 to 100 by 10).map(x => new BsonString(f"$x%05d")) :+ new BsonString("00100")
+    val locations = PartitionerHelper.locations(MongoConnector(sparkConf))
+    val expectedPartitions = PartitionerHelper.createPartitions("pk", rightHandBoundaries, locations)
+    val partitions = MongoPaginateBySizePartitioner.partitions(
+      mongoConnector,
+      readConfig.copy(partitionerOptions = Map("partitionSizeMB" -> "1", "partitionKey" -> "pk")), pipeline
+    )
+  }
+
   it should "use the provided pipeline for min and max keys" in withSparkContext() { sc =>
     if (!serverAtLeast(3, 2)) cancel("Testing on MongoDB 3.2+, so to have predictable partition sizes.")
     loadSampleData(10)
