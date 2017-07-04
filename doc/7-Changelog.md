@@ -1,6 +1,7 @@
 # Mongo Spark Connector Changelog
 
-## 2.0.1
+## 2.1.0
+  * [[SPARK-101](https://jira.mongodb.org/browse/SPARK-101)] Add support for partial collection partitioning for non sharded partitioners
   * [[SPARK-103](https://jira.mongodb.org/browse/SPARK-103)] Ensure partitioners handle empty collections
 
 ## 2.0.0
