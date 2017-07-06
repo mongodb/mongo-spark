@@ -196,6 +196,7 @@ class MongoDataFrameSpec extends RequiresMongoDB {
   }
 
   "DataFrames" should "round trip all bson types" in withSparkContext() { sc =>
+    if (!serverAtLeast(3, 4)) cancel("MongoDB < 3.4")
     database.getCollection(collectionName, classOf[BsonDocument]).insertOne(allBsonTypesDocument)
 
     val newCollectionName = s"${collectionName}_new"
@@ -207,6 +208,7 @@ class MongoDataFrameSpec extends RequiresMongoDB {
   }
 
   it should "be able to cast all types to a string value" in withSparkContext() { sc =>
+    if (!serverAtLeast(3, 4)) cancel("MongoDB < 3.4")
     database.getCollection(collectionName, classOf[BsonDocument]).insertOne(allBsonTypesDocument)
     val bsonValuesAsStrings = sc.loadFromMongoDB().toDS[BsonValuesAsStringClass]().first()
 
