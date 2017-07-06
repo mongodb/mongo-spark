@@ -1,5 +1,6 @@
 /*
- * Copyright 2016 MongoDB, Inc.
+ * Copyright 2016-2017 MongoDB, Inc.
+ * Apache Spark
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +18,7 @@
 package com.mongodb.spark.sql
 
 import java.util
+import java.util.Comparator
 
 import scala.collection.JavaConverters._
 import scala.reflect.runtime.universe._
@@ -113,6 +115,7 @@ object MongoInferSchema extends Logging {
     DataTypes.createStructType(fields)
   }
 
+  // scalastyle:off cyclomatic.complexity method.length
   /**
    * Gets the matching DataType for the input DataTypes.
    *
@@ -132,6 +135,21 @@ object MongoInferSchema extends Logging {
     TypeCoercion.findTightestCommonTypeOfTwo(t1, t2).getOrElse {
       // t1 or t2 is a StructType, ArrayType, or an unexpected type.
       (t1, t2) match {
+        // Double support larger range than fixed decimal, DecimalType.Maximum should be enough
+        // in most case, also have better precision.
+        case (DoubleType, _: DecimalType) | (_: DecimalType, DoubleType) =>
+          DoubleType
+
+        case (t1: DecimalType, t2: DecimalType) =>
+          val scale = math.max(t1.scale, t2.scale)
+          val range = math.max(t1.precision - t1.scale, t2.precision - t2.scale)
+          if (range + scale > 38) {
+            // DecimalType can't support precision > 38
+            DoubleType
+          } else {
+            DecimalType(range + scale, scale)
+          }
+
         case (StructType(fields1), StructType(fields2)) =>
           val newFields = (fields1 ++ fields2).groupBy(field => field.name).map {
             case (name, fieldTypes) =>
@@ -139,16 +157,68 @@ object MongoInferSchema extends Logging {
               StructField(name, dataType, nullable = true)
           }
           StructType(newFields.toSeq.sortBy(_.name))
+
         case (ArrayType(elementType1, containsNull1), ArrayType(elementType2, containsNull2)) =>
           ArrayType(compatibleType(elementType1, elementType2), containsNull1 || containsNull2)
+
+        // The case that given `DecimalType` is capable of given `IntegralType` is handled in
+        // `findTightestCommonTypeOfTwo`. Both cases below will be executed only when
+        // the given `DecimalType` is not capable of the given `IntegralType`.
+        case (t1: DataType, t2: DecimalType) if compatibleDecimalTypes.contains(t1) => compatibleType(forType(t1), t2)
+        case (t1: DecimalType, t2: DataType) if compatibleDecimalTypes.contains(t2) => compatibleType(t1, forType(t2))
+
         // SkipFieldType Types
         case (s: SkipFieldType, dataType: DataType) => dataType
         case (dataType: DataType, s: SkipFieldType) => dataType
-        // Conflicting Types
-        case (_, _)                                 => ConflictType
+
+        // Conflicting types
+        case (_, _) => ConflictType
       }
     }
   }
+  // scalastyle:on cyclomatic.complexity method.length
+
+  val compatibleDecimalTypes = Seq(ByteType, ShortType, IntegerType, LongType, FloatType, DoubleType)
+
+  // scalastyle:off magic.number
+  // The decimal types compatible with other numeric types
+  private val ByteDecimal = DecimalType(3, 0)
+  private val ShortDecimal = DecimalType(5, 0)
+  private val IntDecimal = DecimalType(10, 0)
+  private val LongDecimal = DecimalType(20, 0)
+  private val FloatDecimal = DecimalType(14, 7)
+  private val DoubleDecimal = DecimalType(30, 15)
+  private val BigIntDecimal = DecimalType(38, 0)
+  // scalastyle:on magic.number
+
+  private def forType(dataType: DataType): DecimalType = dataType match {
+    case ByteType    => ByteDecimal
+    case ShortType   => ShortDecimal
+    case IntegerType => IntDecimal
+    case LongType    => LongDecimal
+    case FloatType   => FloatDecimal
+    case DoubleType  => DoubleDecimal
+  }
+
+  private val emptyStructFieldArray = Array.empty[StructField]
+  private val structFieldComparator = new Comparator[StructField] {
+    override def compare(o1: StructField, o2: StructField): Int = {
+      o1.name.compare(o2.name)
+    }
+  }
+
+  // scalastyle:off return
+  private def isSorted(arr: Array[StructField]): Boolean = {
+    var i: Int = 0
+    while (i < arr.length - 1) {
+      if (structFieldComparator.compare(arr(i), arr(i + 1)) > 0) {
+        return false
+      }
+      i += 1
+    }
+    true
+  }
+  // scalastyle:on return
 
   // scalastyle:off cyclomatic.complexity null
   private def getDataType(bsonValue: BsonValue): DataType = {
@@ -173,7 +243,10 @@ object MongoInferSchema extends Logging {
       case BsonType.UNDEFINED             => BsonCompatibility.Undefined.structType
       case BsonType.SYMBOL                => BsonCompatibility.Symbol.structType
       case BsonType.DB_POINTER            => BsonCompatibility.DbPointer.structType
-      case _                              => ConflictType
+      case BsonType.DECIMAL128 =>
+        val bigDecimalValue = bsonValue.asDecimal128().decimal128Value().bigDecimalValue()
+        DataTypes.createDecimalType(bigDecimalValue.precision(), bigDecimalValue.scale())
+      case _ => ConflictType
     }
   }
 

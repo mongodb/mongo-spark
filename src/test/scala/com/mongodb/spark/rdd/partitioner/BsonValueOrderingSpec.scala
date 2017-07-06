@@ -19,7 +19,7 @@ package com.mongodb.spark.rdd.partitioner
 import scala.collection.JavaConverters._
 import scala.util.Random
 
-import org.bson.types.ObjectId
+import org.bson.types.{Decimal128, ObjectId}
 import org.bson.{BsonDbPointer, _}
 
 import org.scalatest.{FlatSpec, Matchers}
@@ -33,6 +33,7 @@ class BsonValueOrderingSpec extends FlatSpec with Matchers {
     document.put("nullValue", new BsonNull())
     document.put("int32", new BsonInt32(42))
     document.put("int64", new BsonInt64(52L))
+    document.put("decimal", new BsonDecimal128(new Decimal128(BigDecimal(10).bigDecimal)))
     document.put("boolean", new BsonBoolean(true))
     document.put("date", new BsonDateTime(1463497097))
     document.put("double", new BsonDouble(62.0))
@@ -55,7 +56,7 @@ class BsonValueOrderingSpec extends FlatSpec with Matchers {
   }
   val allBsonTypes: Seq[(String, BsonValue)] = allBsonTypesDocument.entrySet().asScala.map(e => (e.getKey, e.getValue)).toSeq
 
-  val orderedKeys = Seq("minKey", "nullValue", "int32", "int64", "double", "symbol", "string", "document", "arrayInt", "binary",
+  val orderedKeys = Seq("minKey", "nullValue", "decimal", "int32", "int64", "double", "symbol", "string", "document", "arrayInt", "binary",
     "oldBinary", "objectId", "boolean", "date", "timestamp", "regex", "maxKey")
 
   val undefinedOrderingKeys = Seq("dbPointer", "undefined", "code", "codeWithScope")
@@ -69,10 +70,13 @@ class BsonValueOrderingSpec extends FlatSpec with Matchers {
   }
 
   it should "compare numbers types correctly" in {
-    val data: Seq[BsonValue] = Seq(new BsonInt32(1), new BsonInt64(2), new BsonDouble(3.0), new BsonDouble(4.0), new BsonInt64(5), new BsonInt32(6))
+    val data: Seq[BsonValue] = Seq(new BsonInt32(1), new BsonInt64(2), new BsonDecimal128(Decimal128.parse("2.5")),
+      new BsonDouble(3.0), new BsonDouble(4.0), new BsonInt64(5), new BsonInt32(6))
     val ordered = Random.shuffle(data).sorted
     ordered should equal(data)
+  }
 
+  it should "compare numbers and longs correctly" in {
     val longAndDoubleData: Seq[BsonValue] = Seq(
       new BsonDouble(Double.NegativeInfinity),
       new BsonDouble(Long.MinValue), new BsonInt64(Long.MinValue + 1),

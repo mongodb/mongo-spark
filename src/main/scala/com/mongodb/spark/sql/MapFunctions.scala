@@ -26,6 +26,7 @@ import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.{ArrayType, NullType, StringType, TimestampType, _}
 
 import org.bson._
+import org.bson.types.Decimal128
 import com.mongodb.spark.exceptions.MongoTypeConversionException
 import com.mongodb.spark.sql.types.BsonCompatibility
 
@@ -62,22 +63,24 @@ private[spark] object MapFunctions {
 
   private def convertToDataType(element: BsonValue, elementType: DataType): Any = {
     (element.getBsonType, elementType) match {
-      case (BsonType.DOCUMENT, mapType: MapType)  => element.asDocument().asScala.map(kv => (kv._1, convertToDataType(kv._2, mapType.valueType))).toMap
+      case (BsonType.DOCUMENT, mapType: MapType) => element.asDocument().asScala.map(kv => (kv._1, convertToDataType(kv._2, mapType.valueType))).toMap
       case (BsonType.ARRAY, arrayType: ArrayType) => element.asArray().getValues.asScala.map(convertToDataType(_, arrayType.elementType))
-      case (BsonType.BINARY, BinaryType)          => element.asBinary().getData
-      case (BsonType.BOOLEAN, BooleanType)        => element.asBoolean().getValue
-      case (BsonType.DATE_TIME, DateType)         => new Date(element.asDateTime().getValue)
-      case (BsonType.DATE_TIME, TimestampType)    => new Timestamp(element.asDateTime().getValue)
-      case (BsonType.NULL, NullType)              => null
-      case (isBsonNumber(), DoubleType)           => element.asNumber().doubleValue()
-      case (isBsonNumber(), IntegerType)          => element.asNumber().intValue()
-      case (isBsonNumber(), LongType)             => element.asNumber().longValue()
-      case (notNull(), schema: StructType)        => castToStructType(element, schema)
-      case (_, StringType)                        => bsonValueToString(element)
+      case (BsonType.BINARY, BinaryType) => element.asBinary().getData
+      case (BsonType.BOOLEAN, BooleanType) => element.asBoolean().getValue
+      case (BsonType.DATE_TIME, DateType) => new Date(element.asDateTime().getValue)
+      case (BsonType.DATE_TIME, TimestampType) => new Timestamp(element.asDateTime().getValue)
+      case (BsonType.NULL, NullType) => null
+      case (isBsonNumber(), DoubleType) => toDouble(element)
+      case (isBsonNumber(), IntegerType) => toInt(element)
+      case (isBsonNumber(), LongType) => toLong(element)
+      case (isBsonNumber(), _) if elementType.typeName.startsWith("decimal") => toDecimal(element)
+      case (notNull(), schema: StructType) => castToStructType(element, schema)
+      case (_, StringType) => bsonValueToString(element)
       case _ =>
-        element.isNull match {
-          case true  => null
-          case false => throw new MongoTypeConversionException(s"Cannot cast ${element.getBsonType} into a $elementType (value: $element)")
+        if (element.isNull) {
+          null
+        } else {
+          throw new MongoTypeConversionException(s"Cannot cast ${element.getBsonType} into a $elementType (value: $element)")
         }
     }
   }
@@ -149,6 +152,12 @@ private[spark] object MapFunctions {
             s"Cannot cast $element into a BsonValue. MapTypes must have keys of StringType for conversion into a BsonDocument"
           )
         }
+      case _ if elementType.typeName.startsWith("decimal") =>
+        val jBigDecimal = element match {
+          case jDecimal: java.math.BigDecimal => jDecimal
+          case _                              => element.asInstanceOf[BigDecimal].bigDecimal
+        }
+        new BsonDecimal128(new Decimal128(jBigDecimal))
       case _ =>
         throw new MongoTypeConversionException(s"Cannot cast $element into a BsonValue. $elementType has no matching BsonValue.")
     }
@@ -172,8 +181,8 @@ private[spark] object MapFunctions {
     new BsonArray(internalData)
   }
 
-  private def castFromStructType(element: Row, datatType: StructType): BsonValue = {
-    datatType match {
+  private def castFromStructType(element: Row, dataType: StructType): BsonValue = {
+    dataType match {
       case BsonCompatibility.ObjectId()            => BsonCompatibility.ObjectId(element)
       case BsonCompatibility.MinKey()              => BsonCompatibility.MinKey(element)
       case BsonCompatibility.MaxKey()              => BsonCompatibility.MaxKey(element)
@@ -190,9 +199,50 @@ private[spark] object MapFunctions {
   }
 
   private object isBsonNumber {
-    val bsonNumberTypes = Set(BsonType.INT32, BsonType.INT64, BsonType.DOUBLE)
+    val bsonNumberTypes = Set(BsonType.INT32, BsonType.INT64, BsonType.DOUBLE, BsonType.DECIMAL128)
     def unapply(x: BsonType): Boolean = bsonNumberTypes.contains(x)
   }
+
+  private def toInt(bsonValue: BsonValue): Int = {
+    bsonValue.getBsonType match {
+      case BsonType.DECIMAL128 => bsonValue.asDecimal128().decimal128Value().bigDecimalValue().intValue()
+      case BsonType.INT32      => bsonValue.asInt32().intValue()
+      case BsonType.INT64      => bsonValue.asInt64().intValue()
+      case BsonType.DOUBLE     => bsonValue.asDouble().intValue()
+      case _                   => throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Int")
+    }
+  }
+
+  private def toLong(bsonValue: BsonValue): Long = {
+    bsonValue.getBsonType match {
+      case BsonType.DECIMAL128 => bsonValue.asDecimal128().decimal128Value().bigDecimalValue().longValue()
+      case BsonType.INT32      => bsonValue.asInt32().longValue()
+      case BsonType.INT64      => bsonValue.asInt64().longValue()
+      case BsonType.DOUBLE     => bsonValue.asDouble().longValue()
+      case _                   => throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Long")
+    }
+  }
+
+  private def toDouble(bsonValue: BsonValue): Double = {
+    bsonValue.getBsonType match {
+      case BsonType.DECIMAL128 => bsonValue.asDecimal128().decimal128Value().bigDecimalValue().doubleValue()
+      case BsonType.INT32      => bsonValue.asInt32().doubleValue()
+      case BsonType.INT64      => bsonValue.asInt64().doubleValue()
+      case BsonType.DOUBLE     => bsonValue.asDouble().doubleValue()
+      case _                   => throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Double")
+    }
+  }
+
+  private def toDecimal(bsonValue: BsonValue): BigDecimal = {
+    bsonValue.getBsonType match {
+      case BsonType.DECIMAL128 => bsonValue.asDecimal128().decimal128Value().bigDecimalValue()
+      case BsonType.INT32      => BigDecimal(bsonValue.asInt32().intValue())
+      case BsonType.INT64      => BigDecimal(bsonValue.asInt64().longValue())
+      case BsonType.DOUBLE     => BigDecimal(bsonValue.asDouble().doubleValue())
+      case _                   => throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a BigDecimal")
+    }
+  }
+
   private object notNull {
     def unapply(x: BsonType): Boolean = x != BsonType.NULL
   }

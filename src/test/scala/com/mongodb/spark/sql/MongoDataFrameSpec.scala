@@ -24,7 +24,7 @@ import org.apache.spark.sql.types.{DataTypes, MapType, StructField, StructType}
 import org.apache.spark.sql.{Row, SaveMode, SparkSession}
 
 import org.bson._
-import org.bson.types.ObjectId
+import org.bson.types.{Decimal128, ObjectId}
 import com.mongodb.spark._
 import com.mongodb.spark.config.WriteConfig
 import com.mongodb.spark.sql.types.BsonCompatibility
@@ -217,6 +217,7 @@ class MongoDataFrameSpec extends RequiresMongoDB {
       bool = "true",
       date = """{ "$date" : 1463497097 }""",
       dbl = "62.0",
+      decimal = """{ "$numberDecimal" : "72.01" }""",
       string = "spark connector",
       minKey = """{ "$minKey" : 1 }""",
       maxKey = """{ "$maxKey" : 1 }""",
@@ -227,8 +228,8 @@ class MongoDataFrameSpec extends RequiresMongoDB {
       symbol = """{ "$symbol" : "ruby stuff" }""",
       timestamp = """{ "$timestamp" : { "t" : 305419896, "i" : 5 } }""",
       undefined = """{ "$undefined" : true }""",
-      binary = """{ "$binary" : "BQQDAgE=", "$type" : "0" }""",
-      oldBinary = """{ "$binary" : "AQEBAQE=", "$type" : "2" }""",
+      binary = """{ "$binary" : "BQQDAgE=", "$type" : "00" }""",
+      oldBinary = """{ "$binary" : "AQEBAQE=", "$type" : "02" }""",
       arrayInt = "[1, 2, 3]",
       document = """{ "a" : 1 }""",
       dbPointer = """{ "$ref" : "db.coll", "$id" : { "$oid" : "000000000000000000000000" } }"""
@@ -295,6 +296,7 @@ class MongoDataFrameSpec extends RequiresMongoDB {
     document.put("bool", new BsonBoolean(true))
     document.put("date", new BsonDateTime(1463497097))
     document.put("dbl", new BsonDouble(62.0))
+    document.put("decimal", new BsonDecimal128(new Decimal128(BigDecimal(72.01).bigDecimal)))
     document.put("string", new BsonString("spark connector"))
     document.put("minKey", new BsonMinKey())
     document.put("maxKey", new BsonMaxKey())

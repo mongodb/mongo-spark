@@ -30,7 +30,9 @@ import com.mongodb.spark.RequiresMongoDB
 import com.mongodb.spark.exceptions.MongoTypeConversionException
 import com.mongodb.spark.sql.MapFunctions.{documentToRow, rowToDocument}
 
-class MapFunctionsSpec extends RequiresMongoDB {
+import org.scalatest.prop.GeneratorDrivenPropertyChecks
+
+class MapFunctionsSpec extends RequiresMongoDB with GeneratorDrivenPropertyChecks {
 
   // scalastyle:off magic.number null
   case class Person(name: String, age: Int)
@@ -44,6 +46,8 @@ class MapFunctionsSpec extends RequiresMongoDB {
   case class MixedNumericsLong(num: Long)
 
   case class MixedNumericsDouble(num: Double)
+
+  case class MixedNumericsDecimal(num: BigDecimal)
 
   def schemaFor[T <: Product: TypeTag]: StructType = ScalaReflection.schemaFor[T].dataType.asInstanceOf[StructType]
 
@@ -163,14 +167,30 @@ class MapFunctionsSpec extends RequiresMongoDB {
   }
 
   it should "handle mixed numerics based on the schema" in {
-    val convertedInt = rowToDocument(documentToRow(BsonDocument.parse("{num: 1.0}"), schemaFor[MixedNumericsInt]))
-    convertedInt should equal(BsonDocument.parse("{num: 1 }"))
+    val bsonIntDoc = BsonDocument.parse("""{num : 1}""")
+    val bsonLongDoc = BsonDocument.parse("""{num: {$numberLong: "1"}}""")
+    val bsonDoubleDoc = BsonDocument.parse("""{num : 1.0}""")
+    val bsonDecimalDoc = BsonDocument.parse("""{num : {$numberDecimal: "1"}}""")
+    val bsonDecimalDoubleDoc = BsonDocument.parse("""{num : {$numberDecimal: "1.0"}}""")
+    val allTypes = Seq(bsonIntDoc, bsonLongDoc, bsonDoubleDoc, bsonDecimalDoc)
 
-    val convertedLong = rowToDocument(documentToRow(BsonDocument.parse("{num: 1.0}"), schemaFor[MixedNumericsLong]))
-    convertedLong should equal(BsonDocument.parse("""{num: {$numberLong: "1"}}"""))
+    for (elem <- allTypes) {
+      val convertedInt = rowToDocument(documentToRow(elem, schemaFor[MixedNumericsInt]))
+      convertedInt should equal(bsonIntDoc)
 
-    val convertedDouble = rowToDocument(documentToRow(BsonDocument.parse("{num: 1}"), schemaFor[MixedNumericsDouble]))
-    convertedDouble should equal(BsonDocument.parse("{num: 1.0 }"))
+      val convertedLong = rowToDocument(documentToRow(elem, schemaFor[MixedNumericsLong]))
+      convertedLong should equal(bsonLongDoc)
+
+      val convertedDouble = rowToDocument(documentToRow(elem, schemaFor[MixedNumericsDouble]))
+      convertedDouble should equal(bsonDoubleDoc)
+
+      val convertedDecimal = rowToDocument(documentToRow(elem, schemaFor[MixedNumericsDecimal]))
+      if (elem == bsonDoubleDoc) {
+        convertedDecimal should equal(bsonDecimalDoubleDoc)
+      } else {
+        convertedDecimal should equal(bsonDecimalDoc)
+      }
+    }
   }
 
   it should "throw a MongoTypeConversionException when casting to an invalid DataType" in {

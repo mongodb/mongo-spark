@@ -39,6 +39,7 @@ trait BsonValueOrdering extends Ordering[BsonValue] {
     BsonType.INT32 -> 3,
     BsonType.INT64 -> 3,
     BsonType.DOUBLE -> 3,
+    BsonType.DECIMAL128 -> 3,
     BsonType.SYMBOL -> 4,
     BsonType.STRING -> 4,
     BsonType.DOCUMENT -> 5,
@@ -66,7 +67,7 @@ trait BsonValueOrdering extends Ordering[BsonValue] {
    *
    * 1. MinKey (internal type)
    * 2. Null
-   * 3. Numbers (ints, longs, doubles)
+   * 3. Numbers (ints, longs, doubles, decimals)
    * 4. Symbol, String
    * 5. Object
    * 6. Array
@@ -82,7 +83,7 @@ trait BsonValueOrdering extends Ordering[BsonValue] {
     (x.getBsonType, y.getBsonType) match {
       case (BsonType.MIN_KEY, BsonType.MIN_KEY)     => 0
       case (BsonType.NULL, BsonType.NULL)           => 0
-      case (isBsonNumber(), isBsonNumber())         => compareNumbers(x.asNumber, y.asNumber)
+      case (isBsonNumber(), isBsonNumber())         => compareNumbers(x, y)
       case (isString(), isString())                 => compareStrings(x, y)
       case (BsonType.DOCUMENT, BsonType.DOCUMENT)   => compareDocuments(x.asDocument, y.asDocument)
       case (BsonType.ARRAY, BsonType.ARRAY)         => compareArrays(x.asArray, y.asArray)
@@ -193,12 +194,30 @@ trait BsonValueOrdering extends Ordering[BsonValue] {
     compareBytes(xString.getBytes("utf-8") zip yString.getBytes("utf-8"))
   }
 
-  private def compareNumbers(x: BsonNumber, y: BsonNumber): Int = {
+  private def compareNumbers(x: BsonValue, y: BsonValue): Int = {
+    (x.getBsonType, y.getBsonType) match {
+      case (_, BsonType.DECIMAL128) => compareNumberWithDecimal(x.asNumber(), y.asDecimal128())
+      case (BsonType.DECIMAL128, _) => -compareNumberWithDecimal(y.asNumber(), x.asDecimal128())
+      case (_, _)                   => compareBsonNumbers(x.asNumber(), y.asNumber())
+    }
+  }
+
+  private def compareBsonNumbers(x: BsonNumber, y: BsonNumber): Int = {
     (x.getBsonType, y.getBsonType) match {
       case (BsonType.INT64, BsonType.DOUBLE) => compareLongToDouble(x.longValue, y.doubleValue)
       case (BsonType.DOUBLE, BsonType.INT64) => -compareLongToDouble(y.longValue, x.doubleValue)
       case _                                 => x.doubleValue.compareTo(y.doubleValue)
     }
+  }
+
+  private def compareNumberWithDecimal(x: BsonNumber, y: BsonDecimal128): Int = {
+    val decimalValue = x.getBsonType match {
+      case BsonType.INT64  => BigDecimal(x.longValue())
+      case BsonType.INT32  => BigDecimal(x.intValue())
+      case BsonType.DOUBLE => BigDecimal(x.doubleValue())
+      case _               => throw new UnsupportedOperationException(s"Unsupported numeric type: ${x.getBsonType}")
+    }
+    decimalValue.compare(BigDecimal(y.decimal128Value().bigDecimalValue()))
   }
 
   private def compareLongToDouble(x: Long, y: Double): Int = {
@@ -238,15 +257,15 @@ trait BsonValueOrdering extends Ordering[BsonValue] {
   }
 
   private object isBsonNumber extends Serializable {
-    val bsonNumberTypes = Set(BsonType.INT32, BsonType.INT64, BsonType.DOUBLE)
+    val bsonNumberTypes = Set(BsonType.INT32, BsonType.INT64, BsonType.DOUBLE, BsonType.DECIMAL128)
 
     def unapply(x: BsonType): Boolean = bsonNumberTypes.contains(x)
   }
 
   private object isString extends Serializable {
-    val bsonNumberTypes = Set(BsonType.SYMBOL, BsonType.STRING)
+    val bsonStringTypes = Set(BsonType.SYMBOL, BsonType.STRING)
 
-    def unapply(x: BsonType): Boolean = bsonNumberTypes.contains(x)
+    def unapply(x: BsonType): Boolean = bsonStringTypes.contains(x)
   }
 
 }
