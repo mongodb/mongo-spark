@@ -30,7 +30,7 @@ import org.apache.spark.sql.types.StructType
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
 import com.mongodb.client.MongoCollection
-import com.mongodb.client.model.{InsertOneModel, ReplaceOneModel, UpdateOptions}
+import com.mongodb.client.model.{InsertOneModel, ReplaceOneModel, UpdateOneModel, UpdateOptions}
 import com.mongodb.spark.DefaultHelper.DefaultsTo
 import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.rdd.MongoRDD
@@ -167,8 +167,15 @@ object MongoSpark {
             val updateOptions = new UpdateOptions().upsert(true)
             val requests = batch.map(doc =>
               Option(doc.get("_id")) match {
-                case Some(_id) => new ReplaceOneModel[BsonDocument](new BsonDocument("_id", _id), doc, updateOptions)
-                case None      => new InsertOneModel[BsonDocument](doc)
+                case Some(_id) => {
+                  if (writeConfig.replaceDocument) {
+                    new ReplaceOneModel[BsonDocument](new BsonDocument("_id", _id), doc, updateOptions)
+                  } else {
+                    doc.remove("_id")
+                    new UpdateOneModel[BsonDocument](new BsonDocument("_id", _id), new BsonDocument("$set", doc), updateOptions)
+                  }
+                }
+                case None => new InsertOneModel[BsonDocument](doc)
               })
             collection.bulkWrite(requests.toList.asJava)
           })

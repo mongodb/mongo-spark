@@ -37,6 +37,8 @@ object WriteConfig extends MongoOutputConfig {
 
   type Self = WriteConfig
 
+  private val defaultReplaceDocument: Boolean = true
+
   /**
    * Creates a WriteConfig
    *
@@ -49,7 +51,22 @@ object WriteConfig extends MongoOutputConfig {
    * @return the write config
    */
   def apply(databaseName: String, collectionName: String, localThreshold: Int, writeConcern: WriteConcern): WriteConfig =
-    WriteConfig(databaseName, collectionName, None, localThreshold, WriteConcernConfig(writeConcern))
+    WriteConfig(databaseName, collectionName, None, defaultReplaceDocument, localThreshold, WriteConcernConfig(writeConcern))
+
+  /**
+   * Creates a WriteConfig
+   *
+   * @param databaseName the database name
+   * @param collectionName the collection name
+   * @param connectionString the connection string used in the creation of this configuration
+   * @param localThreshold the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.
+   *                       Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local
+   *                       threshold will be chosen.
+   * @param writeConcern the WriteConcern to use
+   * @return the write config
+   */
+  def apply(databaseName: String, collectionName: String, connectionString: String, localThreshold: Int, writeConcern: WriteConcern): WriteConfig =
+    apply(databaseName, collectionName, Some(connectionString), defaultReplaceDocument, localThreshold, WriteConcernConfig(writeConcern))
 
   /**
    * Creates a WriteConfig
@@ -62,9 +79,30 @@ object WriteConfig extends MongoOutputConfig {
    *                       threshold will be chosen.
    * @param writeConcern the WriteConcern to use
    * @return the write config
+   * @since 2.1
    */
-  def apply(databaseName: String, collectionName: String, connectionString: String, localThreshold: Int, writeConcern: WriteConcern): WriteConfig =
-    WriteConfig(databaseName, collectionName, Option(connectionString), localThreshold, WriteConcernConfig(writeConcern))
+  def apply(databaseName: String, collectionName: String, connectionString: Option[String], localThreshold: Int, writeConcern: WriteConcern): WriteConfig =
+    apply(databaseName, collectionName, connectionString, defaultReplaceDocument, localThreshold, WriteConcernConfig(writeConcern))
+
+  /**
+   * Creates a WriteConfig
+   *
+   * @param databaseName the database name
+   * @param collectionName the collection name
+   * @param connectionString the optional connection string used in the creation of this configuration
+   * @param replaceDocument replaces the whole document, when saving a Dataset that contains an `_id` field.
+   *                        If false only updates / sets the fields declared in the Dataset.
+   * @param localThreshold the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.
+   *                       Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local
+   *                       threshold will be chosen.
+   * @param writeConcern the WriteConcern to use
+   * @return the write config
+   * @since 2.1
+   */
+  def apply(databaseName: String, collectionName: String, connectionString: String, replaceDocument: Boolean, localThreshold: Int,
+            writeConcern: WriteConcern): WriteConfig = {
+    apply(databaseName, collectionName, Some(connectionString), replaceDocument, localThreshold, WriteConcernConfig(writeConcern))
+  }
 
   override def apply(options: collection.Map[String, String], default: Option[WriteConfig]): WriteConfig = {
     val cleanedOptions = stripPrefix(options)
@@ -76,6 +114,8 @@ object WriteConfig extends MongoOutputConfig {
       databaseName = databaseName(databaseNameProperty, cleanedOptions, defaultDatabase),
       collectionName = collectionName(collectionNameProperty, cleanedOptions, defaultCollection),
       connectionString = cleanedOptions.get(mongoURIProperty).orElse(default.flatMap(conf => conf.connectionString)),
+      replaceDocument = getBoolean(cleanedOptions.get(replaceDocumentProperty), default.map(conf => conf.replaceDocument),
+        defaultValue = true),
       localThreshold = getInt(cleanedOptions.get(localThresholdProperty), default.map(conf => conf.localThreshold),
         MongoSharedConfig.DefaultLocalThreshold),
       writeConcernConfig = WriteConcernConfig(cleanedOptions, default.map(writeConf => writeConf.writeConcernConfig))
@@ -99,7 +139,31 @@ object WriteConfig extends MongoOutputConfig {
     notNull("collectionName", collectionName)
     notNull("localThreshold", localThreshold)
     notNull("writeConcern", writeConcern)
-    apply(databaseName, collectionName, connectionString, localThreshold, writeConcern)
+    create(databaseName, collectionName, connectionString, defaultReplaceDocument, localThreshold, writeConcern)
+  }
+
+  /**
+   * Creates a WriteConfig
+   *
+   * @param databaseName the database name
+   * @param collectionName the collection name
+   * @param connectionString the optional connection string used in the creation of this configuration
+   * @param replaceDocument replaces the whole document, when saving a Dataset that contains an `_id` field.
+   *                        If false only updates / sets the fields declared in the Dataset.
+   * @param localThreshold the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.
+   *                       Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local
+   *                       threshold will be chosen.
+   * @param writeConcern the WriteConcern to use
+   * @return the write config
+   * @since 2.1
+   */
+  def create(databaseName: String, collectionName: String, connectionString: String, replaceDocument: Boolean, localThreshold: Int,
+             writeConcern: WriteConcern): WriteConfig = {
+    notNull("databaseName", databaseName)
+    notNull("collectionName", collectionName)
+    notNull("localThreshold", localThreshold)
+    notNull("writeConcern", writeConcern)
+    new WriteConfig(databaseName, collectionName, Option(connectionString), replaceDocument, localThreshold, WriteConcernConfig(writeConcern))
   }
 
   override def create(javaSparkContext: JavaSparkContext): WriteConfig = {
@@ -146,7 +210,9 @@ object WriteConfig extends MongoOutputConfig {
  *
  * @param databaseName the database name
  * @param collectionName the collection name
- * @param connectionString the optional connection string used in the creation of this configuration
+ * @param connectionString the optional connection string used in the creation of this configuration.
+ * @param replaceDocument replaces the whole document, when saving a Dataset that contains an `_id` field.
+ *                        If false only updates / sets the fields declared in the Dataset.
  * @param localThreshold the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.
  *                       Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local
  *                       threshold will be chosen.
@@ -157,6 +223,7 @@ case class WriteConfig(
     databaseName:       String,
     collectionName:     String,
     connectionString:   Option[String]     = None,
+    replaceDocument:    Boolean            = true,
     localThreshold:     Int                = MongoSharedConfig.DefaultLocalThreshold,
     writeConcernConfig: WriteConcernConfig = WriteConcernConfig.Default
 ) extends MongoCollectionConfig with MongoClassConfig {
@@ -170,7 +237,8 @@ case class WriteConfig(
   override def withOptions(options: collection.Map[String, String]): WriteConfig = WriteConfig(options, Some(this))
 
   override def asOptions: collection.Map[String, String] = {
-    val options = Map("database" -> databaseName, "collection" -> collectionName, "localThreshold" -> localThreshold.toString) ++ writeConcernConfig.asOptions
+    val options = Map("database" -> databaseName, "collection" -> collectionName, "replaceDocument" -> "true",
+      "localThreshold" -> localThreshold.toString) ++ writeConcernConfig.asOptions
     connectionString match {
       case Some(uri) => options + (WriteConfig.mongoURIProperty -> uri)
       case None      => options

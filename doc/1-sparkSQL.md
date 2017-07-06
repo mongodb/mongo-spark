@@ -212,7 +212,10 @@ dataFrameWriter.write.format("com.mongodb.spark.sql").save()
 ```
 
 -----
-**Note:** New in 1.1.0. Saving DataFrames or Datasets to MongoDB that contain an `_id` field will replace and upsert any existing documents.
+**Note:** Saving Datasets to MongoDB that contain an `_id` field will replace and upsert any existing documents.
+
+The `WriteConfig.replaceDocument` configuration setting allows you to configure if you want to replace the whole document or just the 
+fields in the Dataset.
 
 -----
 
@@ -228,6 +231,7 @@ Bson Type               | Spark Type
 `Array`                 | `ArrayType`
 `32-bit integer`        | `Integer`
 `64-bit integer`        | `Long`
+`Decimal128`            | `Decimal`
 `Binary data`           | `Array[Byte]` or `StructType`: `{ subType: Byte, data: Array[Byte]}`
 `Boolean`               | `Boolean`
 `Date`                  | `java.sql.Timestamp`

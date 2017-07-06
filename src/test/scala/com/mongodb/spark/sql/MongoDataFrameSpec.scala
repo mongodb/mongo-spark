@@ -278,6 +278,23 @@ class MongoDataFrameSpec extends RequiresMongoDB {
     originalData.map(c => (c.name, c.age)) should contain theSameElementsAs savedData
   }
 
+  it should "be able to set only the data in the Dataset to the collection" in withSparkContext() { sc =>
+    val sparkSession = SparkSession.builder().getOrCreate()
+    import sparkSession.implicits._
+    val writeConfig = WriteConfig(sc.getConf).withOptions(Map("replaceDocument" -> "false"))
+
+    val originalData = characters.map(doc => CharacterWithOid(None, doc.getString("name"),
+      if (doc.containsKey("age")) Some(doc.getInteger("age")) else None))
+
+    originalData.toDS().saveToMongoDB()
+
+    sparkSession.read.mongo[CharacterUpperCaseNames]().as[CharacterUpperCaseNames]
+      .map(c => CharacterUpperCaseNames(c._id, c.name.toUpperCase())).saveToMongoDB(writeConfig)
+
+    val savedData = sparkSession.read.mongo[CharacterWithOid]().as[CharacterWithOid].map(c => (c.name, c.age)).collect()
+    originalData.map(c => (c.name.toUpperCase(), c.age)) should contain theSameElementsAs savedData
+  }
+
   private val expectedSchema: StructType = {
     val _idField: StructField = createStructField("_id", BsonCompatibility.ObjectId.structType, true)
     val nameField: StructField = createStructField("name", DataTypes.StringType, true)
@@ -323,3 +340,5 @@ class MongoDataFrameSpec extends RequiresMongoDB {
 case class SomeData(_id: Int, count: Int)
 
 case class CharacterWithOid(_id: Option[fieldTypes.ObjectId], name: String, age: Option[Int])
+
+case class CharacterUpperCaseNames(_id: Option[fieldTypes.ObjectId], name: String)

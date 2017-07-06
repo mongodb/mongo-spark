@@ -86,4 +86,14 @@ trait MongoOutputConfig extends MongoCompanionConfig {
    * Default: `15 ms`
    */
   val localThresholdProperty = MongoSharedConfig.localThresholdProperty
+
+  /**
+   * The replaceDocument property
+   *
+   * When saving a Dataset with an `_id` field, the whole document will be replaced if true. Otherwise, only the fields in the Dataset will
+   * be updated.
+   *
+   * Default: true
+   */
+  val replaceDocumentProperty = "replaceDocument".toLowerCase
 }

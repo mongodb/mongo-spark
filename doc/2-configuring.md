@@ -45,6 +45,7 @@ Property name           | Description                                           
 uri                     | The connection string                                             |
 database                | The database name to write data to                                |
 collection              | The collection name to write data to                              |
+replaceDocument         | Replace the whole document or just the fields in a Dataset        | true
 localThreshold          | The threshold for choosing a server from multiple MongoDB servers | 15 ms
 writeConcern.w          | The write concern w value                                         | (WriteConcern.ACKNOWLEDGED)
 writeConcern.journal    | The write concern journal value                                   |

@@ -1,6 +1,7 @@
 # Mongo Spark Connector Changelog
 
 ## 2.1.0
+  * [[SPARK-100](https://jira.mongodb.org/browse/SPARK-100)] Added WriteConfig.replaceDocument to configure how Datasets are saved
   * [[SPARK-39](https://jira.mongodb.org/browse/SPARK-39)] Added support for Decimal type
   * [[SPARK-112](https://jira.mongodb.org/browse/SPARK-112)] Fixed custom partition key bug in MongoSamplePartitioner
   * [[SPARK-122](https://jira.mongodb.org/browse/SPARK-122)] Ensure pagination partitioners can use a covered query
