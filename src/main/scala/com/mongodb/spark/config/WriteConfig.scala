@@ -37,7 +37,8 @@ object WriteConfig extends MongoOutputConfig {
 
   type Self = WriteConfig
 
-  private val defaultReplaceDocument: Boolean = true
+  private val DefaultReplaceDocument: Boolean = true
+  private val DefaultMaxBatchSize: Int = 512
 
   /**
    * Creates a WriteConfig
@@ -51,7 +52,8 @@ object WriteConfig extends MongoOutputConfig {
    * @return the write config
    */
   def apply(databaseName: String, collectionName: String, localThreshold: Int, writeConcern: WriteConcern): WriteConfig =
-    WriteConfig(databaseName, collectionName, None, defaultReplaceDocument, localThreshold, WriteConcernConfig(writeConcern))
+    WriteConfig(databaseName, collectionName, None, DefaultReplaceDocument, DefaultMaxBatchSize, localThreshold,
+      WriteConcernConfig(writeConcern))
 
   /**
    * Creates a WriteConfig
@@ -66,7 +68,8 @@ object WriteConfig extends MongoOutputConfig {
    * @return the write config
    */
   def apply(databaseName: String, collectionName: String, connectionString: String, localThreshold: Int, writeConcern: WriteConcern): WriteConfig =
-    apply(databaseName, collectionName, Some(connectionString), defaultReplaceDocument, localThreshold, WriteConcernConfig(writeConcern))
+    apply(databaseName, collectionName, Some(connectionString), DefaultReplaceDocument, DefaultMaxBatchSize,
+      localThreshold, WriteConcernConfig(writeConcern))
 
   /**
    * Creates a WriteConfig
@@ -82,7 +85,8 @@ object WriteConfig extends MongoOutputConfig {
    * @since 2.1
    */
   def apply(databaseName: String, collectionName: String, connectionString: Option[String], localThreshold: Int, writeConcern: WriteConcern): WriteConfig =
-    apply(databaseName, collectionName, connectionString, defaultReplaceDocument, localThreshold, WriteConcernConfig(writeConcern))
+    apply(databaseName, collectionName, connectionString, DefaultReplaceDocument, DefaultMaxBatchSize, localThreshold,
+      WriteConcernConfig(writeConcern))
 
   /**
    * Creates a WriteConfig
@@ -99,9 +103,30 @@ object WriteConfig extends MongoOutputConfig {
    * @return the write config
    * @since 2.1
    */
-  def apply(databaseName: String, collectionName: String, connectionString: String, replaceDocument: Boolean, localThreshold: Int,
+  def apply(databaseName: String, collectionName: String, connectionString: Option[String], replaceDocument: Boolean, localThreshold: Int,
             writeConcern: WriteConcern): WriteConfig = {
-    apply(databaseName, collectionName, Some(connectionString), replaceDocument, localThreshold, WriteConcernConfig(writeConcern))
+    apply(databaseName, collectionName, connectionString, replaceDocument, DefaultMaxBatchSize, localThreshold, writeConcern)
+  }
+
+  /**
+   * Creates a WriteConfig
+   *
+   * @param databaseName the database name
+   * @param collectionName the collection name
+   * @param connectionString the optional connection string used in the creation of this configuration
+   * @param replaceDocument replaces the whole document, when saving a Dataset that contains an `_id` field.
+   *                        If false only updates / sets the fields declared in the Dataset.
+   * @param maxBatchSize the maxBatchSize when performing a bulk update/insert. Defaults to 512.
+   * @param localThreshold the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.
+   *                       Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local
+   *                       threshold will be chosen.
+   * @param writeConcern the WriteConcern to use
+   * @return the write config
+   * @since 2.1
+   */
+  def apply(databaseName: String, collectionName: String, connectionString: Option[String], replaceDocument: Boolean, maxBatchSize: Int,
+            localThreshold: Int, writeConcern: WriteConcern): WriteConfig = {
+    apply(databaseName, collectionName, connectionString, replaceDocument, maxBatchSize, localThreshold, WriteConcernConfig(writeConcern))
   }
 
   override def apply(options: collection.Map[String, String], default: Option[WriteConfig]): WriteConfig = {
@@ -116,6 +141,8 @@ object WriteConfig extends MongoOutputConfig {
       connectionString = cleanedOptions.get(mongoURIProperty).orElse(default.flatMap(conf => conf.connectionString)),
       replaceDocument = getBoolean(cleanedOptions.get(replaceDocumentProperty), default.map(conf => conf.replaceDocument),
         defaultValue = true),
+      maxBatchSize = getInt(cleanedOptions.get(maxBatchSizeProperty), default.map(conf => conf.maxBatchSize),
+        DefaultMaxBatchSize),
       localThreshold = getInt(cleanedOptions.get(localThresholdProperty), default.map(conf => conf.localThreshold),
         MongoSharedConfig.DefaultLocalThreshold),
       writeConcernConfig = WriteConcernConfig(cleanedOptions, default.map(writeConf => writeConf.writeConcernConfig))
@@ -135,11 +162,7 @@ object WriteConfig extends MongoOutputConfig {
    * @return the write config
    */
   def create(databaseName: String, collectionName: String, connectionString: String, localThreshold: Int, writeConcern: WriteConcern): WriteConfig = {
-    notNull("databaseName", databaseName)
-    notNull("collectionName", collectionName)
-    notNull("localThreshold", localThreshold)
-    notNull("writeConcern", writeConcern)
-    create(databaseName, collectionName, connectionString, defaultReplaceDocument, localThreshold, writeConcern)
+    create(databaseName, collectionName, connectionString, DefaultReplaceDocument, DefaultMaxBatchSize, localThreshold, writeConcern)
   }
 
   /**
@@ -159,11 +182,35 @@ object WriteConfig extends MongoOutputConfig {
    */
   def create(databaseName: String, collectionName: String, connectionString: String, replaceDocument: Boolean, localThreshold: Int,
              writeConcern: WriteConcern): WriteConfig = {
+    create(databaseName, collectionName, connectionString, replaceDocument, DefaultMaxBatchSize, localThreshold, writeConcern)
+  }
+
+  /**
+   * Creates a WriteConfig
+   *
+   * @param databaseName the database name
+   * @param collectionName the collection name
+   * @param connectionString the optional connection string used in the creation of this configuration
+   * @param replaceDocument replaces the whole document, when saving a Dataset that contains an `_id` field.
+   *                        If false only updates / sets the fields declared in the Dataset.
+   * @param maxBatchSize the maxBatchSize when performing a bulk update/insert. Defaults to 512.
+   * @param localThreshold the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.
+   *                       Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local
+   *                       threshold will be chosen.
+   * @param writeConcern the WriteConcern to use
+   * @return the write config
+   * @since 2.1
+   */
+  def create(databaseName: String, collectionName: String, connectionString: String, replaceDocument: Boolean, maxBatchSize: Int,
+             localThreshold: Int, writeConcern: WriteConcern): WriteConfig = {
     notNull("databaseName", databaseName)
     notNull("collectionName", collectionName)
+    notNull("replaceDocument", replaceDocument)
+    notNull("maxBatchSize", maxBatchSize)
     notNull("localThreshold", localThreshold)
     notNull("writeConcern", writeConcern)
-    new WriteConfig(databaseName, collectionName, Option(connectionString), replaceDocument, localThreshold, WriteConcernConfig(writeConcern))
+    new WriteConfig(databaseName, collectionName, Option(connectionString), replaceDocument, maxBatchSize, localThreshold,
+      WriteConcernConfig(writeConcern))
   }
 
   override def create(javaSparkContext: JavaSparkContext): WriteConfig = {
@@ -213,6 +260,7 @@ object WriteConfig extends MongoOutputConfig {
  * @param connectionString the optional connection string used in the creation of this configuration.
  * @param replaceDocument replaces the whole document, when saving a Dataset that contains an `_id` field.
  *                        If false only updates / sets the fields declared in the Dataset.
+ * @param maxBatchSize the maxBatchSize when performing a bulk update/insert. Defaults to 512.
  * @param localThreshold the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.
  *                       Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local
  *                       threshold will be chosen.
@@ -223,10 +271,12 @@ case class WriteConfig(
     databaseName:       String,
     collectionName:     String,
     connectionString:   Option[String]     = None,
-    replaceDocument:    Boolean            = true,
+    replaceDocument:    Boolean            = WriteConfig.DefaultReplaceDocument,
+    maxBatchSize:       Int                = WriteConfig.DefaultMaxBatchSize,
     localThreshold:     Int                = MongoSharedConfig.DefaultLocalThreshold,
     writeConcernConfig: WriteConcernConfig = WriteConcernConfig.Default
 ) extends MongoCollectionConfig with MongoClassConfig {
+  require(maxBatchSize >= 1, s"maxBatchSize ($maxBatchSize) must be greater or equal to 1")
   require(localThreshold >= 0, s"localThreshold ($localThreshold) must be greater or equal to 0")
   require(Try(connectionString.map(uri => new ConnectionString(uri))).isSuccess, s"Invalid uri: '${connectionString.get}'")
 

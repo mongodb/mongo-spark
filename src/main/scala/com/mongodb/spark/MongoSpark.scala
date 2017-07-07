@@ -44,8 +44,6 @@ import com.mongodb.spark.sql.{MongoInferSchema, helpers}
  */
 object MongoSpark {
 
-  private val DefaultMaxBatchSize = 512
-
   /**
    * The default source string for creating DataFrames from MongoDB
    */
@@ -118,7 +116,7 @@ object MongoSpark {
     val mongoConnector = MongoConnector(writeConfig.asOptions)
     rdd.foreachPartition(iter => if (iter.nonEmpty) {
       mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[D] =>
-        iter.grouped(DefaultMaxBatchSize).foreach(batch => collection.insertMany(batch.toList.asJava))
+        iter.grouped(writeConfig.maxBatchSize).foreach(batch => collection.insertMany(batch.toList.asJava))
       })
     })
   }
@@ -152,7 +150,7 @@ object MongoSpark {
     if (dataset.schema.fields.exists(_.name == "_id")) {
       documentRdd.foreachPartition(iter => if (iter.nonEmpty) {
         mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[BsonDocument] =>
-          iter.grouped(DefaultMaxBatchSize).foreach(batch => {
+          iter.grouped(writeConfig.maxBatchSize).foreach(batch => {
             val updateOptions = new UpdateOptions().upsert(true)
             val requests = batch.map(doc =>
               Option(doc.get("_id")) match {

@@ -29,20 +29,22 @@ import com.mongodb.WriteConcern
 class WriteConfigSpec extends FlatSpec with Matchers {
 
   "WriteConfig" should "have the expected defaults" in {
-    val expectedWriteConfig = WriteConfig("db", "collection", MongoSharedConfig.DefaultLocalThreshold, WriteConcern.ACKNOWLEDGED)
+    val expectedWriteConfig = WriteConfig("db", "collection", None, true, 512, MongoSharedConfig.DefaultLocalThreshold, WriteConcern.ACKNOWLEDGED)
 
     WriteConfig("db", "collection") should equal(expectedWriteConfig)
   }
 
   it should "be creatable from SparkConfig" in {
     forAll(writeConcerns) { writeConcern: WriteConcern =>
-      val expectedWriteConfig = WriteConfig("db", "collection", MongoSharedConfig.DefaultLocalThreshold, writeConcern)
+      val expectedWriteConfig = WriteConfig("db", "collection", None, false, 1024, MongoSharedConfig.DefaultLocalThreshold, writeConcern)
 
       val conf = sparkConf.clone()
       Option(writeConcern.getWObject).map(w => conf.set(s"${WriteConfig.configPrefix}${WriteConfig.writeConcernWProperty}", w.toString))
       Option(writeConcern.getJournal).map(j => conf.set(s"${WriteConfig.configPrefix}${WriteConfig.writeConcernJournalProperty}", j.toString))
       Option(writeConcern.getWTimeout(TimeUnit.MILLISECONDS)).map(t =>
         conf.set(s"${WriteConfig.configPrefix}${WriteConfig.writeConcernWTimeoutMSProperty}", t.toString))
+      conf.set(s"${WriteConfig.configPrefix}${WriteConfig.replaceDocumentProperty}", "false")
+      conf.set(s"${WriteConfig.configPrefix}${WriteConfig.maxBatchSizeProperty}", "1024")
 
       WriteConfig(conf) should equal(expectedWriteConfig)
     }
@@ -67,6 +69,7 @@ class WriteConfigSpec extends FlatSpec with Matchers {
     ))
     an[IllegalArgumentException] should be thrownBy WriteConfig(new SparkConf().set("spark.mongodb.output.collection", "coll"))
     an[IllegalArgumentException] should be thrownBy WriteConfig(new SparkConf().set("spark.mongodb.output.database", "db"))
+    an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().set("spark.mongodb.output.maxBatchSize", "-1"))
     an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().set("spark.mongodb.output.localThreshold", "-1"))
     an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().set("spark.mongodb.output.writeConcern.w", "-1"))
     an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().set("spark.mongodb.output.writeConcern.wTimeoutMS", "-1"))

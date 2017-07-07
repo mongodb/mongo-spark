@@ -94,6 +94,17 @@ trait MongoOutputConfig extends MongoCompanionConfig {
    * be updated.
    *
    * Default: true
+   * @since 2.1
    */
   val replaceDocumentProperty = "replaceDocument".toLowerCase
+
+  /**
+   * The maxBatchSize property
+   *
+   * The maximum size of the batch when performing a bulk update / insert operation.
+   *
+   * Default: 513
+   * @since 2.1
+   */
+  val maxBatchSizeProperty = "maxBatchSize".toLowerCase
 }
