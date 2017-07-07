@@ -391,6 +391,17 @@ object MongoSpark {
    * Load data from MongoDB
    *
    * @param sparkSession the SparkSession containing the MongoDB connection configuration
+   * @param readConfig the custom readConfig
+   * @return the Dataset
+   * @since 2.1
+   */
+  def loadAndInferSchema(sparkSession: SparkSession, readConfig: ReadConfig): DataFrame =
+    builder().sparkSession(sparkSession).readConfig(readConfig).build().toDF()
+
+  /**
+   * Load data from MongoDB
+   *
+   * @param sparkSession the SparkSession containing the MongoDB connection configuration
    * @param clazz   the class of the data representing the Dataset
    * @tparam D The bean class defining the schema for the data
    * @return the Dataset
