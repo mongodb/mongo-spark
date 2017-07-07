@@ -26,9 +26,10 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.MapFunction;
-import org.apache.spark.sql.Row;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoders;
+import org.apache.spark.sql.Row;
+import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.catalyst.JavaTypeInference;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructField;
@@ -172,6 +173,49 @@ public final class MongoSparkTest extends JavaRequiresMongoDB {
 
         // when
         Dataset<CounterBean> dataset = mongoRDD.toDS(CounterBean.class);
+
+        // then
+        assertEquals(dataset.schema(), expectedSchema);
+        assertEquals(dataset.count(), 3);
+
+        assertEquals(dataset.map(new MapFunction<CounterBean, Integer>(){
+            @Override
+            public Integer call(final CounterBean counter) throws Exception {
+                return counter.getCounter();
+            }
+        }, Encoders.INT()).collectAsList(), asList(0, 1, 2));
+    }
+
+    @Test
+    public void shouldBeAbleToCreateADataFrameByInferringTheSchemaUsingSparkSession() {
+        // Given
+        SparkSession spark = getSparkSession();
+        JavaSparkContext jsc = getJavaSparkContext();
+        MongoSpark.save(jsc.parallelize(counters));
+
+        // When
+        Dataset<Row> dataFrame = MongoSpark.loadAndInferSchema(spark);
+
+        StructField _idField = createStructField("_id", ObjectIdStruct(), true);
+        StructField countField = createStructField("counter", DataTypes.IntegerType, true);
+        StructType expectedSchema = createStructType(asList(_idField, countField));
+
+
+        // then
+        assertEquals(dataFrame.schema(), expectedSchema);
+        assertEquals(dataFrame.count(), 3);
+    }
+
+    @Test
+    public void shouldBeAbleToCreateADatasetUsingJavaBeanWithSparkSession() {
+        // Given
+        SparkSession spark = getSparkSession();
+        JavaSparkContext jsc = getJavaSparkContext();
+        MongoSpark.save(jsc.parallelize(counters));
+        StructType expectedSchema = (StructType) JavaTypeInference.inferDataType(CounterBean.class)._1();
+
+        // when
+        Dataset<CounterBean> dataset = MongoSpark.load(spark, CounterBean.class);
 
         // then
         assertEquals(dataset.schema(), expectedSchema);

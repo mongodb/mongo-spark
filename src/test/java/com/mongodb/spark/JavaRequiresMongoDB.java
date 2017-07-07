@@ -21,9 +21,9 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.spark.sql.types.BsonCompatibility;
 import org.apache.spark.SparkConf;
-import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
+import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.types.StructType;
 import org.bson.Document;
 import org.junit.After;
@@ -67,16 +67,12 @@ public abstract class JavaRequiresMongoDB implements Serializable {
         if (jsc != null) {
             jsc.stop();
         }
-        jsc = new JavaSparkContext(new SparkContext(getSparkConf()));
+        jsc = new JavaSparkContext(getSparkSession().sparkContext());
         return jsc;
     }
 
-    public JavaSparkContext getJavaSparkContext(final String collectionName) {
-        if (jsc != null) {
-            jsc.stop();
-        }
-        jsc = new JavaSparkContext(new SparkContext(getSparkConf(collectionName)));
-        return jsc;
+    public SparkSession getSparkSession() {
+        return SparkSession.builder().config(getSparkConf()).getOrCreate();
     }
 
     public String getDatabaseName() {
