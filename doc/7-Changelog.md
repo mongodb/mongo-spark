@@ -1,6 +1,7 @@
 # Mongo Spark Connector Changelog
 
 ## 2.1.0
+  * [[SPARK-125](https://jira.mongodb.org/browse/SPARK-125)] Updated Spark dependency to 2.1.1
   * [[SPARK-124](https://jira.mongodb.org/browse/SPARK-124)] Made the maximum batch size when performing bulk updates / inserts configurable.
   * [[SPARK-106](https://jira.mongodb.org/browse/SPARK-106)] Added helpers `MongoSpark.load` helpers for Java users using a SparkSesson.
   * [[SPARK-100](https://jira.mongodb.org/browse/SPARK-100)] Added WriteConfig.replaceDocument to configure how Datasets are saved
