@@ -135,7 +135,7 @@ class MongoDBDefaults extends Logging {
       val documents: IndexedSeq[BsonDocument] = (1 to numberOfDocuments).map(y => {
         counter += 1
         val idValue = new BsonString(f"$counter%05d")
-        val bValue = new BsonString(f"${counter%2}%05d")
+        val bValue = new BsonString(f"${counter % 2}%05d")
         new BsonDocument("_id", new BsonDocument("a", idValue).append("b", bValue)).append("s", new BsonString(sampleString))
       })
       collection.insertMany(documents.toList.asJava)
