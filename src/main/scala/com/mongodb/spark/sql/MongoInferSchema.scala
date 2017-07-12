@@ -132,7 +132,7 @@ object MongoInferSchema extends Logging {
    * @return the DataType that matches on the input DataTypes
    */
   private def compatibleType(t1: DataType, t2: DataType): DataType = {
-    TypeCoercion.findTightestCommonTypeOfTwo(t1, t2).getOrElse {
+    TypeCoercion.findTightestCommonType(t1, t2).getOrElse {
       // t1 or t2 is a StructType, ArrayType, or an unexpected type.
       (t1, t2) match {
         // Double support larger range than fixed decimal, DecimalType.Maximum should be enough
