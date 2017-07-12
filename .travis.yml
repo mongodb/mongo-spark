@@ -1,11 +1,10 @@
 # See http://about.travis-ci.org/docs/user/build-configuration/
 language: scala
 scala:
-  - "2.11.5"
+  - "2.11.8"
   - "2.10.6"
 
 jdk:
-  - oraclejdk7
   - oraclejdk8
 
 # Branches to test

@@ -424,10 +424,10 @@ axes:
         display_name: "2.11.8"
         variables:
            SCALA_VERSION: "2.11.8"
-      - id: "2.10.5"
-        display_name: "2.10.5"
+      - id: "2.10.6"
+        display_name: "2.10.6"
         variables:
-           SCALA_VERSION: "2.10.5"
+           SCALA_VERSION: "2.10.6"
 
 buildvariants:
 
