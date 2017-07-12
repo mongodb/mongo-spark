@@ -80,6 +80,7 @@ To publish to spark packages:
 ```
 $ ./sbt +spPublish
 ```
+See the [sbt-spark-package](https://github.com/databricks/sbt-spark-package) plugin for more information.
 
 ## Maintainers
 
