@@ -7,7 +7,7 @@ This introduction expects you to have a basic working knowledge of MongoDB and A
 
 ## Prerequisites
 
-Have MongoDB up and running and the Spark 1.6.x downloaded. This tutorial will use the Spark Shell allowing for instant feedback.
+Have MongoDB up and running and Spark 2.2.x downloaded. This tutorial will use the Spark Shell allowing for instant feedback.
 
 ### Configuring the Mongo Spark Connector
 
@@ -22,7 +22,7 @@ To load the Spark Shell, set the uri configuration and download the connector ru
 ```
 ./bin/spark-shell --conf "spark.mongodb.input.uri=mongodb://127.0.0.1/test.coll?readPreference=primaryPreferred" \
                   --conf "spark.mongodb.output.uri=mongodb://127.0.0.1/test.coll" \
-                  --packages org.mongodb.spark:mongo-spark-connector_2.11:2.1.0
+                  --packages org.mongodb.spark:mongo-spark-connector_2.11:2.2.0
 ```
 
 ------

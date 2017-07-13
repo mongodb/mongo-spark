@@ -4,7 +4,7 @@ The following code snippets can be found in [JavaIntroduction.java](../examples/
 
 ## Prerequisites
 
-Have MongoDB up and running and the Spark 1.6.x downloaded. See the [introduction](0-introduction.md) for more information on getting started.
+Have MongoDB up and running and Spark 2.2.x downloaded. See the [introduction](0-introduction.md) for more information on getting started.
 
 ## The Java API Basics
 
