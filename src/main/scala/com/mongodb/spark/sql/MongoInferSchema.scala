@@ -292,6 +292,6 @@ object MongoInferSchema extends Logging {
     }
   }
 
-  def reflectSchema[T](beanClass: Class[T]): StructType = JavaTypeInference.inferDataType(beanClass)._1.asInstanceOf[StructType]
+  def reflectSchema[T](beanClass: Class[T]): StructType = MongoInferSchemaJava.reflectSchema(beanClass)
 
 }

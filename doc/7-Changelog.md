@@ -1,5 +1,9 @@
 # Mongo Spark Connector Changelog
 
+## 2.2.0
+  * [[SPARK-127](https://jira.mongodb.org/browse/SPARK-127)] Fix Scala 2.10 compiler error for Java bean type inference.
+  * [[SPARK-126](https://jira.mongodb.org/browse/SPARK-126)] Support Spark 2.2.0. Updated Spark dependency to 2.2.0
+
 ## 2.1.0
   * [[SPARK-125](https://jira.mongodb.org/browse/SPARK-125)] Updated Spark dependency to 2.1.1
   * [[SPARK-124](https://jira.mongodb.org/browse/SPARK-124)] Made the maximum batch size when performing bulk updates / inserts configurable.
