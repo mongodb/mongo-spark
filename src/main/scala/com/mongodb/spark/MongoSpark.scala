@@ -123,7 +123,7 @@ object MongoSpark {
                 case Some(_id) => {
                   var docBson = doc.asInstanceOf[BsonDocument]
                   docBson.remove("_id")
-                  new UpdateOneModel[BsonDocument](new BsonDocument("_id",  _id), docBson, updateOptions)                  
+                  new UpdateOneModel[BsonDocument](new BsonDocument("_id",  _id), docBson, updateOptions)
                 }
                 case None => new InsertOneModel[BsonDocument](doc.asInstanceOf[BsonDocument])
               }) //end map
