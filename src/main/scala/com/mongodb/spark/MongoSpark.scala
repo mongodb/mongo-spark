@@ -116,7 +116,7 @@ object MongoSpark {
     val mongoConnector = MongoConnector(writeConfig.asOptions)
     rdd.foreachPartition(iter => if (iter.nonEmpty) {
       mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[Document] =>
-        iter.grouped(DefaultMaxBatchSize).foreach(batch => {
+        iter.grouped(writeConfig.maxBatchSize).foreach(batch => {
             val updateOptions = new UpdateOptions().upsert(true)
             val requests = batch.map(doc =>
               Option(doc.asInstanceOf[Document].get("_id")) match {
