@@ -115,22 +115,21 @@ object MongoSpark {
   def save[D: ClassTag](rdd: RDD[D], writeConfig: WriteConfig): Unit = {
     val mongoConnector = MongoConnector(writeConfig.asOptions)
     rdd.foreachPartition(iter => if (iter.nonEmpty) {
-      mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[Document] =>          
-        iter.grouped(DefaultMaxBatchSize).foreach(batch => {          
+      mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[Document] =>
+        iter.grouped(DefaultMaxBatchSize).foreach(batch => {
             val updateOptions = new UpdateOptions().upsert(true)
-            val requests = batch.map(doc =>              
+            val requests = batch.map(doc =>
               Option(doc.asInstanceOf[Document].get("_id")) match {
                 case Some(_id) => {
                   var docBson = doc.asInstanceOf[Document]
-                  docBson.remove("_id")                  
+                  docBson.remove("_id")
                   new UpdateOneModel[Document](new Document("_id",  _id), docBson, updateOptions)
                   //new ReplaceOneModel[Document](new Document("_id",  _id), doc.asInstanceOf[Document], updateOptions)
                 }
                 case None => new InsertOneModel[Document](doc.asInstanceOf[Document])
               }) //end map
-              
             collection.bulkWrite(requests.toList.asJava)
-          })        
+          })
       })
     })
   }
