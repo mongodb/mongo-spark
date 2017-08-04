@@ -179,12 +179,12 @@ object MongoInferSchema extends Logging {
   // scalastyle:on cyclomatic.complexity method.length
 
   /**
-    * Combines the fields of two StructTypes to a new StructType
-    *
-    * @param fields1 the fields of the first struct
-    * @param fields2 the fields of the second struct
-    * @return a new struct type that contains all fields
-    */
+   * Combines the fields of two StructTypes to a new StructType
+   *
+   * @param fields1 the fields of the first struct
+   * @param fields2 the fields of the second struct
+   * @return a new struct type that contains all fields
+   */
   private def compatibleStructType(fields1: Array[StructField], fields2: Array[StructField]): DataType = {
     val newFields = (fields1 ++ fields2).groupBy(field => field.name).map {
       case (name, fieldTypes) =>
@@ -195,23 +195,24 @@ object MongoInferSchema extends Logging {
   }
 
   /**
-    * Tries to combine the fields of two struct types to a MapType.
-    *
-    * This method returns Some if a MapType could be generated or None if it couldn't.
-    * It will only try to create a MapType if the minimum number of keys over both structs has been reached.
-    * All fields will be iterated and combined to find a compatible value type.
-    *
-    * @param fields1 the fields of the first struct
-    * @param fields2 the fields of the second struct
-    * @return the generated MapType
-    */
+   * Tries to combine the fields of two struct types to a MapType.
+   *
+   * This method returns Some if a MapType could be generated or None if it couldn't.
+   * It will only try to create a MapType if the minimum number of keys over both structs has been reached.
+   * All fields will be iterated and combined to find a compatible value type.
+   *
+   * @param fields1 the fields of the first struct
+   * @param fields2 the fields of the second struct
+   * @return the generated MapType
+   */
   private def structsToMapType(fields1: Array[StructField], fields2: Array[StructField]): Option[MapType] = {
-    if (fields1.length + fields2.length > minimumMapKeys) {
+    val fieldNames = (fields1 ++ fields2).map(_.name).distinct
+    if (fieldNames.length >= minimumMapKeys) {
       (fields1 ++ fields2).map(_.dataType).reduce(compatibleType) match {
-        case ConflictType => None
-        case SkipFieldType => None
+        case ConflictType       => None
+        case SkipFieldType      => None
         case dataType: DataType => Some(DataTypes.createMapType(StringType, dataType, true))
-        case _ => None
+        case _                  => None
       }
     } else {
       None
@@ -219,12 +220,12 @@ object MongoInferSchema extends Logging {
   }
 
   /**
-    * Combines a MapType with some new fields from a StructType.
-    *
-    * @param fields the fields of the struct
-    * @param mapType the previous MapType
-    * @return the new MapType
-    */
+   * Combines a MapType with some new fields from a StructType.
+   *
+   * @param fields the fields of the struct
+   * @param mapType the previous MapType
+   * @return the new MapType
+   */
   private def appendStructToMap(fields: Array[StructField], mapType: MapType): MapType = {
     val valueType = (mapType.valueType +: fields.map(_.dataType)).reduce(compatibleType)
     DataTypes.createMapType(mapType.keyType, valueType, mapType.valueContainsNull)
