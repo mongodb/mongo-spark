@@ -20,21 +20,20 @@ package com.mongodb.spark.sql
 import java.util
 import java.util.Comparator
 
-import scala.collection.JavaConverters._
-import scala.reflect.runtime.universe._
-import scala.util.{Failure, Success, Try}
-
-import org.apache.spark.SparkContext
-import org.apache.spark.sql.catalyst.analysis.TypeCoercion
-import org.apache.spark.sql.catalyst.{JavaTypeInference, ScalaReflection}
-import org.apache.spark.sql.types._
-
-import org.bson._
 import com.mongodb.client.model.{Aggregates, Filters, Projections, Sorts}
-import com.mongodb.spark.{Logging, MongoSpark}
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.rdd.partitioner.MongoSinglePartitioner
 import com.mongodb.spark.sql.types.{BsonCompatibility, ConflictType, SkipFieldType}
+import com.mongodb.spark.{Logging, MongoSpark}
+import org.apache.spark.SparkContext
+import org.apache.spark.sql.catalyst.ScalaReflection
+import org.apache.spark.sql.catalyst.analysis.TypeCoercion
+import org.apache.spark.sql.types._
+import org.bson._
+
+import scala.collection.JavaConverters._
+import scala.reflect.runtime.universe._
+import scala.util.{Failure, Success, Try}
 
 object MongoInferSchema extends Logging {
 
@@ -151,12 +150,13 @@ object MongoInferSchema extends Logging {
           }
 
         case (StructType(fields1), StructType(fields2)) =>
-          val newFields = (fields1 ++ fields2).groupBy(field => field.name).map {
-            case (name, fieldTypes) =>
-              val dataType = fieldTypes.view.map(_.dataType).reduce(compatibleType)
-              StructField(name, dataType, nullable = true)
-          }
-          StructType(newFields.toSeq.sortBy(_.name))
+          structsToMapType(fields1, fields2) getOrElse compatibleStructType(fields1, fields2)
+
+        case (MapType(keyType1, valueType1, valueContainsNull1), MapType(keyType2, valueType2, valueContainsNull2)) =>
+          MapType(compatibleType(keyType1, keyType2), compatibleType(valueType1, valueType2), valueContainsNull1 || valueContainsNull2)
+
+        case (StructType(fields), mapType: MapType) => appendStructToMap(fields, mapType)
+        case (mapType: MapType, StructType(fields)) => appendStructToMap(fields, mapType)
 
         case (ArrayType(elementType1, containsNull1), ArrayType(elementType2, containsNull2)) =>
           ArrayType(compatibleType(elementType1, elementType2), containsNull1 || containsNull2)
@@ -178,9 +178,63 @@ object MongoInferSchema extends Logging {
   }
   // scalastyle:on cyclomatic.complexity method.length
 
+  /**
+    * Combines the fields of two StructTypes to a new StructType
+    *
+    * @param fields1 the fields of the first struct
+    * @param fields2 the fields of the second struct
+    * @return a new struct type that contains all fields
+    */
+  private def compatibleStructType(fields1: Array[StructField], fields2: Array[StructField]): DataType = {
+    val newFields = (fields1 ++ fields2).groupBy(field => field.name).map {
+      case (name, fieldTypes) =>
+        val dataType = fieldTypes.view.map(_.dataType).reduce(compatibleType)
+        StructField(name, dataType, nullable = true)
+    }
+    StructType(newFields.toSeq.sortBy(_.name))
+  }
+
+  /**
+    * Tries to combine the fields of two struct types to a MapType.
+    *
+    * This method returns Some if a MapType could be generated or None if it couldn't.
+    * It will only try to create a MapType if the minimum number of keys over both structs has been reached.
+    * All fields will be iterated and combined to find a compatible value type.
+    *
+    * @param fields1 the fields of the first struct
+    * @param fields2 the fields of the second struct
+    * @return the generated MapType
+    */
+  private def structsToMapType(fields1: Array[StructField], fields2: Array[StructField]): Option[MapType] = {
+    if (fields1.length + fields2.length > minimumMapKeys) {
+      (fields1 ++ fields2).map(_.dataType).reduce(compatibleType) match {
+        case ConflictType => None
+        case SkipFieldType => None
+        case dataType: DataType => Some(DataTypes.createMapType(StringType, dataType, true))
+        case _ => None
+      }
+    } else {
+      None
+    }
+  }
+
+  /**
+    * Combines a MapType with some new fields from a StructType.
+    *
+    * @param fields the fields of the struct
+    * @param mapType the previous MapType
+    * @return the new MapType
+    */
+  private def appendStructToMap(fields: Array[StructField], mapType: MapType): MapType = {
+    val valueType = (mapType.valueType +: fields.map(_.dataType)).reduce(compatibleType)
+    DataTypes.createMapType(mapType.keyType, valueType, mapType.valueContainsNull)
+  }
+
   val compatibleDecimalTypes = Seq(ByteType, ShortType, IntegerType, LongType, FloatType, DoubleType)
 
   // scalastyle:off magic.number
+  // The minimum number of keys after which a MapType can be detected
+  private val minimumMapKeys = 250
   // The decimal types compatible with other numeric types
   private val ByteDecimal = DecimalType(3, 0)
   private val ShortDecimal = DecimalType(5, 0)
