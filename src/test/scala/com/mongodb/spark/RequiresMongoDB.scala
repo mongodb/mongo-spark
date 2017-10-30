@@ -91,7 +91,10 @@ trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with
 
   def loadSampleData(filename: String): Unit = mongoDBDefaults.loadSampleData(readConfig.collectionName, filename)
 
-  def loadSampleData(sizeInMB: Int): Unit = mongoDBDefaults.loadSampleData(readConfig.collectionName, sizeInMB)
+  def loadSampleData(sizeInMB: Int): Unit = loadSampleData(sizeInMB, sizeInMB * 10)
+
+  def loadSampleData(sizeInMB: Int, numberOfDocuments: Int): Unit =
+    mongoDBDefaults.loadSampleData(readConfig.collectionName, sizeInMB, numberOfDocuments)
 
   def loadSampleDataCompositeKey(sizeInMB: Int): Unit = mongoDBDefaults.loadSampleDataCompositeKey(readConfig.collectionName, sizeInMB)
 
