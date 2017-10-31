@@ -62,7 +62,7 @@ class MongoSplitVectorPartitionerSpec extends RequiresMongoDB {
   }
 
   it should "use the users pipeline when set in a rdd / dataframe" in {
-    if (!serverAtLeast(3, 0)) cancel("MongoDB < 3.0")
+    if (!serverAtLeast(3, 2)) cancel("Testing on MongoDB 3.2+, so to have predictable partition sizes.")
     val numberOfDocuments = 100
     loadSampleData(10, numberOfDocuments)
 
