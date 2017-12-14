@@ -16,9 +16,14 @@
 
 package tour
 
-import scala.collection.mutable
+import com.mongodb.client.MongoCollection
+import com.mongodb.spark.config.WriteConfig
+import com.mongodb.spark.{MongoConnector}
 
+import scala.collection.JavaConverters._
+import scala.collection.mutable
 import org.apache.spark.sql._
+import org.bson.Document
 
 /**
  * The spark streams code example adapted from: http://spark.apache.org/docs/latest/streaming-programming-guide.html
@@ -52,7 +57,8 @@ object SparkStructuredStreams extends TourHelper {
       .outputMode("complete")
       .foreach(new ForeachWriter[WordCount] {
 
-        var spark: SparkSession = _
+        val writeConfig: WriteConfig = WriteConfig(Map("uri" -> "mongodb://localhost/test.coll"))
+        var mongoConnector: MongoConnector = _
         var wordCounts: mutable.ArrayBuffer[WordCount] = _
 
         override def process(value: WordCount): Unit = {
@@ -61,17 +67,14 @@ object SparkStructuredStreams extends TourHelper {
 
         override def close(errorOrNull: Throwable): Unit = {
           if (wordCounts.nonEmpty) {
-            SparkSession.builder().getOrCreate().createDataFrame(wordCounts.toList)
-                .write
-                .format("com.mongodb.spark.sql.DefaultSource")
-                .option("uri", "mongodb://localhost/test.coll")
-                .mode("overwrite")
-                .save()
+            mongoConnector.withCollectionDo(writeConfig, {collection: MongoCollection[Document] =>
+              collection.insertMany(wordCounts.map(wc => { new Document(wc.word, wc.count)}).asJava)
+            })
           }
         }
 
         override def open(partitionId: Long, version: Long): Boolean = {
-          spark = SparkSession.builder().getOrCreate()
+          mongoConnector = MongoConnector(writeConfig.asOptions)
           wordCounts = new mutable.ArrayBuffer[WordCount]()
           true
         }
