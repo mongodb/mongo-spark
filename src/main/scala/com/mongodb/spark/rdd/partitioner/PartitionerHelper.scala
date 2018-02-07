@@ -57,7 +57,10 @@ object PartitionerHelper {
   def createPartitions(partitionKey: String, splitKeys: Seq[BsonValue], locations: Seq[String] = Nil, addMinMax: Boolean = true): Array[MongoPartition] = {
     val minKeyMaxKeys = (new BsonMinKey(), new BsonMaxKey())
     val minToMaxSplitKeys: Seq[BsonValue] = if (addMinMax) minKeyMaxKeys._1 +: splitKeys :+ minKeyMaxKeys._2 else splitKeys
-    val partitionPairs: Seq[(BsonValue, BsonValue)] = minToMaxSplitKeys zip minToMaxSplitKeys.tail
+    //SPARK-157: in case number of splitKeys is exactly one then minToMaxSplitKeys.tail will result with None
+    // and scala zip with None produces None.
+    val minToMaxKeysToPartition = if (minToMaxSplitKeys.length == 1) minToMaxSplitKeys else minToMaxSplitKeys.tail
+    val partitionPairs: Seq[(BsonValue, BsonValue)] = minToMaxSplitKeys zip minToMaxKeysToPartition
     partitionPairs.zipWithIndex.map({
       case ((min: BsonValue, max: BsonValue), i: Int) => MongoPartition(i, createBoundaryQuery(partitionKey, min, max), locations)
     }).toArray
