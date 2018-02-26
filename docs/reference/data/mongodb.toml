@@ -1,6 +1,0 @@
-# Update versions in config.toml as well
-githubRepo = "mongo-spark"
-githubBranch = "master"
-currentVersion = "1.0-SNAPSHOT"
-highlightTheme = "idea.css"
-apiUrl = "http://api.mongodb.org/mongo-spark/1.0-SNAPSHOT/"

@@ -1,0 +1,46 @@
+dist: trusty
+sudo: false
+
+language: scala
+scala:
+  - "2.11.12"
+  - "2.10.7"
+
+jdk:
+  - oraclejdk7
+
+notifications:
+  email:
+    recipients:
+      - ross@mongodb.com
+    on_success: change
+    on_failure: always
+
+branches:
+  only:
+    - master
+
+env:
+  global:
+    - MONGODB_FILE_NAME=mongodb-linux-x86_64-enterprise-ubuntu1404
+    - MONGODB=3.6.2
+
+addons:
+  apt:
+    packages:
+      - libsnmp-dev
+
+install:
+  - wget http://downloads.mongodb.com/linux/${MONGODB_FILE_NAME}-${MONGODB}.tgz
+  - tar xzf ${MONGODB_FILE_NAME}-${MONGODB}.tgz
+  - ${PWD}/${MONGODB_FILE_NAME}-${MONGODB}/bin/mongod --version
+
+before_script:
+  - mkdir ${PWD}/${MONGODB_FILE_NAME}-${MONGODB}/data
+  - ${PWD}/${MONGODB_FILE_NAME}-${MONGODB}/bin/mongod --dbpath ${PWD}/${MONGODB_FILE_NAME}-${MONGODB}/data --logpath ${PWD}/${MONGODB_FILE_NAME}-${MONGODB}/mongodb.log --setParameter enableTestCommands=1 --fork --smallfiles --nojournal
+
+script:
+  - ./sbt ++$TRAVIS_SCALA_VERSION check
+
+after_script:
+  - pkill mongod
