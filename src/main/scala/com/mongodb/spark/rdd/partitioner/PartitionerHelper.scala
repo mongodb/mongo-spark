@@ -57,8 +57,6 @@ object PartitionerHelper {
   def createPartitions(partitionKey: String, splitKeys: Seq[BsonValue], locations: Seq[String] = Nil, addMinMax: Boolean = true): Array[MongoPartition] = {
     val minKeyMaxKeys = (new BsonMinKey(), new BsonMaxKey())
     val minToMaxSplitKeys: Seq[BsonValue] = if (addMinMax) minKeyMaxKeys._1 +: splitKeys :+ minKeyMaxKeys._2 else splitKeys
-    //SPARK-157: in case number of splitKeys is exactly one then minToMaxSplitKeys.tail will result with None
-    // and scala zip with None produces None.
     val minToMaxKeysToPartition = if (minToMaxSplitKeys.length == 1) minToMaxSplitKeys else minToMaxSplitKeys.tail
     val partitionPairs: Seq[(BsonValue, BsonValue)] = minToMaxSplitKeys zip minToMaxKeysToPartition
     partitionPairs.zipWithIndex.map({
@@ -127,9 +125,11 @@ object PartitionerHelper {
    * @since 2.1
    */
   def setLastBoundaryToLessThanOrEqualTo(partitionKey: String, partitions: Array[MongoPartition]): Array[MongoPartition] = {
-    val lastPartition = partitions.reverse.head
-    val partitionQuery = lastPartition.queryBounds.getDocument(partitionKey)
-    partitionQuery.append("$lte", partitionQuery.remove("$lt"))
+    if (partitions.length > 0) {
+      val lastPartition = partitions.reverse.head
+      val partitionQuery = lastPartition.queryBounds.getDocument(partitionKey)
+      partitionQuery.append("$lte", partitionQuery.remove("$lt"))
+    }
     partitions
   }
 

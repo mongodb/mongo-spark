@@ -69,6 +69,7 @@ class MongoPaginateByCountPartitioner extends MongoPartitioner with MongoPaginat
         val partitionerOptions = readConfig.partitionerOptions.map(kv => (kv._1.toLowerCase, kv._2))
         val partitionKey = partitionerOptions.getOrElse(partitionKeyProperty, DefaultPartitionKey)
         val maxNumberOfPartitions = partitionerOptions.getOrElse(numberOfPartitionsProperty, DefaultNumberOfPartitions).toInt
+        require(maxNumberOfPartitions > 0, "maxNumberOfPartitions must be greater than zero")
         val numberOfPartitions = if (count < maxNumberOfPartitions) count else maxNumberOfPartitions
 
         if (count == 0) {
@@ -81,7 +82,8 @@ class MongoPaginateByCountPartitioner extends MongoPartitioner with MongoPaginat
           val numDocumentsPerPartition = math.floor(count / numberOfPartitions).toInt
           val rightHandBoundaries = calculatePartitions(connector, readConfig, partitionKey, count, numDocumentsPerPartition, matchQuery)
           val addMinMax = matchQuery.isEmpty
-          val partitions = PartitionerHelper.createPartitions(partitionKey, rightHandBoundaries, PartitionerHelper.locations(connector), addMinMax)
+          val partitions = PartitionerHelper.createPartitions(partitionKey, rightHandBoundaries, PartitionerHelper.locations(connector),
+            addMinMax)
           if (!addMinMax) PartitionerHelper.setLastBoundaryToLessThanOrEqualTo(partitionKey, partitions)
           partitions
         }

@@ -102,6 +102,21 @@ class MongoPaginateByCountPartitionerSpec extends RequiresMongoDB {
     partitions should equal(expectedPartitions)
   }
 
+  it should "handle single item partition" in withSparkContext() { sc =>
+    sc.parallelize(Seq(BsonDocument.parse("{ _id: 1 }"))).saveToMongoDB()
+
+    val rightHandBoundaries = Seq(new BsonInt32(1))
+    val locations = PartitionerHelper.locations(MongoConnector(sparkConf))
+    val pipe = List(BsonDocument.parse("{$match: {_id: {$gte: 0}}}")).toArray
+    val partitions = MongoPaginateByCountPartitioner.partitions(
+      mongoConnector,
+      readConfig.copy(partitionerOptions = Map("numberOfPartitions" -> "1")), pipe
+    )
+    val expectedPartitions = PartitionerHelper.createPartitions(partitionKey, rightHandBoundaries, locations, addMinMax = false)
+    PartitionerHelper.setLastBoundaryToLessThanOrEqualTo(partitionKey, expectedPartitions)
+    partitions should equal(expectedPartitions)
+  }
+
   it should "handle no collection" in {
     val expectedPartitions = MongoPaginateByCountPartitioner.partitions(mongoConnector, readConfig, pipeline)
     MongoPaginateByCountPartitioner.partitions(mongoConnector, readConfig, pipeline) should equal(expectedPartitions)
