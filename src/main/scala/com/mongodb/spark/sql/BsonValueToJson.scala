@@ -16,29 +16,23 @@
 
 package com.mongodb.spark.sql
 
-import java.io.{StringWriter, Writer}
+import java.io.StringWriter
 
+import org.bson.BsonValue
 import org.bson.codecs.{BsonValueCodec, EncoderContext}
-import org.bson.json.{JsonWriter, JsonWriterSettings}
-import org.bson.{AbstractBsonWriter, BsonValue}
+import org.bson.json.{JsonMode, JsonWriter, JsonWriterSettings}
 
 private[sql] object BsonValueToJson {
   val codec = new BsonValueCodec()
+
   def apply(element: BsonValue): String = {
-    val writer: StringWriter = new StringWriter
-    new BsonValueCodec().encode(new ValueStateJsonWriter(writer), element, EncoderContext.builder.build)
-    writer.toString
-  }
+    val stringWriter: StringWriter = new StringWriter
+    val jsonWriter = new JsonWriter(stringWriter, new JsonWriterSettings(JsonMode.STRICT, false))
 
-  case class ValueStateJsonWriter(
-    writer:   Writer,
-    settings: JsonWriterSettings = new JsonWriterSettings()
-  ) extends JsonWriter(
-    writer: Writer,
-    settings: JsonWriterSettings
-  ) {
-    setState(AbstractBsonWriter.State.VALUE)
+    jsonWriter.writeStartDocument()
+    jsonWriter.writeName("k")
+    codec.encode(jsonWriter, element, EncoderContext.builder.build)
+    stringWriter.getBuffer.toString.split(":", 2)(1).trim
   }
-
 }
 
