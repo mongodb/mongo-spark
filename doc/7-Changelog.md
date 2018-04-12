@@ -1,5 +1,8 @@
 # Mongo Spark Connector Changelog
 
+## 2.2.2
+  * [[SPARK-157](https://jira.mongodb.org/browse/SPARK-157)] Fix MongoPaginateByCountPartitioner single item with query exception.
+
 ## 2.2.1
   * [[SPARK-151](https://jira.mongodb.org/browse/SPARK-151)] Fix MongoSamplePartitioner $match range bug.
 
