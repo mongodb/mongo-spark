@@ -3,6 +3,7 @@
 ## 2.2.2
   * [[SPARK-157](https://jira.mongodb.org/browse/SPARK-157)] Fix MongoPaginateByCountPartitioner single item with query exception.
   * [[SPARK-158](https://jira.mongodb.org/browse/SPARK-158)] Fix null handling for String columns
+  * [[SPARK-173](https://jira.mongodb.org/browse/SPARK-173)] Improved error messages for cursor not found exceptions
 
 ## 2.2.1
   * [[SPARK-151](https://jira.mongodb.org/browse/SPARK-151)] Fix MongoSamplePartitioner $match range bug.
