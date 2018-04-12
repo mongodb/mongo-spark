@@ -3,8 +3,9 @@
 
 ## 2.1.2
   * [[SPARK-187](https://jira.mongodb.org/browse/SPARK-187)] Fixed inferring decimal values with larger scales than precisions.
-  * [[SPARK-158](https://jira.mongodb.org/browse/SPARK-158)] Fix null handling for String columns
   * [[SPARK-157](https://jira.mongodb.org/browse/SPARK-157)] Fix MongoPaginateByCountPartitioner single item with query exception.
+  * [[SPARK-158](https://jira.mongodb.org/browse/SPARK-158)] Fix null handling for String columns
+  * [[SPARK-173](https://jira.mongodb.org/browse/SPARK-173)] Improved error messages for cursor not found exceptions
 
 ## 2.1.1
   * [[SPARK-151](https://jira.mongodb.org/browse/SPARK-151)] Fix MongoSamplePartitioner $match range bug.

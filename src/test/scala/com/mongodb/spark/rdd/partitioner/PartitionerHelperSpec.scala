@@ -38,7 +38,7 @@ class PartitionerHelperSpec extends RequiresMongoDB {
   }
 
   it should "create a single partition when addMinMax = false" in {
-    val partitions = PartitionerHelper.createPartitions("_id", Seq(new BsonInt32(5)), Seq("localhost"),addMinMax = false) // scalastyle:ignore
+    val partitions = PartitionerHelper.createPartitions("_id", Seq(new BsonInt32(5)), Seq("localhost"), addMinMax = false) // scalastyle:ignore
     val expectedPartitions = Array(
       MongoPartition(0, BsonDocument.parse("{_id: {$gte: 5, $lt: 5 }}"), Seq("localhost"))
     )
