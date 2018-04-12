@@ -100,6 +100,7 @@ private[spark] object MapFunctions {
       case BsonType.INT64     => element.asInt64().getValue.toString
       case BsonType.INT32     => element.asInt32().getValue.toString
       case BsonType.DOUBLE    => element.asDouble().getValue.toString
+      case BsonType.NULL      => null
       case _                  => BsonValueToJson(element)
     }
   }
