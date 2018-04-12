@@ -213,7 +213,7 @@ class MongoDataFrameSpec extends RequiresMongoDB {
     val bsonValuesAsStrings = sc.loadFromMongoDB().toDS[BsonValuesAsStringClass]().first()
 
     val expected = BsonValuesAsStringClass(
-      nullValue = "null",
+      nullValue = null, // scalastyle:ignore
       int32 = "42",
       int64 = "52",
       bool = "true",
