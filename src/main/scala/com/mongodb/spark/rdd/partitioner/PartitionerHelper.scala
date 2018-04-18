@@ -42,8 +42,11 @@ object PartitionerHelper {
    * @param upper the value of the upper bound
    * @return the document containing the partition bounds
    */
-  def createBoundaryQuery(key: String, lower: BsonValue, upper: BsonValue): BsonDocument =
+  def createBoundaryQuery(key: String, lower: BsonValue, upper: BsonValue): BsonDocument = {
+    require(Option(lower).isDefined, "lower range partition key missing")
+    require(Option(upper).isDefined, "upper range partition key missing")
     new BsonDocument(key, new BsonDocument("$gte", lower).append("$lt", upper))
+  }
 
   /**
    * Creates partitions using a single Seq of documents representing the right handside of partitions

@@ -20,13 +20,14 @@ import java.util
 
 import scala.collection.JavaConverters._
 import scala.util.Try
-
 import org.apache.spark.SparkConf
 import org.apache.spark.api.java.JavaSparkContext
 import org.apache.spark.sql.{SQLContext, SparkSession}
-
 import com.mongodb.{ConnectionString, WriteConcern}
 import com.mongodb.spark.notNull
+import org.bson.BsonDocument
+
+import scala.collection.mutable
 
 /**
  * The `WriteConfig` companion object
@@ -129,6 +130,29 @@ object WriteConfig extends MongoOutputConfig {
     apply(databaseName, collectionName, connectionString, replaceDocument, maxBatchSize, localThreshold, WriteConcernConfig(writeConcern))
   }
 
+  /**
+   * Creates a WriteConfig
+   *
+   * @param databaseName     the database name
+   * @param collectionName   the collection name
+   * @param connectionString the optional connection string used in the creation of this configuration
+   * @param replaceDocument  replaces the whole document, when saving a Dataset that contains an `_id` field.
+   *                         If false only updates / sets the fields declared in the Dataset.
+   * @param maxBatchSize     the maxBatchSize when performing a bulk update/insert. Defaults to 512.
+   * @param localThreshold   the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.
+   *                         Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local
+   *                         threshold will be chosen.
+   * @param writeConcern     the WriteConcern to use
+   * @param shardKey         an optional shardKey in extended form: `"{key: 1, key2: 1}"`. Used when upserting DataSets in sharded clusters.
+   * @return the write config
+   * @since 2.2.2
+   */
+  def apply(databaseName: String, collectionName: String, connectionString: Option[String], replaceDocument: Boolean, maxBatchSize: Int,
+            localThreshold: Int, writeConcern: WriteConcern, shardKey: Option[String]): WriteConfig = {
+    apply(databaseName, collectionName, connectionString, replaceDocument, maxBatchSize, localThreshold, WriteConcernConfig(writeConcern),
+      shardKey)
+  }
+
   override def apply(options: collection.Map[String, String], default: Option[WriteConfig]): WriteConfig = {
     val cleanedOptions = stripPrefix(options)
     val cachedConnectionString = connectionString(cleanedOptions)
@@ -145,7 +169,8 @@ object WriteConfig extends MongoOutputConfig {
         DefaultMaxBatchSize),
       localThreshold = getInt(cleanedOptions.get(localThresholdProperty), default.map(conf => conf.localThreshold),
         MongoSharedConfig.DefaultLocalThreshold),
-      writeConcernConfig = WriteConcernConfig(cleanedOptions, default.map(writeConf => writeConf.writeConcernConfig))
+      writeConcernConfig = WriteConcernConfig(cleanedOptions, default.map(writeConf => writeConf.writeConcernConfig)),
+      shardKey = cleanedOptions.get(shardKeyProperty).orElse(default.flatMap(conf => conf.shardKey).orElse(None))
     )
   }
 
@@ -213,6 +238,36 @@ object WriteConfig extends MongoOutputConfig {
       WriteConcernConfig(writeConcern))
   }
 
+  /**
+   * Creates a WriteConfig
+   *
+   * @param databaseName     the database name
+   * @param collectionName   the collection name
+   * @param connectionString the optional connection string used in the creation of this configuration
+   * @param replaceDocument  replaces the whole document, when saving a Dataset that contains an `_id` field.
+   *                         If false only updates / sets the fields declared in the Dataset.
+   * @param maxBatchSize     the maxBatchSize when performing a bulk update/insert. Defaults to 512.
+   * @param localThreshold   the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.
+   *                         Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local
+   *                         threshold will be chosen.
+   * @param writeConcern     the WriteConcern to use
+   * @param shardKey         an optional shardKey in extended form: `"{key: 1, key2: 1}"`. Used when upserting DataSets in sharded clusters.
+   * @return the write config
+   * @since 2.2.2
+   */
+  def create(databaseName: String, collectionName: String, connectionString: String, replaceDocument: Boolean, maxBatchSize: Int,
+             localThreshold: Int, writeConcern: WriteConcern, shardKey: String): WriteConfig = {
+    notNull("databaseName", databaseName)
+    notNull("collectionName", collectionName)
+    notNull("replaceDocument", replaceDocument)
+    notNull("maxBatchSize", maxBatchSize)
+    notNull("localThreshold", localThreshold)
+    notNull("writeConcern", writeConcern)
+    notNull("shardKey", shardKey)
+    new WriteConfig(databaseName, collectionName, Option(connectionString), replaceDocument, maxBatchSize, localThreshold,
+      WriteConcernConfig(writeConcern), Option(shardKey))
+  }
+
   override def create(javaSparkContext: JavaSparkContext): WriteConfig = {
     notNull("javaSparkContext", javaSparkContext)
     apply(javaSparkContext.getConf)
@@ -255,16 +310,17 @@ object WriteConfig extends MongoOutputConfig {
 /**
  * Write Configuration for writes to MongoDB
  *
- * @param databaseName the database name
- * @param collectionName the collection name
- * @param connectionString the optional connection string used in the creation of this configuration.
- * @param replaceDocument replaces the whole document, when saving a Dataset that contains an `_id` field.
- *                        If false only updates / sets the fields declared in the Dataset.
- * @param maxBatchSize the maxBatchSize when performing a bulk update/insert. Defaults to 512.
- * @param localThreshold the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.
- *                       Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local
- *                       threshold will be chosen.
+ * @param databaseName       the database name
+ * @param collectionName     the collection name
+ * @param connectionString   the optional connection string used in the creation of this configuration.
+ * @param replaceDocument    replaces the whole document, when saving a Dataset that contains an `_id` field.
+ *                           If false only updates / sets the fields declared in the Dataset.
+ * @param maxBatchSize       the maxBatchSize when performing a bulk update/insert. Defaults to 512.
+ * @param localThreshold     the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.
+ *                           Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local
+ *                           threshold will be chosen.
  * @param writeConcernConfig the write concern configuration
+ * @param shardKey           an optional shardKey in extended form: `"{key: 1, key2: 1}"`. Used when upserting DataSets in sharded clusters.
  * @since 1.0
  */
 case class WriteConfig(
@@ -274,11 +330,13 @@ case class WriteConfig(
     replaceDocument:    Boolean            = WriteConfig.DefaultReplaceDocument,
     maxBatchSize:       Int                = WriteConfig.DefaultMaxBatchSize,
     localThreshold:     Int                = MongoSharedConfig.DefaultLocalThreshold,
-    writeConcernConfig: WriteConcernConfig = WriteConcernConfig.Default
+    writeConcernConfig: WriteConcernConfig = WriteConcernConfig.Default,
+    shardKey:           Option[String]     = None
 ) extends MongoCollectionConfig with MongoClassConfig {
   require(maxBatchSize >= 1, s"maxBatchSize ($maxBatchSize) must be greater or equal to 1")
   require(localThreshold >= 0, s"localThreshold ($localThreshold) must be greater or equal to 0")
   require(Try(connectionString.map(uri => new ConnectionString(uri))).isSuccess, s"Invalid uri: '${connectionString.get}'")
+  require(Try(shardKey.map(json => BsonDocument.parse(json))).isSuccess, s"Invalid shardKey: '${shardKey.get}'")
 
   type Self = WriteConfig
 
@@ -287,12 +345,12 @@ case class WriteConfig(
   override def withOptions(options: collection.Map[String, String]): WriteConfig = WriteConfig(options, Some(this))
 
   override def asOptions: collection.Map[String, String] = {
-    val options = Map("database" -> databaseName, "collection" -> collectionName, "replaceDocument" -> "true",
+    val options = mutable.Map("database" -> databaseName, "collection" -> collectionName,
+      "replaceDocument" -> replaceDocument.toString,
       "localThreshold" -> localThreshold.toString) ++ writeConcernConfig.asOptions
-    connectionString match {
-      case Some(uri) => options + (WriteConfig.mongoURIProperty -> uri)
-      case None      => options
-    }
+    connectionString.map(uri => options += (WriteConfig.mongoURIProperty -> uri))
+    shardKey.map(json => options += ("shardKey" -> json))
+    options.toMap
   }
 
   override def withOptions(options: util.Map[String, String]): WriteConfig = withOptions(options.asScala)

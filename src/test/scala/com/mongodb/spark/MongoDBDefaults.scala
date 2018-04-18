@@ -20,13 +20,11 @@ import scala.collection.JavaConverters._
 import scala.collection.immutable.IndexedSeq
 import scala.io.Source
 import scala.util._
-
 import org.apache.spark.SparkConf
-
 import org.bson.{BsonDocument, BsonString, Document}
-import com.mongodb.client.model.Updates
+import com.mongodb.client.model.{UpdateOptions, Updates}
 import com.mongodb.client.{MongoCollection, MongoDatabase}
-import com.mongodb.{MongoClient, MongoClientURI, ReadPreference}
+import com.mongodb.{Block, MongoClient, MongoClientURI, ReadPreference}
 
 object MongoDBDefaults {
   def apply(): MongoDBDefaults = new MongoDBDefaults()
@@ -78,7 +76,7 @@ class MongoDBDefaults extends Logging {
       adminDB.runCommand(Document.parse(s"{shardCollection: '$ns', key: ${shardKey.toJson}, unique: true}"))
     }
     logInfo("Settings chunkSize to 1MB")
-    configDB.getCollection("settings").updateOne(new Document("_id", "chunksize"), Updates.set("value", 1))
+    configDB.getCollection("settings").updateOne(new Document("_id", "chunksize"), Updates.set("value", 1), new UpdateOptions().upsert(true))
   }
 
   def enableSharding(): Unit = {

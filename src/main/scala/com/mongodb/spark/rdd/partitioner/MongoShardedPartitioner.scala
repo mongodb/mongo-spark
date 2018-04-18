@@ -19,13 +19,14 @@ package com.mongodb.spark.rdd.partitioner
 import java.util
 
 import scala.collection.JavaConverters._
-
 import org.bson.BsonDocument
 import com.mongodb.ServerAddress
 import com.mongodb.client.MongoCollection
-import com.mongodb.client.model.{Filters, Projections}
+import com.mongodb.client.model.{Filters, Projections, Sorts}
 import com.mongodb.spark.MongoConnector
 import com.mongodb.spark.config.ReadConfig
+
+import scala.util.{Failure, Success, Try}
 
 /**
  * The Sharded Partitioner
@@ -44,6 +45,8 @@ class MongoShardedPartitioner extends MongoPartitioner {
 
   /**
    * The shardKey property
+   *
+   * The shardKey value can be the name of a single key eg: `_id` or for compound keys the extended json form eg: `{a: 1, b: 1}`
    */
   val shardKeyProperty = "shardKey".toLowerCase()
 
@@ -54,7 +57,7 @@ class MongoShardedPartitioner extends MongoPartitioner {
     val shardKey = partitionerOptions.getOrElse(shardKeyProperty, DefaultShardKey)
     val chunks: Seq[BsonDocument] = connector.withCollectionDo(
       ReadConfig("config", "chunks"), { collection: MongoCollection[BsonDocument] =>
-        collection.find(Filters.eq("ns", ns)).projection(Projections.include("min", "max", "shard"))
+        collection.find(Filters.eq("ns", ns)).projection(Projections.include("min", "max", "shard")).sort(Sorts.ascending("min"))
           .into(new util.ArrayList[BsonDocument]).asScala
       }
     )
@@ -72,6 +75,14 @@ class MongoShardedPartitioner extends MongoPartitioner {
   }
 
   private[partitioner] def generatePartitions(chunks: Seq[BsonDocument], shardKey: String, shardsMap: Map[String, Seq[String]]): Array[MongoPartition] = {
+    Try(BsonDocument.parse(shardKey)) match {
+      case Success(shardKeyDocument) => generateCompoundKeyPartitions(chunks, shardKeyDocument, shardsMap)
+      case Failure(e)                => generateSingleKeyPartitions(chunks, shardKey, shardsMap)
+    }
+  }
+
+  private[partitioner] def generateSingleKeyPartitions(chunks: Seq[BsonDocument], shardKey: String,
+                                                       shardsMap: Map[String, Seq[String]]): Array[MongoPartition] = {
     chunks.zipWithIndex.map({
       case (chunk: BsonDocument, i: Int) =>
         MongoPartition(
@@ -83,6 +94,19 @@ class MongoShardedPartitioner extends MongoPartitioner {
           ),
           shardsMap.getOrElse(chunk.getString("shard").getValue, Nil)
         )
+    }).toArray
+  }
+
+  private[partitioner] def generateCompoundKeyPartitions(chunks: Seq[BsonDocument], shardKey: BsonDocument,
+                                                         shardsMap: Map[String, Seq[String]]): Array[MongoPartition] = {
+    val shardKeys = shardKey.keySet().asScala.toList
+    chunks.zipWithIndex.map({
+      case (chunk: BsonDocument, i: Int) =>
+        val min = chunk.getDocument("min")
+        val max = chunk.getDocument("max")
+        val queryBounds = new BsonDocument()
+        shardKeys.map(k => queryBounds.put(k, PartitionerHelper.createBoundaryQuery(k, min.get(k), max.get(k)).get(k)))
+        MongoPartition(i, queryBounds, shardsMap.getOrElse(chunk.getString("shard").getValue, Nil))
     }).toArray
   }
 

@@ -103,8 +103,18 @@ trait MongoOutputConfig extends MongoCompanionConfig {
    *
    * The maximum size of the batch when performing a bulk update / insert operation.
    *
-   * Default: 513
+   * Default: 512
    * @since 2.1
    */
   val maxBatchSizeProperty = "maxBatchSize".toLowerCase
+
+  /**
+   * The shardKey property
+   *
+   * The optional shardKey is required when upserting Datasets in sharded clusters
+   *
+   * Default: None
+   * @since 2.2
+   */
+  val shardKeyProperty = "shardKey".toLowerCase
 }
