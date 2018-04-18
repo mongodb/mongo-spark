@@ -29,7 +29,8 @@ import com.mongodb.WriteConcern
 class WriteConfigSpec extends FlatSpec with Matchers {
 
   "WriteConfig" should "have the expected defaults" in {
-    val expectedWriteConfig = WriteConfig("db", "collection", None, true, 512, MongoSharedConfig.DefaultLocalThreshold, WriteConcern.ACKNOWLEDGED)
+    val expectedWriteConfig = WriteConfig("db", "collection", None, true, 512, MongoSharedConfig.DefaultLocalThreshold,
+      WriteConcern.ACKNOWLEDGED, None)
 
     WriteConfig("db", "collection") should equal(expectedWriteConfig)
   }
@@ -51,11 +52,15 @@ class WriteConfigSpec extends FlatSpec with Matchers {
   }
 
   it should "round trip options" in {
-    val uri = "mongodb://localhost/"
+    val uri = Some("mongodb://localhost/")
+    val replaceDocument = false
     val localThreshold = 5
-    val defaultWriteConfig = WriteConfig("dbName", "collName", uri, localThreshold, WriteConcern.ACKNOWLEDGED)
+    val maxBatchSize = 1024
+    val shardKey = Some("{a: 1}")
+    val defaultWriteConfig = WriteConfig("dbName", "collName", uri, replaceDocument, maxBatchSize, localThreshold,
+      WriteConcern.ACKNOWLEDGED, shardKey)
     forAll(writeConcerns) { writeConcern: WriteConcern =>
-      val expectedWriteConfig = WriteConfig("db", "collection", uri, localThreshold, writeConcern)
+      val expectedWriteConfig = WriteConfig("db", "collection", uri, replaceDocument, maxBatchSize, localThreshold, writeConcern, shardKey)
       defaultWriteConfig.withOptions(expectedWriteConfig.asOptions) should equal(expectedWriteConfig)
     }
   }
@@ -73,6 +78,7 @@ class WriteConfigSpec extends FlatSpec with Matchers {
     an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().set("spark.mongodb.output.localThreshold", "-1"))
     an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().set("spark.mongodb.output.writeConcern.w", "-1"))
     an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().set("spark.mongodb.output.writeConcern.wTimeoutMS", "-1"))
+    an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().set("spark.mongodb.output.shardKey", "_id"))
   }
 
   val sparkConf = new SparkConf()

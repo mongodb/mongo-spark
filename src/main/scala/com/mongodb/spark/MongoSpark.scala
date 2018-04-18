@@ -147,21 +147,26 @@ object MongoSpark {
   def save[D](dataset: Dataset[D], writeConfig: WriteConfig): Unit = {
     val mongoConnector = MongoConnector(writeConfig.asOptions)
     val documentRdd: RDD[BsonDocument] = dataset.toDF().rdd.map(row => rowToDocument(row))
-    if (dataset.schema.fields.exists(_.name == "_id")) {
+    val fieldNames = dataset.schema.fieldNames.toList
+    val queryKeyList = BsonDocument.parse(writeConfig.shardKey.getOrElse("{_id: 1}")).keySet().asScala.toList
+
+    if (queryKeyList.forall(fieldNames.contains(_))) {
       documentRdd.foreachPartition(iter => if (iter.nonEmpty) {
         mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[BsonDocument] =>
           iter.grouped(writeConfig.maxBatchSize).foreach(batch => {
             val updateOptions = new UpdateOptions().upsert(true)
             val requests = batch.map(doc =>
-              Option(doc.get("_id")) match {
-                case Some(_id) =>
-                  if (writeConfig.replaceDocument) {
-                    new ReplaceOneModel[BsonDocument](new BsonDocument("_id", _id), doc, updateOptions)
-                  } else {
-                    doc.remove("_id")
-                    new UpdateOneModel[BsonDocument](new BsonDocument("_id", _id), new BsonDocument("$set", doc), updateOptions)
-                  }
-                case None => new InsertOneModel[BsonDocument](doc)
+              if (queryKeyList.forall(doc.containsKey(_))) {
+                val queryDocument = new BsonDocument()
+                queryKeyList.foreach(key => queryDocument.append(key, doc.get(key)))
+                if (writeConfig.replaceDocument) {
+                  new ReplaceOneModel[BsonDocument](queryDocument, doc, updateOptions)
+                } else {
+                  queryDocument.keySet().asScala.foreach(doc.remove(_))
+                  new UpdateOneModel[BsonDocument](queryDocument, new BsonDocument("$set", doc), updateOptions)
+                }
+              } else {
+                new InsertOneModel[BsonDocument](doc)
               })
             collection.bulkWrite(requests.toList.asJava)
           })

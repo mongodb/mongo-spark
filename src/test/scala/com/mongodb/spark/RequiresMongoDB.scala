@@ -82,9 +82,16 @@ trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with
 
   def readConfig: ReadConfig = ReadConfig(sparkContext.getConf)
 
-  def shardCollection(): Unit = mongoDBDefaults.shardCollection(readConfig.collectionName, new Document("_id", 1))
+  def shardCollection(): Unit = shardCollection(readConfig.collectionName, new Document("_id", 1))
+
+  def shardCollection(collectionName: String, shardKey: Document): Unit = mongoDBDefaults.shardCollection(collectionName, shardKey)
 
   def loadSampleDataIntoShardedCollection(sizeInMB: Int): Unit = {
+    shardCollection(readConfig.collectionName, Document.parse("{_id: 1, pk: 1}"))
+    loadSampleData(sizeInMB)
+  }
+
+  def loadSampleDataIntoShardedCompoundKeyCollection(sizeInMB: Int): Unit = {
     shardCollection()
     loadSampleData(sizeInMB)
   }

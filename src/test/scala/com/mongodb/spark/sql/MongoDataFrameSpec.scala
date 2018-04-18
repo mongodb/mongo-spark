@@ -17,16 +17,14 @@
 package com.mongodb.spark.sql
 
 import scala.collection.JavaConverters._
-
 import org.apache.spark.sql.catalyst.ScalaReflection
 import org.apache.spark.sql.types.DataTypes._
 import org.apache.spark.sql.types.{DataTypes, MapType, StructField, StructType}
 import org.apache.spark.sql.{Row, SaveMode, SparkSession}
-
 import org.bson._
 import org.bson.types.{Decimal128, ObjectId}
 import com.mongodb.spark._
-import com.mongodb.spark.config.WriteConfig
+import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.sql.types.BsonCompatibility
 
 class MongoDataFrameSpec extends RequiresMongoDB {
@@ -308,6 +306,50 @@ class MongoDataFrameSpec extends RequiresMongoDB {
     originalData.map(c => (c.name.toUpperCase(), c.age)) should contain theSameElementsAs savedData
   }
 
+  it should "be able to replace data in sharded collections" in withSparkContext() { sc =>
+    if (!isSharded) cancel("Not a Sharded MongoDB")
+    val shardKey = """{shardKey1: 1, shardKey2: 1}"""
+    shardCollection(collectionName, Document.parse(shardKey))
+
+    val sparkSession = SparkSession.builder().getOrCreate()
+    import sparkSession.implicits._
+    val readConfig = ReadConfig(sc.getConf).withOptions(Map("partitionerOptions.shardKey" -> shardKey))
+    val writeConfig = WriteConfig(sc.getConf).withOptions(Map("replaceDocument" -> "true", "shardKey" -> shardKey))
+
+    val originalData = characters.zipWithIndex.map {
+      case (doc: Document, i: Int) =>
+        ShardedCharacter(i, i, i, doc.getString("name"), if (doc.containsKey("age")) Some(doc.getInteger("age")) else None)
+    }
+    originalData.toDS().saveToMongoDB()
+
+    sparkSession.read.mongo[ShardedCharacter](readConfig).as[ShardedCharacter].map(c => c.copy(age = c.age.map(_ + 10))).saveToMongoDB(writeConfig)
+
+    val savedData = sparkSession.read.mongo[ShardedCharacter](readConfig).as[ShardedCharacter].collect()
+    originalData.map(c => c.copy(age = c.age.map(_ + 10))) should contain theSameElementsAs savedData
+  }
+
+  it should "be able to update data in sharded collections" in withSparkContext() { sc =>
+    if (!isSharded) cancel("Not a Sharded MongoDB")
+    val shardKey = """{shardKey1: 1, shardKey2: 1}"""
+    shardCollection(collectionName, Document.parse(shardKey))
+
+    val sparkSession = SparkSession.builder().getOrCreate()
+    import sparkSession.implicits._
+    val readConfig = ReadConfig(sc.getConf).withOptions(Map("partitionerOptions.shardKey" -> shardKey))
+    val writeConfig = WriteConfig(sc.getConf).withOptions(Map("replaceDocument" -> "false", "shardKey" -> shardKey))
+
+    val originalData = characters.zipWithIndex.map {
+      case (doc: Document, i: Int) =>
+        ShardedCharacter(i, i, i, doc.getString("name"), if (doc.containsKey("age")) Some(doc.getInteger("age")) else None)
+    }
+    originalData.toDS().saveToMongoDB()
+
+    sparkSession.read.mongo[ShardedCharacter](readConfig).as[ShardedCharacter].map(c => c.copy(age = c.age.map(_ + 10))).saveToMongoDB(writeConfig)
+
+    val savedData = sparkSession.read.mongo[ShardedCharacter](readConfig).as[ShardedCharacter].collect()
+    originalData.map(c => c.copy(age = c.age.map(_ + 10))) should contain theSameElementsAs savedData
+  }
+
   private val expectedSchema: StructType = {
     val _idField: StructField = createStructField("_id", BsonCompatibility.ObjectId.structType, true)
     val nameField: StructField = createStructField("name", DataTypes.StringType, true)
@@ -355,3 +397,5 @@ case class SomeData(_id: Int, count: Int)
 case class CharacterWithOid(_id: Option[fieldTypes.ObjectId], name: String, age: Option[Int])
 
 case class CharacterUpperCaseNames(_id: Option[fieldTypes.ObjectId], name: String)
+
+case class ShardedCharacter(_id: Int, shardKey1: Int, shardKey2: Int, name: String, age: Option[Int])
