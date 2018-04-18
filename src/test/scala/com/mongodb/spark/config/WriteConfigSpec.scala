@@ -37,7 +37,8 @@ class WriteConfigSpec extends FlatSpec with Matchers {
 
   it should "be creatable from SparkConfig" in {
     forAll(writeConcerns) { writeConcern: WriteConcern =>
-      val expectedWriteConfig = WriteConfig("db", "collection", None, false, 1024, MongoSharedConfig.DefaultLocalThreshold, writeConcern)
+      val expectedWriteConfig = WriteConfig("db", "collection", None, false, 1024, MongoSharedConfig.DefaultLocalThreshold, writeConcern,
+        Some("{a: 1, b:1}"))
 
       val conf = sparkConf.clone()
       Option(writeConcern.getWObject).map(w => conf.set(s"${WriteConfig.configPrefix}${WriteConfig.writeConcernWProperty}", w.toString))
@@ -46,6 +47,7 @@ class WriteConfigSpec extends FlatSpec with Matchers {
         conf.set(s"${WriteConfig.configPrefix}${WriteConfig.writeConcernWTimeoutMSProperty}", t.toString))
       conf.set(s"${WriteConfig.configPrefix}${WriteConfig.replaceDocumentProperty}", "false")
       conf.set(s"${WriteConfig.configPrefix}${WriteConfig.maxBatchSizeProperty}", "1024")
+      conf.set(s"${WriteConfig.configPrefix}${WriteConfig.shardKeyProperty}", "{a: 1, b:1}")
 
       WriteConfig(conf) should equal(expectedWriteConfig)
     }
