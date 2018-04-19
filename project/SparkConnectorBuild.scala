@@ -30,9 +30,8 @@ object SparkConnectorBuild extends Build {
   val buildSettings = Seq(
     organization := "org.mongodb.spark",
     organizationHomepage := Some(url("http://www.mongodb.org")),
-    version := "2.2.2",
-    scalaVersion :=
-      scalaCoreVersion,
+    version := "2.2.3",
+    scalaVersion := scalaCoreVersion,
     crossScalaVersions := scalaVersions,
     libraryDependencies ++= coreDependencies,
     resolvers := mongoScalaResolvers,
