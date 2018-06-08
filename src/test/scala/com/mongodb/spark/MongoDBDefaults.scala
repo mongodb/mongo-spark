@@ -20,13 +20,11 @@ import scala.collection.JavaConverters._
 import scala.collection.immutable.IndexedSeq
 import scala.io.Source
 import scala.util._
-
 import org.apache.spark.SparkConf
-
 import org.bson.{BsonDocument, BsonString, Document}
-import com.mongodb.client.model.Updates
+import com.mongodb.client.model.{UpdateOptions, Updates}
 import com.mongodb.client.{MongoCollection, MongoDatabase}
-import com.mongodb.{MongoClient, MongoClientURI, ReadPreference}
+import com.mongodb.{Block, MongoClient, MongoClientURI, ReadPreference}
 
 object MongoDBDefaults {
   def apply(): MongoDBDefaults = new MongoDBDefaults()
@@ -78,7 +76,7 @@ class MongoDBDefaults extends Logging {
       adminDB.runCommand(Document.parse(s"{shardCollection: '$ns', key: ${shardKey.toJson}, unique: true}"))
     }
     logInfo("Settings chunkSize to 1MB")
-    configDB.getCollection("settings").updateOne(new Document("_id", "chunksize"), Updates.set("value", 1))
+    configDB.getCollection("settings").updateOne(new Document("_id", "chunksize"), Updates.set("value", 1), new UpdateOptions().upsert(true))
   }
 
   def enableSharding(): Unit = {
@@ -97,26 +95,24 @@ class MongoDBDefaults extends Logging {
     }
   }
 
-  def loadSampleData(collectionName: String, sizeInMB: Int): Unit = {
+  def loadSampleData(collectionName: String, sizeInMB: Int, numberOfDocuments: Int): Unit = {
     assert(isMongoDBOnline(), "MongoDB offline")
     assert(sizeInMB > 0, "Size in MB must be more than ")
     logInfo(s"Loading sample Data: ~${sizeInMB}MB data into '$collectionName'")
     val collection: MongoCollection[BsonDocument] = mongoClient.getDatabase(DATABASE_NAME)
       .withReadPreference(ReadPreference.primary())
       .getCollection(collectionName, classOf[BsonDocument])
-    val numberOfDocuments: Int = 10
 
-    val fieldLength: Int = (1024 * 1024 / numberOfDocuments) - 60 // One MB / number of Documents - Some padding
+    val sizeBytes = (1024 * 1024) * sizeInMB
+    val fieldLength = sizeBytes / numberOfDocuments
     var counter = 0
-    (1 to sizeInMB).foreach({ x =>
-      val sampleString: String = Random.alphanumeric.take(fieldLength).mkString
-      val documents: IndexedSeq[BsonDocument] = (1 to numberOfDocuments).map(y => {
-        counter += 1
-        val idValue = new BsonString(f"$counter%05d")
-        new BsonDocument("_id", idValue).append("pk", idValue).append("s", new BsonString(sampleString))
-      })
-      collection.insertMany(documents.toList.asJava)
+    val sampleString: String = Random.alphanumeric.take(fieldLength - 60).mkString
+    val documents: IndexedSeq[BsonDocument] = (1 to numberOfDocuments).map(y => {
+      counter += 1
+      val idValue = new BsonString(f"$counter%05d")
+      new BsonDocument("_id", idValue).append("pk", idValue).append("s", new BsonString(sampleString))
     })
+    collection.insertMany(documents.toList.asJava)
   }
 
   def loadSampleDataCompositeKey(collectionName: String, sizeInMB: Int): Unit = {

@@ -59,6 +59,9 @@ with prior patch releases of the same minor release branch.
 
 ## Build
 
+### Note: The following instructions are intended for internal use. 
+#### Please see the [downloading](#downloading) instructions for information on getting and using the MongoDB Spark Connector.
+
 To build the driver:
 
 ```

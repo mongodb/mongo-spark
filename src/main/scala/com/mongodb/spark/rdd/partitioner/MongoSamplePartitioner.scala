@@ -106,10 +106,7 @@ class MongoSamplePartitioner extends MongoPartitioner {
           val rightHandBoundaries = samples.zipWithIndex.collect {
             case (field, i) if collectSplit(i) => field.get(partitionKey)
           }
-          val addMinMax = matchQuery.isEmpty
-          val partitions = PartitionerHelper.createPartitions(partitionKey, rightHandBoundaries, PartitionerHelper.locations(connector), addMinMax)
-          if (!addMinMax) PartitionerHelper.setLastBoundaryToLessThanOrEqualTo(partitionKey, partitions)
-          partitions
+          PartitionerHelper.createPartitions(partitionKey, rightHandBoundaries, PartitionerHelper.locations(connector))
         }
 
       case Failure(ex: MongoCommandException) if ex.getErrorMessage.endsWith("not found.") || ex.getErrorCode == 26 =>

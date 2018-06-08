@@ -42,8 +42,11 @@ object PartitionerHelper {
    * @param upper the value of the upper bound
    * @return the document containing the partition bounds
    */
-  def createBoundaryQuery(key: String, lower: BsonValue, upper: BsonValue): BsonDocument =
+  def createBoundaryQuery(key: String, lower: BsonValue, upper: BsonValue): BsonDocument = {
+    require(Option(lower).isDefined, "lower range partition key missing")
+    require(Option(upper).isDefined, "upper range partition key missing")
     new BsonDocument(key, new BsonDocument("$gte", lower).append("$lt", upper))
+  }
 
   /**
    * Creates partitions using a single Seq of documents representing the right handside of partitions
@@ -57,7 +60,8 @@ object PartitionerHelper {
   def createPartitions(partitionKey: String, splitKeys: Seq[BsonValue], locations: Seq[String] = Nil, addMinMax: Boolean = true): Array[MongoPartition] = {
     val minKeyMaxKeys = (new BsonMinKey(), new BsonMaxKey())
     val minToMaxSplitKeys: Seq[BsonValue] = if (addMinMax) minKeyMaxKeys._1 +: splitKeys :+ minKeyMaxKeys._2 else splitKeys
-    val partitionPairs: Seq[(BsonValue, BsonValue)] = minToMaxSplitKeys zip minToMaxSplitKeys.tail
+    val minToMaxKeysToPartition = if (minToMaxSplitKeys.length == 1) minToMaxSplitKeys else minToMaxSplitKeys.tail
+    val partitionPairs: Seq[(BsonValue, BsonValue)] = minToMaxSplitKeys zip minToMaxKeysToPartition
     partitionPairs.zipWithIndex.map({
       case ((min: BsonValue, max: BsonValue), i: Int) => MongoPartition(i, createBoundaryQuery(partitionKey, min, max), locations)
     }).toArray
@@ -124,9 +128,11 @@ object PartitionerHelper {
    * @since 2.1
    */
   def setLastBoundaryToLessThanOrEqualTo(partitionKey: String, partitions: Array[MongoPartition]): Array[MongoPartition] = {
-    val lastPartition = partitions.reverse.head
-    val partitionQuery = lastPartition.queryBounds.getDocument(partitionKey)
-    partitionQuery.append("$lte", partitionQuery.remove("$lt"))
+    if (partitions.length > 0) {
+      val lastPartition = partitions.reverse.head
+      val partitionQuery = lastPartition.queryBounds.getDocument(partitionKey)
+      partitionQuery.append("$lte", partitionQuery.remove("$lt"))
+    }
     partitions
   }
 

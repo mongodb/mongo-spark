@@ -80,22 +80,10 @@ class MongoSamplePartitionerSpec extends RequiresMongoDB {
     partitions should equal(expectedPartitions)
   }
 
-  it should "use the provided pipeline for min and max keys" in {
-    if (!serverAtLeast(3, 2)) cancel("MongoDB < 3.2")
-    loadSampleData(10)
-
-    val readConf = readConfig.copy(partitionerOptions = Map("partitionSizeMB" -> "1"))
-    val rangePipeline = Array(BsonDocument.parse(s"""{$$match: { $partitionKey: {$$gte: "00001", $$lt: "00031"}}}"""))
-
-    val rangePartitions = MongoSamplePartitioner.partitions(mongoConnector, readConf, rangePipeline)
-    getQueryBoundForKey(rangePartitions.head, "$gte") should equal("00001")
-    getQueryBoundForKey(rangePartitions.reverse.head, "$lte") should equal("00030")
-    rangePartitions.length should equal(3)
-  }
-
   it should "use the users pipeline when set in a rdd / dataframe" in {
     if (!serverAtLeast(3, 2)) cancel("MongoDB < 3.2")
-    loadSampleData(10)
+    val numberOfDocuments = 10000
+    loadSampleData(10, numberOfDocuments)
 
     val readConf = readConfig.copy(partitioner = MongoSamplePartitioner, partitionerOptions = Map("partitionSizeMB" -> "1"))
     val rangePipeline = BsonDocument.parse(s"""{$$match: { $partitionKey: {$$gte: "00001", $$lt: "00031"}}}""")
@@ -103,11 +91,14 @@ class MongoSamplePartitionerSpec extends RequiresMongoDB {
     val sparkSession = SparkSession.builder().getOrCreate()
     val rdd = MongoSpark.load(sparkSession.sparkContext, readConf).withPipeline(Seq(rangePipeline))
     rdd.count() should equal(30)
-    rdd.partitions.length should equal(3)
+    rdd.partitions.length should equal(1)
 
-    val df = MongoSpark.load(sparkSession, readConf).filter(s"""$partitionKey >= "00001" AND  $partitionKey < "00031"""")
-    df.count() should equal(30)
+    val df = MongoSpark.load(sparkSession, readConf).filter(s"""$partitionKey < "02041"""")
+    df.count() should equal(2040)
     df.rdd.partitions.length should equal(3)
+
+    val df2 = MongoSpark.load(sparkSession, readConf).filter(s"""$partitionKey >= "00000"""")
+    df2.count() should equal(numberOfDocuments)
   }
   // scalastyle:on magic.number
 

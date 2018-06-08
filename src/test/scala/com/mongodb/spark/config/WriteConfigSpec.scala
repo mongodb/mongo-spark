@@ -29,14 +29,16 @@ import com.mongodb.WriteConcern
 class WriteConfigSpec extends FlatSpec with Matchers {
 
   "WriteConfig" should "have the expected defaults" in {
-    val expectedWriteConfig = WriteConfig("db", "collection", None, true, 512, MongoSharedConfig.DefaultLocalThreshold, WriteConcern.ACKNOWLEDGED)
+    val expectedWriteConfig = WriteConfig("db", "collection", None, true, 512, MongoSharedConfig.DefaultLocalThreshold,
+      WriteConcern.ACKNOWLEDGED, None)
 
     WriteConfig("db", "collection") should equal(expectedWriteConfig)
   }
 
   it should "be creatable from SparkConfig" in {
     forAll(writeConcerns) { writeConcern: WriteConcern =>
-      val expectedWriteConfig = WriteConfig("db", "collection", None, false, 1024, MongoSharedConfig.DefaultLocalThreshold, writeConcern)
+      val expectedWriteConfig = WriteConfig("db", "collection", None, false, 1024, MongoSharedConfig.DefaultLocalThreshold, writeConcern,
+        Some("{a: 1, b:1}"))
 
       val conf = sparkConf.clone()
       Option(writeConcern.getWObject).map(w => conf.set(s"${WriteConfig.configPrefix}${WriteConfig.writeConcernWProperty}", w.toString))
@@ -45,17 +47,22 @@ class WriteConfigSpec extends FlatSpec with Matchers {
         conf.set(s"${WriteConfig.configPrefix}${WriteConfig.writeConcernWTimeoutMSProperty}", t.toString))
       conf.set(s"${WriteConfig.configPrefix}${WriteConfig.replaceDocumentProperty}", "false")
       conf.set(s"${WriteConfig.configPrefix}${WriteConfig.maxBatchSizeProperty}", "1024")
+      conf.set(s"${WriteConfig.configPrefix}${WriteConfig.shardKeyProperty}", "{a: 1, b:1}")
 
       WriteConfig(conf) should equal(expectedWriteConfig)
     }
   }
 
   it should "round trip options" in {
-    val uri = "mongodb://localhost/"
+    val uri = Some("mongodb://localhost/")
+    val replaceDocument = false
     val localThreshold = 5
-    val defaultWriteConfig = WriteConfig("dbName", "collName", uri, localThreshold, WriteConcern.ACKNOWLEDGED)
+    val maxBatchSize = 1024
+    val shardKey = Some("{a: 1}")
+    val defaultWriteConfig = WriteConfig("dbName", "collName", uri, replaceDocument, maxBatchSize, localThreshold,
+      WriteConcern.ACKNOWLEDGED, shardKey)
     forAll(writeConcerns) { writeConcern: WriteConcern =>
-      val expectedWriteConfig = WriteConfig("db", "collection", uri, localThreshold, writeConcern)
+      val expectedWriteConfig = WriteConfig("db", "collection", uri, replaceDocument, maxBatchSize, localThreshold, writeConcern, shardKey)
       defaultWriteConfig.withOptions(expectedWriteConfig.asOptions) should equal(expectedWriteConfig)
     }
   }
@@ -73,6 +80,7 @@ class WriteConfigSpec extends FlatSpec with Matchers {
     an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().set("spark.mongodb.output.localThreshold", "-1"))
     an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().set("spark.mongodb.output.writeConcern.w", "-1"))
     an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().set("spark.mongodb.output.writeConcern.wTimeoutMS", "-1"))
+    an[IllegalArgumentException] should be thrownBy WriteConfig(sparkConf.clone().set("spark.mongodb.output.shardKey", "_id"))
   }
 
   val sparkConf = new SparkConf()

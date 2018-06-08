@@ -21,7 +21,7 @@ import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 import scala.util.Try
 
-import org.apache.spark._
+import org.apache.spark.{Partition, SparkContext, TaskContext}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.StructType
@@ -29,12 +29,16 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
-import com.mongodb.MongoClient
+
+import com.mongodb.{MongoClient, MongoCursorNotFoundException}
 import com.mongodb.client.MongoCursor
 import com.mongodb.spark.config.ReadConfig
+import com.mongodb.spark.exceptions.MongoSparkCursorNotFoundException
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
 import com.mongodb.spark.rdd.partitioner.{MongoPartition, MongoSinglePartitioner}
 import com.mongodb.spark.{MongoConnector, MongoSpark, NotNothing, classTagToClassOf}
+
+import scala.collection.Iterator
 
 /**
  * MongoRDD Class
@@ -145,7 +149,7 @@ class MongoRDD[D: ClassTag](
       Try(cursor.close())
       connector.value.releaseClient(client)
     })
-    cursor.asScala
+    MongoCursorIterator(cursor)
   }
 
   /**
@@ -165,6 +169,20 @@ class MongoRDD[D: ClassTag](
       .aggregate(partitionPipeline.asJava)
       .allowDiskUse(true)
       .iterator
+  }
+
+  private case class MongoCursorIterator(cursor: MongoCursor[D]) extends Iterator[D] {
+    override def hasNext: Boolean = try {
+      cursor.hasNext
+    } catch {
+      case e: MongoCursorNotFoundException => throw new MongoSparkCursorNotFoundException(e)
+    }
+
+    override def next(): D = try {
+      cursor.next()
+    } catch {
+      case e: MongoCursorNotFoundException => throw new MongoSparkCursorNotFoundException(e)
+    }
   }
 
   private def checkSparkContext(): Unit = {
