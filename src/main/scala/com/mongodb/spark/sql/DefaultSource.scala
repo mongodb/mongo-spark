@@ -61,6 +61,7 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
     createRelation(sqlContext, parameters, Some(schema))
 
   private def createRelation(sqlContext: SQLContext, parameters: Map[String, String], structType: Option[StructType]): BaseRelation = {
+    val readConfig = ReadConfig(sqlContext.sparkContext.getConf, parameters)
     val rdd = pipelinedRdd(
       MongoSpark.builder()
         .sparkSession(sqlContext.sparkSession)

@@ -21,6 +21,7 @@ import java.util
 import java.util.Comparator
 
 import com.mongodb.client.model.{Aggregates, Filters, Projections, Sorts}
+import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.rdd.partitioner.MongoSinglePartitioner
 import com.mongodb.spark.sql.types.{BsonCompatibility, ConflictType, SkipFieldType}
@@ -74,7 +75,9 @@ object MongoInferSchema extends Logging {
         }
     }
     // perform schema inference on each row and merge afterwards
-    val rootType: DataType = sampleData.map(getSchemaFromDocument).treeAggregate[DataType](StructType(Seq()))(compatibleType, compatibleType)
+    val rootType: DataType = sampleData
+      .map(getSchemaFromDocument(_, mongoRDD.readConfig))
+      .treeAggregate[DataType](StructType(Seq()))(compatibleType(_, _, mongoRDD.readConfig), compatibleType(_, _, mongoRDD.readConfig))
     canonicalizeType(rootType) match {
       case Some(st: StructType) => st
       case _                    => StructType(Seq()) // canonicalizeType erases all empty structs, including the only one we want to keep
@@ -108,9 +111,9 @@ object MongoInferSchema extends Logging {
     case other               => Some(other)
   }
 
-  private def getSchemaFromDocument(document: BsonDocument): StructType = {
+  private def getSchemaFromDocument(document: BsonDocument, readConfig: ReadConfig): StructType = {
     val fields = new util.ArrayList[StructField]()
-    document.entrySet.asScala.foreach(kv => fields.add(DataTypes.createStructField(kv.getKey, getDataType(kv.getValue), true)))
+    document.entrySet.asScala.foreach(kv => fields.add(DataTypes.createStructField(kv.getKey, getDataType(kv.getValue, readConfig), true)))
     DataTypes.createStructType(fields)
   }
 
@@ -130,7 +133,7 @@ object MongoInferSchema extends Logging {
    * @param t2 the DataType of the second element
    * @return the DataType that matches on the input DataTypes
    */
-  private def compatibleType(t1: DataType, t2: DataType): DataType = {
+  private def compatibleType(t1: DataType, t2: DataType, readConfig: ReadConfig): DataType = {
     TypeCoercion.findTightestCommonType(t1, t2).getOrElse {
       // t1 or t2 is a StructType, ArrayType, or an unexpected type.
       (t1, t2) match {
@@ -150,22 +153,26 @@ object MongoInferSchema extends Logging {
           }
 
         case (StructType(fields1), StructType(fields2)) =>
-          structsToMapType(fields1, fields2) getOrElse compatibleStructType(fields1, fields2)
+          structsToMapType(fields1, fields2, readConfig) getOrElse compatibleStructType(fields1, fields2, readConfig)
 
         case (MapType(keyType1, valueType1, valueContainsNull1), MapType(keyType2, valueType2, valueContainsNull2)) =>
-          MapType(compatibleType(keyType1, keyType2), compatibleType(valueType1, valueType2), valueContainsNull1 || valueContainsNull2)
+          MapType(
+            compatibleType(keyType1, keyType2, readConfig),
+            compatibleType(valueType1, valueType2, readConfig),
+            valueContainsNull1 || valueContainsNull2
+          )
 
-        case (StructType(fields), mapType: MapType) => appendStructToMap(fields, mapType)
-        case (mapType: MapType, StructType(fields)) => appendStructToMap(fields, mapType)
+        case (StructType(fields), mapType: MapType) => appendStructToMap(fields, mapType, readConfig)
+        case (mapType: MapType, StructType(fields)) => appendStructToMap(fields, mapType, readConfig)
 
         case (ArrayType(elementType1, containsNull1), ArrayType(elementType2, containsNull2)) =>
-          ArrayType(compatibleType(elementType1, elementType2), containsNull1 || containsNull2)
+          ArrayType(compatibleType(elementType1, elementType2, readConfig), containsNull1 || containsNull2)
 
         // The case that given `DecimalType` is capable of given `IntegralType` is handled in
         // `findTightestCommonTypeOfTwo`. Both cases below will be executed only when
         // the given `DecimalType` is not capable of the given `IntegralType`.
-        case (t1: DataType, t2: DecimalType) if compatibleDecimalTypes.contains(t1) => compatibleType(forType(t1), t2)
-        case (t1: DecimalType, t2: DataType) if compatibleDecimalTypes.contains(t2) => compatibleType(t1, forType(t2))
+        case (t1: DataType, t2: DecimalType) if compatibleDecimalTypes.contains(t1) => compatibleType(forType(t1), t2, readConfig)
+        case (t1: DecimalType, t2: DataType) if compatibleDecimalTypes.contains(t2) => compatibleType(t1, forType(t2), readConfig)
 
         // SkipFieldType Types
         case (s: SkipFieldType, dataType: DataType) => dataType
@@ -185,10 +192,10 @@ object MongoInferSchema extends Logging {
    * @param fields2 the fields of the second struct
    * @return a new struct type that contains all fields
    */
-  private def compatibleStructType(fields1: Array[StructField], fields2: Array[StructField]): DataType = {
+  private def compatibleStructType(fields1: Array[StructField], fields2: Array[StructField], readConfig: ReadConfig): DataType = {
     val newFields = (fields1 ++ fields2).groupBy(field => field.name).map {
       case (name, fieldTypes) =>
-        val dataType = fieldTypes.view.map(_.dataType).reduce(compatibleType)
+        val dataType = fieldTypes.view.map(_.dataType).reduce(compatibleType(_, _, readConfig))
         StructField(name, dataType, nullable = true)
     }
     StructType(newFields.toSeq.sortBy(_.name))
@@ -205,10 +212,10 @@ object MongoInferSchema extends Logging {
    * @param fields2 the fields of the second struct
    * @return the generated MapType
    */
-  private def structsToMapType(fields1: Array[StructField], fields2: Array[StructField]): Option[MapType] = {
+  private def structsToMapType(fields1: Array[StructField], fields2: Array[StructField], readConfig: ReadConfig): Option[MapType] = {
     val fieldNames = (fields1 ++ fields2).map(_.name).distinct
-    if (fieldNames.length >= minimumMapKeys) {
-      (fields1 ++ fields2).map(_.dataType).reduce(compatibleType) match {
+    if (readConfig.schemaInferMapTypesEnabled && fieldNames.length >= readConfig.schemaInferMapTypesMinimumKeys) {
+      (fields1 ++ fields2).map(_.dataType).reduce(compatibleType(_, _, readConfig)) match {
         case ConflictType       => None
         case SkipFieldType      => None
         case dataType: DataType => Some(DataTypes.createMapType(StringType, dataType, true))
@@ -226,8 +233,8 @@ object MongoInferSchema extends Logging {
    * @param mapType the previous MapType
    * @return the new MapType
    */
-  private def appendStructToMap(fields: Array[StructField], mapType: MapType): MapType = {
-    val valueType = (mapType.valueType +: fields.map(_.dataType)).reduce(compatibleType)
+  private def appendStructToMap(fields: Array[StructField], mapType: MapType, readConfig: ReadConfig): MapType = {
+    val valueType = (mapType.valueType +: fields.map(_.dataType)).reduce(compatibleType(_, _, readConfig))
     DataTypes.createMapType(mapType.keyType, valueType, mapType.valueContainsNull)
   }
 
@@ -276,14 +283,14 @@ object MongoInferSchema extends Logging {
   // scalastyle:on return
 
   // scalastyle:off cyclomatic.complexity null
-  private def getDataType(bsonValue: BsonValue): DataType = {
+  private def getDataType(bsonValue: BsonValue, readConfig: ReadConfig): DataType = {
     bsonValue.getBsonType match {
       case BsonType.NULL                  => DataTypes.NullType
-      case BsonType.ARRAY                 => getSchemaFromArray(bsonValue.asArray().asScala)
+      case BsonType.ARRAY                 => getSchemaFromArray(bsonValue.asArray().asScala, readConfig)
       case BsonType.BINARY                => BsonCompatibility.Binary.getDataType(bsonValue.asBinary())
       case BsonType.BOOLEAN               => DataTypes.BooleanType
       case BsonType.DATE_TIME             => DataTypes.TimestampType
-      case BsonType.DOCUMENT              => getSchemaFromDocument(bsonValue.asDocument())
+      case BsonType.DOCUMENT              => getSchemaFromDocument(bsonValue.asDocument(), readConfig)
       case BsonType.DOUBLE                => DataTypes.DoubleType
       case BsonType.INT32                 => DataTypes.IntegerType
       case BsonType.INT64                 => DataTypes.LongType
@@ -305,13 +312,13 @@ object MongoInferSchema extends Logging {
     }
   }
 
-  private def getSchemaFromArray(bsonArray: Seq[BsonValue]): DataType = {
+  private def getSchemaFromArray(bsonArray: Seq[BsonValue], readConfig: ReadConfig): DataType = {
     val arrayTypes: Seq[BsonType] = bsonArray.map(_.getBsonType).distinct
     arrayTypes.length match {
       case 0 => SkipFieldType
-      case 1 if Seq(BsonType.ARRAY, BsonType.DOCUMENT).contains(arrayTypes.head) => getCompatibleArraySchema(bsonArray)
-      case 1 => DataTypes.createArrayType(getDataType(bsonArray.head), true)
-      case _ => getCompatibleArraySchema(bsonArray)
+      case 1 if Seq(BsonType.ARRAY, BsonType.DOCUMENT).contains(arrayTypes.head) => getCompatibleArraySchema(bsonArray, readConfig)
+      case 1 => DataTypes.createArrayType(getDataType(bsonArray.head, readConfig), true)
+      case _ => getCompatibleArraySchema(bsonArray, readConfig)
     }
   }
   // scalastyle:on cyclomatic.complexity null
@@ -324,14 +331,14 @@ object MongoInferSchema extends Logging {
     }
   }
 
-  def getCompatibleArraySchema(bsonArray: Seq[BsonValue]): DataType = {
+  def getCompatibleArraySchema(bsonArray: Seq[BsonValue], readConfig: ReadConfig): DataType = {
     var arrayType: Option[DataType] = Some(SkipFieldType)
     bsonArray.takeWhile({
       case (bsonValue: BsonNull) => true
       case (bsonValue: BsonValue) =>
         val previous: Option[DataType] = arrayType
-        arrayType = Some(getDataType(bsonValue))
-        if (previous.nonEmpty && arrayType != previous) arrayType = Some(compatibleType(arrayType.get, previous.get))
+        arrayType = Some(getDataType(bsonValue, readConfig))
+        if (previous.nonEmpty && arrayType != previous) arrayType = Some(compatibleType(arrayType.get, previous.get, readConfig))
         arrayType != Some(ConflictType) // Option.contains was added in Scala 2.11
     })
     arrayType.get match {
