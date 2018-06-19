@@ -53,6 +53,7 @@ class MongoDataFrameSpec extends RequiresMongoDB {
   }
 
   it should "handle decimals with scales greater than the precision" in withSparkContext() { sc =>
+    if (!serverAtLeast(3, 4)) cancel("MongoDB < 3.4")
     val data =
       """
         |{"_id":"1", "a": {"$numberDecimal":"0.00"}},
