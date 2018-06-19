@@ -52,6 +52,19 @@ class MongoDataFrameSpec extends RequiresMongoDB {
     df.filter("age > 100").count() should equal(6)
   }
 
+  it should "handle decimals with scales greater than the precision" in withSparkContext() { sc =>
+    val data =
+      """
+        |{"_id":"1", "a": {"$numberDecimal":"0.00"}},
+        |{"_id":"2", "a": {"$numberDecimal":"0E-14"}}
+      """.trim.stripMargin.split("[\\r\\n]+").toSeq.map(Document.parse)
+
+    sc.parallelize(data).saveToMongoDB()
+
+    val df = SparkSession.builder().getOrCreate().read.mongo()
+    df.count() should equal(2)
+  }
+
   it should "handle selecting out of order columns" in withSparkContext() { sc =>
     sc.parallelize(characters).saveToMongoDB()
     val sparkSession = SparkSession.builder().getOrCreate()

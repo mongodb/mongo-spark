@@ -245,7 +245,8 @@ object MongoInferSchema extends Logging {
       case BsonType.DB_POINTER            => BsonCompatibility.DbPointer.structType
       case BsonType.DECIMAL128 =>
         val bigDecimalValue = bsonValue.asDecimal128().decimal128Value().bigDecimalValue()
-        DataTypes.createDecimalType(bigDecimalValue.precision(), bigDecimalValue.scale())
+        val precision = Integer.max(bigDecimalValue.precision(), bigDecimalValue.scale())
+        DataTypes.createDecimalType(precision, bigDecimalValue.scale())
       case _ => ConflictType
     }
   }

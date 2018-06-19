@@ -1,5 +1,8 @@
 # Mongo Spark Connector Changelog
 
+## 2.2.3
+  * [[SPARK-187](https://jira.mongodb.org/browse/SPARK-187)] Fixed inferring decimal values with larger scales than precisions.
+
 ## 2.2.2
   * [[SPARK-150](https://jira.mongodb.org/browse/SPARK-150)] Fixed MongoShardedPartitioner to work with compound shard keys.
   * [[SPARK-147](https://jira.mongodb.org/browse/SPARK-147)] Fixed writing Datasets for compound shard keys, see WriteConfig#shardKey.
