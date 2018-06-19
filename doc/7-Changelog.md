@@ -1,5 +1,12 @@
 # Mongo Spark Connector Changelog
 
+
+## 2.1.2
+  * [[SPARK-187](https://jira.mongodb.org/browse/SPARK-187)] Fixed inferring decimal values with larger scales than precisions.
+
+## 2.1.1
+  * [[SPARK-151](https://jira.mongodb.org/browse/SPARK-151)] Fix MongoSamplePartitioner $match range bug.
+
 ## 2.1.0
   * [[SPARK-125](https://jira.mongodb.org/browse/SPARK-125)] Updated Spark dependency to 2.1.1
   * [[SPARK-124](https://jira.mongodb.org/browse/SPARK-124)] Made the maximum batch size when performing bulk updates / inserts configurable.
