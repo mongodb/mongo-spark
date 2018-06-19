@@ -1,17 +1,14 @@
-# See http://about.travis-ci.org/docs/user/build-configuration/
+dist: trusty
+sudo: false
+
 language: scala
 scala:
-  - "2.11.5"
-  - "2.10.6"
+  - "2.11.12"
+  - "2.10.7"
 
 jdk:
   - oraclejdk7
-  - oraclejdk8
 
-# Branches to test
-branches:
-  only:
-    - master
 notifications:
   email:
     recipients:
@@ -19,37 +16,31 @@ notifications:
     on_success: change
     on_failure: always
 
-matrix:
-    fast_finish: true
+branches:
+  only:
+    - master
 
 env:
   global:
-    - MONGO_REPO="http://repo.mongodb.com/apt/ubuntu"
-    - REPO_TYPE="precise/mongodb-enterprise/3.0 multiverse"
-    - SOURCES_LOC="/etc/apt/sources.list.d/mongodb-enterprise.list"
-    - KEY_SERVER="hkp://keyserver.ubuntu.com:80"
-    - MONGOD_PARAMS="--setParameter=enableTestCommands=1"
-    - MONGOD_OPTS="--dbpath ./data --fork --logpath mongod.log ${MONGOD_PARAMS}"
-    - TERM=dumb
+    - MONGODB_FILE_NAME=mongodb-linux-x86_64-enterprise-ubuntu1404
+    - MONGODB=3.6.2
 
-before_install:
-    # MongoDB Enterprise Edition 3.0
-    - sudo apt-key adv --keyserver ${KEY_SERVER} --recv 7F0CEB10
-    - echo "deb ${MONGO_REPO} ${REPO_TYPE}" | sudo tee ${SOURCES_LOC}
-
-    # Update all the repositories
-    - sudo apt-get update -qq
+addons:
+  apt:
+    packages:
+      - libsnmp-dev
 
 install:
-    # Install MongoDB Enterprise
-    - sudo apt-get install mongodb-enterprise-server
-    - sudo stop mongod
-    - mkdir data
+  - wget http://downloads.mongodb.com/linux/${MONGODB_FILE_NAME}-${MONGODB}.tgz
+  - tar xzf ${MONGODB_FILE_NAME}-${MONGODB}.tgz
+  - ${PWD}/${MONGODB_FILE_NAME}-${MONGODB}/bin/mongod --version
 
 before_script:
-    - mongod ${MONGOD_OPTS}
-
+  - mkdir ${PWD}/${MONGODB_FILE_NAME}-${MONGODB}/data
+  - ${PWD}/${MONGODB_FILE_NAME}-${MONGODB}/bin/mongod --dbpath ${PWD}/${MONGODB_FILE_NAME}-${MONGODB}/data --logpath ${PWD}/${MONGODB_FILE_NAME}-${MONGODB}/mongodb.log --setParameter enableTestCommands=1 --fork --smallfiles --nojournal
 
 script:
   - ./sbt ++$TRAVIS_SCALA_VERSION check
 
+after_script:
+  - pkill mongod
