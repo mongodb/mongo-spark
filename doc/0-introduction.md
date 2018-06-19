@@ -7,7 +7,7 @@ This introduction expects you to have a basic working knowledge of MongoDB and A
 
 ## Prerequisites
 
-Have MongoDB up and running and the Spark 1.6.x downloaded. This tutorial will use the Spark Shell allowing for instant feedback.
+Have MongoDB up and running and the Spark 2.1.x downloaded. This tutorial will use the Spark Shell allowing for instant feedback.
 
 ### Configuring the Mongo Spark Connector
 

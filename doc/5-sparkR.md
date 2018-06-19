@@ -4,7 +4,7 @@ The following code snippets can be found in [introduction.R](../examples/src/tes
 
 ## Prerequisites
 
-Have MongoDB up and running and the Spark 1.6.x downloaded. See the [introduction](0-introduction.md) and the [SQL](1-sparkSQL.md)
+Have MongoDB up and running and the Spark 2.1.x downloaded. See the [introduction](0-introduction.md) and the [SQL](1-sparkSQL.md)
 for more information on getting started.
 
 You can run the interactive sparkR shell like so:
