@@ -1,5 +1,8 @@
 # Mongo Spark Connector Changelog
 
+## 2.3.0
+  * [[SPARK-174](https://jira.mongodb.org/browse/SPARK-174)] Updated Mongo Java Driver to 3.8.0
+
 ## 2.2.3
   * [[SPARK-187](https://jira.mongodb.org/browse/SPARK-187)] Fixed inferring decimal values with larger scales than precisions.
 

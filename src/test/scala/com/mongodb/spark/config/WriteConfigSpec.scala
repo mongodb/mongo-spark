@@ -72,7 +72,7 @@ class WriteConfigSpec extends FlatSpec with Matchers {
     an[IllegalArgumentException] should be thrownBy WriteConfig(new SparkConf().set("spark.mongodb.output.uri", "localhost/db.coll"))
     an[IllegalArgumentException] should be thrownBy WriteConfig(new SparkConf().set(
       "spark.mongodb.output.uri",
-      "mongodb://localhost/db.coll/readPreference=AllNodes"
+      "mongodb://localhost/db.coll/?readPreference=AllNodes"
     ))
     an[IllegalArgumentException] should be thrownBy WriteConfig(new SparkConf().set("spark.mongodb.output.collection", "coll"))
     an[IllegalArgumentException] should be thrownBy WriteConfig(new SparkConf().set("spark.mongodb.output.database", "db"))

@@ -64,7 +64,7 @@ class MongoPaginateByCountPartitioner extends MongoPartitioner with MongoPaginat
    */
   override def partitions(connector: MongoConnector, readConfig: ReadConfig, pipeline: Array[BsonDocument]): Array[MongoPartition] = {
     val matchQuery = PartitionerHelper.matchQuery(pipeline)
-    Try(connector.withCollectionDo(readConfig, { coll: MongoCollection[BsonDocument] => coll.count(matchQuery) })) match {
+    Try(connector.withCollectionDo(readConfig, { coll: MongoCollection[BsonDocument] => coll.countDocuments(matchQuery) })) match {
       case Success(count) =>
         val partitionerOptions = readConfig.partitionerOptions.map(kv => (kv._1.toLowerCase, kv._2))
         val partitionKey = partitionerOptions.getOrElse(partitionKeyProperty, DefaultPartitionKey)

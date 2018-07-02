@@ -19,17 +19,15 @@ package com.mongodb.spark
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
-
 import org.apache.spark.SparkContext
 import org.apache.spark.api.java.{JavaRDD, JavaSparkContext}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql._
+import org.apache.spark.sql.{DataFrame, DataFrameReader, DataFrameWriter, Dataset, Encoders, SparkSession, SQLContext}
 import org.apache.spark.sql.types.StructType
-
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
 import com.mongodb.client.MongoCollection
-import com.mongodb.client.model.{InsertOneModel, ReplaceOneModel, UpdateOneModel, UpdateOptions}
+import com.mongodb.client.model.{InsertOneModel, ReplaceOneModel, ReplaceOptions, UpdateOneModel, UpdateOptions}
 import com.mongodb.spark.DefaultHelper.DefaultsTo
 import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.rdd.MongoRDD
@@ -154,16 +152,15 @@ object MongoSpark {
       documentRdd.foreachPartition(iter => if (iter.nonEmpty) {
         mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[BsonDocument] =>
           iter.grouped(writeConfig.maxBatchSize).foreach(batch => {
-            val updateOptions = new UpdateOptions().upsert(true)
             val requests = batch.map(doc =>
               if (queryKeyList.forall(doc.containsKey(_))) {
                 val queryDocument = new BsonDocument()
                 queryKeyList.foreach(key => queryDocument.append(key, doc.get(key)))
                 if (writeConfig.replaceDocument) {
-                  new ReplaceOneModel[BsonDocument](queryDocument, doc, updateOptions)
+                  new ReplaceOneModel[BsonDocument](queryDocument, doc, new ReplaceOptions().upsert(true))
                 } else {
                   queryDocument.keySet().asScala.foreach(doc.remove(_))
-                  new UpdateOneModel[BsonDocument](queryDocument, new BsonDocument("$set", doc), updateOptions)
+                  new UpdateOneModel[BsonDocument](queryDocument, new BsonDocument("$set", doc), new UpdateOptions().upsert(true))
                 }
               } else {
                 new InsertOneModel[BsonDocument](doc)

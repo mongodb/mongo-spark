@@ -77,7 +77,7 @@ class MongoPaginateBySizePartitioner extends MongoPartitioner with MongoPaginati
         val count = if (matchQuery.isEmpty) {
           results.getNumber("count").longValue()
         } else {
-          connector.withCollectionDo(readConfig, { coll: MongoCollection[BsonDocument] => coll.count(matchQuery) })
+          connector.withCollectionDo(readConfig, { coll: MongoCollection[BsonDocument] => coll.countDocuments(matchQuery) })
         }
         if (numDocumentsPerPartition >= count) {
           if (count == 0) {

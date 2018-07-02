@@ -84,7 +84,7 @@ class MongoSamplePartitioner extends MongoPartitioner {
         val count = if (matchQuery.isEmpty) {
           results.getNumber("count").longValue()
         } else {
-          connector.withCollectionDo(readConfig, { coll: MongoCollection[BsonDocument] => coll.count(matchQuery) })
+          connector.withCollectionDo(readConfig, { coll: MongoCollection[BsonDocument] => coll.countDocuments(matchQuery) })
         }
         val avgObjSizeInBytes = results.get("avgObjSize", new BsonInt64(0)).asNumber().longValue()
         val numDocumentsPerPartition: Int = math.floor(partitionSizeInBytes.toFloat / avgObjSizeInBytes).toInt

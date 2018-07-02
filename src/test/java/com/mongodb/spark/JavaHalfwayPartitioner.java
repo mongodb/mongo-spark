@@ -33,7 +33,7 @@ public final class JavaHalfwayPartitioner implements MongoPartitioner {
                 BsonValue>() {
             @Override
             public BsonValue call(final MongoCollection<BsonDocument> collection) throws Exception {
-                int midPoint = (int) (collection.count() / 2);
+                int midPoint = (int) (collection.countDocuments() / 2);
                 return collection.find().skip(midPoint).limit(1).projection(Projections.include("_id")).first().get("_id");
             }
         });

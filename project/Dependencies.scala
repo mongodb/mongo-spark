@@ -20,7 +20,7 @@ object Dependencies {
   // Versions
   val scalaCoreVersion        = "2.11.12"
   val scalaVersions           = Seq("2.11.12", "2.10.7")
-  val mongodbDriverVersion    = "3.4.2"
+  val mongodbDriverVersion    = "3.8.0"
   val sparkVersion            = "2.2.0"
   val slf4jVersion            = "1.7.16"
 
