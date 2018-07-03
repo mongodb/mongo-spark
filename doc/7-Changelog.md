@@ -1,7 +1,7 @@
 # Mongo Spark Connector Changelog
 
 ## 2.3.0
-  * [[SPARK-156](https://jira.mongodb.org/browse/SPARK-156)] Updated Spark dependency to 2.3.0
+  * [[SPARK-156](https://jira.mongodb.org/browse/SPARK-156)] Updated Spark dependency to 2.3.0. Dropped Scala 2.10 support.
   * [[SPARK-174](https://jira.mongodb.org/browse/SPARK-174)] Updated Mongo Java Driver to 3.8.0
 
 ## 2.2.3

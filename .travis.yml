@@ -4,7 +4,6 @@ sudo: false
 language: scala
 scala:
   - "2.11.12"
-  - "2.10.7"
 
 jdk:
   - oraclejdk7
@@ -23,7 +22,7 @@ branches:
 env:
   global:
     - MONGODB_FILE_NAME=mongodb-linux-x86_64-enterprise-ubuntu1404
-    - MONGODB=3.6.2
+    - MONGODB=4.0.0
 
 addons:
   apt:
