@@ -264,6 +264,7 @@ class MongoInferSchemaSpec extends RequiresMongoDB with MongoDataGenerator with 
   }
 
   it should "not detect a top level document as a map" in withSparkContext() { sc =>
+    if (!serverAtLeast(3, 4)) cancel("MongoDB < 3.4")
     val validKeyCount = 10
     val documents = (1 to validKeyCount).map(i => s"${(1 to validKeyCount).map(x => s"a$x: ${i + x}").mkString("{", ", ", "}")}")
 
