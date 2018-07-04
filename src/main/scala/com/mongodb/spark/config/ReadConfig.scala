@@ -47,6 +47,8 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
   private val DefaultRegisterSQLHelperFunctions = false
   private val DefaultInferSchemaMapTypesEnabled = true
   private val DefaultInferSchemaMapTypesMinimumKeys = 250
+  private val DefaultPipelineIncludeNullFilters = true
+  private val DefaultPipelineIncludeFiltersAndProjections = true
 
   override def apply(options: collection.Map[String, String], default: Option[ReadConfig]): ReadConfig = {
     val cleanedOptions = stripPrefix(options)
@@ -68,7 +70,7 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
       readPreferenceConfig = ReadPreferenceConfig(cleanedOptions, default.map(conf => conf.readPreferenceConfig)),
       readConcernConfig = ReadConcernConfig(cleanedOptions, default.map(conf => conf.readConcernConfig)),
       registerSQLHelperFunctions = getBoolean(
-        cleanedOptions.get(registerSQLHelperFunctions),
+        cleanedOptions.get(registerSQLHelperFunctionsProperty),
         default.map(conf => conf.registerSQLHelperFunctions), DefaultRegisterSQLHelperFunctions
       ),
       inferSchemaMapTypesEnabled = getBoolean(
@@ -80,6 +82,16 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
         cleanedOptions.get(inferSchemaMapTypeMinimumKeysProperty),
         default.map(conf => conf.inferSchemaMapTypesMinimumKeys),
         DefaultInferSchemaMapTypesMinimumKeys
+      ),
+      pipelineIncludeNullFilters = getBoolean(
+        cleanedOptions.get(pipelineIncludeNullFiltersProperty),
+        default.map(conf => conf.pipelineIncludeNullFilters),
+        DefaultPipelineIncludeNullFilters
+      ),
+      pipelineIncludeFiltersAndProjections = getBoolean(
+        cleanedOptions.get(pipelineIncludeFiltersAndProjectionsProperty),
+        default.map(conf => conf.pipelineIncludeFiltersAndProjections),
+        DefaultPipelineIncludeFiltersAndProjections
       )
     )
   }
@@ -122,21 +134,85 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
    *                       threshold will be chosen.
    * @param readPreference the readPreference configuration
    * @param readConcern the readConcern configuration
+   * @param registerSQLHelperFunctions true to register sql helper functions
    * @since 1.0
    */
   def create(databaseName: String, collectionName: String, connectionString: String, sampleSize: Int,
              partitioner: String, partitionerOptions: util.Map[String, String], localThreshold: Int,
-             readPreference: ReadPreference, readConcern: ReadConcern, registerHelperFunctions: Boolean): ReadConfig = {
+             readPreference: ReadPreference, readConcern: ReadConcern, registerSQLHelperFunctions: Boolean): ReadConfig = {
+    create(databaseName, collectionName, connectionString, sampleSize, partitioner, partitionerOptions, localThreshold, readPreference,
+      readConcern, registerSQLHelperFunctions, DefaultInferSchemaMapTypesEnabled, DefaultInferSchemaMapTypesMinimumKeys)
+  }
+
+  /**
+   * Read Configuration used when reading data from MongoDB
+   *
+   * @param databaseName the database name
+   * @param collectionName the collection name
+   * @param connectionString the optional connection string used in the creation of this configuration
+   * @param sampleSize a positive integer sample size to draw from the collection when inferring the schema
+   * @param partitioner the class name of the partitioner to use to create partitions
+   * @param partitionerOptions the configuration options for the partitioner
+   * @param localThreshold                 the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.
+   *                                       Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local
+   *                                       threshold will be chosen.
+   * @param readPreference                 the readPreference configuration
+   * @param readConcern                    the readConcern configuration
+   * @param registerSQLHelperFunctions     true to register sql helper functions
+   * @return the ReadConfig
+   * @since 2.3
+   */
+  def create(databaseName: String, collectionName: String, connectionString: String, sampleSize: Int,
+             partitioner: String, partitionerOptions: util.Map[String, String], localThreshold: Int,
+             readPreference: ReadPreference, readConcern: ReadConcern, registerSQLHelperFunctions: Boolean,
+             inferSchemaMapTypesEnabled: Boolean, inferSchemaMapTypesMinimumKeys: Int): ReadConfig = {
+    create(databaseName, collectionName, connectionString, sampleSize, partitioner, partitionerOptions, localThreshold, readPreference,
+      readConcern, registerSQLHelperFunctions, inferSchemaMapTypesEnabled, inferSchemaMapTypesMinimumKeys, DefaultPipelineIncludeNullFilters,
+      DefaultPipelineIncludeFiltersAndProjections)
+  }
+
+  /**
+   * Read Configuration used when reading data from MongoDB
+   *
+   * @param databaseName the database name
+   * @param collectionName the collection name
+   * @param connectionString the optional connection string used in the creation of this configuration
+   * @param sampleSize a positive integer sample size to draw from the collection when inferring the schema
+   * @param partitioner the class name of the partitioner to use to create partitions
+   * @param partitionerOptions the configuration options for the partitioner
+   * @param localThreshold the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.
+   *                       Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local
+   *                       threshold will be chosen.
+   * @param readPreference the readPreference configuration
+   * @param readConcern the readConcern configuration
+   * @param registerSQLHelperFunctions true to register sql helper functions
+   * @param inferSchemaMapTypesEnabled true to detect MapTypes when inferring Schema.
+   * @param inferSchemaMapTypesMinimumKeys the minimum number of keys before a document can be inferred as a MapType.
+   * @param pipelineIncludeNullFilters true to include and push down null and exists filters into the pipeline when using sql.
+   * @param pipelineIncludeFiltersAndProjections true to push down filters and projections into the pipeline when using sql.
+   * @return the ReadConfig
+   * @since 2.3
+   */
+  def create(databaseName: String, collectionName: String, connectionString: String, sampleSize: Int,
+             partitioner: String, partitionerOptions: util.Map[String, String], localThreshold: Int,
+             readPreference: ReadPreference, readConcern: ReadConcern, registerSQLHelperFunctions: Boolean,
+             inferSchemaMapTypesEnabled: Boolean, inferSchemaMapTypesMinimumKeys: Int,
+             pipelineIncludeNullFilters: Boolean, pipelineIncludeFiltersAndProjections: Boolean): ReadConfig = {
     notNull("databaseName", databaseName)
     notNull("collectionName", collectionName)
     notNull("partitioner", partitioner)
     notNull("readPreference", readPreference)
     notNull("readConcern", readConcern)
-    notNull("registerHelperFunctions", registerHelperFunctions)
+    notNull("registerHelperFunctions", registerSQLHelperFunctions)
+    notNull("inferSchemaMapTypesEnabled", inferSchemaMapTypesEnabled)
+    notNull("inferSchemaMapTypesMinimumKeys", inferSchemaMapTypesMinimumKeys)
+    notNull("pipelineIncludeNullFilters", pipelineIncludeNullFilters)
+    notNull("pipelineIncludeFiltersAndProjections", pipelineIncludeFiltersAndProjections)
 
     new ReadConfig(databaseName, collectionName, Option(connectionString), sampleSize, getPartitioner(partitioner),
       getPartitionerOptions(partitionerOptions.asScala), localThreshold, ReadPreferenceConfig(readPreference),
-      ReadConcernConfig(readConcern), registerHelperFunctions)
+      ReadConcernConfig(readConcern), registerSQLHelperFunctions, inferSchemaMapTypesEnabled, inferSchemaMapTypesMinimumKeys,
+      pipelineIncludeNullFilters, pipelineIncludeFiltersAndProjections)
   }
 
   // scalastyle:on parameter.number
@@ -183,9 +259,10 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
     val partitionerClassName = if (partitionerName.contains(".")) partitionerName else s"$DefaultPartitionerPath$partitionerName"
     val parsedPartitioner = Try({
       val clazz = Class.forName(partitionerClassName)
-      partitionerClassName.endsWith("$") match {
-        case true  => clazz.getField("MODULE$").get(clazz).asInstanceOf[MongoPartitioner]
-        case false => clazz.newInstance().asInstanceOf[MongoPartitioner]
+      if (partitionerClassName.endsWith("$")) {
+        clazz.getField("MODULE$").get(clazz).asInstanceOf[MongoPartitioner]
+      } else {
+        clazz.newInstance().asInstanceOf[MongoPartitioner]
       }
     })
     if (parsedPartitioner.isFailure) {
@@ -216,21 +293,28 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
  *                       threshold will be chosen.
  * @param readPreferenceConfig the readPreference configuration
  * @param readConcernConfig the readConcern configuration
+ * @param registerSQLHelperFunctions true to register sql helper functions
+ * @param inferSchemaMapTypesEnabled true to detect MapTypes when inferring Schema.
+ * @param inferSchemaMapTypesMinimumKeys the minimum number of keys before a document can be inferred as a MapType.
+ * @param pipelineIncludeNullFilters true to include and push down null and exists filters into the pipeline when using sql.
+ * @param pipelineIncludeFiltersAndProjections true to push down filters and projections into the pipeline when using sql.
  * @since 1.0
  */
 case class ReadConfig(
-    databaseName:                   String,
-    collectionName:                 String,
-    connectionString:               Option[String]                 = None,
-    sampleSize:                     Int                            = ReadConfig.DefaultSampleSize,
-    partitioner:                    MongoPartitioner               = ReadConfig.DefaultPartitioner,
-    partitionerOptions:             collection.Map[String, String] = ReadConfig.DefaultPartitionerOptions,
-    localThreshold:                 Int                            = MongoSharedConfig.DefaultLocalThreshold,
-    readPreferenceConfig:           ReadPreferenceConfig           = ReadPreferenceConfig(),
-    readConcernConfig:              ReadConcernConfig              = ReadConcernConfig(),
-    registerSQLHelperFunctions:     Boolean                        = ReadConfig.DefaultRegisterSQLHelperFunctions,
-    inferSchemaMapTypesEnabled:     Boolean                        = ReadConfig.DefaultInferSchemaMapTypesEnabled,
-    inferSchemaMapTypesMinimumKeys: Int                            = ReadConfig.DefaultInferSchemaMapTypesMinimumKeys
+    databaseName:                         String,
+    collectionName:                       String,
+    connectionString:                     Option[String]                 = None,
+    sampleSize:                           Int                            = ReadConfig.DefaultSampleSize,
+    partitioner:                          MongoPartitioner               = ReadConfig.DefaultPartitioner,
+    partitionerOptions:                   collection.Map[String, String] = ReadConfig.DefaultPartitionerOptions,
+    localThreshold:                       Int                            = MongoSharedConfig.DefaultLocalThreshold,
+    readPreferenceConfig:                 ReadPreferenceConfig           = ReadPreferenceConfig(),
+    readConcernConfig:                    ReadConcernConfig              = ReadConcernConfig(),
+    registerSQLHelperFunctions:           Boolean                        = ReadConfig.DefaultRegisterSQLHelperFunctions,
+    inferSchemaMapTypesEnabled:           Boolean                        = ReadConfig.DefaultInferSchemaMapTypesEnabled,
+    inferSchemaMapTypesMinimumKeys:       Int                            = ReadConfig.DefaultInferSchemaMapTypesMinimumKeys,
+    pipelineIncludeNullFilters:           Boolean                        = ReadConfig.DefaultPipelineIncludeNullFilters,
+    pipelineIncludeFiltersAndProjections: Boolean                        = ReadConfig.DefaultPipelineIncludeFiltersAndProjections
 ) extends MongoCollectionConfig with MongoClassConfig {
   require(Try(connectionString.map(uri => new ConnectionString(uri))).isSuccess, s"Invalid uri: '${connectionString.get}'")
   require(sampleSize > 0, s"sampleSize ($sampleSize) must be greater than 0")
@@ -249,8 +333,11 @@ case class ReadConfig(
       ReadConfig.sampleSizeProperty -> sampleSize.toString,
       ReadConfig.partitionerProperty -> partitioner.getClass.getName,
       ReadConfig.localThresholdProperty -> localThreshold.toString,
+      ReadConfig.registerSQLHelperFunctionsProperty -> registerSQLHelperFunctions.toString,
       ReadConfig.inferSchemaMapTypeEnabledProperty -> inferSchemaMapTypesEnabled.toString,
-      ReadConfig.inferSchemaMapTypeMinimumKeysProperty -> inferSchemaMapTypesMinimumKeys.toString
+      ReadConfig.inferSchemaMapTypeMinimumKeysProperty -> inferSchemaMapTypesMinimumKeys.toString,
+      ReadConfig.pipelineIncludeNullFiltersProperty -> pipelineIncludeNullFilters.toString,
+      ReadConfig.pipelineIncludeFiltersAndProjectionsProperty -> pipelineIncludeFiltersAndProjections.toString
     ) ++ partitionerOptions.map(kv => (s"${ReadConfig.partitionerOptionsProperty}.${kv._1}".toLowerCase, kv._2)) ++
       readPreferenceConfig.asOptions ++ readConcernConfig.asOptions
 

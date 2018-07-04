@@ -26,8 +26,9 @@ import org.bson.types.{Decimal128, ObjectId}
 import com.mongodb.spark._
 import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.sql.types.BsonCompatibility
+import org.scalatest.prop.TableDrivenPropertyChecks
 
-class MongoDataFrameSpec extends RequiresMongoDB {
+class MongoDataFrameSpec extends RequiresMongoDB with TableDrivenPropertyChecks {
   // scalastyle:off magic.number
 
   val characters =
@@ -42,6 +43,12 @@ class MongoDataFrameSpec extends RequiresMongoDB {
      | {"name": "Glóin", "age": 158}
      | {"name": "Fíli", "age": 82}
      | {"name": "Bombur"}""".trim.stripMargin.split("[\\r\\n]+").toSeq.map(Document.parse)
+
+  lazy val sparkSession = SparkSession.builder().getOrCreate()
+
+  lazy val readConfigs = Table("readConfig", ReadConfig(sparkSession),
+    ReadConfig(sparkSession).withOption(ReadConfig.pipelineIncludeNullFiltersProperty, "false"),
+    ReadConfig(sparkSession).withOption(ReadConfig.pipelineIncludeFiltersAndProjectionsProperty, "false"))
 
   "DataFrameReader" should "should be easily created from the SQLContext and load from Mongo" in withSparkContext() { sc =>
     sc.parallelize(characters).saveToMongoDB()
@@ -68,11 +75,12 @@ class MongoDataFrameSpec extends RequiresMongoDB {
 
   it should "handle selecting out of order columns" in withSparkContext() { sc =>
     sc.parallelize(characters).saveToMongoDB()
-    val sparkSession = SparkSession.builder().getOrCreate()
-    val df = sparkSession.read.mongo()
 
-    df.select("name", "age").orderBy("age").rdd.map(r => (r.get(0), r.get(1))).collect() should
-      equal(characters.sortBy(_.getInteger("age", 0)).map(doc => (doc.getString("name"), doc.getInteger("age"))))
+    forAll(readConfigs) { readConfig: ReadConfig =>
+      val df = sparkSession.read.mongo(readConfig)
+      df.select("name", "age").orderBy("age").rdd.map(r => (r.get(0), r.get(1))).collect() should
+        equal(characters.sortBy(_.getInteger("age", 0)).map(doc => (doc.getString("name"), doc.getInteger("age"))))
+    }
   }
 
   it should "handle mixed numerics with long precedence" in withSparkContext() { sc =>
@@ -125,26 +133,31 @@ class MongoDataFrameSpec extends RequiresMongoDB {
     sc.parallelize(characters).saveToMongoDB()
 
     val sparkSession = SparkSession.builder().getOrCreate()
-    val df = sparkSession.read.mongo[Character]()
-    val reflectedSchema: StructType = ScalaReflection.schemaFor[Character].dataType.asInstanceOf[StructType]
+    forAll(readConfigs) { readConfig: ReadConfig =>
+      val df = sparkSession.read.mongo[Character](readConfig)
+      val reflectedSchema: StructType = ScalaReflection.schemaFor[Character].dataType.asInstanceOf[StructType]
+      val expectedCount = if (!readConfig.pipelineIncludeNullFilters || !readConfig.pipelineIncludeFiltersAndProjections) 10 else 9
 
-    df.schema should equal(reflectedSchema)
-    df.count() should equal(9)
-    df.filter("age > 100").count() should equal(6)
+      df.schema should equal(reflectedSchema)
+      df.count() should equal(expectedCount)
+      df.filter("age > 100").count() should equal(6)
+    }
   }
 
-  it should "include any pipelines when inferring the schema" in withSparkContext() { sc =>
+  it should "include user pipelines when inferring the schema" in withSparkContext() { sc =>
     sc.parallelize(characters).saveToMongoDB()
     sc.parallelize(List("{counter: 1}", "{counter: 2}", "{counter: 3}").map(Document.parse)).saveToMongoDB()
     val sparkSession = SparkSession.builder().getOrCreate()
 
-    var df = sparkSession.read.option("pipeline", "[{ $match: { name: { $exists: true } } }]").mongo()
-    df.schema should equal(expectedSchema)
-    df.count() should equal(10)
-    df.filter("age > 100").count() should equal(6)
+    forAll(readConfigs) { readConfig: ReadConfig =>
+      var df = sparkSession.read.option("pipeline", "[{ $match: { name: { $exists: true } } }]").mongo(readConfig)
+      df.schema should equal(expectedSchema)
+      df.count() should equal(10)
+      df.filter("age > 100").count() should equal(6)
 
-    df = sparkSession.read.option("pipeline", "[{ $project: { _id: 1, age: 1 } }]").mongo()
-    df.schema should equal(createStructType(expectedSchema.fields.filter(p => p.name != "name")))
+      df = sparkSession.read.option("pipeline", "[{ $project: { _id: 1, age: 1 } }]").mongo(readConfig)
+      df.schema should equal(createStructType(expectedSchema.fields.filter(p => p.name != "name")))
+    }
   }
 
   it should "use any pipelines when set via the MongoRDD" in withSparkContext() { sc =>
@@ -152,10 +165,12 @@ class MongoDataFrameSpec extends RequiresMongoDB {
     sc.parallelize(List("{counter: 1}", "{counter: 2}", "{counter: 3}").map(Document.parse)).saveToMongoDB()
     val sparkSession = SparkSession.builder().getOrCreate()
 
-    val df = MongoSpark.load(sc).withPipeline(Seq(Document.parse("{ $match: { name: { $exists: true } } }"))).toDF()
-    df.schema should equal(expectedSchema)
-    df.count() should equal(10)
-    df.filter("age > 100").count() should equal(6)
+    forAll(readConfigs) { readConfig: ReadConfig =>
+      val df = MongoSpark.load(sc, readConfig).withPipeline(Seq(Document.parse("{ $match: { name: { $exists: true } } }"))).toDF()
+      df.schema should equal(expectedSchema)
+      df.count() should equal(10)
+      df.filter("age > 100").count() should equal(6)
+    }
   }
 
   it should "throw an exception if pipeline is invalid" in withSparkContext() { sc =>
