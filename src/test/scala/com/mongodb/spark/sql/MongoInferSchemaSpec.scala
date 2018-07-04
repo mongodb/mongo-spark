@@ -236,7 +236,7 @@ class MongoInferSchemaSpec extends RequiresMongoDB with MongoDataGenerator with 
     val rdd = MongoSpark
       .builder()
       .sparkContext(sc)
-      .readConfig(readConfig.copy(schemaInferMapTypesMinimumKeys = 10)) // scalastyle:ignore
+      .readConfig(readConfig.copy(inferSchemaMapTypesMinimumKeys = 10)) // scalastyle:ignore
       .build()
       .toRDD[BsonDocument]()
 
@@ -256,7 +256,7 @@ class MongoInferSchemaSpec extends RequiresMongoDB with MongoDataGenerator with 
     val rdd = MongoSpark
       .builder()
       .sparkContext(sc)
-      .readConfig(readConfig.copy(schemaInferMapTypesMinimumKeys = 10)) // scalastyle:ignore
+      .readConfig(readConfig.copy(inferSchemaMapTypesMinimumKeys = 10)) // scalastyle:ignore
       .build()
       .toRDD[BsonDocument]()
 
@@ -272,7 +272,7 @@ class MongoInferSchemaSpec extends RequiresMongoDB with MongoDataGenerator with 
     val rdd = MongoSpark
       .builder()
       .sparkContext(sc)
-      .readConfig(readConfig.copy(schemaInferMapTypesMinimumKeys = 10)) // scalastyle:ignore
+      .readConfig(readConfig.copy(inferSchemaMapTypesMinimumKeys = 10)) // scalastyle:ignore
       .pipeline(Seq(BsonDocument.parse("{$project: {_id: 0}}")))
       .build()
       .toRDD[BsonDocument]()
@@ -290,7 +290,7 @@ class MongoInferSchemaSpec extends RequiresMongoDB with MongoDataGenerator with 
     val rdd = MongoSpark
       .builder()
       .sparkContext(sc)
-      .readConfig(readConfig.copy(schemaInferMapTypesEnabled = false)) // scalastyle:ignore
+      .readConfig(readConfig.copy(inferSchemaMapTypesEnabled = false)) // scalastyle:ignore
       .build()
       .toRDD[BsonDocument]()
     MongoInferSchema(rdd).last.dataType shouldNot be(a[MapType])
@@ -304,7 +304,7 @@ class MongoInferSchemaSpec extends RequiresMongoDB with MongoDataGenerator with 
     val rdd = MongoSpark
       .builder()
       .sparkContext(sc)
-      .readConfig(readConfig.copy(schemaInferMapTypesMinimumKeys = 500)) // scalastyle:ignore
+      .readConfig(readConfig.copy(inferSchemaMapTypesMinimumKeys = 500)) // scalastyle:ignore
       .build()
       .toRDD[BsonDocument]()
 

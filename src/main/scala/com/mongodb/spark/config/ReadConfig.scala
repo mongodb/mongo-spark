@@ -45,8 +45,8 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
   private val DefaultPartitionerOptions = Map.empty[String, String]
   private val DefaultPartitionerPath = "com.mongodb.spark.rdd.partitioner."
   private val DefaultRegisterSQLHelperFunctions = false
-  private val DefaultSchemaInferMapTypesEnabled = true
-  private val DefaultSchemaInferMapTypesMinimumKeys = 250
+  private val DefaultInferSchemaMapTypesEnabled = true
+  private val DefaultInferSchemaMapTypesMinimumKeys = 250
 
   override def apply(options: collection.Map[String, String], default: Option[ReadConfig]): ReadConfig = {
     val cleanedOptions = stripPrefix(options)
@@ -71,15 +71,15 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
         cleanedOptions.get(registerSQLHelperFunctions),
         default.map(conf => conf.registerSQLHelperFunctions), DefaultRegisterSQLHelperFunctions
       ),
-      schemaInferMapTypesEnabled = getBoolean(
-        cleanedOptions.get(schemaInferMapTypeEnabledProperty),
-        default.map(conf => conf.schemaInferMapTypesEnabled),
-        DefaultSchemaInferMapTypesEnabled
+      inferSchemaMapTypesEnabled = getBoolean(
+        cleanedOptions.get(inferSchemaMapTypeEnabledProperty),
+        default.map(conf => conf.inferSchemaMapTypesEnabled),
+        DefaultInferSchemaMapTypesEnabled
       ),
-      schemaInferMapTypesMinimumKeys = getInt(
-        cleanedOptions.get(schemaInferMapTypeMinimumKeysProperty),
-        default.map(conf => conf.schemaInferMapTypesMinimumKeys),
-        DefaultSchemaInferMapTypesMinimumKeys
+      inferSchemaMapTypesMinimumKeys = getInt(
+        cleanedOptions.get(inferSchemaMapTypeMinimumKeysProperty),
+        default.map(conf => conf.inferSchemaMapTypesMinimumKeys),
+        DefaultInferSchemaMapTypesMinimumKeys
       )
     )
   }
@@ -229,8 +229,8 @@ case class ReadConfig(
     readPreferenceConfig:           ReadPreferenceConfig           = ReadPreferenceConfig(),
     readConcernConfig:              ReadConcernConfig              = ReadConcernConfig(),
     registerSQLHelperFunctions:     Boolean                        = ReadConfig.DefaultRegisterSQLHelperFunctions,
-    schemaInferMapTypesEnabled:     Boolean                        = ReadConfig.DefaultSchemaInferMapTypesEnabled,
-    schemaInferMapTypesMinimumKeys: Int                            = ReadConfig.DefaultSchemaInferMapTypesMinimumKeys
+    inferSchemaMapTypesEnabled:     Boolean                        = ReadConfig.DefaultInferSchemaMapTypesEnabled,
+    inferSchemaMapTypesMinimumKeys: Int                            = ReadConfig.DefaultInferSchemaMapTypesMinimumKeys
 ) extends MongoCollectionConfig with MongoClassConfig {
   require(Try(connectionString.map(uri => new ConnectionString(uri))).isSuccess, s"Invalid uri: '${connectionString.get}'")
   require(sampleSize > 0, s"sampleSize ($sampleSize) must be greater than 0")
@@ -249,8 +249,8 @@ case class ReadConfig(
       ReadConfig.sampleSizeProperty -> sampleSize.toString,
       ReadConfig.partitionerProperty -> partitioner.getClass.getName,
       ReadConfig.localThresholdProperty -> localThreshold.toString,
-      ReadConfig.schemaInferMapTypeEnabledProperty -> schemaInferMapTypesEnabled.toString,
-      ReadConfig.schemaInferMapTypeMinimumKeysProperty -> schemaInferMapTypesMinimumKeys.toString
+      ReadConfig.inferSchemaMapTypeEnabledProperty -> inferSchemaMapTypesEnabled.toString,
+      ReadConfig.inferSchemaMapTypeMinimumKeysProperty -> inferSchemaMapTypesMinimumKeys.toString
     ) ++ partitionerOptions.map(kv => (s"${ReadConfig.partitionerOptionsProperty}.${kv._1}".toLowerCase, kv._2)) ++
       readPreferenceConfig.asOptions ++ readConcernConfig.asOptions
 

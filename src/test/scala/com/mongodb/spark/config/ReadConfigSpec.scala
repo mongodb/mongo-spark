@@ -49,8 +49,8 @@ class ReadConfigSpec extends FlatSpec with Matchers {
     readConfig.localThreshold should equal(expectedReadConfig.localThreshold)
     readConfig.readPreferenceConfig should equal(expectedReadConfig.readPreferenceConfig)
     readConfig.readConcernConfig should equal(expectedReadConfig.readConcernConfig)
-    readConfig.schemaInferMapTypesMinimumKeys should equal(expectedReadConfig.schemaInferMapTypesMinimumKeys)
-    readConfig.schemaInferMapTypesEnabled should equal(expectedReadConfig.schemaInferMapTypesEnabled)
+    readConfig.inferSchemaMapTypesMinimumKeys should equal(expectedReadConfig.inferSchemaMapTypesMinimumKeys)
+    readConfig.inferSchemaMapTypesEnabled should equal(expectedReadConfig.inferSchemaMapTypesEnabled)
   }
 
   it should "use the URI for default values" in {
@@ -85,8 +85,8 @@ class ReadConfigSpec extends FlatSpec with Matchers {
       Map("partitioneroptions.partitionsizemb" -> "15"), 0,
       ReadPreferenceConfig(ReadPreference.secondaryPreferred(new TagSet(List(new Tag("dc", "east"), new Tag("use", "production")).asJava))),
       ReadConcernConfig(ReadConcern.MAJORITY),
-      schemaInferMapTypesEnabled = false,
-      schemaInferMapTypesMinimumKeys = 999)
+      inferSchemaMapTypesEnabled = false,
+      inferSchemaMapTypesMinimumKeys = 999)
 
     val readConfig = defaultReadConfig.withOptions(expectedReadConfig.asOptions)
 
@@ -99,8 +99,8 @@ class ReadConfigSpec extends FlatSpec with Matchers {
     readConfig.localThreshold should equal(expectedReadConfig.localThreshold)
     readConfig.readPreferenceConfig should equal(expectedReadConfig.readPreferenceConfig)
     readConfig.readConcernConfig should equal(expectedReadConfig.readConcernConfig)
-    readConfig.schemaInferMapTypesMinimumKeys should equal(expectedReadConfig.schemaInferMapTypesMinimumKeys)
-    readConfig.schemaInferMapTypesEnabled should equal(expectedReadConfig.schemaInferMapTypesEnabled)
+    readConfig.inferSchemaMapTypesMinimumKeys should equal(expectedReadConfig.inferSchemaMapTypesMinimumKeys)
+    readConfig.inferSchemaMapTypesEnabled should equal(expectedReadConfig.inferSchemaMapTypesEnabled)
   }
 
   it should "be able to create a map" in {
@@ -111,8 +111,8 @@ class ReadConfigSpec extends FlatSpec with Matchers {
         new TagSet()
       ).asJava)),
       ReadConcernConfig(ReadConcern.MAJORITY),
-      schemaInferMapTypesEnabled = false,
-      schemaInferMapTypesMinimumKeys = 999)
+      inferSchemaMapTypesEnabled = false,
+      inferSchemaMapTypesMinimumKeys = 999)
 
     val expectedReadConfigMap = Map(
       "database" -> "dbName",
@@ -125,8 +125,8 @@ class ReadConfigSpec extends FlatSpec with Matchers {
       "readpreference.tagsets" -> """[{dc:"east",use:"production"},{}]""",
       "readconcern.level" -> "majority",
       "samplesize" -> "200",
-      "schemainfer.maptypes.enabled" -> "false",
-      "schemainfer.maptypes.minimumkeys" -> "999"
+      "sql.inferschema.maptypes.enabled" -> "false",
+      "sql.inferschema.maptypes.minimumkeys" -> "999"
     )
 
     readConfig.asOptions should equal(expectedReadConfigMap)

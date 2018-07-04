@@ -209,7 +209,7 @@ object MongoInferSchema extends Logging {
   }
 
   private def structTypeToMapType(structType: StructType, readConfig: ReadConfig): DataType = {
-    if (readConfig.schemaInferMapTypesEnabled && structType.fields.length >= readConfig.schemaInferMapTypesMinimumKeys) {
+    if (readConfig.inferSchemaMapTypesEnabled && structType.fields.length >= readConfig.inferSchemaMapTypesMinimumKeys) {
       structType.fields.map(_.dataType).reduce(compatibleType(_, _, readConfig)) match {
         case ConflictType       => structType // ignore conflicting types
         case SkipFieldType      => structType // ignore skipfield types

@@ -42,8 +42,8 @@ package com.mongodb.spark.config
  *  - [[partitionerOptionsProperty partitionerOptions]], the custom options used to configure the partitioner.
  *  - [[localThresholdProperty localThreshold]], the number of milliseconds used when choosing among multiple MongoDB servers to send a request.
  *  - [[registerSQLHelperFunctionsProperty registerSQLHelperFunctions]], register SQL helper functions allow easy querying of Bson types inside SQL queries.
- *  - [[schemaInferMapTypeEnabledProperty schemaInfer.mapTypes.enabled]], enable schema inference of MapTypes.
- *  - [[schemaInferMapTypeMinimumKeysProperty schemaInfer.mapTypes.minimumKeys]], the minimum number of keys of how large a struct must be before a MapType
+ *  - [[inferSchemaMapTypeEnabledProperty sql.inferschema.mapTypes.enabled]], enable schema inference of MapTypes.
+ *  - [[inferSchemaMapTypeMinimumKeysProperty sql.inferschema.mapTypes.minimumKeys]], the minimum number of keys of how large a struct must be before a MapType
  *    should be inferred.
  */
 trait MongoInputConfig extends MongoCompanionConfig {
@@ -129,22 +129,22 @@ trait MongoInputConfig extends MongoCompanionConfig {
   val registerSQLHelperFunctions: String = "registerSQLHelperFunctions".toLowerCase()
 
   /**
-   * The schema inference MapType enabled property
+   * The infer schema MapType enabled property
    *
    * A boolean flag to enable or disable MapType infer.
    * If this flag is enabled, large compatible struct types will be inferred to a MapType instead.
    *
    * Default: `true`
    */
-  val schemaInferMapTypeEnabledProperty: String = "schemaInfer.mapTypes.enabled".toLowerCase
+  val inferSchemaMapTypeEnabledProperty: String = "sql.inferSchema.mapTypes.enabled".toLowerCase
 
   /**
-   * The schema inference MapType minimum keys property
+   * The infer schema MapType minimum keys property
    *
    * The minimum keys property controls how large a struct must be before a MapType should be inferred.
    *
    * Default: `250`
    */
-  val schemaInferMapTypeMinimumKeysProperty: String = "schemaInfer.mapTypes.minimumKeys".toLowerCase
+  val inferSchemaMapTypeMinimumKeysProperty: String = "sql.inferSchema.mapTypes.minimumKeys".toLowerCase
 
 }
