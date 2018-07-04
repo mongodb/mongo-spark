@@ -41,21 +41,24 @@ package com.mongodb.spark.config
  *  - [[partitionerProperty partitioner]], the name of the partitioner to use to partition the data.
  *  - [[partitionerOptionsProperty partitionerOptions]], the custom options used to configure the partitioner.
  *  - [[localThresholdProperty localThreshold]], the number of milliseconds used when choosing among multiple MongoDB servers to send a request.
- *
+ *  - [[registerSQLHelperFunctionsProperty registerSQLHelperFunctions]], register SQL helper functions allow easy querying of Bson types inside SQL queries.
+ *  - [[schemaInferMapTypeEnabledProperty schemaInfer.mapTypes.enabled]], enable schema inference of MapTypes.
+ *  - [[schemaInferMapTypeMinimumKeysProperty schemaInfer.mapTypes.minimumKeys]], the minimum number of keys of how large a struct must be before a MapType
+ *    should be inferred.
  */
 trait MongoInputConfig extends MongoCompanionConfig {
 
-  override val configPrefix = "spark.mongodb.input."
+  override val configPrefix: String = "spark.mongodb.input."
 
   /**
    * The database name property
    */
-  val databaseNameProperty = "database"
+  val databaseNameProperty: String = "database"
 
   /**
    * The collection name property
    */
-  val collectionNameProperty = "collection"
+  val collectionNameProperty: String = "collection"
 
   /**
    * The `ReadPreference` name property
@@ -63,14 +66,14 @@ trait MongoInputConfig extends MongoCompanionConfig {
    * Default: `primary`
    * @see [[ReadPreferenceConfig]]
    */
-  val readPreferenceNameProperty = "readPreference.name".toLowerCase
+  val readPreferenceNameProperty: String = "readPreference.name".toLowerCase
 
   /**
    * The `ReadPreference` tags property
    *
    * @see [[ReadPreferenceConfig]]
    */
-  val readPreferenceTagSetsProperty = "readPreference.tagSets".toLowerCase
+  val readPreferenceTagSetsProperty: String = "readPreference.tagSets".toLowerCase
 
   /**
    * The `ReadConcern` level property
@@ -78,7 +81,7 @@ trait MongoInputConfig extends MongoCompanionConfig {
    * Default: `DEFAULT`
    * @see [[ReadConcernConfig]]
    */
-  val readConcernLevelProperty = "readConcern.level".toLowerCase
+  val readConcernLevelProperty: String = "readConcern.level".toLowerCase
 
   /**
    * The sample size property
@@ -86,7 +89,7 @@ trait MongoInputConfig extends MongoCompanionConfig {
    * Used when sampling data from MongoDB to determine the Schema.
    * Default: `1000`
    */
-  val sampleSizeProperty = "sampleSize".toLowerCase
+  val sampleSizeProperty: String = "sampleSize".toLowerCase
 
   /**
    * The partition property
@@ -94,7 +97,7 @@ trait MongoInputConfig extends MongoCompanionConfig {
    * Represents the name of the partitioner to use when partitioning the data in the collection.
    * Default: `MongoDefaultPartitioner`
    */
-  val partitionerProperty = "partitioner".toLowerCase
+  val partitionerProperty: String = "partitioner".toLowerCase
 
   /**
    * The partitioner options property
@@ -102,7 +105,7 @@ trait MongoInputConfig extends MongoCompanionConfig {
    * Represents a map of options for customising the configuration of a partitioner.
    * Default: `Map.empty[String, String]`
    */
-  val partitionerOptionsProperty = "partitionerOptions".toLowerCase
+  val partitionerOptionsProperty: String = "partitionerOptions".toLowerCase
 
   /**
    * The localThreshold property
@@ -114,7 +117,7 @@ trait MongoInputConfig extends MongoCompanionConfig {
    *
    * Default: `15 ms`
    */
-  val localThresholdProperty = MongoSharedConfig.localThresholdProperty
+  val localThresholdProperty: String = MongoSharedConfig.localThresholdProperty
 
   /**
    * Register SQL Helper functions
@@ -123,25 +126,25 @@ trait MongoInputConfig extends MongoCompanionConfig {
    *
    * @since 1.1
    */
-  val registerSQLHelperFunctions = "registerSQLHelperFunctions".toLowerCase()
+  val registerSQLHelperFunctions: String = "registerSQLHelperFunctions".toLowerCase()
 
   /**
-   * The schemaInfer MapType enabled property
+   * The schema inference MapType enabled property
    *
    * A boolean flag to enable or disable MapType infer.
    * If this flag is enabled, large compatible struct types will be inferred to a MapType instead.
    *
    * Default: `true`
    */
-  val schemaInferMapTypeEnabledProperty = "schemaInfer.mapTypes.enabled".toLowerCase
+  val schemaInferMapTypeEnabledProperty: String = "schemaInfer.mapTypes.enabled".toLowerCase
 
   /**
-   * The schemaInfer MapType minimum keys property
+   * The schema inference MapType minimum keys property
    *
    * The minimum keys property controls how large a struct must be before a MapType should be inferred.
    *
    * Default: `250`
    */
-  val schemaInferMapTypeMinimumKeysProperty = "schemaInfer.mapTypes.minimumKeys".toLowerCase
+  val schemaInferMapTypeMinimumKeysProperty: String = "schemaInfer.mapTypes.minimumKeys".toLowerCase
 
 }
