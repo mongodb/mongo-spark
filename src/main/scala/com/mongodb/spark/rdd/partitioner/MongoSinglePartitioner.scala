@@ -33,7 +33,7 @@ class MongoSinglePartitioner extends MongoPartitioner {
 
   override def partitions(connector: MongoConnector, readConfig: ReadConfig,
                           pipeline: Array[BsonDocument] = Array.empty[BsonDocument]): Array[MongoPartition] = {
-    PartitionerHelper.createPartitions("_id", Seq.empty[BsonValue], PartitionerHelper.locations(connector))
+    PartitionerHelper.createPartitions("_id", Seq.empty[BsonValue], PartitionerHelper.locations(connector), addMinMax = false)
   }
 }
 
