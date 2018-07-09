@@ -305,6 +305,26 @@ class MongoDataFrameSpec extends RequiresMongoDB with TableDrivenPropertyChecks 
     originalData.map(c => (c.name, c.age)) should contain theSameElementsAs savedData
   }
 
+  it should "be able honour replaceDocument" in withSparkContext() { sc =>
+    val sparkSession = SparkSession.builder().getOrCreate()
+    import sparkSession.implicits._
+
+    val configPrefix = Table("prefix", WriteConfig.configPrefix, "")
+
+    forAll(configPrefix) { prefix: String =>
+      val originalData = Seq(AllData(1, 100, "1"), AllData(2, 200, "2"), AllData(3, 300, "3"))
+      val expectedData = originalData.map(d => AllData(d._id, d.count * 10, d.extra))
+      val replacementData = originalData.map(d => SomeData(d._id, d.count * 10))
+      originalData.toDS().saveToMongoDB()
+
+      replacementData.toDF().write.mode("append").option(s"$prefix${WriteConfig.replaceDocumentProperty}", "false").mongo()
+      MongoSpark.load(sc).toDS[AllData]().collect() should contain theSameElementsAs expectedData
+
+      replacementData.toDF().write.mode("append").option(s"$prefix${WriteConfig.replaceDocumentProperty}", "true").mongo()
+      MongoSpark.load(sc).toDS[AllData]().collect() should contain theSameElementsAs expectedData.map(d => d.copy(extra = null)) // scalastyle:ignore
+    }
+  }
+
   it should "be able to set only the data in the Dataset to the collection" in withSparkContext() { sc =>
     val sparkSession = SparkSession.builder().getOrCreate()
     import sparkSession.implicits._
@@ -407,6 +427,8 @@ class MongoDataFrameSpec extends RequiresMongoDB with TableDrivenPropertyChecks 
 
   // scalastyle:on magic.number
 }
+
+case class AllData(_id: Int, count: Int, extra: String)
 
 case class SomeData(_id: Int, count: Int)
 
