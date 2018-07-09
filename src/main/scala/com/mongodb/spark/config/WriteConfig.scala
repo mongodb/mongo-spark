@@ -39,6 +39,7 @@ object WriteConfig extends MongoOutputConfig {
   type Self = WriteConfig
 
   private val DefaultReplaceDocument: Boolean = true
+  private val DefautOrdered: Boolean = true
   private val DefaultMaxBatchSize: Int = 512
 
   /**
@@ -164,13 +165,14 @@ object WriteConfig extends MongoOutputConfig {
       collectionName = collectionName(collectionNameProperty, cleanedOptions, defaultCollection),
       connectionString = cleanedOptions.get(mongoURIProperty).orElse(default.flatMap(conf => conf.connectionString)),
       replaceDocument = getBoolean(cleanedOptions.get(replaceDocumentProperty), default.map(conf => conf.replaceDocument),
-        defaultValue = true),
+        DefaultReplaceDocument),
       maxBatchSize = getInt(cleanedOptions.get(maxBatchSizeProperty), default.map(conf => conf.maxBatchSize),
         DefaultMaxBatchSize),
       localThreshold = getInt(cleanedOptions.get(localThresholdProperty), default.map(conf => conf.localThreshold),
         MongoSharedConfig.DefaultLocalThreshold),
       writeConcernConfig = WriteConcernConfig(cleanedOptions, default.map(writeConf => writeConf.writeConcernConfig)),
-      shardKey = cleanedOptions.get(shardKeyProperty).orElse(default.flatMap(conf => conf.shardKey).orElse(None))
+      shardKey = cleanedOptions.get(shardKeyProperty).orElse(default.flatMap(conf => conf.shardKey).orElse(None)),
+      ordered = getBoolean(cleanedOptions.get(orderedProperty), default.map(conf => conf.ordered), DefautOrdered)
     )
   }
 
@@ -320,7 +322,8 @@ object WriteConfig extends MongoOutputConfig {
  *                           Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local
  *                           threshold will be chosen.
  * @param writeConcernConfig the write concern configuration
- * @param shardKey           an optional shardKey in extended form: `"{key: 1, key2: 1}"`. Used when upserting DataSets in sharded clusters.
+ * @param shardKey           an optional shardKey in extended json form: `"{key: 1, key2: 1}"`. Used when upserting DataSets in sharded clusters.
+ * @param ordered            configures the bulk operation ordered property. Defaults to true
  * @since 1.0
  */
 case class WriteConfig(
@@ -331,7 +334,8 @@ case class WriteConfig(
     maxBatchSize:       Int                = WriteConfig.DefaultMaxBatchSize,
     localThreshold:     Int                = MongoSharedConfig.DefaultLocalThreshold,
     writeConcernConfig: WriteConcernConfig = WriteConcernConfig.Default,
-    shardKey:           Option[String]     = None
+    shardKey:           Option[String]     = None,
+    ordered:            Boolean            = WriteConfig.DefautOrdered
 ) extends MongoCollectionConfig with MongoClassConfig {
   require(maxBatchSize >= 1, s"maxBatchSize ($maxBatchSize) must be greater or equal to 1")
   require(localThreshold >= 0, s"localThreshold ($localThreshold) must be greater or equal to 0")

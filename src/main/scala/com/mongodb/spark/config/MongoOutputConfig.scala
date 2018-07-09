@@ -117,4 +117,14 @@ trait MongoOutputConfig extends MongoCompanionConfig {
    * @since 2.2
    */
   val shardKeyProperty = "shardKey".toLowerCase
+
+  /**
+   * The ordered property
+   *
+   * Configures the bulk operation ordered property.
+   *
+   * Default: true
+   * @since 2.3
+   */
+  val orderedProperty = "ordered"
 }
