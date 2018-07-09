@@ -154,6 +154,32 @@ object WriteConfig extends MongoOutputConfig {
       shardKey)
   }
 
+  //scalastyle:off parameter.number
+  /**
+   * Creates a WriteConfig
+   *
+   * @param databaseName     the database name
+   * @param collectionName   the collection name
+   * @param connectionString the optional connection string used in the creation of this configuration
+   * @param replaceDocument  replaces the whole document, when saving a Dataset that contains an `_id` field.
+   *                         If false only updates / sets the fields declared in the Dataset.
+   * @param maxBatchSize     the maxBatchSize when performing a bulk update/insert. Defaults to 512.
+   * @param localThreshold   the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.
+   *                         Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local
+   *                         threshold will be chosen.
+   * @param writeConcern     the WriteConcern to use
+   * @param shardKey         an optional shardKey in extended form: `"{key: 1, key2: 1}"`. Used when upserting DataSets in sharded clusters.
+   * @param ordered          configures if the bulk operation is ordered property.
+   * @return the write config
+   * @since 2.3
+   */
+  def apply(databaseName: String, collectionName: String, connectionString: Option[String], replaceDocument: Boolean, maxBatchSize: Int,
+            localThreshold: Int, writeConcern: WriteConcern, shardKey: Option[String], ordered: Boolean): WriteConfig = {
+    apply(databaseName, collectionName, connectionString, replaceDocument, maxBatchSize, localThreshold, WriteConcernConfig(writeConcern),
+      shardKey, ordered)
+  }
+  //scalastyle:on parameter.number
+
   override def apply(options: collection.Map[String, String], default: Option[WriteConfig]): WriteConfig = {
     val cleanedOptions = stripPrefix(options)
     val cachedConnectionString = connectionString(cleanedOptions)
@@ -259,6 +285,30 @@ object WriteConfig extends MongoOutputConfig {
    */
   def create(databaseName: String, collectionName: String, connectionString: String, replaceDocument: Boolean, maxBatchSize: Int,
              localThreshold: Int, writeConcern: WriteConcern, shardKey: String): WriteConfig = {
+    create(databaseName, collectionName, connectionString, replaceDocument, maxBatchSize, localThreshold, writeConcern, shardKey, DefautOrdered)
+  }
+
+  //scalastyle:off parameter.number
+  /**
+   * Creates a WriteConfig
+   *
+   * @param databaseName     the database name
+   * @param collectionName   the collection name
+   * @param connectionString the optional connection string used in the creation of this configuration
+   * @param replaceDocument  replaces the whole document, when saving a Dataset that contains an `_id` field.
+   *                         If false only updates / sets the fields declared in the Dataset.
+   * @param maxBatchSize     the maxBatchSize when performing a bulk update/insert. Defaults to 512.
+   * @param localThreshold   the local threshold in milliseconds used when choosing among multiple MongoDB servers to send a request.
+   *                         Only servers whose ping time is less than or equal to the server with the fastest ping time plus the local
+   *                         threshold will be chosen.
+   * @param writeConcern     the WriteConcern to use
+   * @param shardKey         an optional shardKey in extended form: `"{key: 1, key2: 1}"`. Used when upserting DataSets in sharded clusters.
+   * @param ordered          configures if the bulk operation is ordered property.
+   * @return the write config
+   * @since 2.3
+   */
+  def create(databaseName: String, collectionName: String, connectionString: String, replaceDocument: Boolean, maxBatchSize: Int,
+             localThreshold: Int, writeConcern: WriteConcern, shardKey: String, ordered: Boolean): WriteConfig = {
     notNull("databaseName", databaseName)
     notNull("collectionName", collectionName)
     notNull("replaceDocument", replaceDocument)
@@ -266,9 +316,11 @@ object WriteConfig extends MongoOutputConfig {
     notNull("localThreshold", localThreshold)
     notNull("writeConcern", writeConcern)
     notNull("shardKey", shardKey)
+    notNull("ordered", ordered)
     new WriteConfig(databaseName, collectionName, Option(connectionString), replaceDocument, maxBatchSize, localThreshold,
-      WriteConcernConfig(writeConcern), Option(shardKey))
+      WriteConcernConfig(writeConcern), Option(shardKey), ordered)
   }
+  //scalastyle:on parameter.number
 
   override def create(javaSparkContext: JavaSparkContext): WriteConfig = {
     notNull("javaSparkContext", javaSparkContext)
@@ -323,7 +375,7 @@ object WriteConfig extends MongoOutputConfig {
  *                           threshold will be chosen.
  * @param writeConcernConfig the write concern configuration
  * @param shardKey           an optional shardKey in extended json form: `"{key: 1, key2: 1}"`. Used when upserting DataSets in sharded clusters.
- * @param ordered            configures the bulk operation ordered property. Defaults to true
+ * @param ordered            configures the bulk operation ordered property. Defaults to true.
  * @since 1.0
  */
 case class WriteConfig(
