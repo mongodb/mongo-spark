@@ -1,5 +1,9 @@
 # Mongo Spark Connector Changelog
 
+## 2.1.3
+  * [[SPARK-192](https://jira.mongodb.org/browse/SPARK-192)] Added WriteConfig.forceInsert property.
+    DataFrame overwrites will automatically set force insert to true.
+
 ## 2.1.2
   * [[SPARK-187](https://jira.mongodb.org/browse/SPARK-187)] Fixed inferring decimal values with larger scales than precisions.
   * [[SPARK-150](https://jira.mongodb.org/browse/SPARK-150)] Fixed MongoShardedPartitioner to work with compound shard keys.

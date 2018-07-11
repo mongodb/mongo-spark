@@ -30,7 +30,7 @@ class WriteConfigSpec extends FlatSpec with Matchers {
 
   "WriteConfig" should "have the expected defaults" in {
     val expectedWriteConfig = WriteConfig("db", "collection", None, true, 512, MongoSharedConfig.DefaultLocalThreshold,
-      WriteConcern.ACKNOWLEDGED, None)
+      WriteConcern.ACKNOWLEDGED, None, false)
 
     WriteConfig("db", "collection") should equal(expectedWriteConfig)
   }
@@ -38,7 +38,7 @@ class WriteConfigSpec extends FlatSpec with Matchers {
   it should "be creatable from SparkConfig" in {
     forAll(writeConcerns) { writeConcern: WriteConcern =>
       val expectedWriteConfig = WriteConfig("db", "collection", None, false, 1024, MongoSharedConfig.DefaultLocalThreshold, writeConcern,
-        Some("{a: 1, b:1}"))
+        Some("{a: 1, b:1}"), true)
 
       val conf = sparkConf.clone()
       Option(writeConcern.getWObject).map(w => conf.set(s"${WriteConfig.configPrefix}${WriteConfig.writeConcernWProperty}", w.toString))
@@ -48,6 +48,7 @@ class WriteConfigSpec extends FlatSpec with Matchers {
       conf.set(s"${WriteConfig.configPrefix}${WriteConfig.replaceDocumentProperty}", "false")
       conf.set(s"${WriteConfig.configPrefix}${WriteConfig.maxBatchSizeProperty}", "1024")
       conf.set(s"${WriteConfig.configPrefix}${WriteConfig.shardKeyProperty}", "{a: 1, b:1}")
+      conf.set(s"${WriteConfig.configPrefix}${WriteConfig.forceInsertProperty}", "true")
 
       WriteConfig(conf) should equal(expectedWriteConfig)
     }
@@ -59,10 +60,11 @@ class WriteConfigSpec extends FlatSpec with Matchers {
     val localThreshold = 5
     val maxBatchSize = 1024
     val shardKey = Some("{a: 1}")
+    val forceInsert = true
     val defaultWriteConfig = WriteConfig("dbName", "collName", uri, replaceDocument, maxBatchSize, localThreshold,
-      WriteConcern.ACKNOWLEDGED, shardKey)
+      WriteConcern.ACKNOWLEDGED, shardKey, forceInsert)
     forAll(writeConcerns) { writeConcern: WriteConcern =>
-      val expectedWriteConfig = WriteConfig("db", "collection", uri, replaceDocument, maxBatchSize, localThreshold, writeConcern, shardKey)
+      val expectedWriteConfig = WriteConfig("db", "collection", uri, replaceDocument, maxBatchSize, localThreshold, writeConcern, shardKey, forceInsert)
       defaultWriteConfig.withOptions(expectedWriteConfig.asOptions) should equal(expectedWriteConfig)
     }
   }

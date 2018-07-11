@@ -150,7 +150,9 @@ object MongoSpark {
     val fieldNames = dataset.schema.fieldNames.toList
     val queryKeyList = BsonDocument.parse(writeConfig.shardKey.getOrElse("{_id: 1}")).keySet().asScala.toList
 
-    if (queryKeyList.forall(fieldNames.contains(_))) {
+    if (writeConfig.forceInsert || !queryKeyList.forall(fieldNames.contains(_))) {
+      MongoSpark.save(documentRdd, writeConfig)
+    } else {
       documentRdd.foreachPartition(iter => if (iter.nonEmpty) {
         mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[BsonDocument] =>
           iter.grouped(writeConfig.maxBatchSize).foreach(batch => {
@@ -172,8 +174,6 @@ object MongoSpark {
           })
         })
       })
-    } else {
-      MongoSpark.save(documentRdd, writeConfig)
     }
   }
 
