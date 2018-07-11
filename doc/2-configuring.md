@@ -51,6 +51,8 @@ localThreshold          | The threshold for choosing a server from multiple Mong
 writeConcern.w          | The write concern w value                                         | (WriteConcern.ACKNOWLEDGED)
 writeConcern.journal    | The write concern journal value                                   |
 writeConcern.wTimeoutMS | The write concern wTimeout value                                  |
+shardKey                | An optional shardKey, used for upserts of Datasets                | None
+forceInsert             | Forces saves to use inserts, even if a Dataset contains `_id`     | false
 
 -----
 **Note**: When setting output configurations in the `SparkConf` then the prefix `spark.mongodb.output.` is required.

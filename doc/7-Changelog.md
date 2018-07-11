@@ -1,5 +1,9 @@
 # Mongo Spark Connector Changelog
 
+## 2.2.4
+  * [[SPARK-192](https://jira.mongodb.org/browse/SPARK-192)] Added WriteConfig.forceInsert property.
+    DataFrame overwrites will automatically set force insert to true.
+
 ## 2.2.3
   * [[SPARK-187](https://jira.mongodb.org/browse/SPARK-187)] Fixed inferring decimal values with larger scales than precisions.
 
@@ -16,9 +20,6 @@
 ## 2.2.0
   * [[SPARK-127](https://jira.mongodb.org/browse/SPARK-127)] Fix Scala 2.10 compiler error for Java bean type inference.
   * [[SPARK-126](https://jira.mongodb.org/browse/SPARK-126)] Support Spark 2.2.0. Updated Spark dependency to 2.2.0
-
-## 2.1.1
-  * [[SPARK-151](https://jira.mongodb.org/browse/SPARK-151)] Fix MongoSamplePartitioner $match range bug.
 
 ## 2.1.0
   * [[SPARK-125](https://jira.mongodb.org/browse/SPARK-125)] Updated Spark dependency to 2.1.1
