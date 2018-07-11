@@ -119,6 +119,16 @@ trait MongoOutputConfig extends MongoCompanionConfig {
   val shardKeyProperty = "shardKey".toLowerCase
 
   /**
+   * The force insert property
+   *
+   * If `true`, will always use inserts when saving data, even if a `Dataset` contains an `_id` field.
+   *
+   * Default: None
+   * @since 2.2.4
+   */
+  val forceInsertProperty = "forceInsert".toLowerCase
+
+  /**
    * The ordered property
    *
    * Configures the bulk operation ordered property.

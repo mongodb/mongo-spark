@@ -23,6 +23,7 @@ import org.apache.spark.sql.{DataFrame, Row, SQLContext, SaveMode}
 import org.bson.BsonDocument
 import com.mongodb.spark.LoggingTrait
 import com.mongodb.spark.config.ReadConfig
+import com.mongodb.spark.config.WriteConfig
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.sql.MapFunctions.documentToRow
 import com.mongodb.spark.sql.MongoRelationHelper.createPipeline
@@ -60,7 +61,7 @@ private[spark] case class MongoRelation(mongoRDD: MongoRDD[BsonDocument], _schem
   override def insert(data: DataFrame, overwrite: Boolean): Unit = {
     val dfw = data.write.format("com.mongodb.spark.sql")
     if (overwrite) {
-      dfw.mode(SaveMode.Overwrite).save()
+      dfw.mode(SaveMode.Overwrite).option(WriteConfig.forceInsertProperty, "true").save()
     } else {
       dfw.mode(SaveMode.ErrorIfExists).save()
     }

@@ -27,6 +27,7 @@ import com.mongodb.spark._
 import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.sql.types.BsonCompatibility
 import org.scalatest.prop.TableDrivenPropertyChecks
+import org.apache.spark.SparkException
 
 class MongoDataFrameSpec extends RequiresMongoDB with TableDrivenPropertyChecks {
   // scalastyle:off magic.number
@@ -292,6 +293,17 @@ class MongoDataFrameSpec extends RequiresMongoDB with TableDrivenPropertyChecks 
 
     replacementData.toDF().write.mode("append").mongo()
     MongoSpark.load(sc).toDS[SomeData]().collect() should contain theSameElementsAs replacementData.collect()
+  }
+
+  it should "fail when force insert is set to true and data already exists" in withSparkContext() { sc =>
+    val sparkSession = SparkSession.builder().getOrCreate()
+    import sparkSession.implicits._
+    val originalData = Seq(SomeData(1, 100), SomeData(2, 200), SomeData(3, 300)).toDS()
+    originalData.saveToMongoDB()
+
+    an[SparkException] should be thrownBy {
+      originalData.toDF().write.mode("append").option(WriteConfig.forceInsertProperty, "true").mongo()
+    }
   }
 
   it should "be able to handle optional _id fields when upserting / replacing data in a collection" in withSparkContext() { sc =>
