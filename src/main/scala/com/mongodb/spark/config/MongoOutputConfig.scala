@@ -114,7 +114,7 @@ trait MongoOutputConfig extends MongoCompanionConfig {
    * The optional shardKey is required when upserting Datasets in sharded clusters
    *
    * Default: None
-   * @since 2.2
+   * @since 2.1
    */
   val shardKeyProperty = "shardKey".toLowerCase
 
@@ -127,4 +127,14 @@ trait MongoOutputConfig extends MongoCompanionConfig {
    * @since 2.1.3
    */
   val forceInsertProperty = "forceInsert".toLowerCase
+
+  /**
+   * The ordered property
+   *
+   * Configures the bulk operation ordered property.
+   *
+   * Default: true
+   * @since 2.1.3
+   */
+  val orderedProperty = "ordered"
 }
