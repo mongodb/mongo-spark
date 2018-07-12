@@ -30,27 +30,32 @@ class WriteConfigSpec extends FlatSpec with Matchers {
 
   "WriteConfig" should "have the expected defaults" in {
     val expectedWriteConfig = WriteConfig("db", "collection", None, true, 512, MongoSharedConfig.DefaultLocalThreshold,
-      WriteConcern.ACKNOWLEDGED, None, false)
+      WriteConcern.ACKNOWLEDGED, None, false, true)
 
     WriteConfig("db", "collection") should equal(expectedWriteConfig)
   }
 
   it should "be creatable from SparkConfig" in {
+    val configPrefix = Table("prefix", WriteConfig.configPrefix, "")
+
     forAll(writeConcerns) { writeConcern: WriteConcern =>
       val expectedWriteConfig = WriteConfig("db", "collection", None, false, 1024, MongoSharedConfig.DefaultLocalThreshold, writeConcern,
-        Some("{a: 1, b:1}"), true)
-
+        Some("{a: 1, b:1}"), true, false)
       val conf = sparkConf.clone()
-      Option(writeConcern.getWObject).map(w => conf.set(s"${WriteConfig.configPrefix}${WriteConfig.writeConcernWProperty}", w.toString))
-      Option(writeConcern.getJournal).map(j => conf.set(s"${WriteConfig.configPrefix}${WriteConfig.writeConcernJournalProperty}", j.toString))
-      Option(writeConcern.getWTimeout(TimeUnit.MILLISECONDS)).map(t =>
-        conf.set(s"${WriteConfig.configPrefix}${WriteConfig.writeConcernWTimeoutMSProperty}", t.toString))
-      conf.set(s"${WriteConfig.configPrefix}${WriteConfig.replaceDocumentProperty}", "false")
-      conf.set(s"${WriteConfig.configPrefix}${WriteConfig.maxBatchSizeProperty}", "1024")
-      conf.set(s"${WriteConfig.configPrefix}${WriteConfig.shardKeyProperty}", "{a: 1, b:1}")
-      conf.set(s"${WriteConfig.configPrefix}${WriteConfig.forceInsertProperty}", "true")
 
-      WriteConfig(conf) should equal(expectedWriteConfig)
+      forAll(configPrefix) { prefix: String =>
+        Option(writeConcern.getWObject).map(w => conf.set(s"$prefix${WriteConfig.writeConcernWProperty}", w.toString))
+        Option(writeConcern.getJournal).map(j => conf.set(s"$prefix${WriteConfig.writeConcernJournalProperty}", j.toString))
+        Option(writeConcern.getWTimeout(TimeUnit.MILLISECONDS)).map(t =>
+          conf.set(s"$prefix${WriteConfig.writeConcernWTimeoutMSProperty}", t.toString))
+        conf.set(s"$prefix${WriteConfig.replaceDocumentProperty}", "false")
+        conf.set(s"$prefix${WriteConfig.maxBatchSizeProperty}", "1024")
+        conf.set(s"$prefix${WriteConfig.shardKeyProperty}", "{a: 1, b:1}")
+        conf.set(s"$prefix${WriteConfig.forceInsertProperty}", "true")
+        conf.set(s"$prefix${WriteConfig.orderedProperty}", "false")
+
+        WriteConfig(conf) should equal(expectedWriteConfig)
+      }
     }
   }
 
@@ -61,10 +66,12 @@ class WriteConfigSpec extends FlatSpec with Matchers {
     val maxBatchSize = 1024
     val shardKey = Some("{a: 1}")
     val forceInsert = true
+    val ordered = false
     val defaultWriteConfig = WriteConfig("dbName", "collName", uri, replaceDocument, maxBatchSize, localThreshold,
-      WriteConcern.ACKNOWLEDGED, shardKey, forceInsert)
+      WriteConcern.ACKNOWLEDGED, shardKey, forceInsert, ordered)
     forAll(writeConcerns) { writeConcern: WriteConcern =>
-      val expectedWriteConfig = WriteConfig("db", "collection", uri, replaceDocument, maxBatchSize, localThreshold, writeConcern, shardKey, forceInsert)
+      val expectedWriteConfig = WriteConfig("db", "collection", uri, replaceDocument, maxBatchSize, localThreshold, writeConcern, shardKey,
+        forceInsert, ordered)
       defaultWriteConfig.withOptions(expectedWriteConfig.asOptions) should equal(expectedWriteConfig)
     }
   }
@@ -74,7 +81,7 @@ class WriteConfigSpec extends FlatSpec with Matchers {
     an[IllegalArgumentException] should be thrownBy WriteConfig(new SparkConf().set("spark.mongodb.output.uri", "localhost/db.coll"))
     an[IllegalArgumentException] should be thrownBy WriteConfig(new SparkConf().set(
       "spark.mongodb.output.uri",
-      "mongodb://localhost/db.coll/readPreference=AllNodes"
+      "mongodb://localhost/db.coll/?readPreference=AllNodes"
     ))
     an[IllegalArgumentException] should be thrownBy WriteConfig(new SparkConf().set("spark.mongodb.output.collection", "coll"))
     an[IllegalArgumentException] should be thrownBy WriteConfig(new SparkConf().set("spark.mongodb.output.database", "db"))

@@ -127,4 +127,14 @@ trait MongoOutputConfig extends MongoCompanionConfig {
    * @since 2.2.4
    */
   val forceInsertProperty = "forceInsert".toLowerCase
+
+  /**
+   * The ordered property
+   *
+   * Configures the bulk operation ordered property.
+   *
+   * Default: true
+   * @since 2.2.4
+   */
+  val orderedProperty = "ordered"
 }
