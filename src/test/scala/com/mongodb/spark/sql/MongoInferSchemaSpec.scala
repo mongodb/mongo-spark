@@ -17,20 +17,17 @@
 package com.mongodb.spark.sql
 
 import scala.collection.JavaConverters._
-
 import org.apache.spark.sql.types.DataTypes.{createArrayType, createStructField, createStructType}
-import org.apache.spark.sql.types.{ArrayType, DataTypes, StringType, StructField}
-
+import org.apache.spark.sql.types._
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
 import com.mongodb.MongoClient
 import com.mongodb.spark._
+import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.sql.types.BsonCompatibility
-
 import org.scalatest.prop.TableDrivenPropertyChecks
 
 class MongoInferSchemaSpec extends RequiresMongoDB with MongoDataGenerator with TableDrivenPropertyChecks {
-
   "MongoSchemaHelper" should "be able to infer the schema from simple types" in withSparkContext() { sc =>
     forAll(genSimpleDataTypes) { (datum: Seq[MongoDataType]) =>
       datum.foreach { data =>
@@ -189,6 +186,98 @@ class MongoInferSchemaSpec extends RequiresMongoDB with MongoDataGenerator with 
     forAll(conflictingSchemas) { documents =>
       sc.parallelize(documents.map(BsonDocument.parse)).saveToMongoDB()
       MongoInferSchema(sc) should equal(conflictSchema)
+      database.drop()
+    }
+  }
+
+  it should "detect fields with a MapType and use " in withSparkContext() { sc =>
+    val _idField: StructField = createStructField("_id", BsonCompatibility.ObjectId.structType, true)
+    val mapValueType: StructType = createStructType(Array(createStructField("a", IntegerType, true), createStructField("b", IntegerType, true)))
+    val mapType: MapType = DataTypes.createMapType(StringType, mapValueType, true)
+    val mapField: StructField = createStructField("map", mapType, true)
+    val expectedSchema = createStructType(Array(_idField, mapField))
+
+    val validKeyCount = 250
+
+    val validSchemas = Table(
+      "documents",
+      (1 to validKeyCount).map(i => "{map:{example" + i + ": {a: 1, b: 2}}}"),
+      (1 to validKeyCount).map(i => "{map:{example" + i + ": {a: 1}, example" + (i - 1) + ": {b: 2}}}")
+    )
+
+    forAll(validSchemas) { documents =>
+      sc.parallelize(documents.map(BsonDocument.parse)).saveToMongoDB()
+      MongoInferSchema(sc) should equal(expectedSchema)
+      database.drop()
+    }
+
+    val invalidKeyCount = 100
+    val invalidSchemas = Table(
+      "documents",
+      (1 to invalidKeyCount).map(i => "{map:{example" + i + ": {a: 1, b: 2}}}"),
+      (1 to invalidKeyCount).map(i => "{map:{example" + i + ": {a: 1}, example" + (i - 1) + ": {b: 2}}}"),
+      (1 to validKeyCount).map(i => "{map:{example" + i + ": {a: 1}, exampleAlt" + i + ": 1}}")
+    )
+
+    forAll(invalidSchemas) { documents =>
+      sc.parallelize(documents.map(BsonDocument.parse)).saveToMongoDB()
+      MongoInferSchema(sc) shouldNot equal(expectedSchema)
+      database.drop()
+    }
+  }
+
+  it should "not detect fields with a MapType when detection is disabled" in withSparkContext() { sc =>
+    val _idField: StructField = createStructField("_id", BsonCompatibility.ObjectId.structType, true)
+    val mapValueType: StructType = createStructType(Array(createStructField("a", IntegerType, true), createStructField("b", IntegerType, true)))
+    val mapType: MapType = DataTypes.createMapType(StringType, mapValueType, true)
+    val mapField: StructField = createStructField("map", mapType, true)
+    val expectedSchema = createStructType(Array(_idField, mapField))
+
+    val keyCount = 250
+
+    val validSchemas = Table(
+      "documents",
+      (1 to keyCount).map(i => "{map:{example" + i + ": {a: 1, b: 2}}}"),
+      (1 to keyCount).map(i => "{map:{example" + i + ": {a: 1}, example" + (i - 1) + ": {b: 2}}}")
+    )
+
+    forAll(validSchemas) { documents =>
+      sc.parallelize(documents.map(BsonDocument.parse)).saveToMongoDB()
+      val rdd = MongoSpark
+        .builder()
+        .sparkContext(sc)
+        .readConfig(readConfig.copy(schemaInferMapTypesEnabled = false))
+        .build()
+        .toRDD[BsonDocument]()
+      MongoInferSchema(rdd) shouldNot equal(expectedSchema)
+      database.drop()
+    }
+  }
+
+  it should "not detect fields with a MapType when the minimum keys number was raised" in withSparkContext() { sc =>
+    val _idField: StructField = createStructField("_id", BsonCompatibility.ObjectId.structType, true)
+    val mapValueType: StructType = createStructType(Array(createStructField("a", IntegerType, true), createStructField("b", IntegerType, true)))
+    val mapType: MapType = DataTypes.createMapType(StringType, mapValueType, true)
+    val mapField: StructField = createStructField("map", mapType, true)
+    val expectedSchema = createStructType(Array(_idField, mapField))
+
+    val keyCount = 250
+
+    val validSchemas = Table(
+      "documents",
+      (1 to keyCount).map(i => "{map:{example" + i + ": {a: 1, b: 2}}}"),
+      (1 to keyCount).map(i => "{map:{example" + i + ": {a: 1}, example" + (i - 1) + ": {b: 2}}}")
+    )
+
+    forAll(validSchemas) { documents =>
+      sc.parallelize(documents.map(BsonDocument.parse)).saveToMongoDB()
+      val rdd = MongoSpark
+        .builder()
+        .sparkContext(sc)
+        .readConfig(readConfig.copy(schemaInferMapTypesMinimumKeys = 500)) // scalastyle:ignore
+        .build()
+        .toRDD[BsonDocument]()
+      MongoInferSchema(rdd) shouldNot equal(expectedSchema)
       database.drop()
     }
   }
