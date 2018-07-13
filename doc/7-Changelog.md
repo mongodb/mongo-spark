@@ -1,6 +1,7 @@
 # Mongo Spark Connector Changelog
 
 ## 2.1.3
+  * Bumped patch versions of Scala, Spark and MongoDB libraries
   * [[SPARK-192](https://jira.mongodb.org/browse/SPARK-192)] Added WriteConfig.forceInsert property.
     DataFrame overwrites will automatically set force insert to true.
   * [[SPARK-164](https://jira.mongodb.org/browse/SPARK-164)] Added ordered property to WriteConfig.
