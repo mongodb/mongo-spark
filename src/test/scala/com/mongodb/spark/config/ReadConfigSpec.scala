@@ -51,6 +51,8 @@ class ReadConfigSpec extends FlatSpec with Matchers {
     readConfig.readConcernConfig should equal(expectedReadConfig.readConcernConfig)
     readConfig.inferSchemaMapTypesMinimumKeys should equal(expectedReadConfig.inferSchemaMapTypesMinimumKeys)
     readConfig.inferSchemaMapTypesEnabled should equal(expectedReadConfig.inferSchemaMapTypesEnabled)
+    readConfig.pipelineIncludeNullFilters should equal(expectedReadConfig.pipelineIncludeNullFilters)
+    readConfig.pipelineIncludeFiltersAndProjections should equal(expectedReadConfig.pipelineIncludeFiltersAndProjections)
   }
 
   it should "use the URI for default values" in {
@@ -86,7 +88,9 @@ class ReadConfigSpec extends FlatSpec with Matchers {
       ReadPreferenceConfig(ReadPreference.secondaryPreferred(new TagSet(List(new Tag("dc", "east"), new Tag("use", "production")).asJava))),
       ReadConcernConfig(ReadConcern.MAJORITY),
       inferSchemaMapTypesEnabled = false,
-      inferSchemaMapTypesMinimumKeys = 999)
+      inferSchemaMapTypesMinimumKeys = 999,
+      pipelineIncludeNullFilters = false,
+      pipelineIncludeFiltersAndProjections = false)
 
     val readConfig = defaultReadConfig.withOptions(expectedReadConfig.asOptions)
 
@@ -101,6 +105,8 @@ class ReadConfigSpec extends FlatSpec with Matchers {
     readConfig.readConcernConfig should equal(expectedReadConfig.readConcernConfig)
     readConfig.inferSchemaMapTypesMinimumKeys should equal(expectedReadConfig.inferSchemaMapTypesMinimumKeys)
     readConfig.inferSchemaMapTypesEnabled should equal(expectedReadConfig.inferSchemaMapTypesEnabled)
+    readConfig.pipelineIncludeNullFilters should equal(expectedReadConfig.pipelineIncludeNullFilters)
+    readConfig.pipelineIncludeFiltersAndProjections should equal(expectedReadConfig.pipelineIncludeFiltersAndProjections)
   }
 
   it should "be able to create a map" in {
@@ -111,8 +117,11 @@ class ReadConfigSpec extends FlatSpec with Matchers {
         new TagSet()
       ).asJava)),
       ReadConcernConfig(ReadConcern.MAJORITY),
+      registerSQLHelperFunctions = false,
       inferSchemaMapTypesEnabled = false,
-      inferSchemaMapTypesMinimumKeys = 999)
+      inferSchemaMapTypesMinimumKeys = 999,
+      pipelineIncludeNullFilters = false,
+      pipelineIncludeFiltersAndProjections = false)
 
     val expectedReadConfigMap = Map(
       "database" -> "dbName",
@@ -125,8 +134,11 @@ class ReadConfigSpec extends FlatSpec with Matchers {
       "readpreference.tagsets" -> """[{dc:"east",use:"production"},{}]""",
       "readconcern.level" -> "majority",
       "samplesize" -> "200",
+      "registersqlhelperfunctions" -> "false",
       "sql.inferschema.maptypes.enabled" -> "false",
-      "sql.inferschema.maptypes.minimumkeys" -> "999"
+      "sql.inferschema.maptypes.minimumkeys" -> "999",
+      "sql.pipeline.includenullfilters" -> "false",
+      "sql.pipeline.includefiltersandprojections" -> "false"
     )
 
     readConfig.asOptions should equal(expectedReadConfigMap)
