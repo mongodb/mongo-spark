@@ -46,6 +46,11 @@ public final class ReadConfigTest extends JavaRequiresMongoDB {
         assertEquals(readConfig.localThreshold(), expectedReadConfig.localThreshold());
         assertEquals(readConfig.readPreferenceConfig(), expectedReadConfig.readPreferenceConfig());
         assertEquals(readConfig.readConcernConfig(), expectedReadConfig.readConcernConfig());
+        assertEquals(readConfig.registerSQLHelperFunctions(), expectedReadConfig.registerSQLHelperFunctions());
+        assertEquals(readConfig.inferSchemaMapTypesEnabled(), expectedReadConfig.inferSchemaMapTypesEnabled());
+        assertEquals(readConfig.inferSchemaMapTypesMinimumKeys(), expectedReadConfig.inferSchemaMapTypesMinimumKeys());
+        assertEquals(readConfig.pipelineIncludeNullFilters(), expectedReadConfig.pipelineIncludeNullFilters());
+        assertEquals(readConfig.pipelineIncludeFiltersAndProjections(), expectedReadConfig.pipelineIncludeFiltersAndProjections());
     }
 
     @Test
@@ -60,6 +65,12 @@ public final class ReadConfigTest extends JavaRequiresMongoDB {
         options.put(ReadConfig.readPreferenceNameProperty(), "secondaryPreferred");
         options.put(ReadConfig.readPreferenceTagSetsProperty(), "[{dc: \"east\", use: \"production\"},{}]");
         options.put(ReadConfig.readConcernLevelProperty(), "majority");
+        options.put(ReadConfig.registerSQLHelperFunctionsProperty(), "false");
+        options.put(ReadConfig.inferSchemaMapTypeEnabledProperty(), "false");
+        options.put(ReadConfig.inferSchemaMapTypeMinimumKeysProperty(), "999");
+        options.put(ReadConfig.pipelineIncludeNullFiltersProperty(), "false");
+        options.put(ReadConfig.pipelineIncludeFiltersAndProjectionsProperty(), "false");
+
 
         ReadConfig readConfig = ReadConfig.create(options);
         HashMap<String, String> partitionerOptions = new HashMap<String, String>();
@@ -67,7 +78,7 @@ public final class ReadConfigTest extends JavaRequiresMongoDB {
         ReadConfig expectedReadConfig = ReadConfig.create("db", "collection", null, 500, "MongoSamplePartitioner$",
                 partitionerOptions, 0,
                 ReadPreference.secondaryPreferred(asList(new TagSet(asList(new Tag("dc", "east"), new Tag("use", "production"))), new TagSet())),
-                ReadConcern.MAJORITY);
+                ReadConcern.MAJORITY, false, false, 999, false, false);
 
         assertEquals(readConfig.databaseName(), expectedReadConfig.databaseName());
         assertEquals(readConfig.collectionName(), expectedReadConfig.collectionName());
@@ -78,6 +89,11 @@ public final class ReadConfigTest extends JavaRequiresMongoDB {
         assertEquals(readConfig.localThreshold(), expectedReadConfig.localThreshold());
         assertEquals(readConfig.readPreferenceConfig(), expectedReadConfig.readPreferenceConfig());
         assertEquals(readConfig.readConcernConfig(), expectedReadConfig.readConcernConfig());
+        assertEquals(readConfig.registerSQLHelperFunctions(), expectedReadConfig.registerSQLHelperFunctions());
+        assertEquals(readConfig.inferSchemaMapTypesEnabled(), expectedReadConfig.inferSchemaMapTypesEnabled());
+        assertEquals(readConfig.inferSchemaMapTypesMinimumKeys(), expectedReadConfig.inferSchemaMapTypesMinimumKeys());
+        assertEquals(readConfig.pipelineIncludeNullFilters(), expectedReadConfig.pipelineIncludeNullFilters());
+        assertEquals(readConfig.pipelineIncludeFiltersAndProjections(), expectedReadConfig.pipelineIncludeFiltersAndProjections());
     }
 
     @Test
@@ -102,5 +118,10 @@ public final class ReadConfigTest extends JavaRequiresMongoDB {
         assertEquals(readConfig.localThreshold(), expectedReadConfig.localThreshold());
         assertEquals(readConfig.readPreferenceConfig(), expectedReadConfig.readPreferenceConfig());
         assertEquals(readConfig.readConcernConfig(), expectedReadConfig.readConcernConfig());
+        assertEquals(readConfig.registerSQLHelperFunctions(), expectedReadConfig.registerSQLHelperFunctions());
+        assertEquals(readConfig.inferSchemaMapTypesEnabled(), expectedReadConfig.inferSchemaMapTypesEnabled());
+        assertEquals(readConfig.inferSchemaMapTypesMinimumKeys(), expectedReadConfig.inferSchemaMapTypesMinimumKeys());
+        assertEquals(readConfig.pipelineIncludeNullFilters(), expectedReadConfig.pipelineIncludeNullFilters());
+        assertEquals(readConfig.pipelineIncludeFiltersAndProjections(), expectedReadConfig.pipelineIncludeFiltersAndProjections());
     }
 }

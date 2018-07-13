@@ -45,6 +45,8 @@ package com.mongodb.spark.config
  *  - [[inferSchemaMapTypeEnabledProperty sql.inferschema.mapTypes.enabled]], enable schema inference of MapTypes.
  *  - [[inferSchemaMapTypeMinimumKeysProperty sql.inferschema.mapTypes.minimumKeys]], the minimum number of keys of how large a struct must be before a MapType
  *    should be inferred.
+ *  - [[pipelineIncludeNullFilters sql.pipeline.includeNullFilters]], include null filters in the aggregation pipeline
+ *  - [[pipelineIncludeFiltersAndProjections sql.pipeline.includeFiltersAndProjections]], include any filters and projections in the aggregation pipeline
  */
 trait MongoInputConfig extends MongoCompanionConfig {
 
@@ -126,7 +128,8 @@ trait MongoInputConfig extends MongoCompanionConfig {
    *
    * @since 1.1
    */
-  val registerSQLHelperFunctions: String = "registerSQLHelperFunctions".toLowerCase()
+  val registerSQLHelperFunctionsProperty: String = "registerSQLHelperFunctions".toLowerCase()
+  val registerSQLHelperFunctions: String = registerSQLHelperFunctionsProperty
 
   /**
    * The infer schema MapType enabled property
@@ -135,6 +138,7 @@ trait MongoInputConfig extends MongoCompanionConfig {
    * If this flag is enabled, large compatible struct types will be inferred to a MapType instead.
    *
    * Default: `true`
+   * @since 2.3
    */
   val inferSchemaMapTypeEnabledProperty: String = "sql.inferSchema.mapTypes.enabled".toLowerCase
 
@@ -144,7 +148,30 @@ trait MongoInputConfig extends MongoCompanionConfig {
    * The minimum keys property controls how large a struct must be before a MapType should be inferred.
    *
    * Default: `250`
+   * @since 2.3
    */
   val inferSchemaMapTypeMinimumKeysProperty: String = "sql.inferSchema.mapTypes.minimumKeys".toLowerCase
+
+  /**
+   * The sql include null filters in the pipeline property
+   *
+   * A boolean flag to enable or disable pushing null value checks into MongoDB when using spark sql.
+   * These ensure that the value exists and is not null for each not nullable field.
+   *
+   * Default: `true`
+   * @since 2.3
+   */
+  val pipelineIncludeNullFiltersProperty: String = "sql.pipeline.includeNullFilters".toLowerCase
+
+  /**
+   * The sql include pipeline filters and projections property
+   *
+   * A boolean flag to enable or disable pushing down filters and projections into MongoDB when using spark sql.
+   * A `false` value will be expensive as all data will be sent to spark and filtered in Spark.
+   *
+   * Default: `true`
+   * @since 2.3
+   */
+  val pipelineIncludeFiltersAndProjectionsProperty: String = "sql.pipeline.includeFiltersAndProjections".toLowerCase
 
 }
