@@ -4,7 +4,7 @@ The following code snippets can be found in [SparkSQL.scala](../examples/src/tes
 
 ## Prerequisites
 
-Have MongoDB up and running and the Spark 2.1.x downloaded. This tutorial will use the Spark Shell allowing for instant feedback.
+Have MongoDB up and running and Spark 2.1.x downloaded. This tutorial will use the Spark Shell allowing for instant feedback.
 See the [introduction](0-introduction.md) for more information.
 
 Insert some sample data into an empty database:

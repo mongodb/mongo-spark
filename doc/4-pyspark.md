@@ -4,7 +4,7 @@ The following code snippets can be found in [introduction.py](../examples/src/te
 
 ## Prerequisites
 
-Have MongoDB up and running and the Spark 2.1.x downloaded. See the [introduction](0-introduction.md) and the [SQL](1-sparkSQL.md)
+Have MongoDB up and running and Spark 2.1.x downloaded. See the [introduction](0-introduction.md) and the [SQL](1-sparkSQL.md)
 for more information on getting started.
 
 You can run the interactive pyspark shell like so:
@@ -12,7 +12,7 @@ You can run the interactive pyspark shell like so:
 ```
 ./bin/pyspark --conf "spark.mongodb.input.uri=mongodb://127.0.0.1/test.coll?readPreference=primaryPreferred" \
               --conf "spark.mongodb.output.uri=mongodb://127.0.0.1/test.coll" \
-              --packages org.mongodb.spark:mongo-spark-connector_2.11:2.1.2
+              --packages org.mongodb.spark:mongo-spark-connector_2.11:2.1.3
 ```
 
 ## The Python API Basics
