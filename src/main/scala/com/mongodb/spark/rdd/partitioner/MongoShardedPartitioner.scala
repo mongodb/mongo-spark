@@ -19,7 +19,7 @@ package com.mongodb.spark.rdd.partitioner
 import java.util
 
 import scala.collection.JavaConverters._
-import org.bson.BsonDocument
+import org.bson.{BsonDocument, BsonMaxKey, BsonMinKey}
 import com.mongodb.ServerAddress
 import com.mongodb.client.MongoCollection
 import com.mongodb.client.model.{Filters, Projections, Sorts}
@@ -105,7 +105,12 @@ class MongoShardedPartitioner extends MongoPartitioner {
         val min = chunk.getDocument("min")
         val max = chunk.getDocument("max")
         val queryBounds = new BsonDocument()
-        shardKeys.map(k => queryBounds.put(k, PartitionerHelper.createBoundaryQuery(k, min.get(k), max.get(k)).get(k)))
+        shardKeys.map(k => {
+          val shardKeyBoundary = PartitionerHelper.createBoundaryQuery(k, min.get(k, new BsonMinKey()), max.get(k, new BsonMaxKey()))
+          if (shardKeyBoundary.containsKey(k)) {
+            queryBounds.put(k, shardKeyBoundary.get(k))
+          }
+        })
         MongoPartition(i, queryBounds, shardsMap.getOrElse(chunk.getString("shard").getValue, Nil))
     }).toArray
   }
