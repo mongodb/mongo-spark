@@ -125,4 +125,23 @@ trait MongoInputConfig extends MongoCompanionConfig {
    */
   val registerSQLHelperFunctions = "registerSQLHelperFunctions".toLowerCase()
 
+  /**
+   * The schemaInfer MapType enabled property
+   *
+   * A boolean flag to enable or disable MapType infer.
+   * If this flag is enabled, large compatible struct types will be inferred to a MapType instead.
+   *
+   * Default: `true`
+   */
+  val schemaInferMapTypeEnabledProperty = "schemaInfer.mapTypes.enabled".toLowerCase
+
+  /**
+   * The schemaInfer MapType minimum keys property
+   *
+   * The minimum keys property controls how large a struct must be before a MapType should be inferred.
+   *
+   * Default: `250`
+   */
+  val schemaInferMapTypeMinimumKeysProperty = "schemaInfer.mapTypes.minimumKeys".toLowerCase
+
 }

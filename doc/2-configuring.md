@@ -18,18 +18,20 @@ In the Spark API there are some methods that accept extra options in the form of
 
 The following options are available:
 
-Property name              | Description                                                       | Default value
----------------------------|-------------------------------------------------------------------|--------------------
-uri                        | The connection string                                             |
-database                   | The database name to read data from                               |
-collection                 | The collection name to read data from                             |
-localThreshold             | The threshold for choosing a server from multiple MongoDB servers | 15 ms
-readPreference.name        | The name of the `ReadPreference` to use                           | Primary
-readPreference.tagSets     | The `ReadPreference` TagSets to use                               |
-readConcern.level          | The `ReadConcern` level to use                                    |
-sampleSize                 | The sample size to use when inferring the schema                  | 1000
-partitioner                | The class name of the partitioner to use to partition the data    | MongoDefaultPartitioner
-registerSQLHelperFunctions | Register helper methods for unsupported Mongo Datatypes           | false
+Property name                    | Description                                                                     | Default value
+---------------------------------|---------------------------------------------------------------------------------|--------------------
+uri                              | The connection string                                                           |
+database                         | The database name to read data from                                             |
+collection                       | The collection name to read data from                                           |
+localThreshold                   | The threshold for choosing a server from multiple MongoDB servers               | 15 ms
+readPreference.name              | The name of the `ReadPreference` to use                                         | Primary
+readPreference.tagSets           | The `ReadPreference` TagSets to use                                             |
+readConcern.level                | The `ReadConcern` level to use                                                  |
+sampleSize                       | The sample size to use when inferring the schema                                | 1000
+partitioner                      | The class name of the partitioner to use to partition the data                  | MongoDefaultPartitioner
+registerSQLHelperFunctions       | Register helper methods for unsupported Mongo Datatypes                         | false
+schemaInfer.mapTypes.enabled     | Enable MapType detection in schema infer step                                   | true
+schemaInfer.mapTypes.minimumKeys | The minimum number of keys a StructType needs to have to be inferred as MapType | 250
 
 -----
 **Note**: When setting input configurations in the `SparkConf` then the prefix `spark.mongodb.input.` is required.

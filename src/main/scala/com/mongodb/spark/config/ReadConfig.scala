@@ -45,6 +45,8 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
   private val DefaultPartitionerOptions = Map.empty[String, String]
   private val DefaultPartitionerPath = "com.mongodb.spark.rdd.partitioner."
   private val DefaultRegisterSQLHelperFunctions = false
+  private val DefaultSchemaInferMapTypesEnabled = true
+  private val DefaultSchemaInferMapTypesMinimumKeys = 250
 
   override def apply(options: collection.Map[String, String], default: Option[ReadConfig]): ReadConfig = {
     val cleanedOptions = stripPrefix(options)
@@ -68,6 +70,16 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
       registerSQLHelperFunctions = getBoolean(
         cleanedOptions.get(registerSQLHelperFunctions),
         default.map(conf => conf.registerSQLHelperFunctions), DefaultRegisterSQLHelperFunctions
+      ),
+      schemaInferMapTypesEnabled = getBoolean(
+        cleanedOptions.get(schemaInferMapTypeEnabledProperty),
+        default.map(conf => conf.schemaInferMapTypesEnabled),
+        DefaultSchemaInferMapTypesEnabled
+      ),
+      schemaInferMapTypesMinimumKeys = getInt(
+        cleanedOptions.get(schemaInferMapTypeMinimumKeysProperty),
+        default.map(conf => conf.schemaInferMapTypesMinimumKeys),
+        DefaultSchemaInferMapTypesMinimumKeys
       )
     )
   }
@@ -207,16 +219,18 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
  * @since 1.0
  */
 case class ReadConfig(
-    databaseName:               String,
-    collectionName:             String,
-    connectionString:           Option[String]                 = None,
-    sampleSize:                 Int                            = ReadConfig.DefaultSampleSize,
-    partitioner:                MongoPartitioner               = ReadConfig.DefaultPartitioner,
-    partitionerOptions:         collection.Map[String, String] = ReadConfig.DefaultPartitionerOptions,
-    localThreshold:             Int                            = MongoSharedConfig.DefaultLocalThreshold,
-    readPreferenceConfig:       ReadPreferenceConfig           = ReadPreferenceConfig(),
-    readConcernConfig:          ReadConcernConfig              = ReadConcernConfig(),
-    registerSQLHelperFunctions: Boolean                        = ReadConfig.DefaultRegisterSQLHelperFunctions
+    databaseName:                   String,
+    collectionName:                 String,
+    connectionString:               Option[String]                 = None,
+    sampleSize:                     Int                            = ReadConfig.DefaultSampleSize,
+    partitioner:                    MongoPartitioner               = ReadConfig.DefaultPartitioner,
+    partitionerOptions:             collection.Map[String, String] = ReadConfig.DefaultPartitionerOptions,
+    localThreshold:                 Int                            = MongoSharedConfig.DefaultLocalThreshold,
+    readPreferenceConfig:           ReadPreferenceConfig           = ReadPreferenceConfig(),
+    readConcernConfig:              ReadConcernConfig              = ReadConcernConfig(),
+    registerSQLHelperFunctions:     Boolean                        = ReadConfig.DefaultRegisterSQLHelperFunctions,
+    schemaInferMapTypesEnabled:     Boolean                        = ReadConfig.DefaultSchemaInferMapTypesEnabled,
+    schemaInferMapTypesMinimumKeys: Int                            = ReadConfig.DefaultSchemaInferMapTypesMinimumKeys
 ) extends MongoCollectionConfig with MongoClassConfig {
   require(Try(connectionString.map(uri => new ConnectionString(uri))).isSuccess, s"Invalid uri: '${connectionString.get}'")
   require(sampleSize > 0, s"sampleSize ($sampleSize) must be greater than 0")
@@ -234,7 +248,9 @@ case class ReadConfig(
       ReadConfig.collectionNameProperty -> collectionName,
       ReadConfig.sampleSizeProperty -> sampleSize.toString,
       ReadConfig.partitionerProperty -> partitioner.getClass.getName,
-      ReadConfig.localThresholdProperty -> localThreshold.toString
+      ReadConfig.localThresholdProperty -> localThreshold.toString,
+      ReadConfig.schemaInferMapTypeEnabledProperty -> schemaInferMapTypesEnabled.toString,
+      ReadConfig.schemaInferMapTypeMinimumKeysProperty -> schemaInferMapTypesMinimumKeys.toString
     ) ++ partitionerOptions.map(kv => (s"${ReadConfig.partitionerOptionsProperty}.${kv._1}".toLowerCase, kv._2)) ++
       readPreferenceConfig.asOptions ++ readConcernConfig.asOptions
 
