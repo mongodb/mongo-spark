@@ -29,10 +29,10 @@ class PartitionerHelperSpec extends RequiresMongoDB {
   it should "create the correct partitions" in {
     val partitions = PartitionerHelper.createPartitions("_id", Seq(new BsonInt32(10), new BsonInt32(20), new BsonInt32(30)), Seq("localhost")) // scalastyle:ignore
     val expectedPartitions = Array(
-      MongoPartition(0, BsonDocument.parse("{_id: {$gte: { $minKey: 1 }, $lt: 10 }}"), Seq("localhost")),
+      MongoPartition(0, BsonDocument.parse("{_id: {$lt: 10 }}"), Seq("localhost")),
       MongoPartition(1, BsonDocument.parse("{_id: {$gte: 10, $lt: 20 }}"), Seq("localhost")),
       MongoPartition(2, BsonDocument.parse("{_id: {$gte: 20, $lt: 30 }}"), Seq("localhost")),
-      MongoPartition(3, BsonDocument.parse("{_id: {$gte: 30, $lt: { $maxKey: 1 }}}"), Seq("localhost"))
+      MongoPartition(3, BsonDocument.parse("{_id: {$gte: 30 }}"), Seq("localhost"))
     )
     partitions should be(expectedPartitions)
   }

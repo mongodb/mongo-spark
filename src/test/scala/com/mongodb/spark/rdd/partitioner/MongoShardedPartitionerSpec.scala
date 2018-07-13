@@ -105,7 +105,7 @@ class MongoShardedPartitionerSpec extends RequiresMongoDB with PropertyChecks {
       val expectedPartitions = Array(
         MongoPartition(
           0,
-          BsonDocument.parse("""{_id: {$gte: { "$minKey" : 1 }, $lt: { "$numberLong" : "0" } } } }"""),
+          BsonDocument.parse("""{_id: {$lt: { "$numberLong" : "0" } } } }"""),
           shardMap.getOrElse("tic", Nil)
         ),
         MongoPartition(
@@ -115,7 +115,7 @@ class MongoShardedPartitionerSpec extends RequiresMongoDB with PropertyChecks {
         ),
         MongoPartition(
           2,
-          BsonDocument.parse("""{_id: {$gte: { "$numberLong" : "500000000000" }, $lt: { "$maxKey" : 1  } } } }"""),
+          BsonDocument.parse("""{_id: {$gte: { "$numberLong" : "500000000000" } } } }"""),
           shardMap.getOrElse("toe", Nil)
         )
       )
@@ -135,7 +135,7 @@ class MongoShardedPartitionerSpec extends RequiresMongoDB with PropertyChecks {
       val expectedPartitions = Array(
         MongoPartition(
           0,
-          BsonDocument.parse("""{shardKey1: { $gte: { "$minKey" : 1 }, $lt: 0 }, shardKey2: {$gte: { "$minKey" : 1 }, $lt: 10 } }"""),
+          BsonDocument.parse("""{shardKey1: { $lt: 0 }, shardKey2: { $lt: 10 } }"""),
           shardMap.getOrElse("tic", Nil)
         ),
         MongoPartition(
@@ -145,7 +145,7 @@ class MongoShardedPartitionerSpec extends RequiresMongoDB with PropertyChecks {
         ),
         MongoPartition(
           2,
-          BsonDocument.parse("""{shardKey1: { $gte: 5000000, $lt: { "$maxKey" : 1 } }, shardKey2: {$gte: 6000000, $lt: { "$maxKey" : 1 } } }"""),
+          BsonDocument.parse("""{shardKey1: { $gte: 5000000 }, shardKey2: {$gte: 6000000 } }"""),
           shardMap.getOrElse("toe", Nil)
         )
       )

@@ -45,7 +45,18 @@ object PartitionerHelper {
   def createBoundaryQuery(key: String, lower: BsonValue, upper: BsonValue): BsonDocument = {
     require(Option(lower).isDefined, "lower range partition key missing")
     require(Option(upper).isDefined, "upper range partition key missing")
-    new BsonDocument(key, new BsonDocument("$gte", lower).append("$lt", upper))
+    val queryBoundry = new BsonDocument()
+    if (!lower.isInstanceOf[BsonMinKey]) {
+      queryBoundry.append("$gte", lower)
+    }
+    if (!upper.isInstanceOf[BsonMaxKey]) {
+      queryBoundry.append("$lt", upper)
+    }
+    if (queryBoundry.isEmpty) {
+      queryBoundry
+    } else {
+      new BsonDocument(key, queryBoundry)
+    }
   }
 
   /**
@@ -60,11 +71,15 @@ object PartitionerHelper {
   def createPartitions(partitionKey: String, splitKeys: Seq[BsonValue], locations: Seq[String] = Nil, addMinMax: Boolean = true): Array[MongoPartition] = {
     val minKeyMaxKeys = (new BsonMinKey(), new BsonMaxKey())
     val minToMaxSplitKeys: Seq[BsonValue] = if (addMinMax) minKeyMaxKeys._1 +: splitKeys :+ minKeyMaxKeys._2 else splitKeys
-    val minToMaxKeysToPartition = if (minToMaxSplitKeys.length == 1) minToMaxSplitKeys else minToMaxSplitKeys.tail
+    val minToMaxKeysToPartition = if (minToMaxSplitKeys.length <= 1) minToMaxSplitKeys else minToMaxSplitKeys.tail
     val partitionPairs: Seq[(BsonValue, BsonValue)] = minToMaxSplitKeys zip minToMaxKeysToPartition
-    partitionPairs.zipWithIndex.map({
-      case ((min: BsonValue, max: BsonValue), i: Int) => MongoPartition(i, createBoundaryQuery(partitionKey, min, max), locations)
-    }).toArray
+    if (partitionPairs.isEmpty) {
+      Array(MongoPartition(0, new BsonDocument(), locations))
+    } else {
+      partitionPairs.zipWithIndex.map({
+        case ((min: BsonValue, max: BsonValue), i: Int) => MongoPartition(i, createBoundaryQuery(partitionKey, min, max), locations)
+      }).toArray
+    }
   }
 
   /**

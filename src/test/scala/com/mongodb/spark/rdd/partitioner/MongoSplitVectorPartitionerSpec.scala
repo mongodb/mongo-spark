@@ -16,10 +16,9 @@
 
 package com.mongodb.spark.rdd.partitioner
 
-import org.apache.spark.sql.SparkSession
-
-import org.bson._
 import com.mongodb.spark.{MongoConnector, MongoSpark, RequiresMongoDB}
+import org.apache.spark.sql.SparkSession
+import org.bson._
 
 class MongoSplitVectorPartitionerSpec extends RequiresMongoDB {
 
@@ -84,7 +83,7 @@ class MongoSplitVectorPartitionerSpec extends RequiresMongoDB {
     df2.count() should equal(48)
     df2.rdd.partitions.length should equal(9)
     val df2Partitions = df2.rdd.partitions.toList
-    getBsonValueQueryBoundForKey(df2Partitions.head.asInstanceOf[MongoPartition], "$gte") should equal(new BsonMinKey())
+    Option(getBsonValueQueryBoundForKey(df2Partitions.head.asInstanceOf[MongoPartition], "$gte")) should equal(None)
     getQueryBoundForKey(df2Partitions.reverse.head.asInstanceOf[MongoPartition], "$lt") should equal("00049")
 
     val df3 = MongoSpark.load(sparkSession, readConf).filter(s"""$partitionKey >= "00051"""")
@@ -92,7 +91,7 @@ class MongoSplitVectorPartitionerSpec extends RequiresMongoDB {
     df3.rdd.partitions.length should equal(9)
     val df3Partitions = df3.rdd.partitions.toList
     getQueryBoundForKey(df3Partitions.head.asInstanceOf[MongoPartition], "$gte") should equal("00051")
-    getBsonValueQueryBoundForKey(df3Partitions.reverse.head.asInstanceOf[MongoPartition], "$lt") should equal(new BsonMaxKey())
+    Option(getBsonValueQueryBoundForKey(df3Partitions.reverse.head.asInstanceOf[MongoPartition], "$lt")) should equal(None)
   }
   // scalastyle:on magic.number
 

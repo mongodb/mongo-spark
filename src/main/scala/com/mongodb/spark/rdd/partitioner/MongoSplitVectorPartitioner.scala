@@ -93,7 +93,7 @@ class MongoSplitVectorPartitioner extends MongoPartitioner {
       case 1.0 =>
         val splitKeys = result.get("splitKeys").asInstanceOf[util.List[BsonDocument]].asScala.map(_.get(partitionKey))
         val rightHandBoundaries = minMaxKey._1 +: splitKeys :+ minMaxKey._2
-        val partitions = PartitionerHelper.createPartitions(partitionKey, rightHandBoundaries, locations, false)
+        val partitions = PartitionerHelper.createPartitions(partitionKey, rightHandBoundaries, locations, addMinMax = false)
         if (partitions.length == 1) {
           logInfo(
             """No splitKeys were calculated by the splitVector command, proceeding with a single partition.
