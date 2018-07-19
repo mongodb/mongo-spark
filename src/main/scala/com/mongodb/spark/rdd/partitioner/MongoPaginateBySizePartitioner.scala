@@ -37,7 +37,8 @@ import com.mongodb.spark.config.ReadConfig
  *  - [[partitionSizeMBProperty partitionSizeMB]], the size (in MB) for each partition. Defaults to `64`.
  *
  *
- * '''Note:''' This can be a expensive operation as it creates 1 cursor for every estimated `partitionSizeMB`s worth of documents.
+ * *Note:* This can be a expensive operation as it creates 1 cursor for every estimated `partitionSizeMB`s worth of documents.
+ * *Note:* Does not support views. Use `MongoPaginateByCountPartitioner` or create a custom partitioner.
  *
  * @since 1.0
  */
