@@ -52,7 +52,7 @@ functions:
 
            export MONGO_ORCHESTRATION_HOME="$DRIVERS_TOOLS/.evergreen/orchestration"
            export MONGODB_BINARIES="$DRIVERS_TOOLS/mongodb/bin"
-           export UPLOAD_BUCKET="${project}"
+           export UPLOAD_BUCKET="${aws_upload_bucket}"
            export PROJECT_DIRECTORY="$(pwd)"
 
            cat <<EOT > expansion.yml
@@ -115,7 +115,7 @@ functions:
         aws_secret: ${aws_secret}
         local_file: ${build_id}.tar.gz
         # Example: /mciuploads/${UPLOAD_BUCKET}/gcc49/9dfb7d741efbca16faa7859b9349d7a942273e43/debug-compile-nosasl-nossl/mongo_c_driver_releng_9dfb7d741efbca16faa7859b9349d7a942273e43_16_11_08_19_29_52.tar.gz
-        remote_file: ${UPLOAD_BUCKET}/${build_variant}/${revision}/${task_name}/${build_id}.tar.gz
+        remote_file: ${UPLOAD_BUCKET}/${branch_name}/${build_variant}/${revision}/${task_name}/${build_id}.tar.gz
         bucket: mciuploads
         permissions: public-read
         content_type: ${content_type|application/x-gzip}
@@ -140,7 +140,7 @@ functions:
         aws_key: ${aws_key}
         aws_secret: ${aws_secret}
         local_file: ${PROJECT_DIRECTORY}/mongodb-logs.tar.gz
-        remote_file: ${UPLOAD_BUCKET}/${build_variant}/${revision}/${version_id}/${build_id}/logs/${task_id}-${execution}-mongodb-logs.tar.gz
+        remote_file: ${UPLOAD_BUCKET}/${branch_name}/${build_variant}/${revision}/${version_id}/${build_id}/logs/${task_id}-${execution}-mongodb-logs.tar.gz
         bucket: mciuploads
         permissions: public-read
         content_type: ${content_type|application/x-gzip}
@@ -150,7 +150,7 @@ functions:
         aws_key: ${aws_key}
         aws_secret: ${aws_secret}
         local_file: ${DRIVERS_TOOLS}/.evergreen/orchestration/server.log
-        remote_file: ${UPLOAD_BUCKET}/${build_variant}/${revision}/${version_id}/${build_id}/logs/${task_id}-${execution}-orchestration.log
+        remote_file: ${UPLOAD_BUCKET}/${branch_name}/${build_variant}/${revision}/${version_id}/${build_id}/logs/${task_id}-${execution}-orchestration.log
         bucket: mciuploads
         permissions: public-read
         content_type: ${content_type|text/plain}
@@ -168,7 +168,7 @@ functions:
         aws_key: ${aws_key}
         aws_secret: ${aws_secret}
         local_file: working-dir.tar.gz
-        remote_file: ${UPLOAD_BUCKET}/${build_variant}/${revision}/${version_id}/${build_id}/artifacts/${task_id}-${execution}-working-dir.tar.gz
+        remote_file: ${UPLOAD_BUCKET}/${branch_name}/${build_variant}/${revision}/${version_id}/${build_id}/artifacts/${task_id}-${execution}-working-dir.tar.gz
         bucket: mciuploads
         permissions: public-read
         content_type: ${content_type|application/x-gzip}
@@ -184,7 +184,7 @@ functions:
         aws_key: ${aws_key}
         aws_secret: ${aws_secret}
         local_file: drivers-dir.tar.gz
-        remote_file: ${UPLOAD_BUCKET}/${build_variant}/${revision}/${version_id}/${build_id}/artifacts/${task_id}-${execution}-drivers-dir.tar.gz
+        remote_file: ${UPLOAD_BUCKET}/${branch_name}/${build_variant}/${revision}/${version_id}/${build_id}/artifacts/${task_id}-${execution}-drivers-dir.tar.gz
         bucket: mciuploads
         permissions: public-read
         content_type: ${content_type|application/x-gzip}
