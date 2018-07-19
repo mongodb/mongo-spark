@@ -41,6 +41,7 @@ import com.mongodb.spark.config.ReadConfig
  *  - [[samplesPerPartitionProperty samplesPerPartition]], the number of samples for each partition. Defaults to `10`.
  *
  * *Note:* Requires MongoDB 3.2+
+ * *Note:* Does not support views. Use `MongoPaginateByCountPartitioner` or create a custom partitioner.
  *
  * @since 1.0
  */
