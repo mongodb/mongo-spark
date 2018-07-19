@@ -333,7 +333,7 @@ object MongoInferSchema extends Logging {
         val previous: Option[DataType] = arrayType
         arrayType = Some(getDataType(bsonValue, readConfig))
         if (previous.nonEmpty && arrayType != previous) arrayType = Some(compatibleType(arrayType.get, previous.get, readConfig))
-        !arrayType.contains(ConflictType)
+        arrayType != Some(ConflictType) // Option.contains was added in Scala 2.11
     })
     arrayType.get match {
       case SkipFieldType => SkipFieldType
