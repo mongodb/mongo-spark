@@ -27,7 +27,7 @@ import com.mongodb.spark.rdd.partitioner.MongoSinglePartitioner
 import com.mongodb.spark.sql.types.{BsonCompatibility, ConflictType, SkipFieldType}
 import com.mongodb.spark.{Logging, MongoSpark}
 import org.apache.spark.SparkContext
-import org.apache.spark.sql.catalyst.ScalaReflection
+import org.apache.spark.sql.catalyst.{JavaTypeInference, ScalaReflection}
 import org.apache.spark.sql.catalyst.analysis.TypeCoercion
 import org.apache.spark.sql.types._
 import org.bson._
@@ -139,7 +139,7 @@ object MongoInferSchema extends Logging {
    * @return the DataType that matches on the input DataTypes
    */
   private def compatibleType(t1: DataType, t2: DataType, readConfig: ReadConfig, nested: Boolean = true): DataType = {
-    val dataType = TypeCoercion.findTightestCommonType(t1, t2).getOrElse {
+    val dataType = TypeCoercion.findTightestCommonTypeOfTwo(t1, t2).getOrElse {
       // t1 or t2 is a StructType, ArrayType, or an unexpected type.
       (t1, t2) match {
         // Double support larger range than fixed decimal, DecimalType.Maximum should be enough
