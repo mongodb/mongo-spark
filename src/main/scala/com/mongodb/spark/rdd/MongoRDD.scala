@@ -138,7 +138,27 @@ class MongoRDD[D: ClassTag](
 
   override protected def getPartitions: Array[Partition] = {
     checkSparkContext()
-    readConfig.partitioner.partitions(connector.value, readConfig, pipeline.toArray).asInstanceOf[Array[Partition]]
+    try {
+      readConfig.partitioner.partitions(connector.value, readConfig, pipeline.toArray).asInstanceOf[Array[Partition]]
+    } catch {
+      case t: Throwable =>
+        logError(
+          s"""
+            |-----------------------------
+            |WARNING: Partitioning failed.
+            |-----------------------------
+            |
+            |Partitioning using the '${readConfig.partitioner.getClass.getSimpleName}' failed.
+            |
+            |Please check the stacktrace to determine the cause of the failure or check the Partitioner API documentation.
+            |Note: Not all partitioners are suitable for all toplogies and not all partitioners support views.%n
+            |
+            |-----------------------------
+            |""".stripMargin
+        )
+        throw t
+    }
+
   }
 
   override def compute(split: Partition, context: TaskContext): Iterator[D] = {
