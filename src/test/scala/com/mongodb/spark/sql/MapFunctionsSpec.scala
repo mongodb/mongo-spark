@@ -29,6 +29,7 @@ import org.bson.BsonDocument
 import com.mongodb.spark.RequiresMongoDB
 import com.mongodb.spark.exceptions.MongoTypeConversionException
 import com.mongodb.spark.sql.MapFunctions.{documentToRow, rowToDocument}
+import com.mongodb.spark.sql.fieldTypes.{ObjectId}
 
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 
@@ -48,6 +49,10 @@ class MapFunctionsSpec extends RequiresMongoDB with GeneratorDrivenPropertyCheck
   case class MixedNumericsDouble(num: Double)
 
   case class MixedNumericsDecimal(num: BigDecimal)
+
+  case class Relation(firstPerson: ObjectId, secondPerson: ObjectId, relationType: String)
+
+  case class RelationshipDatabase(person: ObjectId, siblings: List[ObjectId], parents: Map[String, ObjectId])
 
   def schemaFor[T <: Product: TypeTag]: StructType = ScalaReflection.schemaFor[T].dataType.asInstanceOf[StructType]
 
@@ -158,6 +163,37 @@ class MapFunctionsSpec extends RequiresMongoDB with GeneratorDrivenPropertyCheck
       """{familyName: "Smith", members:[
         |[{name: "James", age: 48}, {name: "Jane", age: 42}],
         |[{name: 'Jeremy', age: 18}, {name: 'John', age: 18}]]}""".stripMargin
+    )
+
+    val row: Row = documentToRow(original, schema)
+    val converted: BsonDocument = rowToDocument(row)
+
+    converted should equal(original)
+  }
+
+  it should "handle converting mongo types to bson correctly" in {
+    val schema: StructType = schemaFor[Relation]
+    val original: BsonDocument = BsonDocument.parse(
+      """{
+        |firstPerson: ObjectId("5b532ac8966a17426389977c"),
+        |secondPerson: ObjectId("5b532adbbd56bf96a3735d0f"),
+        |relationType: "father"}""".stripMargin
+    )
+
+    val row: Row = documentToRow(original, schema)
+    val converted: BsonDocument = rowToDocument(row)
+
+    converted should equal(original)
+  }
+
+  it should "handle converting complex structs with mongo types to bson correctly" in {
+    val schema: StructType = schemaFor[RelationshipDatabase]
+    val original: BsonDocument = BsonDocument.parse(
+      """{
+        |person: ObjectId("5b532adbbd56bf96a3735d0f"),
+        |siblings: [ObjectId("5b532fb819fabeb1d382fe56")],
+        |parents: { father: ObjectId("5b532ac8966a17426389977c"), mother: ObjectId("5b532fcf6f6a048ac2afec84") },
+        |}""".stripMargin
     )
 
     val row: Row = documentToRow(original, schema)
