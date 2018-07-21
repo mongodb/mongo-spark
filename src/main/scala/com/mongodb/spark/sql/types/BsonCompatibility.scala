@@ -44,7 +44,12 @@ private[spark] object BsonCompatibility {
     def structType: StructType = DataTypes.createStructType(fields.toArray)
     def toSparkData(bsonValue: T): Array[Any]
     def fromSparkData(row: Row): T
-    def unapply(structType: StructType): Boolean = structType.toSet[StructField] == fields.toSet[StructField]
+    def unapply(structType: StructType): Boolean = {
+      val otherFields = structType.toSet[StructField]
+      val mapper = (x: StructField) => (x.name, x.dataType)
+
+      otherFields.map(mapper) == fields.toSet[StructField].map(mapper)
+    }
   }
 
   object Binary extends CompatibilityBase[BsonBinary] {
