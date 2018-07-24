@@ -151,7 +151,7 @@ object WriteConcernConfig extends MongoOutputConfig {
 case class WriteConcernConfig(private val w: Option[Int] = None, private val wName: Option[String] = None,
                               private val journal:  Option[Boolean]  = None,
                               private val wTimeout: Option[Duration] = None) extends MongoClassConfig {
-
+  require(!(w.isDefined && wName.isDefined), s"Invalid WriteConcernConfig configuration - cannot have both w and wName defined: $this")
   require(Try(writeConcern).isSuccess, s"Invalid WriteConcernConfig configuration: $this")
 
   type Self = WriteConcernConfig
@@ -162,10 +162,10 @@ case class WriteConcernConfig(private val w: Option[Int] = None, private val wNa
 
   override def asOptions: collection.Map[String, String] = {
     val options: mutable.Map[String, String] = mutable.Map()
-    if (w.isDefined) options += WriteConcernConfig.writeConcernWProperty -> w.get.toString
-    if (wName.isDefined) options += WriteConcernConfig.writeConcernWProperty -> wName.get
-    if (journal.isDefined) options += WriteConcernConfig.writeConcernJournalProperty -> journal.get.toString
-    if (wTimeout.isDefined) options += WriteConcernConfig.writeConcernWTimeoutMSProperty -> wTimeout.get.toMillis.toString
+    w.map(w => options += WriteConcernConfig.writeConcernWProperty -> w.toString)
+    wName.map(w => options += WriteConcernConfig.writeConcernWProperty -> w)
+    wTimeout.map(w => options += WriteConcernConfig.writeConcernWTimeoutMSProperty -> w.toMillis.toString)
+    journal.map(j => options += WriteConcernConfig.writeConcernJournalProperty -> j.toString)
     options.toMap
   }
 

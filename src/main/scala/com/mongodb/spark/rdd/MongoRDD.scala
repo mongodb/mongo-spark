@@ -20,18 +20,15 @@ import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 import scala.util.Try
-
 import org.apache.spark.{Partition, SparkContext, TaskContext}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
-
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
-
 import com.mongodb.{MongoClient, MongoCursorNotFoundException}
-import com.mongodb.client.MongoCursor
+import com.mongodb.client.{AggregateIterable, MongoCursor}
 import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.exceptions.MongoSparkCursorNotFoundException
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
@@ -184,13 +181,15 @@ class MongoRDD[D: ClassTag](
       new BsonDocument("$match", partition.queryBounds) +: pipeline
     }
 
-    client.getDatabase(readConfig.databaseName)
+    val aggregateIterable: AggregateIterable[D] = client.getDatabase(readConfig.databaseName)
       .getCollection[D](readConfig.collectionName, classTagToClassOf(ct))
       .withReadConcern(readConfig.readConcern)
       .withReadPreference(readConfig.readPreference)
       .aggregate(partitionPipeline.asJava)
-      .allowDiskUse(true)
-      .iterator
+
+    readConfig.aggregationConfig.hint.map(aggregateIterable.hint)
+    readConfig.aggregationConfig.collation.map(aggregateIterable.collation)
+    aggregateIterable.iterator
   }
 
   private case class MongoCursorIterator(cursor: MongoCursor[D]) extends Iterator[D] {

@@ -32,6 +32,8 @@ partitioner                          | The class name of the partitioner to use 
 registerSQLHelperFunctions           | Register helper methods for unsupported Mongo Datatypes                         | false
 sql.inferschema.mapTypes.enabled     | Enable MapType detection in schema infer step                                   | true
 sql.inferschema.mapTypes.minimumKeys | The minimum number of keys a StructType needs to have to be inferred as MapType | 250
+hint                                 | The json representation of a hint documentation                                 |
+collation                            | The json representation of a collation. Used when querying MongoDB              |
 
 -----
 **Note**: When setting input configurations in the `SparkConf` then the prefix `spark.mongodb.input.` is required.
