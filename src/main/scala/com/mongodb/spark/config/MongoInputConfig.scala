@@ -174,4 +174,21 @@ trait MongoInputConfig extends MongoCompanionConfig {
    */
   val pipelineIncludeFiltersAndProjectionsProperty: String = "sql.pipeline.includeFiltersAndProjections".toLowerCase
 
+  /**
+   * The collation property
+   *
+   * The json representation of a Collation. Created via `Collation.asDocument.toJson`.
+   *
+   * @since 2.3
+   */
+  val collationProperty: String = "collation".toLowerCase
+
+  /**
+   * The hint property
+   *
+   * The json representation of a hint document
+   *
+   * @since 2.3
+   */
+  val hintProperty: String = "hint".toLowerCase
 }
