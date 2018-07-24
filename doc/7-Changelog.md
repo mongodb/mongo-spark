@@ -12,6 +12,7 @@
     Partitioners that produce empty querybounds no longer modify the pipeline.
   * [[SPARK-178](https://jira.mongodb.org/browse/SPARK-178)] Log partitioner errors to provide users clearer feedback.
   * [[SPARK-102](https://jira.mongodb.org/browse/SPARK-102)] Added AggregationConfig to configure reads from Mongo.
+  * [[SPARK-197](https://jira.mongodb.org/browse/SPARK-197)] Fixed bson compatibility for non nullable struct fields.
 
 ## 2.1.2
   * [[SPARK-187](https://jira.mongodb.org/browse/SPARK-187)] Fixed inferring decimal values with larger scales than precisions.
