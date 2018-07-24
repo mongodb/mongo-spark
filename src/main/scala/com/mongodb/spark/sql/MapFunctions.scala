@@ -166,18 +166,24 @@ private[spark] object MapFunctions {
 
   private def mapTypeToBsonValue(valueType: DataType, data: Map[String, Any]): BsonValue = {
     val internalData = valueType match {
-      case subDocuments: StructType => data.map(kv => new BsonElement(kv._1, rowToDocument(kv._2.asInstanceOf[Row])))
-      case subArray: ArrayType      => data.map(kv => new BsonElement(kv._1, arrayTypeToBsonValue(subArray.elementType, kv._2.asInstanceOf[Seq[Any]])))
-      case _                        => data.map(kv => new BsonElement(kv._1, convertToBsonValue(kv._2, valueType)))
+      case subDocuments: StructType => data.map(kv => {
+        val row = kv._2.asInstanceOf[Row]
+        new BsonElement(kv._1, castFromStructType(row, row.schema))
+      })
+      case subArray: ArrayType => data.map(kv => new BsonElement(kv._1, arrayTypeToBsonValue(subArray.elementType, kv._2.asInstanceOf[Seq[Any]])))
+      case _                   => data.map(kv => new BsonElement(kv._1, convertToBsonValue(kv._2, valueType)))
     }
     new BsonDocument(internalData.toList.asJava)
   }
 
   private def arrayTypeToBsonValue(elementType: DataType, data: Seq[Any]): BsonValue = {
     val internalData = elementType match {
-      case subDocuments: StructType => data.map(x => rowToDocument(x.asInstanceOf[Row])).asJava
-      case subArray: ArrayType      => data.map(x => arrayTypeToBsonValue(subArray.elementType, x.asInstanceOf[Seq[Any]])).asJava
-      case _                        => data.map(x => convertToBsonValue(x, elementType)).asJava
+      case subDocuments: StructType => data.map(x => {
+        val row = x.asInstanceOf[Row]
+        castFromStructType(row, row.schema)
+      }).asJava
+      case subArray: ArrayType => data.map(x => arrayTypeToBsonValue(subArray.elementType, x.asInstanceOf[Seq[Any]])).asJava
+      case _                   => data.map(x => convertToBsonValue(x, elementType)).asJava
     }
     new BsonArray(internalData)
   }
