@@ -52,13 +52,31 @@ private[spark] object MapFunctions {
     new GenericRowWithSchema(requiredValues.map(_._1), DataTypes.createStructType(requiredValues.map(_._2)))
   }
 
-  def rowToDocument(row: Row): BsonDocument = {
-    val document = new BsonDocument()
-    row.schema.fields.zipWithIndex.foreach({
-      case (field, i) if row.isNullAt(i) => if (field.dataType == NullType) document.append(field.name, new BsonNull())
-      case (field, i)                    => document.append(field.name, convertToBsonValue(row.get(i), field.dataType))
+  def rowToDocument(schema: StructType): (Row) => BsonDocument = {
+    // foreach field type, decide what function to use to map its value
+    val mappers = schema.fields.map({ field =>
+      if (field.dataType == NullType) {
+        (data: Any, document: BsonDocument) => document.append(field.name, new BsonNull())
+      } else {
+        val caster = convertToBsonValue(field.dataType)
+        (data: Any, document: BsonDocument) => if (data != null) document.append(field.name, caster(data))
+      }
     })
-    document
+
+    (row: Row) => {
+      val document = new BsonDocument()
+
+      // foreach field of the row, add it to the BsonDocument by mapping with corresponding mapper
+      mappers.zipWithIndex.foreach({
+        case (mapper, i) => {
+          val value = if (row.isNullAt(i)) null else row.get(i)
+
+          mapper(value, document)
+        }
+      })
+
+      document
+    }
   }
 
   private def convertToDataType(element: BsonValue, elementType: DataType): Any = {
@@ -85,8 +103,10 @@ private[spark] object MapFunctions {
     }
   }
 
-  private def convertToBsonValue(element: Any, elementType: DataType): BsonValue = {
-    Try(elementTypeToBsonValue(element, elementType)) match {
+  private def convertToBsonValue(elementType: DataType): (Any) => BsonValue = {
+    val mapper = elementTypeToBsonValue(elementType)
+
+    element => Try(mapper(element)) match {
       case Success(bsonValue)                        => bsonValue
       case Failure(ex: MongoTypeConversionException) => throw ex
       case Failure(e)                                => throw new MongoTypeConversionException(s"Cannot cast $element into a $elementType")
@@ -134,36 +154,47 @@ private[spark] object MapFunctions {
     }
   }
 
-  private def elementTypeToBsonValue(element: Any, elementType: DataType): BsonValue = {
+  private def elementTypeToBsonValue(elementType: DataType): (Any) => BsonValue = {
     elementType match {
-      case BinaryType           => new BsonBinary(element.asInstanceOf[Array[Byte]])
-      case BooleanType          => new BsonBoolean(element.asInstanceOf[Boolean])
-      case DateType             => new BsonDateTime(element.asInstanceOf[Date].getTime)
-      case DoubleType           => new BsonDouble(element.asInstanceOf[Double])
-      case IntegerType          => new BsonInt32(element.asInstanceOf[Int])
-      case LongType             => new BsonInt64(element.asInstanceOf[Long])
-      case StringType           => new BsonString(element.asInstanceOf[String])
-      case TimestampType        => new BsonDateTime(element.asInstanceOf[Timestamp].getTime)
-      case arrayType: ArrayType => arrayTypeToBsonValue(arrayType.elementType, element.asInstanceOf[Seq[_]])
-      case schema: StructType   => castFromStructType(element.asInstanceOf[Row], schema)
+      case BinaryType => (element: Any) => new BsonBinary(element.asInstanceOf[Array[Byte]])
+      case BooleanType => (element: Any) => new BsonBoolean(element.asInstanceOf[Boolean])
+      case DateType => (element: Any) => new BsonDateTime(element.asInstanceOf[Date].getTime)
+      case DoubleType => (element: Any) => new BsonDouble(element.asInstanceOf[Double])
+      case IntegerType => (element: Any) => new BsonInt32(element.asInstanceOf[Int])
+      case LongType => (element: Any) => new BsonInt64(element.asInstanceOf[Long])
+      case StringType => (element: Any) => new BsonString(element.asInstanceOf[String])
+      case TimestampType => (element: Any) => new BsonDateTime(element.asInstanceOf[Timestamp].getTime)
+      case arrayType: ArrayType => {
+        val caster = arrayTypeToBsonValue(arrayType.elementType)
+        (element: Any) => caster(element.asInstanceOf[Seq[_]])
+      }
+      case schema: StructType => {
+        val caster = castFromStructType(schema)
+        (element: Any) => caster(element.asInstanceOf[Row])
+      }
       case mapType: MapType =>
         mapType.keyType match {
-          case StringType => mapTypeToBsonValue(mapType.valueType, element.asInstanceOf[Map[String, _]])
-          case _ => throw new MongoTypeConversionException(
+          case StringType => {
+            val caster = mapTypeToBsonValue(mapType.valueType)
+
+            element => caster(element.asInstanceOf[Map[String, _]])
+          }
+          case _ => element => throw new MongoTypeConversionException(
             s"Cannot cast $element into a BsonValue. MapTypes must have keys of StringType for conversion into a BsonDocument"
           )
         }
       case _ if elementType.typeName.startsWith("decimal") =>
-        val jBigDecimal = element match {
+        val jBigDecimal = (element: Any) => element match {
           case jDecimal: java.math.BigDecimal => jDecimal
           case _                              => element.asInstanceOf[BigDecimal].bigDecimal
         }
-        new BsonDecimal128(new Decimal128(jBigDecimal))
+        (element: Any) => new BsonDecimal128(new Decimal128(jBigDecimal(element)))
       case _ =>
-        throw new MongoTypeConversionException(s"Cannot cast $element into a BsonValue. $elementType has no matching BsonValue.")
+        (element: Any) => throw new MongoTypeConversionException(s"Cannot cast $element into a BsonValue. $elementType has no matching BsonValue.")
     }
   }
 
+<<<<<<< HEAD
   private def mapTypeToBsonValue(valueType: DataType, data: Map[String, Any]): BsonValue = {
     val internalData = valueType match {
       case subDocuments: StructType => data.map(kv => {
@@ -172,10 +203,35 @@ private[spark] object MapFunctions {
       })
       case subArray: ArrayType => data.map(kv => new BsonElement(kv._1, arrayTypeToBsonValue(subArray.elementType, kv._2.asInstanceOf[Seq[Any]])))
       case _                   => data.map(kv => new BsonElement(kv._1, convertToBsonValue(kv._2, valueType)))
+=======
+  private def mapTypeToBsonValue(valueType: DataType): (Map[String, Any]) => BsonValue = {
+    val internalDataMapper = valueType match {
+      case subDocuments: StructType => {
+        val caster = castFromStructType(subDocuments)
+
+        (data: Map[String, Any]) => data.map(kv => {
+          val row = kv._2.asInstanceOf[Row]
+
+          new BsonElement(kv._1, caster(row))
+        })
+      }
+      case subArray: ArrayType => {
+        val caster = arrayTypeToBsonValue(subArray.elementType)
+
+        (data: Map[String, Any]) => data.map(kv => new BsonElement(kv._1, caster(kv._2.asInstanceOf[Seq[Any]])))
+      }
+      case _ => {
+        val caster = convertToBsonValue(valueType)
+
+        (data: Map[String, Any]) => data.map(kv => new BsonElement(kv._1, caster(kv._2)))
+      }
+>>>>>>> a32c8ad... optimized row to document function, by eleminating row schema checks.
     }
-    new BsonDocument(internalData.toList.asJava)
+
+    data => new BsonDocument(internalDataMapper(data).toList.asJava)
   }
 
+<<<<<<< HEAD
   private def arrayTypeToBsonValue(elementType: DataType, data: Seq[Any]): BsonValue = {
     val internalData = elementType match {
       case subDocuments: StructType => data.map(x => {
@@ -184,24 +240,48 @@ private[spark] object MapFunctions {
       }).asJava
       case subArray: ArrayType => data.map(x => arrayTypeToBsonValue(subArray.elementType, x.asInstanceOf[Seq[Any]])).asJava
       case _                   => data.map(x => convertToBsonValue(x, elementType)).asJava
+=======
+  private def arrayTypeToBsonValue(elementType: DataType): (Seq[Any]) => BsonValue = {
+    val internalDataMapper = elementType match {
+      case subDocuments: StructType => {
+        val caster = castFromStructType(subDocuments)
+
+        (data: Seq[Any]) => data.map(x => {
+          val row = x.asInstanceOf[Row]
+
+          caster(row)
+        }).asJava
+      }
+      case subArray: ArrayType => {
+        val caster = arrayTypeToBsonValue(subArray.elementType)
+
+        (data: Seq[Any]) => data.map(x => caster(x.asInstanceOf[Seq[Any]])).asJava
+      }
+      case _ => {
+        val caster = convertToBsonValue(elementType)
+
+        (data: Seq[Any]) => data.map(x => caster(x)).asJava
+      }
+>>>>>>> a32c8ad... optimized row to document function, by eleminating row schema checks.
     }
-    new BsonArray(internalData)
+
+    data => new BsonArray(internalDataMapper(data))
   }
 
-  private def castFromStructType(element: Row, dataType: StructType): BsonValue = {
+  private def castFromStructType(dataType: StructType): (Row) => BsonValue = {
     dataType match {
-      case BsonCompatibility.ObjectId()            => BsonCompatibility.ObjectId(element)
-      case BsonCompatibility.MinKey()              => BsonCompatibility.MinKey(element)
-      case BsonCompatibility.MaxKey()              => BsonCompatibility.MaxKey(element)
-      case BsonCompatibility.Timestamp()           => BsonCompatibility.Timestamp(element)
-      case BsonCompatibility.JavaScript()          => BsonCompatibility.JavaScript(element)
-      case BsonCompatibility.JavaScriptWithScope() => BsonCompatibility.JavaScriptWithScope(element)
-      case BsonCompatibility.RegularExpression()   => BsonCompatibility.RegularExpression(element)
-      case BsonCompatibility.Undefined()           => BsonCompatibility.Undefined(element)
-      case BsonCompatibility.Binary()              => BsonCompatibility.Binary(element)
-      case BsonCompatibility.Symbol()              => BsonCompatibility.Symbol(element)
-      case BsonCompatibility.DbPointer()           => BsonCompatibility.DbPointer(element)
-      case _                                       => rowToDocument(element)
+      case BsonCompatibility.ObjectId()            => BsonCompatibility.ObjectId.apply
+      case BsonCompatibility.MinKey()              => BsonCompatibility.MinKey.apply
+      case BsonCompatibility.MaxKey()              => BsonCompatibility.MaxKey.apply
+      case BsonCompatibility.Timestamp()           => BsonCompatibility.Timestamp.apply
+      case BsonCompatibility.JavaScript()          => BsonCompatibility.JavaScript.apply
+      case BsonCompatibility.JavaScriptWithScope() => BsonCompatibility.JavaScriptWithScope.apply
+      case BsonCompatibility.RegularExpression()   => BsonCompatibility.RegularExpression.apply
+      case BsonCompatibility.Undefined()           => BsonCompatibility.Undefined.apply
+      case BsonCompatibility.Binary()              => BsonCompatibility.Binary.apply
+      case BsonCompatibility.Symbol()              => BsonCompatibility.Symbol.apply
+      case BsonCompatibility.DbPointer()           => BsonCompatibility.DbPointer.apply
+      case _                                       => rowToDocument(dataType)
     }
   }
 

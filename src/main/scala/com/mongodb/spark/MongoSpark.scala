@@ -144,7 +144,9 @@ object MongoSpark {
    */
   def save[D](dataset: Dataset[D], writeConfig: WriteConfig): Unit = {
     val mongoConnector = MongoConnector(writeConfig.asOptions)
-    val documentRdd: RDD[BsonDocument] = dataset.toDF().rdd.map(row => rowToDocument(row))
+    val dataSet = dataset.toDF()
+    val mapper = rowToDocument(dataSet.schema)
+    val documentRdd: RDD[BsonDocument] = dataSet.rdd.map(row => mapper(row))
     val fieldNames = dataset.schema.fieldNames.toList
     val queryKeyList = BsonDocument.parse(writeConfig.shardKey.getOrElse("{_id: 1}")).keySet().asScala.toList
 
