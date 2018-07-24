@@ -2,16 +2,13 @@
 
 The official MongoDB Spark Connector.
 
-[![Build Status](https://travis-ci.org/mongodb/mongo-spark.svg?branch=master)]
-(https://travis-ci.org/mongodb/mongo-spark)
+[![Build Status](https://travis-ci.org/mongodb/mongo-spark.svg?branch=master)](https://travis-ci.org/mongodb/mongo-spark)
 
 ## Documentation
 
 See: https://docs.mongodb.com/spark-connector/
 
 [API Documentation](https://www.javadoc.io/doc/org.mongodb.spark/mongo-spark-connector_2.11)
-
-See the [1.x](https://github.com/mongodb/mongo-spark/tree/1.x) branch for the Spark 1.6.x version of the driver.
 
 ## Downloading
 
@@ -44,18 +41,15 @@ If you’ve identified a security vulnerability in a driver or any other MongoDB
 
 ## Versioning
 
-Major increments (such as 1.x -> 2.x) will occur when break changes are being made to the public API.  All methods and
-classes removed in a major release will have been deprecated in a prior release of the previous major release branch, and/or otherwise
-called out in the release notes.
+The MongoDB Spark Connector does not follow semantic versioning. The MongoDB Spark Connector version relates to the version of Spark.
 
-Minor 1.x increments (such as 1.1, 1.2, etc) will occur when non-trivial new functionality is added or significant enhancements or bug
-fixes occur that may have behavioral changes that may affect some edge cases (such as dependence on behavior resulting from a bug). An
-example of an enhancement is a method or class added to support new functionality added to the MongoDB server.   Minor releases will
-almost always be binary compatible with prior minor releases from the same major release branch, exept as noted below.
+For example:
 
-Patch 1.x.y increments (such as 1.0.0 -> 1.0.1, 1.1.1 -> 1.1.2, etc) will occur for bug fixes only and will always be binary compatible
-with prior patch releases of the same minor release branch.
+  * [Mongo Spark Connector 2.1.x](https://github.com/mongodb/mongo-spark/tree/2.1.x) supports Spark 2.1.x
+  * [Mongo Spark Connector 2.2.x](https://github.com/mongodb/mongo-spark/tree/2.2.x) supports Spark 2.2.x
 
+Major changes may occur between point releases may occur, such as new APIs and updating the underlying Java driver to support new features.
+See the [changelog](./doc/7-Changelog.md) for information about changes between releases.
 
 ## Build
 
