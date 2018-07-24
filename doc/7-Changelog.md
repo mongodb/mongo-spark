@@ -11,7 +11,7 @@
   * [[SPARK-192](https://jira.mongodb.org/browse/SPARK-192)] Added WriteConfig.forceInsert property.
     DataFrame overwrites will automatically set force insert to true.
   * [[SPARK-178](https://jira.mongodb.org/browse/SPARK-178)] Log partitioner errors to provide users clearer feedback.
-
+  * [[SPARK-102](https://jira.mongodb.org/browse/SPARK-102)] Added AggregationConfig to configure reads from Mongo.
 
 ## 2.2.3
   * [[SPARK-187](https://jira.mongodb.org/browse/SPARK-187)] Fixed inferring decimal values with larger scales than precisions.

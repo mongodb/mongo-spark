@@ -16,13 +16,14 @@
 
 package com.mongodb.spark.config
 
-import scala.collection.JavaConverters._
+import com.mongodb.client.model.{Collation, CollationAlternate, CollationCaseFirst, CollationMaxVariable, CollationStrength}
 
+import scala.collection.JavaConverters._
 import org.scalatest.{FlatSpec, Matchers}
 import org.apache.spark.SparkConf
-
 import com.mongodb.spark.rdd.partitioner.{DefaultMongoPartitioner, MongoShardedPartitioner, MongoSplitVectorPartitioner}
 import com.mongodb.{ReadConcern, ReadPreference, Tag, TagSet}
+import org.bson.BsonDocument
 
 // scalastyle:off magic.number
 class ReadConfigSpec extends FlatSpec with Matchers {
@@ -30,14 +31,18 @@ class ReadConfigSpec extends FlatSpec with Matchers {
   "ReadConfig" should "have the expected defaults" in {
     val readConfig = ReadConfig("db", "collection")
     val expectedReadConfig = ReadConfig("db", "collection", None, 1000, DefaultMongoPartitioner, Map.empty[String, String], 15,
-      ReadPreferenceConfig(ReadPreference.primary()), ReadConcernConfig(ReadConcern.DEFAULT))
+      ReadPreferenceConfig(ReadPreference.primary()), ReadConcernConfig(ReadConcern.DEFAULT), AggregationConfig())
 
     readConfig should equal(expectedReadConfig)
   }
 
   it should "be creatable from SparkConfig" in {
+    val collation = Collation.builder().locale("en").caseLevel(true).collationCaseFirst(CollationCaseFirst.OFF)
+      .collationStrength(CollationStrength.IDENTICAL).numericOrdering(true).collationAlternate(CollationAlternate.SHIFTED)
+      .collationMaxVariable(CollationMaxVariable.SPACE).backwards(true).normalization(true).build()
+    val hint = BsonDocument.parse("{a: 1, b: -1}")
     val expectedReadConfig = ReadConfig("db", "collection", None, 150, MongoShardedPartitioner, Map("shardkey" -> "ID"), 0,
-      ReadPreferenceConfig(ReadPreference.secondary()), ReadConcernConfig(ReadConcern.LOCAL))
+      ReadPreferenceConfig(ReadPreference.secondary()), ReadConcernConfig(ReadConcern.LOCAL), AggregationConfig(collation, hint))
 
     val readConfig = ReadConfig(sparkConf)
     readConfig.databaseName should equal(expectedReadConfig.databaseName)
@@ -53,6 +58,7 @@ class ReadConfigSpec extends FlatSpec with Matchers {
     readConfig.inferSchemaMapTypesEnabled should equal(expectedReadConfig.inferSchemaMapTypesEnabled)
     readConfig.pipelineIncludeNullFilters should equal(expectedReadConfig.pipelineIncludeNullFilters)
     readConfig.pipelineIncludeFiltersAndProjections should equal(expectedReadConfig.pipelineIncludeFiltersAndProjections)
+    readConfig.aggregationConfig should equal(expectedReadConfig.aggregationConfig)
   }
 
   it should "use the URI for default values" in {
@@ -86,7 +92,7 @@ class ReadConfigSpec extends FlatSpec with Matchers {
     val expectedReadConfig = ReadConfig("db", "collection", Some("mongodb://localhost/"), 200, MongoSplitVectorPartitioner,
       Map("partitioneroptions.partitionsizemb" -> "15"), 0,
       ReadPreferenceConfig(ReadPreference.secondaryPreferred(new TagSet(List(new Tag("dc", "east"), new Tag("use", "production")).asJava))),
-      ReadConcernConfig(ReadConcern.MAJORITY),
+      ReadConcernConfig(ReadConcern.MAJORITY), AggregationConfig(Collation.builder().locale("en").build(), BsonDocument.parse("{a : 1 }")),
       inferSchemaMapTypesEnabled = false,
       inferSchemaMapTypesMinimumKeys = 999,
       pipelineIncludeNullFilters = false,
@@ -103,6 +109,7 @@ class ReadConfigSpec extends FlatSpec with Matchers {
     readConfig.localThreshold should equal(expectedReadConfig.localThreshold)
     readConfig.readPreferenceConfig should equal(expectedReadConfig.readPreferenceConfig)
     readConfig.readConcernConfig should equal(expectedReadConfig.readConcernConfig)
+    readConfig.aggregationConfig should equal(expectedReadConfig.aggregationConfig)
     readConfig.inferSchemaMapTypesMinimumKeys should equal(expectedReadConfig.inferSchemaMapTypesMinimumKeys)
     readConfig.inferSchemaMapTypesEnabled should equal(expectedReadConfig.inferSchemaMapTypesEnabled)
     readConfig.pipelineIncludeNullFilters should equal(expectedReadConfig.pipelineIncludeNullFilters)
@@ -117,6 +124,7 @@ class ReadConfigSpec extends FlatSpec with Matchers {
         new TagSet()
       ).asJava)),
       ReadConcernConfig(ReadConcern.MAJORITY),
+      AggregationConfig(Collation.builder().build(), new BsonDocument()),
       registerSQLHelperFunctions = false,
       inferSchemaMapTypesEnabled = false,
       inferSchemaMapTypesMinimumKeys = 999,
@@ -161,10 +169,12 @@ class ReadConfigSpec extends FlatSpec with Matchers {
     ))
     an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set("spark.mongodb.input.collection", "coll"))
     an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set("spark.mongodb.input.database", "db"))
-    an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set("spark.mongodb.input.localThreshold", "-1"))
-    an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set("spark.mongodb.input.readPreference.tagSets", "[1, 2]"))
-    an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set("spark.mongodb.input.readPreference.tagSets", "-1]"))
-    an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set("spark.mongodb.input.readConcern.level", "Alpha"))
+    an[IllegalArgumentException] should be thrownBy ReadConfig(sparkConf.clone().set("spark.mongodb.input.localThreshold", "-1"))
+    an[IllegalArgumentException] should be thrownBy ReadConfig(sparkConf.clone().set("spark.mongodb.input.readPreference.tagSets", "[1, 2]"))
+    an[IllegalArgumentException] should be thrownBy ReadConfig(sparkConf.clone().set("spark.mongodb.input.readPreference.tagSets", "-1]"))
+    an[IllegalArgumentException] should be thrownBy ReadConfig(sparkConf.clone().set("spark.mongodb.input.readConcern.level", "Alpha"))
+    an[IllegalArgumentException] should be thrownBy ReadConfig(sparkConf.clone().set("spark.mongodb.input.hint", "notADoc"))
+    an[IllegalArgumentException] should be thrownBy ReadConfig(sparkConf.clone().set("spark.mongodb.input.collation", "notADoc"))
   }
 
   val sparkConf = new SparkConf()
@@ -176,6 +186,10 @@ class ReadConfigSpec extends FlatSpec with Matchers {
     .set("spark.mongodb.input.readPreference.name", "secondary")
     .set("spark.mongodb.input.readConcern.level", "local")
     .set("spark.mongodb.input.sampleSize", "150")
+    .set("spark.mongodb.input.collation", Collation.builder().locale("en").caseLevel(true).collationCaseFirst(CollationCaseFirst.OFF)
+      .collationStrength(CollationStrength.IDENTICAL).numericOrdering(true).collationAlternate(CollationAlternate.SHIFTED)
+      .collationMaxVariable(CollationMaxVariable.SPACE).backwards(true).normalization(true).build().asDocument().toJson)
+    .set("spark.mongodb.input.hint", """{ "a" : 1, "b" : -1 }""")
 
 }
 // scalastyle:on magic.number

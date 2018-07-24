@@ -21,9 +21,9 @@ import org.apache.spark.sql.catalyst.ScalaReflection
 import org.apache.spark.sql.types.DataTypes._
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
-
 import org.bson.{BsonDocument, Document}
-import com.mongodb.client.model.{Aggregates, Filters}
+import com.mongodb.client.model.{Aggregates, Collation, CollationStrength, Filters}
+import com.mongodb.spark.config.{AggregationConfig, ReadConfig}
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.sql.types.BsonCompatibility
 
@@ -147,6 +147,17 @@ class MongoRDDSpec extends RequiresMongoDB {
       .toRDD()
     mongoRDD.getNumPartitions should equal(2)
     mongoRDD.mapPartitions(iter => Array(iter.size).iterator).collect() should equal(Array(50, 50)) // scalastyle:ignore
+  }
+
+  it should "support collation" in withSparkContext() { sc =>
+    if (!serverAtLeast(3, 4)) cancel("MongoDB < 3.4") // scalastyle:ignore
+    sc.parallelize(Seq("{_id: 1, str: 'foo'}", "{_id: 2, str: 'FOO'}").map(Document.parse)).saveToMongoDB()
+
+    val caseInsensitiveCollation = Collation.builder().locale("en").collationStrength(CollationStrength.SECONDARY).build()
+
+    sc.loadFromMongoDB().withPipeline(Seq(Document.parse("{$match: {str: 'FOO'}}"))).count() should equal(1)
+    sc.loadFromMongoDB(ReadConfig(sc).copy(aggregationConfig = AggregationConfig(caseInsensitiveCollation)))
+      .withPipeline(Seq(Document.parse("{$match: {str: 'FOO'}}"))).count() should equal(2)
   }
 
 }
