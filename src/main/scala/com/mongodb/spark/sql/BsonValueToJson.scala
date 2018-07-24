@@ -17,17 +17,48 @@
 package com.mongodb.spark.sql
 
 import java.io.StringWriter
+import java.lang
 
-import org.bson.BsonValue
+import org.bson.{BsonBinary, BsonRegularExpression, BsonValue}
 import org.bson.codecs.{BsonValueCodec, EncoderContext}
-import org.bson.json.{JsonMode, JsonWriter, JsonWriterSettings}
+import org.bson.internal.Base64
+import org.bson.json.{JsonWriter, JsonWriterSettings, StrictJsonWriter, JsonMode, Converter}
 
 private[sql] object BsonValueToJson {
   val codec = new BsonValueCodec()
 
   def apply(element: BsonValue): String = {
     val stringWriter: StringWriter = new StringWriter
-    val jsonWriter = new JsonWriter(stringWriter, new JsonWriterSettings(JsonMode.STRICT, false))
+    val jsonWriter = new JsonWriter(stringWriter, JsonWriterSettings.builder().outputMode(JsonMode.EXTENDED).indent(false)
+      .dateTimeConverter(new Converter[lang.Long] {
+        override def convert(value: lang.Long, writer: StrictJsonWriter): Unit = {
+          writer.writeStartObject()
+          writer.writeNumber("$date", value.toLong.toString)
+          writer.writeEndObject()
+        }
+      })
+      .int32Converter(new Converter[Integer] {
+        override def convert(value: Integer, writer: StrictJsonWriter): Unit = {
+          writer.writeNumber(value.toString)
+        }
+      })
+      .regularExpressionConverter(new Converter[BsonRegularExpression] {
+        override def convert(value: BsonRegularExpression, writer: StrictJsonWriter): Unit = {
+          writer.writeStartObject()
+          writer.writeString("$regex", value.getPattern)
+          writer.writeString("$options", value.getOptions)
+          writer.writeEndObject()
+        }
+      })
+      .binaryConverter(new Converter[BsonBinary] {
+        override def convert(value: BsonBinary, writer: StrictJsonWriter): Unit = {
+          writer.writeStartObject()
+          writer.writeString("$binary", Base64.encode(value.getData))
+          writer.writeString("$type", f"${value.getType}%02X")
+          writer.writeEndObject()
+        }
+      })
+      .build())
 
     jsonWriter.writeStartDocument()
     jsonWriter.writeName("k")
