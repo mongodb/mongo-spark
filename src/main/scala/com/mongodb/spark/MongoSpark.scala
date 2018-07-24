@@ -32,7 +32,7 @@ import com.mongodb.spark.DefaultHelper.DefaultsTo
 import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
-import com.mongodb.spark.sql.MapFunctions.rowToDocument
+import com.mongodb.spark.sql.MapFunctions.rowToDocumentMapper
 import com.mongodb.spark.sql.{MongoInferSchema, helpers}
 
 /**
@@ -145,7 +145,7 @@ object MongoSpark {
   def save[D](dataset: Dataset[D], writeConfig: WriteConfig): Unit = {
     val mongoConnector = MongoConnector(writeConfig.asOptions)
     val dataSet = dataset.toDF()
-    val mapper = rowToDocument(dataSet.schema)
+    val mapper = rowToDocumentMapper(dataSet.schema)
     val documentRdd: RDD[BsonDocument] = dataSet.rdd.map(row => mapper(row))
     val fieldNames = dataset.schema.fieldNames.toList
     val queryKeyList = BsonDocument.parse(writeConfig.shardKey.getOrElse("{_id: 1}")).keySet().asScala.toList
