@@ -66,8 +66,7 @@ class ReadConcernConfigSpec extends FlatSpec with Matchers {
     ReadConcern.DEFAULT,
     ReadConcern.LINEARIZABLE,
     ReadConcern.LOCAL,
-    ReadConcern.MAJORITY,
-    ReadConcern.SNAPSHOT
+    ReadConcern.MAJORITY
   )
 
 }

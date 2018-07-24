@@ -262,7 +262,7 @@ class MongoDataFrameSpec extends RequiresMongoDB with TableDrivenPropertyChecks 
       oldBinary = """{ "$binary" : "AQEBAQE=", "$type" : "02" }""",
       arrayInt = "[1, 2, 3]",
       document = """{ "a" : 1 }""",
-      dbPointer = """{ "$ref" : "db.coll", "$id" : { "$oid" : "000000000000000000000000" } }"""
+      dbPointer = """{ "$dbPointer" : { "$ref" : "db.coll", "$id" : { "$oid" : "000000000000000000000000" } } }"""
     )
     bsonValuesAsStrings should equal(expected)
   }
