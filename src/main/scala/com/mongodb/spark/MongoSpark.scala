@@ -19,13 +19,11 @@ package com.mongodb.spark
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
-
 import org.apache.spark.SparkContext
 import org.apache.spark.api.java.{JavaRDD, JavaSparkContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.StructType
-
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
 import com.mongodb.client.MongoCollection
@@ -613,6 +611,43 @@ case class MongoSpark(sparkSession: SparkSession, connector: MongoConnector, rea
       .options(readConfig.asOptions)
       .option("pipeline", pipeline.map(_.toJson).mkString("[", ",", "]"))
       .load()
+  }
+
+  /**
+   * Split RDD based on schema validation.
+   *
+   * @param schema the schema representing the DataFrame.
+   * @param schemaValidator a customized schema validator function.
+   * @return a valid RDD and an invalid RDD based on schema validation.
+   */
+  def splitRddOnSchemaValidation(
+    schema:          StructType,
+    schemaValidator: (BsonDocument, StructType, Array[String]) => Row
+  ): (RDD[Row], RDD[BsonDocument]) = {
+    var row: Row = Row()
+    val validRDD = toBsonDocumentRDD.filter(bdoc => {
+      try {
+        row = schemaValidator(bdoc, schema, Array())
+        true
+      } catch {
+        case ex: Throwable => {
+          false
+        }
+      }
+    }).map(doc => row)
+
+    val invalidRDD = toBsonDocumentRDD.filter(bdoc => {
+      try {
+        schemaValidator(bdoc, schema, Array())
+        false
+      } catch {
+        case ex: Throwable => {
+          true
+        }
+      }
+    })
+
+    (validRDD, invalidRDD)
   }
 
   /**

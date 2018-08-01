@@ -28,6 +28,9 @@ import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.sql.types.BsonCompatibility
 import org.apache.spark.SparkException
 import org.scalatest.prop.TableDrivenPropertyChecks
+import com.mongodb.spark.sql.helpers.StructFields
+import com.mongodb.MongoClient
+import com.mongodb.spark.sql.MapFunctions.{documentToRow}
 
 class MongoDataFrameSpec extends RequiresMongoDB with TableDrivenPropertyChecks {
   // scalastyle:off magic.number
@@ -267,6 +270,64 @@ class MongoDataFrameSpec extends RequiresMongoDB with TableDrivenPropertyChecks 
     bsonValuesAsStrings should equal(expected)
   }
 
+  it should "throw an exception when retrieving multi-types recs with inva;lid row " in withSparkContext() { sc =>
+    val sparkSession = SparkSession.builder().getOrCreate()
+
+    val myClient = new MongoClient()
+    val myDb = myClient.getDatabase("test")
+
+    myDb.getCollection("test3").drop()
+
+    myDb.getCollection("test3").insertMany(multiTypesDocs.map(doc => Document.parse(doc)).toList.asJava)
+
+    val readConfigMap = ReadConfig(Map("uri" -> "mongodb://127.0.0.1/", "database" -> "test", "collection" -> "test3"), Some(ReadConfig(sc)))
+
+    val df = MongoSpark.builder().sparkSession(sparkSession).readConfig(readConfigMap).build().toDF(multiTypesSchema)
+
+    df.createOrReplaceTempView("test3")
+
+    val dfQuery = sparkSession.sql("select * from test3")
+
+    an[SparkException] should be thrownBy dfQuery.show()
+  }
+
+  it should "be able to split a RDD into two RDDs based on custom schema validation" in withSparkContext() { sc =>
+    val sparkSession = SparkSession.builder().getOrCreate()
+
+    val myClient = new MongoClient()
+    val myDb = myClient.getDatabase("test")
+
+    myDb.getCollection("test3").drop()
+
+    myDb.getCollection("test3").insertMany(multiTypesDocs.map(doc => Document.parse(doc)).toList.asJava)
+
+    val readConfigMap = ReadConfig(Map("uri" -> "mongodb://127.0.0.1/", "database" -> "test", "collection" -> "test3"), Some(ReadConfig(sc)))
+
+    val (validRDD, invalidRDD) = MongoSpark.builder().sparkSession(sparkSession).readConfig(readConfigMap).build().splitRddOnSchemaValidation(multiTypesSchema, documentToRow)
+
+    validRDD.count() should equal(3)
+    invalidRDD.count() should equal(2)
+
+    invalidRDD.foreach(println)
+
+    val df = sparkSession.createDataFrame(validRDD, multiTypesSchema)
+
+    df.createOrReplaceTempView("test3")
+
+    val dfQuery = sparkSession.sql("select * from test3")
+    val testDir = "/tmp/test3"
+
+    import java.io.File
+    import scala.reflect.io.Directory
+
+    val directory = new Directory(new File(testDir))
+    directory.deleteRecursively()
+
+    dfQuery.show()
+    dfQuery.write.json(testDir)
+
+  }
+
   it should "be able to round trip schemas containing MapTypes" in withSparkContext() { sc =>
     val sparkSession = SparkSession.builder().getOrCreate()
     val characterMap = characters.map(doc => Row(doc.getString("name"), Map("book" -> "The Hobbit", "author" -> "J. R. R. Tolkien")))
@@ -385,6 +446,19 @@ class MongoDataFrameSpec extends RequiresMongoDB with TableDrivenPropertyChecks 
     createStructType(Array(_idField, ageField, nameField))
   }
 
+  private val multiTypesSchema = StructType(Seq(
+    StructField("int32", IntegerType, nullable = false),
+    StructField("int64", LongType, nullable = false),
+    StructField("boolean", BooleanType, nullable = false),
+    StructField("double", DoubleType, nullable = false),
+    StructField("string", StringType, nullable = false),
+    StructFields.minKey("minKey", nullable = false),
+    StructFields.maxKey("maxKey", nullable = false),
+    StructFields.objectId("objectId", nullable = false),
+    StructFields.regularExpression("regex", nullable = false),
+    StructFields.timestamp("timestamp", nullable = false)
+  ))
+
   private val arrayFieldWithNulls: Seq[Document] = Seq("{_id: 1, a: [1,2,3]}", "{_id: 2, a: []}", "{_id: 3, a: null}").map(Document.parse)
   private val documentFieldWithNulls: Seq[Document] = Seq("{_id: 1, a: {a: 1}}", "{_id: 2, a: {}}", "{_id: 3, a: null}").map(Document.parse)
   private val mixedLong: Seq[Document] = Seq(new Document("a", 1), new Document("a", 1), new Document("a", 1L))
@@ -416,6 +490,96 @@ class MongoDataFrameSpec extends RequiresMongoDB with TableDrivenPropertyChecks 
     document.put("dbPointer", new BsonDbPointer("db.coll", objectId))
     document
   }
+
+  private val multiTypesDocs = List(
+    "{\"nullValue\" : null, " +
+      "\"int32\" : 41, " +
+      "\"int64\" : { \"$numberLong\" : \"51\" }, " +
+      "\"boolean\" : true, " +
+      "\"date\" : { \"$date\" : 1463497097 }, " +
+      "\"double\" : 61.0, " +
+      "\"string\" : \"spark connector row 1\", " +
+      "\"stringInt\" : \"1532023007\", " +
+      "\"stringDate\" : \"2018-07-15\", " +
+      "\"minKey\" : {\"$minKey\" : 1 }, " +
+      "\"maxKey\" : {\"$maxKey\" : 1 }, " +
+      "\"objectId\" : { \"$oid\" : \"000000000000000000000000\" }, " +
+      "\"code\" : { \"$code\" : \"int i = 0;\" }, " +
+      "\"regex\" : { \"$regex\" : \"^test.*regex.*xyz$\", \"$options\" : \"I\" }, " +
+      "\"timestamp\" : { \"$timestamp\" : { \"t\" : 305419891, \"i\" : 5 }}, " +
+      "\"oldBinary\" : { \"$binary\" : \"AQEBAQE=\", \"$type\" : \"02\" }}",
+
+    // this document has a wrong-type field
+    "{\"nullValue\" : null, " +
+      "\"int32\" : \"42\", " + // wrong type
+      "\"int64\" : { \"$numberLong\" : \"52\" }, " +
+      "\"boolean\" : true, " +
+      "\"date\" : { \"$date\" : 1463497097 }, " +
+      "\"double\" : 62.0, " +
+      "\"string\" : \"spark connector row 2\", " +
+      "\"stringInt\" : \"1532023007\", " +
+      "\"stringDate\" : \"2018-07-15\", " +
+      "\"minKey\" : {\"$minKey\" : 1 }, " +
+      "\"maxKey\" : {\"$maxKey\" : 1 }, " +
+      "\"objectId\" : { \"$oid\" : \"000000000000000000000000\" }, " +
+      "\"code\" : { \"$code\" : \"int i = 0;\" }, " +
+      "\"regex\" : { \"$regex\" : \"^test.*regex.*xyz$\", \"$options\" : \"I\" }, " +
+      "\"timestamp\" : { \"$timestamp\" : { \"t\" : 305419992, \"i\" : 5 }}, " +
+      "\"oldBinary\" : { \"$binary\" : \"AQEBAQE=\", \"$type\" : \"02\" }}",
+
+    // this document has a missing "int32" field
+    "{\"nullValue\" : null, " +
+      "\"int32\" : 43, " +
+      "\"int64\" : \"53\", " +
+      "\"boolean\" : true, " +
+      "\"date\" : { \"$date\" : 1463497097 }, " +
+      "\"double\" : 63.0, " +
+      "\"string\" : \"spark connector row 3\", " +
+      "\"stringInt\" : \"1532023007\", " +
+      "\"stringDate\" : \"2018-07-15\", " +
+      "\"minKey\" : {\"$minKey\" : 1 }, " +
+      "\"maxKey\" : {\"$maxKey\" : 1 }, " +
+      "\"objectId\" : { \"$oid\" : \"000000000000000000000000\" }, " +
+      "\"code\" : { \"$code\" : \"int i = 0;\" }, " +
+      "\"regex\" : { \"$regex\" : \"^test.*regex.*xyz$\", \"$options\" : \"I\" }, " +
+      "\"timestamp\" : { \"$timestamp\" : { \"t\" : 305419993, \"i\" : 5 }}, " +
+      "\"oldBinary\" : { \"$binary\" : \"AQEBAQE=\", \"$type\" : \"02\" }}",
+
+    "{\"nullValue\" : null, " +
+      "\"int32\" : 44, " +
+      "\"int64\" : { \"$numberLong\" : \"54\" }, " +
+      "\"boolean\" : true, " +
+      "\"date\" : { \"$date\" : 1463497097 }, " +
+      "\"double\" : 64.0, " +
+      "\"string\" : \"spark connector row 4\", " +
+      "\"stringInt\" : \"1532023012\", " +
+      "\"stringDate\" : \"2018-07-15\", " +
+      "\"minKey\" : {\"$minKey\" : 1 }, " +
+      "\"maxKey\" : {\"$maxKey\" : 1 }, " +
+      "\"objectId\" : { \"$oid\" : \"000000000000000000000000\" }, " +
+      "\"code\" : { \"$code\" : \"int i = 0;\" }, " +
+      "\"regex\" : { \"$regex\" : \"^test.*regex.*xyz$\", \"$options\" : \"I\" }, " +
+      "\"timestamp\" : { \"$timestamp\" : { \"t\" : 305419894, \"i\" : 5 }}, " +
+      "\"oldBinary\" : { \"$binary\" : \"AQEBAQE=\", \"$type\" : \"02\" }}",
+
+    "{\"nullValue\" : null, " +
+      "\"int32\" : 45, " +
+      "\"int64\" : { \"$numberLong\" : \"55\" }, " +
+      "\"boolean\" : true, " +
+      "\"date\" : { \"$date\" : 1463497097 }, " +
+      "\"double\" : 65.0, " +
+      "\"string\" : \"spark connector row 5\", " +
+      "\"stringInt\" : \"1532023012\", " +
+      "\"stringDate\" : \"2018-07-15\", " +
+      "\"minKey\" : {\"$minKey\" : 1 }, " +
+      "\"maxKey\" : {\"$maxKey\" : 1 }, " +
+      "\"objectId\" : { \"$oid\" : \"000000000000000000000000\" }, " +
+      "\"code\" : { \"$code\" : \"int i = 0;\" }, " +
+      "\"regex\" : { \"$regex\" : \"^test.*regex.*xyz$\", \"$options\" : \"I\" }, " +
+      "\"timestamp\" : { \"$timestamp\" : { \"t\" : 305419895, \"i\" : 5 }}, " +
+      "\"oldBinary\" : { \"$binary\" : \"AQEBAQE=\", \"$type\" : \"02\" }}"
+
+  )
 
   // scalastyle:on magic.number
 }
