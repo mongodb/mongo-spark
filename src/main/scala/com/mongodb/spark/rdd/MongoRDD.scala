@@ -189,6 +189,7 @@ class MongoRDD[D: ClassTag](
 
     readConfig.aggregationConfig.hint.map(aggregateIterable.hint)
     readConfig.aggregationConfig.collation.map(aggregateIterable.collation)
+    aggregateIterable.allowDiskUse(readConfig.aggregationConfig.allowDiskUse)
     aggregateIterable.iterator
   }
 

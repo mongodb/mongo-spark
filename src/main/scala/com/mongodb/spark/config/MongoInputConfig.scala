@@ -191,4 +191,14 @@ trait MongoInputConfig extends MongoCompanionConfig {
    * @since 2.3
    */
   val hintProperty: String = "hint".toLowerCase
+
+  /**
+   * The allow disk use property
+   *
+   * Enables writing to temporary files
+   *
+   * @since 2.3.1
+   */
+  val allowDiskUseProperty: String = "allowDiskUse".toLowerCase
+
 }
