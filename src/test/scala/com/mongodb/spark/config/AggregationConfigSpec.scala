@@ -28,56 +28,69 @@ class AggregationConfigSpec extends FlatSpec with Matchers {
   "AggregationConfig" should "have the expected defaults" in {
     AggregationConfig().collation shouldBe None
     AggregationConfig().hint shouldBe None
+    AggregationConfig().allowDiskUse shouldBe true
     AggregationConfig().asOptions shouldBe empty
   }
 
   it should "have the expected values" in {
-    forAll(options) { (collation: Collation, hint: BsonDocument) =>
+    forAll(options) { (collation: Collation, hint: BsonDocument, allowDiskUse: Boolean) =>
       {
-        val config = AggregationConfig(collation, hint)
+        val config = AggregationConfig(collation, hint, allowDiskUse)
         config.collation should equal(Some(collation))
         config.hint should equal(Some(hint))
+        config.allowDiskUse should equal(allowDiskUse)
       }
     }
   }
 
   it should "be creatable from SparkConfig" in {
     val configPrefix = Table("prefix", ReadConfig.configPrefix, "")
-    forAll(options) { (collation: Collation, hint: BsonDocument) =>
+    forAll(options) { (collation: Collation, hint: BsonDocument, allowDiskUse: Boolean) =>
       {
         val conf = sparkConf.clone()
 
         forAll(configPrefix) { prefix: String =>
           conf.set(s"$prefix${ReadConfig.collationProperty}", collation.asDocument().toJson())
           conf.set(s"$prefix${ReadConfig.hintProperty}", hint.toJson)
+          conf.set(s"$prefix${ReadConfig.allowDiskUseProperty}", allowDiskUse.toString)
 
-          val aggregationConfig = AggregationConfig(conf)
-          aggregationConfig.collation.get should equal(collation)
-          aggregationConfig.hint.get should equal(hint)
+          val config = AggregationConfig(conf)
+          config.collation.get should equal(collation)
+          config.hint.get should equal(hint)
+          config.allowDiskUse should equal(allowDiskUse)
         }
       }
     }
   }
 
   it should "roundtrip options" in {
-    forAll(options) { (collation: Collation, hint: BsonDocument) =>
+    forAll(options) { (collation: Collation, hint: BsonDocument, allowDiskUse: Boolean) =>
       {
-        val aggregationConfig = AggregationConfig().withOptions(AggregationConfig(collation, hint).asOptions)
-        aggregationConfig.collation.get should equal(collation)
-        aggregationConfig.hint.get should equal(hint)
+        val config = AggregationConfig().withOptions(AggregationConfig(collation, hint, allowDiskUse).asOptions)
+        config.collation.get should equal(collation)
+        config.hint.get should equal(hint)
+        config.allowDiskUse should equal(allowDiskUse)
       }
     }
   }
 
   it should "ignore defaults or undefined collation / hints" in {
-    forAll(emptyOptions) { (collation: Option[String], hint: Option[String]) =>
+    forAll(emptyOptions) { (collation: Option[String], hint: Option[String], allowDiskUse: Boolean) =>
       {
         val aggregationConfig = AggregationConfig().withOptions(AggregationConfig(collation, hint).asOptions)
         aggregationConfig.collation shouldBe None
         aggregationConfig.hint shouldBe None
+        aggregationConfig.allowDiskUse shouldBe AggregationConfig.DEFAULT_ALLOW_DISK_USE
         aggregationConfig.asOptions shouldBe empty
       }
     }
+  }
+
+  it should "support isDefined" in {
+    AggregationConfig().isDefined shouldBe false
+    AggregationConfig.apply(Collation.builder().locale("en").caseLevel(true).build()).isDefined shouldBe true
+    AggregationConfig.apply(BsonDocument.parse("{a: 1}")).isDefined shouldBe true
+    AggregationConfig(allowDiskUse = false).isDefined shouldBe true
   }
 
   it should "validate values" in {
@@ -88,17 +101,17 @@ class AggregationConfigSpec extends FlatSpec with Matchers {
   val sparkConf = new SparkConf()
 
   val emptyOptions = Table(
-    ("collation", "hint"),
-    (None, None),
-    (Some("{}"), Some("{}"))
+    ("collation", "hint", "allowDiskUse"),
+    (None, None, AggregationConfig.DEFAULT_ALLOW_DISK_USE),
+    (Some("{}"), Some("{}"), AggregationConfig.DEFAULT_ALLOW_DISK_USE)
   )
 
   val options = Table(
-    ("collation", "hint"),
-    (Collation.builder().collationAlternate(CollationAlternate.SHIFTED).caseLevel(true).numericOrdering(true).build(), BsonDocument.parse("{a: 1}")),
+    ("collation", "hint", "allowDiskUse"),
+    (Collation.builder().collationAlternate(CollationAlternate.SHIFTED).caseLevel(true).numericOrdering(true).build(), BsonDocument.parse("{a: 1}"), false),
     (Collation.builder().locale("en").caseLevel(true).collationCaseFirst(CollationCaseFirst.OFF)
       .collationStrength(CollationStrength.IDENTICAL).numericOrdering(true).collationAlternate(CollationAlternate.SHIFTED)
-      .collationMaxVariable(CollationMaxVariable.SPACE).backwards(true).normalization(true).build(), BsonDocument.parse("{a: 1, b: -1}"))
+      .collationMaxVariable(CollationMaxVariable.SPACE).backwards(true).normalization(true).build(), BsonDocument.parse("{a: 1, b: -1}"), false)
   )
 
 }
