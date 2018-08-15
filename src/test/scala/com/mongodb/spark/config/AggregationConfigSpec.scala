@@ -80,7 +80,7 @@ class AggregationConfigSpec extends FlatSpec with Matchers {
         val aggregationConfig = AggregationConfig().withOptions(AggregationConfig(collation, hint).asOptions)
         aggregationConfig.collation shouldBe None
         aggregationConfig.hint shouldBe None
-        aggregationConfig.allowDiskUse shouldBe AggregationConfig.DEFAULT_ALLOW_DISK_USE
+        aggregationConfig.allowDiskUse shouldBe AggregationConfig.defaultAllowDiskUse
         aggregationConfig.asOptions shouldBe empty
       }
     }
@@ -102,8 +102,8 @@ class AggregationConfigSpec extends FlatSpec with Matchers {
 
   val emptyOptions = Table(
     ("collation", "hint", "allowDiskUse"),
-    (None, None, AggregationConfig.DEFAULT_ALLOW_DISK_USE),
-    (Some("{}"), Some("{}"), AggregationConfig.DEFAULT_ALLOW_DISK_USE)
+    (None, None, AggregationConfig.defaultAllowDiskUse),
+    (Some("{}"), Some("{}"), AggregationConfig.defaultAllowDiskUse)
   )
 
   val options = Table(
