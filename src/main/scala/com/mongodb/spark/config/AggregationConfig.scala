@@ -23,7 +23,7 @@ import com.mongodb.spark.notNull
 import org.apache.spark.SparkConf
 import org.apache.spark.api.java.JavaSparkContext
 import org.apache.spark.sql.{SQLContext, SparkSession}
-import org.bson.{BsonDocument, BsonValue}
+import org.bson.{BsonArray, BsonDocument, BsonType, BsonValue}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -38,6 +38,7 @@ object AggregationConfig extends MongoInputConfig {
   private val defaultHint = new BsonDocument()
   private val defaultCollation = Collation.builder().build()
   private val defaultAllowDiskUse = true
+  private val defaultPipeline = List.empty[BsonDocument]
 
   override type Self = AggregationConfig
 
@@ -65,23 +66,58 @@ object AggregationConfig extends MongoInputConfig {
    * @return the Aggregation config
    */
   def apply(collation: Collation, hint: BsonDocument): AggregationConfig = {
-    apply(collation, hint, defaultAllowDiskUse)
+    apply(defaultPipeline, collation, hint)
   }
 
   /**
    * Creates a new Aggregation Config
    *
+   * @param pipeline the aggregation pipeline to use
+   * @return the Aggregation config
+   * @since 2.3.1
+   */
+  def apply(pipeline: List[BsonDocument]): AggregationConfig = apply(pipeline, defaultCollation)
+
+  /**
+   * Creates a new Aggregation Config
+   *
+   * @param pipeline the aggregation pipeline to use
+   * @param collation the collation to use
+   * @return the Aggregation config
+   *
+   * @since 2.3.1
+   */
+  def apply(pipeline: List[BsonDocument], collation: Collation): AggregationConfig = apply(pipeline, collation, defaultHint)
+
+  /**
+   * Creates a new Aggregation Config
+   *
+   * @param pipeline the aggregation pipeline to use
    * @param collation the collation to use
    * @param hint the hint to use
    * @return the Aggregation config
    *
    * @since 2.3.1
    */
-  def apply(collation: Collation, hint: BsonDocument, allowDiskUse: Boolean): AggregationConfig = {
+  def apply(pipeline: List[BsonDocument], collation: Collation, hint: BsonDocument): AggregationConfig =
+    apply(pipeline, collation, hint, defaultAllowDiskUse)
+
+  /**
+   * Creates a new Aggregation Config
+   *
+   * @param pipeline the aggregation pipeline to use
+   * @param collation the collation to use
+   * @param hint the hint to use
+   * @param allowDiskUse enables writing to temporary files
+   * @return the Aggregation config
+   *
+   * @since 2.3.1
+   */
+  def apply(pipeline: List[BsonDocument], collation: Collation, hint: BsonDocument, allowDiskUse: Boolean): AggregationConfig = {
     val collationOption = if (defaultCollation.equals(collation)) None else Some(collation.asDocument().toJson)
     val hintOption = if (defaultHint.equals(hint)) None else Some(hint.toJson())
-
-    new AggregationConfig(collationOption, hintOption, allowDiskUse)
+    val pipelineOption = if (pipeline.isEmpty) None else Some(pipeline.map(_.toJson).mkString("[", ",", "]"))
+    new AggregationConfig(collationOption, hintOption, pipelineOption, allowDiskUse)
   }
 
   override def apply(options: collection.Map[String, String], default: Option[AggregationConfig]): AggregationConfig = {
@@ -91,9 +127,10 @@ object AggregationConfig extends MongoInputConfig {
       val defaultAggregationConfig: AggregationConfig = default.getOrElse(AggregationConfig())
       val collationString = cleanedOptions.get(collationProperty).orElse(defaultAggregationConfig.collationString)
       val hintString = cleanedOptions.get(hintProperty).orElse(defaultAggregationConfig.hintString)
+      val pipelineString = cleanedOptions.get(pipelineProperty).orElse(defaultAggregationConfig.pipelineString)
       val allowDiskUse = getBoolean(cleanedOptions.get(allowDiskUseProperty), default.map(conf => conf.allowDiskUse), defaultAllowDiskUse)
 
-      new AggregationConfig(collationString, hintString, allowDiskUse)
+      new AggregationConfig(collationString, hintString, pipelineString, allowDiskUse)
     })
 
     require(aggregationConfig.isSuccess, s"Invalid Aggregation map $options:%n${aggregationConfig.failed.get}")
@@ -137,17 +174,68 @@ object AggregationConfig extends MongoInputConfig {
   /**
    * Creates a new Aggregation Config
    *
-   * @param collation the collation to use
-   * @param hint the hint to use
-   * @param allowDiskUse allow disk use
+   * @param pipeline the aggregation pipeline to use
+   *
    * @return the Aggregation config
    *
    * @since 2.3.1
    */
-  def create(collation: Collation, hint: BsonDocument, allowDiskUse: Boolean): AggregationConfig = {
+  def create(pipeline: util.List[BsonDocument]): AggregationConfig = {
+    notNull("pipeline", pipeline)
+    apply(pipeline.asScala.toList)
+  }
+
+  /**
+   * Creates a new Aggregation Config
+   *
+   * @param pipeline the aggregation pipeline to use
+   * @param collation the collation to use
+   *
+   * @return the Aggregation config
+   *
+   * @since 2.3.1
+   */
+  def create(pipeline: util.List[BsonDocument], collation: Collation): AggregationConfig = {
+    notNull("pipeline", pipeline)
+    notNull("collation", collation)
+    apply(pipeline.asScala.toList, collation)
+  }
+
+  /**
+   * Creates a new Aggregation Config
+   *
+   * @param pipeline the aggregation pipeline to use
+   * @param collation the collation to use
+   * @param hint the hint to use
+   *
+   * @return the Aggregation config
+   *
+   * @since 2.3.1
+   */
+  def create(pipeline: util.List[BsonDocument], collation: Collation, hint: BsonDocument): AggregationConfig = {
+    notNull("pipeline", pipeline)
     notNull("collation", collation)
     notNull("hint", hint)
-    apply(collation, hint, allowDiskUse)
+    apply(pipeline.asScala.toList, collation, hint)
+  }
+
+  /**
+   * Creates a new Aggregation Config
+   *
+   * @param pipeline the aggregation pipeline to use
+   * @param collation the collation to use
+   * @param hint the hint to use
+   * @param allowDiskUse enables writing to temporary files
+   * @return the Aggregation config
+   *
+   * @since 2.3.1
+   */
+  def create(pipeline: util.List[BsonDocument], collation: Collation, hint: BsonDocument, allowDiskUse: Boolean): AggregationConfig = {
+    notNull("pipeline", pipeline)
+    notNull("collation", collation)
+    notNull("hint", hint)
+    notNull("allowDiskUse", allowDiskUse)
+    apply(pipeline.asScala.toList, collation, hint, allowDiskUse)
   }
 
   override def create(sparkConf: SparkConf): AggregationConfig = {
@@ -194,15 +282,19 @@ object AggregationConfig extends MongoInputConfig {
  *
  * @param collationString the optional collation config
  * @param hintString the optional hint document in extended json format
+ * @param pipelineString the optional aggregation pipeline, either a list of documents in json syntax or a single document in json syntax
  * @param allowDiskUse enables writing to temporary files
  */
 case class AggregationConfig(
-  private val collationString: Option[String] = None,
-  private val hintString:      Option[String] = None,
-  allowDiskUse:                Boolean        = AggregationConfig.defaultAllowDiskUse
+    private val collationString: Option[String] = None,
+    private val hintString:      Option[String] = None,
+    private val pipelineString:  Option[String] = None,
+    allowDiskUse:                Boolean        = AggregationConfig.defaultAllowDiskUse
 ) extends MongoClassConfig {
   require(Try(hint).isSuccess, s"Invalid hint bson document")
   require(Try(collation).isSuccess, s"Invalid collation bson document")
+  require(Try(pipeline).isSuccess, s"""Invalid pipeline option: ${pipelineString.get}.
+       | It should be a list of pipeline stages (Documents) or a single pipeline stage (Document)""".stripMargin)
 
   type Self = AggregationConfig
 
@@ -210,6 +302,7 @@ case class AggregationConfig(
     val options: mutable.Map[String, String] = mutable.Map()
     collation.map(c => if (!c.equals(AggregationConfig.defaultCollation)) options += AggregationConfig.collationProperty -> collationString.get)
     hint.map(h => if (!h.equals(AggregationConfig.defaultHint)) options += AggregationConfig.hintProperty -> hintString.get)
+    pipeline.map(p => if (p.nonEmpty) options += AggregationConfig.pipelineProperty -> pipelineString.get)
     if (allowDiskUse != AggregationConfig.defaultAllowDiskUse) options += AggregationConfig.allowDiskUseProperty -> allowDiskUse.toString
     options.toMap
   }
@@ -235,9 +328,23 @@ case class AggregationConfig(
   @transient lazy val collation: Option[Collation] = collationString.map(createCollation)
 
   /**
+   * @return the pipeline option
+   */
+  @transient lazy val pipeline: Option[List[BsonDocument]] = {
+    pipelineString.map({ pipelineJson: String =>
+      BsonDocument.parse(s"{pipeline: $pipelineJson}").get("pipeline") match {
+        case seq: BsonArray if seq.isEmpty => List.empty[BsonDocument]
+        case seq: BsonArray if seq.get(0).getBsonType == BsonType.DOCUMENT => seq.asScala.toList.map(_.asDocument())
+        case doc: BsonDocument => List(doc)
+        case _ => throw new IllegalArgumentException("Invalid Bson Type")
+      }
+    })
+  }
+
+  /**
    * @return true if custom aggregation options have been defined.
    */
-  def isDefined: Boolean = collationString.isDefined || hintString.isDefined || !allowDiskUse
+  def isDefined: Boolean = pipelineString.isDefined || collationString.isDefined || hintString.isDefined || !allowDiskUse
 
   // scalastyle:off cyclomatic.complexity
   private def createCollation(collationString: String): Collation = {
