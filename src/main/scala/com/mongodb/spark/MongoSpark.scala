@@ -16,24 +16,26 @@
 
 package com.mongodb.spark
 
-import scala.collection.JavaConverters._
-import scala.reflect.ClassTag
-import scala.reflect.runtime.universe._
-import org.apache.spark.SparkContext
-import org.apache.spark.api.java.{JavaRDD, JavaSparkContext}
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{DataFrame, DataFrameReader, DataFrameWriter, Dataset, Encoders, SparkSession, SQLContext}
-import org.apache.spark.sql.types.StructType
-import org.bson.conversions.Bson
-import org.bson.{BsonDocument, Document}
+import com.mongodb.MongoClient
 import com.mongodb.client.MongoCollection
 import com.mongodb.client.model.{InsertOneModel, ReplaceOneModel, ReplaceOptions, UpdateOneModel, UpdateOptions}
 import com.mongodb.spark.DefaultHelper.DefaultsTo
-import com.mongodb.spark.config.{ReadConfig, WriteConfig}
+import com.mongodb.spark.config.{AggregationConfig, ReadConfig, WriteConfig}
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
 import com.mongodb.spark.sql.MapFunctions.rowToDocumentMapper
 import com.mongodb.spark.sql.{MongoInferSchema, helpers}
+import org.apache.spark.SparkContext
+import org.apache.spark.api.java.{JavaRDD, JavaSparkContext}
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, DataFrameReader, DataFrameWriter, Dataset, Encoders, SQLContext, SparkSession}
+import org.bson.conversions.Bson
+import org.bson.{BsonDocument, Document}
+
+import scala.collection.JavaConverters._
+import scala.reflect.ClassTag
+import scala.reflect.runtime.universe._
 
 /**
  * The MongoSpark helper allows easy creation of RDDs, DataFrames or Datasets from MongoDB.
@@ -225,14 +227,11 @@ object MongoSpark {
     def build(): MongoSpark = {
       require(sparkSession.isDefined, "The SparkSession must be set, either explicitly or via the SparkContext")
       val session = sparkSession.get
-      val readConf = readConfig.isDefined match {
-        case true  => ReadConfig(options, readConfig)
-        case false => ReadConfig(session.sparkContext.getConf, options)
-      }
-      val mongoConnector = connector.getOrElse(MongoConnector(readConf))
-      val bsonDocumentPipeline = pipeline.map(x => x.toBsonDocument(classOf[Document], mongoConnector.codecRegistry))
 
-      new MongoSpark(session, mongoConnector, readConf, bsonDocumentPipeline)
+      val mergedConf = if (readConfig.isDefined) ReadConfig(options, readConfig) else ReadConfig(session.sparkContext.getConf, options)
+      val readConf = if (pipeline.isEmpty) mergedConf else mergedConf.withPipeline(pipeline)
+      val mongoConnector = connector.getOrElse(MongoConnector(readConf))
+      new MongoSpark(session, mongoConnector, readConf)
     }
 
     /**
@@ -534,10 +533,10 @@ object MongoSpark {
  *
  * @since 1.0
  */
-case class MongoSpark(sparkSession: SparkSession, connector: MongoConnector, readConfig: ReadConfig, pipeline: Seq[BsonDocument]) {
+case class MongoSpark(sparkSession: SparkSession, connector: MongoConnector, readConfig: ReadConfig) {
 
   private def rdd[D: ClassTag]()(implicit e: D DefaultsTo Document): MongoRDD[D] =
-    new MongoRDD[D](sparkSession, sparkSession.sparkContext.broadcast(connector), readConfig, pipeline)
+    new MongoRDD[D](sparkSession, sparkSession.sparkContext.broadcast(connector), readConfig)
 
   if (readConfig.registerSQLHelperFunctions) {
     helpers.UDF.registerFunctions(sparkSession)
@@ -608,7 +607,6 @@ case class MongoSpark(sparkSession: SparkSession, connector: MongoConnector, rea
     sparkSession.read.format("com.mongodb.spark.sql")
       .schema(schema)
       .options(readConfig.asOptions)
-      .option("pipeline", pipeline.map(_.toJson).mkString("[", ",", "]"))
       .load()
   }
 
@@ -637,7 +635,6 @@ case class MongoSpark(sparkSession: SparkSession, connector: MongoConnector, rea
       .sparkSession(sparkSession)
       .connector(connector)
       .readConfig(readConfig)
-      .pipeline(pipeline)
       .build()
       .toRDD[BsonDocument]()
   }

@@ -47,7 +47,7 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
    * @return a MongoRelation
    */
   override def createRelation(sqlContext: SQLContext, parameters: Map[String, String]): BaseRelation =
-    createRelation(sqlContext, parameters, None)
+    constructRelation(sqlContext, parameters, None)
 
   /**
    * Create a `MongoRelation` based on the provided schema
@@ -58,24 +58,7 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
    * @return a MongoRelation
    */
   override def createRelation(sqlContext: SQLContext, parameters: Map[String, String], schema: StructType): BaseRelation =
-    createRelation(sqlContext, parameters, Some(schema))
-
-  private def createRelation(sqlContext: SQLContext, parameters: Map[String, String], structType: Option[StructType]): BaseRelation = {
-    val rdd = pipelinedRdd(
-      MongoSpark.builder()
-        .sparkSession(sqlContext.sparkSession)
-        .readConfig(ReadConfig(sqlContext.sparkContext.getConf, parameters))
-        .build()
-        .toRDD[BsonDocument](),
-      parameters.get("pipeline")
-    )
-
-    val schema: StructType = structType match {
-      case Some(s) => s
-      case None    => MongoInferSchema(rdd)
-    }
-    MongoRelation(rdd, Some(schema))(sqlContext)
-  }
+    constructRelation(sqlContext, parameters, Some(schema))
 
   override def createRelation(sqlContext: SQLContext, mode: SaveMode, parameters: Map[String, String], data: DataFrame): BaseRelation = {
     val writeConfig = WriteConfig(sqlContext.sparkContext.getConf, parameters)
@@ -99,23 +82,21 @@ class DefaultSource extends DataSourceRegister with RelationProvider with Schema
           MongoSpark.save(data, writeConfig)
         }
     }
-    createRelation(sqlContext, parameters ++ writeConfig.asOptions, Some(data.schema))
+    constructRelation(sqlContext, parameters ++ writeConfig.asOptions, Some(data.schema))
   }
 
-  private def pipelinedRdd[T](rdd: MongoRDD[T], pipelineJson: Option[String]): MongoRDD[T] = {
-    pipelineJson match {
-      case Some(json) =>
-        val pipeline: Seq[Bson] = BsonDocument.parse(s"{pipeline: $json}").get("pipeline") match {
-          case seq: BsonArray if seq.isEmpty => Seq[Bson]()
-          case seq: BsonArray if seq.get(0).getBsonType == BsonType.DOCUMENT => seq.getValues.asScala.asInstanceOf[Seq[Bson]]
-          case doc: BsonDocument => Seq(doc)
-          case _ => throw new IllegalArgumentException(
-            s"""Invalid pipeline option: $pipelineJson.
-               | It should be a list of pipeline stages (Documents) or a single pipeline stage (Document)""".stripMargin
-          )
-        }
-        rdd.withPipeline(pipeline)
-      case None => rdd
+  private def constructRelation(sqlContext: SQLContext, parameters: Map[String, String], structType: Option[StructType]): BaseRelation = {
+    val rdd = MongoSpark.builder()
+      .sparkSession(sqlContext.sparkSession)
+      .readConfig(ReadConfig(sqlContext.sparkContext.getConf, parameters))
+      .build()
+      .toRDD[BsonDocument]()
+
+    val schema: StructType = structType match {
+      case Some(s) => s
+      case None    => MongoInferSchema(rdd)
     }
+    MongoRelation(rdd, Some(schema))(sqlContext)
   }
+
 }
