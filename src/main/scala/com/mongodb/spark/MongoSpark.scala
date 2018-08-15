@@ -16,26 +16,10 @@
 
 package com.mongodb.spark
 
-<<<<<<< HEAD
-import scala.collection.JavaConverters._
-import scala.reflect.ClassTag
-import scala.reflect.runtime.universe._
-
-import org.apache.spark.SparkContext
-import org.apache.spark.api.java.{JavaRDD, JavaSparkContext}
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql._
-import org.apache.spark.sql.types.StructType
-
-import org.bson.conversions.Bson
-import org.bson.{BsonDocument, Document}
-=======
-import com.mongodb.MongoClient
->>>>>>> 0b20893... pipeline is now an official configuration and part of the AggregationConfig
 import com.mongodb.client.MongoCollection
 import com.mongodb.client.model.{InsertOneModel, ReplaceOneModel, UpdateOneModel, UpdateOptions}
 import com.mongodb.spark.DefaultHelper.DefaultsTo
-import com.mongodb.spark.config.{AggregationConfig, ReadConfig, WriteConfig}
+import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
 import com.mongodb.spark.sql.MapFunctions.rowToDocumentMapper
