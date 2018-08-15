@@ -26,6 +26,7 @@ import org.scalatest.{FlatSpec, Matchers}
 class AggregationConfigSpec extends FlatSpec with Matchers {
 
   "AggregationConfig" should "have the expected defaults" in {
+    AggregationConfig().pipeline shouldBe None
     AggregationConfig().collation shouldBe None
     AggregationConfig().hint shouldBe None
     AggregationConfig().allowDiskUse shouldBe true
@@ -33,9 +34,10 @@ class AggregationConfigSpec extends FlatSpec with Matchers {
   }
 
   it should "have the expected values" in {
-    forAll(options) { (collation: Collation, hint: BsonDocument, allowDiskUse: Boolean) =>
+    forAll(options) { (pipeline: List[BsonDocument], collation: Collation, hint: BsonDocument, allowDiskUse: Boolean) =>
       {
-        val config = AggregationConfig(collation, hint, allowDiskUse)
+        val config = AggregationConfig(pipeline, collation, hint, allowDiskUse)
+        config.pipeline should equal(Some(pipeline))
         config.collation should equal(Some(collation))
         config.hint should equal(Some(hint))
         config.allowDiskUse should equal(allowDiskUse)
@@ -45,16 +47,18 @@ class AggregationConfigSpec extends FlatSpec with Matchers {
 
   it should "be creatable from SparkConfig" in {
     val configPrefix = Table("prefix", ReadConfig.configPrefix, "")
-    forAll(options) { (collation: Collation, hint: BsonDocument, allowDiskUse: Boolean) =>
+    forAll(options) { (pipeline: List[BsonDocument], collation: Collation, hint: BsonDocument, allowDiskUse: Boolean) =>
       {
         val conf = sparkConf.clone()
 
         forAll(configPrefix) { prefix: String =>
+          conf.set(s"$prefix${ReadConfig.pipelineProperty}", pipeline.map(_.toJson).mkString("[", ",", "]"))
           conf.set(s"$prefix${ReadConfig.collationProperty}", collation.asDocument().toJson())
           conf.set(s"$prefix${ReadConfig.hintProperty}", hint.toJson)
           conf.set(s"$prefix${ReadConfig.allowDiskUseProperty}", allowDiskUse.toString)
 
           val config = AggregationConfig(conf)
+          config.pipeline.get should equal(pipeline)
           config.collation.get should equal(collation)
           config.hint.get should equal(hint)
           config.allowDiskUse should equal(allowDiskUse)
@@ -64,9 +68,10 @@ class AggregationConfigSpec extends FlatSpec with Matchers {
   }
 
   it should "roundtrip options" in {
-    forAll(options) { (collation: Collation, hint: BsonDocument, allowDiskUse: Boolean) =>
+    forAll(options) { (pipeline: List[BsonDocument], collation: Collation, hint: BsonDocument, allowDiskUse: Boolean) =>
       {
-        val config = AggregationConfig().withOptions(AggregationConfig(collation, hint, allowDiskUse).asOptions)
+        val config = AggregationConfig().withOptions(AggregationConfig(pipeline, collation, hint, allowDiskUse).asOptions)
+        config.pipeline.get should equal(pipeline)
         config.collation.get should equal(collation)
         config.hint.get should equal(hint)
         config.allowDiskUse should equal(allowDiskUse)
@@ -75,12 +80,13 @@ class AggregationConfigSpec extends FlatSpec with Matchers {
   }
 
   it should "ignore defaults or undefined collation / hints" in {
-    forAll(emptyOptions) { (collation: Option[String], hint: Option[String], allowDiskUse: Boolean) =>
+    forAll(emptyOptions) { (pipeline: Option[String], collation: Option[String], hint: Option[String], allowDiskUse: Boolean) =>
       {
-        val aggregationConfig = AggregationConfig().withOptions(AggregationConfig(collation, hint).asOptions)
+        val aggregationConfig = AggregationConfig().withOptions(AggregationConfig(collation, hint, pipeline).asOptions)
+        aggregationConfig.pipeline shouldBe None
         aggregationConfig.collation shouldBe None
         aggregationConfig.hint shouldBe None
-        aggregationConfig.allowDiskUse shouldBe AggregationConfig.defaultAllowDiskUse
+        aggregationConfig.allowDiskUse shouldBe true
         aggregationConfig.asOptions shouldBe empty
       }
     }
@@ -88,28 +94,32 @@ class AggregationConfigSpec extends FlatSpec with Matchers {
 
   it should "support isDefined" in {
     AggregationConfig().isDefined shouldBe false
-    AggregationConfig.apply(Collation.builder().locale("en").caseLevel(true).build()).isDefined shouldBe true
-    AggregationConfig.apply(BsonDocument.parse("{a: 1}")).isDefined shouldBe true
+    AggregationConfig(pipeline = List.empty[BsonDocument]).isDefined shouldBe false
+    AggregationConfig(Collation.builder().locale("en").caseLevel(true).build()).isDefined shouldBe true
+    AggregationConfig(hint = BsonDocument.parse("{a: 1}")).isDefined shouldBe true
     AggregationConfig(allowDiskUse = false).isDefined shouldBe true
+    AggregationConfig(pipeline = List(BsonDocument.parse("{}"))).isDefined shouldBe true
   }
 
   it should "validate values" in {
     an[IllegalArgumentException] should be thrownBy AggregationConfig(hintString = Some("madeUpValue"))
     an[IllegalArgumentException] should be thrownBy AggregationConfig(collationString = Some("madeUpValue"))
+    an[IllegalArgumentException] should be thrownBy AggregationConfig(pipelineString = Some("madeUpValue"))
   }
 
   val sparkConf = new SparkConf()
 
   val emptyOptions = Table(
-    ("collation", "hint", "allowDiskUse"),
-    (None, None, AggregationConfig.defaultAllowDiskUse),
-    (Some("{}"), Some("{}"), AggregationConfig.defaultAllowDiskUse)
+    ("pipeline", "collation", "hint", "allowDiskUse"),
+    (None, None, None, true),
+    (Some("[]"), Some("{}"), Some("{}"), true)
   )
 
   val options = Table(
-    ("collation", "hint", "allowDiskUse"),
-    (Collation.builder().collationAlternate(CollationAlternate.SHIFTED).caseLevel(true).numericOrdering(true).build(), BsonDocument.parse("{a: 1}"), false),
-    (Collation.builder().locale("en").caseLevel(true).collationCaseFirst(CollationCaseFirst.OFF)
+    ("pipeline", "collation", "hint", "allowDiskUse"),
+    (List(BsonDocument.parse("{$match: {a: 1}}")), Collation.builder().collationAlternate(CollationAlternate.SHIFTED).caseLevel(true)
+      .numericOrdering(true).build(), BsonDocument.parse("{a: 1}"), false),
+    (List(BsonDocument.parse("{$match: {a: 1}}")), Collation.builder().locale("en").caseLevel(true).collationCaseFirst(CollationCaseFirst.OFF)
       .collationStrength(CollationStrength.IDENTICAL).numericOrdering(true).collationAlternate(CollationAlternate.SHIFTED)
       .collationMaxVariable(CollationMaxVariable.SPACE).backwards(true).normalization(true).build(), BsonDocument.parse("{a: 1, b: -1}"), false)
   )

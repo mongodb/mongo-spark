@@ -19,18 +19,18 @@ package com.mongodb.spark.config
 import java.util
 
 import com.mongodb.client.model.Collation
-
-import scala.collection.JavaConverters._
-import scala.util.Try
+import com.mongodb.spark.rdd.partitioner.{DefaultMongoPartitioner, MongoPartitioner}
+import com.mongodb.spark.{LoggingTrait, notNull}
+import com.mongodb.{ConnectionString, MongoClient, ReadConcern, ReadPreference}
 import org.apache.spark.SparkConf
 import org.apache.spark.api.java.JavaSparkContext
 import org.apache.spark.sql.{SQLContext, SparkSession}
-import com.mongodb.spark.rdd.partitioner.{DefaultMongoPartitioner, MongoPartitioner}
-import com.mongodb.spark.{LoggingTrait, notNull}
-import com.mongodb.{ConnectionString, ReadConcern, ReadPreference}
 import org.bson.BsonDocument
+import org.bson.conversions.Bson
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable
+import scala.util.Try
 
 /**
  * The `ReadConfig` companion object
@@ -436,4 +436,24 @@ case class ReadConfig(
    * @return the ReadConcern
    */
   def readConcern: ReadConcern = readConcernConfig.readConcern
+
+  /**
+   * Returns a copy with the specified aggregation pipeline applied to the aggregation config
+   *
+   * @param pipeline the aggregation pipeline to use
+   * @return the updated Read Config
+   */
+  def withPipeline[B <: Bson](pipeline: Seq[B]): ReadConfig = {
+    val pipelineString = if (pipeline.isEmpty) {
+      None
+    } else {
+      Some(pipeline.map(x => x.toBsonDocument(classOf[BsonDocument], MongoClient.getDefaultCodecRegistry).toJson()).mkString("[", ",", "]"))
+    }
+    copy(aggregationConfig = aggregationConfig.copy(pipelineString = pipelineString))
+  }
+
+  /**
+   * @return the aggregation pipeline to use from the aggregation config or an empty list
+   */
+  def pipeline: List[BsonDocument] = aggregationConfig.pipeline.getOrElse(List.empty[BsonDocument])
 }

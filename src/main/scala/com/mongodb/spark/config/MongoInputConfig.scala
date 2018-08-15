@@ -45,8 +45,11 @@ package com.mongodb.spark.config
  *  - [[inferSchemaMapTypeEnabledProperty sql.inferschema.mapTypes.enabled]], enable schema inference of MapTypes.
  *  - [[inferSchemaMapTypeMinimumKeysProperty sql.inferschema.mapTypes.minimumKeys]], the minimum number of keys of how large a struct must be before a MapType
  *    should be inferred.
- *  - [[pipelineIncludeNullFilters sql.pipeline.includeNullFilters]], include null filters in the aggregation pipeline
- *  - [[pipelineIncludeFiltersAndProjections sql.pipeline.includeFiltersAndProjections]], include any filters and projections in the aggregation pipeline
+ *  - [[pipelineIncludeNullFiltersProperty sql.pipeline.includeNullFilters]], include null filters in the aggregation pipeline
+ *  - [[pipelineIncludeFiltersAndProjectionsProperty sql.pipeline.includeFiltersAndProjections]], include any filters and projections in
+ *    the aggregation pipeline
+ *  - [[pipelineProperty pipeline]], enables custom aggregation pipelines to applied to the collection before sending to Spark
+ *  - [[allowDiskUseProperty allowDiskUse]], enables writing to temporary files during aggregation in MongoDB.
  */
 trait MongoInputConfig extends MongoCompanionConfig {
 
@@ -191,6 +194,24 @@ trait MongoInputConfig extends MongoCompanionConfig {
    * @since 2.3
    */
   val hintProperty: String = "hint".toLowerCase
+
+  /**
+   * The pipeline property
+   *
+   * Enables custom aggregation pipelines to applied to the collection before sending to Spark.
+   * When configuring this should either be an extended json representation of a list of documents:
+   *
+   * ```"""[{"\$match": {"closed": false}}, {"\$project": {"status": 1, "name": 1, "description": 1}}]"""```
+   *
+   * Or the extended json syntax of a single document:
+   *
+   * ```"""{"\$match": {"closed": false}}"""```
+   *
+   * '''Note:''' Custom aggregation pipelines must work with the partitioner strategy. Some stages such as `\$group` may not work as expected.
+   *
+   * @since 2.3.1
+   */
+  val pipelineProperty: String = "pipeline".toLowerCase
 
   /**
    * The allow disk use property

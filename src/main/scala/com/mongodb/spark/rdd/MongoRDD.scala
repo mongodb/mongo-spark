@@ -42,20 +42,18 @@ import scala.collection.Iterator
  *
  * @param connector the [[com.mongodb.spark.MongoConnector]]
  * @param readConfig the [[com.mongodb.spark.config.ReadConfig]]
- * @param pipeline aggregate pipeline
  * @tparam D the type of the collection documents
  */
 class MongoRDD[D: ClassTag](
     @transient val sparkSession:   SparkSession,
     private[spark] val connector:  Broadcast[MongoConnector],
-    private[spark] val readConfig: ReadConfig,
-    private[spark] val pipeline:   Seq[BsonDocument]
+    private[spark] val readConfig: ReadConfig
 ) extends RDD[D](sparkSession.sparkContext, Nil) {
 
   @transient val sc: SparkContext = sparkSession.sparkContext
   private def mongoSpark = {
     checkSparkContext()
-    MongoSpark(sparkSession, connector.value, readConfig, pipeline)
+    MongoSpark(sparkSession, connector.value, readConfig)
   }
 
   override def toJavaRDD(): JavaMongoRDD[D] = JavaMongoRDD(this)
@@ -114,44 +112,42 @@ class MongoRDD[D: ClassTag](
    * @param pipeline the aggregation pipeline to use
    * @return the updated MongoRDD
    */
-  def withPipeline[B <: Bson](pipeline: Seq[B]): MongoRDD[D] = copy(pipeline = pipeline)
+  def withPipeline[B <: Bson](pipeline: Seq[B]): MongoRDD[D] = copy(readConfig = readConfig.withPipeline(pipeline))
 
   /**
    * Allows to copying of this RDD with changing some of the properties
    */
   def copy(
     connector:  Broadcast[MongoConnector] = connector,
-    readConfig: ReadConfig                = readConfig,
-    pipeline:   Seq[Bson]                 = pipeline
+    readConfig: ReadConfig                = readConfig
   ): MongoRDD[D] = {
     checkSparkContext()
     new MongoRDD[D](
       sparkSession = sparkSession,
       connector = connector,
-      readConfig = readConfig,
-      pipeline = pipeline.map(x => x.toBsonDocument(classOf[Document], connector.value.codecRegistry)) // Convert to serializable BsonDocuments
+      readConfig = readConfig
     )
   }
 
   override protected def getPartitions: Array[Partition] = {
     checkSparkContext()
     try {
-      readConfig.partitioner.partitions(connector.value, readConfig, pipeline.toArray).asInstanceOf[Array[Partition]]
+      readConfig.partitioner.partitions(connector.value, readConfig, readConfig.pipeline.toArray).asInstanceOf[Array[Partition]]
     } catch {
       case t: Throwable =>
         logError(
           s"""
-            |-----------------------------
-            |WARNING: Partitioning failed.
-            |-----------------------------
-            |
+             |-----------------------------
+             |WARNING: Partitioning failed.
+             |-----------------------------
+             |
             |Partitioning using the '${readConfig.partitioner.getClass.getSimpleName}' failed.
-            |
+             |
             |Please check the stacktrace to determine the cause of the failure or check the Partitioner API documentation.
-            |Note: Not all partitioners are suitable for all toplogies and not all partitioners support views.%n
-            |
+             |Note: Not all partitioners are suitable for all toplogies and not all partitioners support views.%n
+             |
             |-----------------------------
-            |""".stripMargin
+             |""".stripMargin
         )
         throw t
     }
@@ -176,9 +172,9 @@ class MongoRDD[D: ClassTag](
    */
   private def getCursor(client: MongoClient, partition: MongoPartition)(implicit ct: ClassTag[D]): MongoCursor[D] = {
     val partitionPipeline: Seq[BsonDocument] = if (partition.queryBounds.isEmpty) {
-      pipeline
+      readConfig.pipeline
     } else {
-      new BsonDocument("$match", partition.queryBounds) +: pipeline
+      new BsonDocument("$match", partition.queryBounds) +: readConfig.pipeline
     }
 
     val aggregateIterable: AggregateIterable[D] = client.getDatabase(readConfig.databaseName)
@@ -220,5 +216,5 @@ class MongoRDD[D: ClassTag](
 
   private[spark] lazy val hasSampleAggregateOperator: Boolean = connector.value.hasSampleAggregateOperator(readConfig)
 
-  private[spark] def appendPipeline[B <: Bson](extraPipeline: Seq[B]): MongoRDD[D] = withPipeline(pipeline ++ extraPipeline)
+  private[spark] def appendPipeline[B <: Bson](extraPipeline: Seq[B]): MongoRDD[D] = withPipeline(readConfig.pipeline ++ extraPipeline)
 }

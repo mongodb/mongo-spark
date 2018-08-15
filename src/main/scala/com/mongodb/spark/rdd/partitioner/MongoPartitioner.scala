@@ -38,6 +38,7 @@ trait MongoPartitioner extends Logging with Serializable {
    *
    * @param connector the MongoConnector
    * @param readConfig the [[com.mongodb.spark.config.ReadConfig]]
+   * @param pipeline the pipeline to apply if any. Note this pipeline may have been appended to during optimization.
    * @return the partitions
    */
   def partitions(connector: MongoConnector, readConfig: ReadConfig, pipeline: Array[BsonDocument]): Array[MongoPartition]
