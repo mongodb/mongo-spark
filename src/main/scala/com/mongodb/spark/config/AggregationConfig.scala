@@ -35,9 +35,9 @@ import scala.util.Try
  * @since 2.3
  */
 object AggregationConfig extends MongoInputConfig {
-  private[spark] val DEFAULT_HINT = new BsonDocument()
-  private[spark] val DEFAULT_COLLATION = Collation.builder().build()
-  private[spark] val DEFAULT_ALLOW_DISK_USE = true
+  private val defaultHint = new BsonDocument()
+  private val defaultCollation = Collation.builder().build()
+  private val defaultAllowDiskUse = true
 
   override type Self = AggregationConfig
 
@@ -47,7 +47,7 @@ object AggregationConfig extends MongoInputConfig {
    * @param collation the collation to use
    * @return the Aggregation config
    */
-  def apply(collation: Collation): AggregationConfig = apply(collation, DEFAULT_HINT)
+  def apply(collation: Collation): AggregationConfig = apply(collation, defaultHint)
 
   /**
    * Creates a new Aggregation Config
@@ -55,7 +55,7 @@ object AggregationConfig extends MongoInputConfig {
    * @param hint the hint to use
    * @return the Aggregation config
    */
-  def apply(hint: BsonDocument): AggregationConfig = apply(DEFAULT_COLLATION, hint)
+  def apply(hint: BsonDocument): AggregationConfig = apply(defaultCollation, hint)
 
   /**
    * Creates a new Aggregation Config
@@ -65,7 +65,7 @@ object AggregationConfig extends MongoInputConfig {
    * @return the Aggregation config
    */
   def apply(collation: Collation, hint: BsonDocument): AggregationConfig = {
-    apply(collation, hint, DEFAULT_ALLOW_DISK_USE)
+    apply(collation, hint, defaultAllowDiskUse)
   }
 
   /**
@@ -78,8 +78,8 @@ object AggregationConfig extends MongoInputConfig {
    * @since 2.3.1
    */
   def apply(collation: Collation, hint: BsonDocument, allowDiskUse: Boolean): AggregationConfig = {
-    val collationOption = if (DEFAULT_COLLATION.equals(collation)) None else Some(collation.asDocument().toJson)
-    val hintOption = if (DEFAULT_HINT.equals(hint)) None else Some(hint.toJson())
+    val collationOption = if (defaultCollation.equals(collation)) None else Some(collation.asDocument().toJson)
+    val hintOption = if (defaultHint.equals(hint)) None else Some(hint.toJson())
 
     new AggregationConfig(collationOption, hintOption, allowDiskUse)
   }
@@ -91,7 +91,7 @@ object AggregationConfig extends MongoInputConfig {
       val defaultAggregationConfig: AggregationConfig = default.getOrElse(AggregationConfig())
       val collationString = cleanedOptions.get(collationProperty).orElse(defaultAggregationConfig.collationString)
       val hintString = cleanedOptions.get(hintProperty).orElse(defaultAggregationConfig.hintString)
-      val allowDiskUse = getBoolean(cleanedOptions.get(allowDiskUseProperty), default.map(conf => conf.allowDiskUse), DEFAULT_ALLOW_DISK_USE)
+      val allowDiskUse = getBoolean(cleanedOptions.get(allowDiskUseProperty), default.map(conf => conf.allowDiskUse), defaultAllowDiskUse)
 
       new AggregationConfig(collationString, hintString, allowDiskUse)
     })
@@ -199,7 +199,7 @@ object AggregationConfig extends MongoInputConfig {
 case class AggregationConfig(
   private val collationString: Option[String] = None,
   private val hintString:      Option[String] = None,
-  allowDiskUse:                Boolean        = AggregationConfig.DEFAULT_ALLOW_DISK_USE
+  allowDiskUse:                Boolean        = AggregationConfig.defaultAllowDiskUse
 ) extends MongoClassConfig {
   require(Try(hint).isSuccess, s"Invalid hint bson document")
   require(Try(collation).isSuccess, s"Invalid collation bson document")
@@ -208,9 +208,9 @@ case class AggregationConfig(
 
   override def asOptions: collection.Map[String, String] = {
     val options: mutable.Map[String, String] = mutable.Map()
-    collation.map(c => if (!c.equals(AggregationConfig.DEFAULT_COLLATION)) options += AggregationConfig.collationProperty -> collationString.get)
-    hint.map(h => if (!h.equals(AggregationConfig.DEFAULT_HINT)) options += AggregationConfig.hintProperty -> hintString.get)
-    if (allowDiskUse != AggregationConfig.DEFAULT_ALLOW_DISK_USE) options += AggregationConfig.allowDiskUseProperty -> allowDiskUse.toString
+    collation.map(c => if (!c.equals(AggregationConfig.defaultCollation)) options += AggregationConfig.collationProperty -> collationString.get)
+    hint.map(h => if (!h.equals(AggregationConfig.defaultHint)) options += AggregationConfig.hintProperty -> hintString.get)
+    if (allowDiskUse != AggregationConfig.defaultAllowDiskUse) options += AggregationConfig.allowDiskUseProperty -> allowDiskUse.toString
     options.toMap
   }
 
