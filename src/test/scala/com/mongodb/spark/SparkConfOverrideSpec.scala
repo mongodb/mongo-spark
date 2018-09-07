@@ -16,12 +16,11 @@
 
 package com.mongodb.spark
 
-import org.apache.spark.sql.SparkSession
-import org.apache.spark.{SparkConf, SparkContext}
-
-import org.bson.Document
 import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.sql.{Character, _}
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.{SparkConf, SparkContext}
+import org.bson.Document
 
 class SparkConfOverrideSpec extends RequiresMongoDB {
 
@@ -63,15 +62,7 @@ class SparkConfOverrideSpec extends RequiresMongoDB {
   val conf: SparkConf = new SparkConf().setMaster("local").setAppName("MongoSparkConnector")
     .set("spark.mongodb.input.uri", "mongodb://example.com/test.test")
     .set("spark.mongodb.output.uri", "mongodb://example.com/test.test")
-  val sc: SparkContext = new SparkContext(conf)
-
-  override def beforeEach(): Unit = {
-  }
-
-  override def afterAll() {
-    super.afterAll()
-    sc.stop()
-  }
+  val sc: SparkContext = sparkContext(conf)
 
 }
 

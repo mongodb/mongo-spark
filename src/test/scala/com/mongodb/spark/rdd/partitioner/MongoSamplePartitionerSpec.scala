@@ -80,7 +80,7 @@ class MongoSamplePartitionerSpec extends RequiresMongoDB {
     partitions should equal(expectedPartitions)
   }
 
-  it should "use the users pipeline when set in a rdd / dataframe" in {
+  it should "use the users pipeline when set in a rdd / dataframe" in withSparkSession() { spark =>
     if (!serverAtLeast(3, 2)) cancel("MongoDB < 3.2")
     val numberOfDocuments = 10000
     loadSampleData(10, numberOfDocuments)
@@ -88,16 +88,15 @@ class MongoSamplePartitionerSpec extends RequiresMongoDB {
     val readConf = readConfig.copy(partitioner = MongoSamplePartitioner, partitionerOptions = Map("partitionSizeMB" -> "1"))
     val rangePipeline = BsonDocument.parse(s"""{$$match: { $partitionKey: {$$gte: "00001", $$lt: "00031"}}}""")
 
-    val sparkSession = SparkSession.builder().getOrCreate()
-    val rdd = MongoSpark.load(sparkSession.sparkContext, readConf).withPipeline(Seq(rangePipeline))
+    val rdd = MongoSpark.load(spark.sparkContext, readConf).withPipeline(Seq(rangePipeline))
     rdd.count() should equal(30)
     rdd.partitions.length should equal(1)
 
-    val df = MongoSpark.load(sparkSession, readConf).filter(s"""$partitionKey < "02041"""")
+    val df = MongoSpark.load(spark, readConf).filter(s"""$partitionKey < "02041"""")
     df.count() should equal(2040)
     df.rdd.partitions.length should equal(3)
 
-    val df2 = MongoSpark.load(sparkSession, readConf).filter(s"""$partitionKey >= "00000"""")
+    val df2 = MongoSpark.load(spark, readConf).filter(s"""$partitionKey >= "00000"""")
     df2.count() should equal(numberOfDocuments)
   }
   // scalastyle:on magic.number

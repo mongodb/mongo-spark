@@ -40,6 +40,7 @@ class DefaultMongoClientFactorySpec extends RequiresMongoDB {
     val client = DefaultMongoClientFactory(ReadConfig(conf).asOptions).create()
 
     client.getMongoClientOptions.getLocalThreshold should equal(0)
+    client.close()
   }
 
   it should "validate the connection string" in {

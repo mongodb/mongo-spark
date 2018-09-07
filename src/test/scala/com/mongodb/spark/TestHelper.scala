@@ -16,28 +16,51 @@
 
 package com.mongodb.spark
 
+import com.mongodb.client.model.{UpdateOptions, Updates}
+import com.mongodb.client.{MongoCollection, MongoDatabase}
+import com.mongodb.{MongoClient, MongoClientURI, ReadPreference}
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.{SparkConf, SparkContext}
+import org.bson.{BsonDocument, BsonString, Document}
+
 import scala.collection.JavaConverters._
 import scala.collection.immutable.IndexedSeq
 import scala.io.Source
 import scala.util._
-import org.apache.spark.SparkConf
-import org.bson.{BsonDocument, BsonString, Document}
-import com.mongodb.client.model.{UpdateOptions, Updates}
-import com.mongodb.client.{MongoCollection, MongoDatabase}
-import com.mongodb.{Block, MongoClient, MongoClientURI, ReadPreference}
 
-object MongoDBDefaults {
-  def apply(): MongoDBDefaults = new MongoDBDefaults()
+object TestHelper {
+  def apply(): TestHelper = new TestHelper()
+
+  private var _sparkContext: Option[SparkContext] = None
+  private var customConf: Boolean = false
+
+  def getOrCreateSparkContext(sparkConf: SparkConf, requiredCustomConf: Boolean): SparkContext = synchronized {
+    if (customConf != requiredCustomConf) resetSparkContext()
+    customConf = requiredCustomConf
+    _sparkContext.getOrElse({
+      val sc = new SparkContext(sparkConf)
+      _sparkContext = Some(sc)
+      sc
+    })
+  }
+
+  def resetSparkContext(): Unit = {
+    _sparkContext.foreach { sc => sc.stop() }
+    SparkSession.clearActiveSession()
+    SparkSession.clearDefaultSession()
+    _sparkContext = None
+  }
+
 }
 
-class MongoDBDefaults extends Logging {
+class TestHelper extends Logging {
   val DEFAULT_URI: String = "mongodb://localhost:27017/"
   val MONGODB_URI_SYSTEM_PROPERTY_NAME: String = "org.mongodb.test.uri"
-  val DATABASE_NAME = "mongo-spark-connector-test"
+  val DATABASE_NAME: String = "mongo-spark-connector-test"
 
-  val mongoClientURI = Properties.propOrElse(MONGODB_URI_SYSTEM_PROPERTY_NAME, DEFAULT_URI)
+  val mongoClientURI: String = Properties.propOrElse(MONGODB_URI_SYSTEM_PROPERTY_NAME, DEFAULT_URI)
 
-  lazy val mongoClient = new MongoClient(new MongoClientURI(mongoClientURI))
+  lazy val mongoClient: MongoClient = new MongoClient(new MongoClientURI(mongoClientURI))
 
   def getMongoClientURI: String = mongoClientURI
   def getMongoClient(): MongoClient = mongoClient
@@ -58,7 +81,8 @@ class MongoDBDefaults extends Logging {
       .set("spark.mongodb.output.collection", collectionName)
   }
 
-  def isMongoDBOnline(): Boolean = Try(mongoClient.listDatabaseNames()).isSuccess
+  def isMongoDBOnline(): Boolean = _isMongoDBOnline
+  private lazy val _isMongoDBOnline = Try(mongoClient.listDatabaseNames()).isSuccess
 
   def dropDB(): Unit = {
     if (isMongoDBOnline()) {
@@ -141,10 +165,4 @@ class MongoDBDefaults extends Logging {
   lazy val adminDB: MongoDatabase = mongoClient.getDatabase("admin")
   lazy val configDB: MongoDatabase = mongoClient.getDatabase("config")
 
-  Runtime.getRuntime.addShutdownHook(new ShutdownHook())
-  private[mongodb] class ShutdownHook extends Thread {
-    override def run() {
-      Try(mongoClient.getDatabase(DATABASE_NAME).drop())
-    }
-  }
 }
