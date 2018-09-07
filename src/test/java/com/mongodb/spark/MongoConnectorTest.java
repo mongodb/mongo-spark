@@ -104,5 +104,4 @@ public final class MongoConnectorTest extends JavaRequiresMongoDB {
             return proxy.hashCode();
         }
     }
-
 }

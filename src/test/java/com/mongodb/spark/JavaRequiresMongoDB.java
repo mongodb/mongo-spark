@@ -27,60 +27,61 @@ import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.types.StructType;
 import org.bson.Document;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
 
 import java.io.Serializable;
+import java.lang.invoke.MethodHandles;
 
 import static org.junit.Assume.assumeTrue;
 
 public abstract class JavaRequiresMongoDB implements Serializable {
 
-    private transient JavaSparkContext jsc;
+    private static final TestHelper testHelper = new TestHelper();
+    private static boolean customConf;
 
-    private static final MongoDBDefaults mongoDBDefaults = new MongoDBDefaults();
-
-    public String getMongoClientURI() {
-        return mongoDBDefaults.getMongoClientURI();
+    public static String getMongoClientURI() {
+        return testHelper.getMongoClientURI();
     }
 
-    public MongoClient getMongoClient() {
-        return mongoDBDefaults.getMongoClient();
+    public static MongoClient getMongoClient() {
+        return testHelper.getMongoClient();
     }
 
-    public MongoDatabase getDatabase() {
-        return getMongoClient().getDatabase(mongoDBDefaults.DATABASE_NAME());
+    public static MongoDatabase getDatabase() {
+        return getMongoClient().getDatabase(testHelper.DATABASE_NAME());
     }
 
-    public MongoCollection<Document> getCollection() {
+    public static MongoCollection<Document> getCollection() {
         return getDatabase().getCollection(getCollectionName());
     }
 
-    public SparkConf getSparkConf() {
+    public static SparkConf getSparkConf() {
         return getSparkConf(getCollectionName());
     }
 
-    public SparkConf getSparkConf(final String collectionName) {
-        return mongoDBDefaults.getSparkConf(collectionName);
+    public static SparkConf getSparkConf(final String collectionName) {
+        return testHelper.getSparkConf(collectionName);
     }
 
-    public JavaSparkContext getJavaSparkContext() {
-        if (jsc != null) {
-            jsc.stop();
-        }
-        jsc = new JavaSparkContext(getSparkSession().sparkContext());
-        return jsc;
-    }
-
-    public SparkSession getSparkSession() {
+    public static SparkSession getSparkSession() {
         return SparkSession.builder().config(getSparkConf()).getOrCreate();
     }
 
-    public String getDatabaseName() {
-        return mongoDBDefaults.DATABASE_NAME();
+    public static String getDatabaseName() {
+        return testHelper.DATABASE_NAME();
     }
 
-    public String getCollectionName() {
-        return this.getClass().getName();
+    public static String getCollectionName() {
+        return MethodHandles.lookup().lookupClass().getSimpleName();
+    }
+
+    public static JavaSparkContext getJavaSparkContext() {
+        return new JavaSparkContext(TestHelper.getOrCreateSparkContext(getSparkConf(), false));
+    }
+
+    public static JavaSparkContext getJavaSparkContext(final SparkConf sparkConf) {
+        return new JavaSparkContext(TestHelper.getOrCreateSparkContext(sparkConf, true));
     }
 
     public StructType ObjectIdStruct() {
@@ -96,17 +97,18 @@ public abstract class JavaRequiresMongoDB implements Serializable {
 
     @Before
     public void setUp() {
-        assumeTrue(mongoDBDefaults.isMongoDBOnline());
-        mongoDBDefaults.dropDB();
-        jsc = null;
+        assumeTrue(testHelper.isMongoDBOnline());
+        testHelper.dropDB();
     }
 
     @After
     public void tearDown() {
-        mongoDBDefaults.dropDB();
-        if (jsc != null) {
-            jsc.stop();
-            jsc = null;
-        }
+        testHelper.dropDB();
+    }
+
+    @AfterClass
+    public static void afterClass() {
+        TestHelper.resetSparkContext();
+        testHelper.dropDB();
     }
 }
