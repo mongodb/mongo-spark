@@ -16,13 +16,12 @@
 
 package com.mongodb.spark.sql
 
-import scala.reflect.runtime.universe._
-
 import com.mongodb.spark.LoggingTrait
+import com.mongodb.spark.config.ReadConfig
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, DataFrameReader}
 
-import com.mongodb.spark.config.ReadConfig
+import scala.reflect.runtime.universe._
 
 private[spark] case class MongoDataFrameReaderFunctions(@transient dfr: DataFrameReader) extends LoggingTrait {
 

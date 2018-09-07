@@ -16,11 +16,11 @@
 
 package com.mongodb.spark.sql
 
-import scala.language.existentials
+import com.mongodb.spark.config.WriteConfig
 import com.mongodb.spark.{LoggingTrait, MongoSpark}
 import org.apache.spark.sql.DataFrameWriter
 
-import com.mongodb.spark.config.WriteConfig
+import scala.language.existentials
 
 private[spark] case class MongoDataFrameWriterFunctions(@transient dfw: DataFrameWriter[_]) extends LoggingTrait {
 

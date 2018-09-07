@@ -16,10 +16,9 @@
 
 package com.mongodb.spark.sql
 
-import org.apache.spark.sql.Dataset
-
 import com.mongodb.spark.config.WriteConfig
 import com.mongodb.spark.{LoggingTrait, MongoSpark}
+import org.apache.spark.sql.Dataset
 
 private[spark] case class MongoDataFrameFunctions[T](@transient df: Dataset[T]) extends LoggingTrait {
 

@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-package com.mongodb.spark.sql
+package com.mongodb.spark.sql.v2
 
-class DataFrameReaderSpec extends ReadSupportSpecBase {
-  override val defaultSource: String = "com.mongodb.spark.sql.DefaultSource"
-  override val defaultSourceV2: Boolean = false
+import com.mongodb.spark.sql.ReadSupportSpecBase
+
+class ReadSupportSpec extends ReadSupportSpecBase {
+  override val defaultSource: String = "com.mongodb.spark.sql.v2.DefaultSource"
+  override val defaultSourceV2: Boolean = true
 }
