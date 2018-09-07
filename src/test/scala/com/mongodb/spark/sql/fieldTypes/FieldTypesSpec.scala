@@ -64,15 +64,15 @@ class FieldTypesSpec extends RequiresMongoDB {
     copied should equal(original)
   }
 
-  it should "be able to create a dataset based on a case class representing complex bson types" in withSparkContext() { sc =>
+  it should "be able to create a dataset based on a case class representing complex bson types" in withSparkSession() { spark =>
     database.getCollection(collectionName, classOf[BsonDocument]).insertOne(bsonDocument)
-    val expected = new BsonTypesCaseClass(ObjectId(bsonObjectId.getValue), Binary(bsonBinary.getType, bsonBinary.getData),
+    val expected = BsonTypesCaseClass(ObjectId(bsonObjectId.getValue), Binary(bsonBinary.getType, bsonBinary.getData),
       DbPointer(bsonDbPointer.getNamespace, bsonDbPointer.getId), JavaScript(bsonJavaScript.getCode),
       JavaScriptWithScope(bsonJavaScriptWithScope.getCode, bsonJavaScriptWithScope.getScope), MinKey(), MaxKey(),
       RegularExpression(bsonRegularExpression.getPattern, bsonRegularExpression.getOptions), Symbol(bsonSymbol.getSymbol),
       Timestamp(bsonTimestamp.getTime, bsonTimestamp.getInc), Undefined())
 
-    sc.loadFromMongoDB().toDS[BsonTypesCaseClass]().first() should equal(expected)
+    spark.sparkContext.loadFromMongoDB().toDS[BsonTypesCaseClass]().first() should equal(expected)
   }
 
   it should "be able to create a Regular Expression from a Pattern" in {

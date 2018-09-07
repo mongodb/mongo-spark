@@ -21,13 +21,11 @@ import com.mongodb.spark.config.WriteConfig;
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD;
 import com.mongodb.spark.sql.CharacterBean;
 import org.apache.spark.SparkConf;
-import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.SparkSession;
 import org.bson.Document;
-import org.junit.After;
 import org.junit.Test;
 
 import java.util.HashMap;
@@ -40,14 +38,14 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 
 public final class NoSparkConfTest extends JavaRequiresMongoDB {
-    private transient JavaSparkContext jsc;
+    private final SparkConf sparkConf = new SparkConf().setMaster("local").setAppName("MongoSparkConnector");
 
     @Test
     public void shouldBeAbleToUseConfigsWithRDDs() {
         WriteConfig writeConfig = WriteConfig.create(getOptions());
         ReadConfig readConfig = ReadConfig.create(getOptions());
 
-        JavaSparkContext jsc = getJavaSparkContext();
+        JavaSparkContext jsc = getJavaSparkContext(sparkConf);
         List<Document> documents = asList(Document.parse("{test: 0}"), Document.parse("{test: 1}"), Document.parse("{test: 2}"));
 
         MongoSpark.save(jsc.parallelize(documents), writeConfig);
@@ -66,7 +64,7 @@ public final class NoSparkConfTest extends JavaRequiresMongoDB {
 
     @Test
     public void shouldBeAbleToUseConfigsWithDataFrames() {
-        JavaSparkContext jsc = getJavaSparkContext();
+        JavaSparkContext jsc = getJavaSparkContext(sparkConf);
         SparkSession sparkSession = SparkSession.builder().getOrCreate();
         List<CharacterBean> characters = asList(new CharacterBean("Gandalf", 1000), new CharacterBean("Bilbo Baggins", 50));
 
@@ -90,22 +88,5 @@ public final class NoSparkConfTest extends JavaRequiresMongoDB {
         options.put("collection", getCollectionName());
         options.put("partitioner", "TestPartitioner$");
         return options;
-    }
-
-    @Override
-    public JavaSparkContext getJavaSparkContext() {
-        if (jsc != null) {
-            jsc.stop();
-        }
-        jsc = new JavaSparkContext(new SparkContext(new SparkConf().setMaster("local").setAppName("MongoSparkConnector")));
-        return jsc;
-    }
-
-    @After
-    public void tearDown() {
-        if (jsc != null) {
-            jsc.stop();
-            jsc = null;
-        }
     }
 }

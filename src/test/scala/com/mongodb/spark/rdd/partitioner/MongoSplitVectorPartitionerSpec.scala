@@ -60,33 +60,32 @@ class MongoSplitVectorPartitionerSpec extends RequiresMongoDB {
     rangePartitions.length should (be >= 4 and be <= 5)
   }
 
-  it should "use the users pipeline when set in a rdd / dataframe" in {
+  it should "use the users pipeline when set in a rdd / dataframe" in withSparkSession() { spark =>
     if (!serverAtLeast(3, 2)) cancel("Testing on MongoDB 3.2+, so to have predictable partition sizes.")
     val numberOfDocuments = 100
     loadSampleData(10, numberOfDocuments)
 
     val readConf = readConfig.copy(partitioner = MongoSplitVectorPartitioner, partitionerOptions = Map("partitionSizeMB" -> "1"))
     val rangePipeline = BsonDocument.parse(s"""{$$match: { $partitionKey: {$$gte: "00001", $$lt: "00031"}}}""")
-    val sparkSession = SparkSession.builder().getOrCreate()
-    val rdd = MongoSpark.load(sparkSession.sparkContext, readConf).withPipeline(Seq(rangePipeline))
+    val rdd = MongoSpark.load(spark.sparkContext, readConf).withPipeline(Seq(rangePipeline))
     rdd.count() should equal(30)
     rdd.partitions.length should equal(6)
 
-    val df = MongoSpark.load(sparkSession, readConf).filter(s"""$partitionKey >= "00001" AND  $partitionKey < "00031"""")
+    val df = MongoSpark.load(spark, readConf).filter(s"""$partitionKey >= "00001" AND  $partitionKey < "00031"""")
     df.count() should equal(30)
     df.rdd.partitions.length should equal(6)
     val dfPartitions = df.rdd.partitions.toList
     getQueryBoundForKey(dfPartitions.head.asInstanceOf[MongoPartition], "$gte") should equal("00001")
     getQueryBoundForKey(dfPartitions.reverse.head.asInstanceOf[MongoPartition], "$lt") should equal("00031")
 
-    val df2 = MongoSpark.load(sparkSession, readConf).filter(s"""$partitionKey < "00049"""")
+    val df2 = MongoSpark.load(spark, readConf).filter(s"""$partitionKey < "00049"""")
     df2.count() should equal(48)
     df2.rdd.partitions.length should equal(9)
     val df2Partitions = df2.rdd.partitions.toList
     Option(getBsonValueQueryBoundForKey(df2Partitions.head.asInstanceOf[MongoPartition], "$gte")) should equal(None)
     getQueryBoundForKey(df2Partitions.reverse.head.asInstanceOf[MongoPartition], "$lt") should equal("00049")
 
-    val df3 = MongoSpark.load(sparkSession, readConf).filter(s"""$partitionKey >= "00051"""")
+    val df3 = MongoSpark.load(spark, readConf).filter(s"""$partitionKey >= "00051"""")
     df3.count() should equal(50)
     df3.rdd.partitions.length should equal(9)
     val df3Partitions = df3.rdd.partitions.toList
