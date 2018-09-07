@@ -36,27 +36,23 @@ import org.scalatest._
 
 trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with BeforeAndAfterEach with LoggingTrait {
 
-  private val mongoDBDefaults: MongoDBDefaults = MongoDBDefaults()
+  private val testHelper: TestHelper = TestHelper()
   private var _currentTestName: Option[String] = None
   private var mongoDBOnline: Boolean = false
 
-  private var requestedSparkContext: Boolean = false
-  private def sparkContext: SparkContext = _sparkContext
-  private lazy val _sparkContext: SparkContext = {
-    requestedSparkContext = true
-    _currentTestName = Some(suiteName)
-    new SparkContext(sparkConf)
-  }
+  def sparkContext: SparkContext = TestHelper.getOrCreateSparkContext(sparkConf, requiredCustomConf = false)
+
+  def sparkContext(sparkConf: SparkConf): SparkContext = TestHelper.getOrCreateSparkContext(sparkConf, requiredCustomConf = true)
 
   protected override def runTest(testName: String, args: Args): Status = {
-    if (!requestedSparkContext) _currentTestName = Some(testName.split("should")(1).trim)
-    mongoDBOnline = mongoDBDefaults.isMongoDBOnline()
+    _currentTestName = Some(testName.trim)
+    mongoDBOnline = testHelper.isMongoDBOnline()
     super.runTest(testName, args)
   }
 
-  lazy val mongoClientURI: String = mongoDBDefaults.mongoClientURI
+  lazy val mongoClientURI: String = testHelper.mongoClientURI
 
-  lazy val mongoClient: MongoClient = mongoDBDefaults.mongoClient
+  lazy val mongoClient: MongoClient = testHelper.mongoClient
 
   lazy val database: MongoDatabase = mongoClient.getDatabase(databaseName)
 
@@ -80,11 +76,11 @@ trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with
     })
   }
 
-  def readConfig: ReadConfig = ReadConfig(sparkContext.getConf)
+  def readConfig: ReadConfig = ReadConfig(sparkConf)
 
   def shardCollection(): Unit = shardCollection(readConfig.collectionName, new Document("_id", 1))
 
-  def shardCollection(collectionName: String, shardKey: Document): Unit = mongoDBDefaults.shardCollection(collectionName, shardKey)
+  def shardCollection(collectionName: String, shardKey: Document): Unit = testHelper.shardCollection(collectionName, shardKey)
 
   def loadSampleDataIntoShardedCollection(sizeInMB: Int): Unit = {
     shardCollection(readConfig.collectionName, Document.parse("{_id: 1, pk: 1}"))
@@ -96,20 +92,20 @@ trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with
     loadSampleData(sizeInMB)
   }
 
-  def loadSampleData(filename: String): Unit = mongoDBDefaults.loadSampleData(readConfig.collectionName, filename)
+  def loadSampleData(filename: String): Unit = testHelper.loadSampleData(readConfig.collectionName, filename)
 
   def loadSampleData(sizeInMB: Int): Unit = loadSampleData(sizeInMB, sizeInMB * 10)
 
   def loadSampleData(sizeInMB: Int, numberOfDocuments: Int): Unit =
-    mongoDBDefaults.loadSampleData(readConfig.collectionName, sizeInMB, numberOfDocuments)
+    testHelper.loadSampleData(readConfig.collectionName, sizeInMB, numberOfDocuments)
 
-  def loadSampleDataCompositeKey(sizeInMB: Int): Unit = mongoDBDefaults.loadSampleDataCompositeKey(readConfig.collectionName, sizeInMB)
+  def loadSampleDataCompositeKey(sizeInMB: Int): Unit = testHelper.loadSampleDataCompositeKey(readConfig.collectionName, sizeInMB)
 
   def mongoConnector: MongoConnector = MongoConnector(sparkConf)
 
   def sparkConf: SparkConf = sparkConf(collectionName)
 
-  def sparkConf(collectionName: String): SparkConf = mongoDBDefaults.getSparkConf(collectionName)
+  def sparkConf(collectionName: String): SparkConf = testHelper.getSparkConf(collectionName)
 
   /**
    * Test against a set SparkContext
@@ -132,24 +128,22 @@ trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with
    * @param testCode the test case
    */
   def withSparkSession()(testCode: SparkSession => Any) {
-    checkMongoDB()
-    try {
-      logInfo(s"Running Test: '${_currentTestName.getOrElse(suiteName)}'")
-      testCode(SparkSession.builder().getOrCreate()) // "loan" the fixture to the test
-    } finally {
-      database.drop()
-    }
+    withSparkContext()({ sparkContext: SparkContext =>
+      {
+        testCode(SparkSession.builder().getOrCreate())
+      }
+    })
   }
 
   /**
    * The database name to use for this test
    */
-  val databaseName: String = mongoDBDefaults.DATABASE_NAME
+  val databaseName: String = testHelper.DATABASE_NAME
 
   /**
    * The collection name to use for this test
    */
-  def collectionName: String = _currentTestName.getOrElse(suiteName).filter(_.isLetterOrDigit)
+  def collectionName: String = suiteName.filter(_.isLetterOrDigit)
 
   def checkMongoDB() {
     if (!mongoDBOnline) {
@@ -162,12 +156,12 @@ trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with
   }
 
   override def beforeAll() {
-    mongoDBDefaults.dropDB()
+    testHelper.dropDB()
   }
 
   override def afterAll() {
-    mongoDBDefaults.dropDB()
-    if (requestedSparkContext) sparkContext.stop()
+    testHelper.dropDB()
+    TestHelper.resetSparkContext()
     logInfo(s"Ended Test: '${_currentTestName.getOrElse(suiteName)}'")
   }
 
