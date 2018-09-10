@@ -86,7 +86,7 @@ class DataFrameReaderSpec extends DataSourceSpecBase {
 
   it should "handle array fields with null values" in withSparkSession() { spark =>
     import spark.implicits._
-    val arrayFieldsWithNulls = Seq(ContainsList(1, List(1, 2, 3)), ContainsList(2, List()), ContainsList(3, null)) // scalastyle:ignore
+    val arrayFieldsWithNulls = Seq(ContainsList(1, Seq(1, 2, 3)), ContainsList(2, Seq()), ContainsList(3, null)) // scalastyle:ignore
     arrayFieldsWithNulls.toDS().save()
 
     spark.loadDS[ContainsList]().collect().toList should equal(arrayFieldsWithNulls)
@@ -143,5 +143,5 @@ class DataFrameReaderSpec extends DataSourceSpecBase {
   // scalastyle:on magic.number
 }
 
-case class ContainsList(_id: Int, list: List[Int])
+case class ContainsList(_id: Int, list: Seq[Int])
 case class ContainsMap(_id: Int, map: Map[String, Int])
