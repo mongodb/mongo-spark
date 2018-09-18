@@ -1,9 +1,12 @@
 # Mongo Spark Connector Changelog
 
+## 2.4.0
+  * [[SPARK-201](https://jira.mongodb.org/browse/SPARK-201)] Added Datasource v2 read support
+
 ## 2.3.1
   * Updated Mongo Java Driver to 3.8.2
   * [[SPARK-206](https://jira.mongodb.org/browse/SPARK-206)] Updated Spark dependency to 2.3.1 
-  * [[SPARK-201](https://jira.mongodb.org/browse/SPARK-201)] Added Datasource v2 read support 
+  * [[SPARK-210](https://jira.mongodb.org/browse/SPARK-210)] Added ReadConfig.samplePoolSize to improve the performance of inferring schemas
 
 ## 2.3.0
   * [[SPARK-156](https://jira.mongodb.org/browse/SPARK-156)] Updated Spark dependency to 2.3.0. Dropped Scala 2.10 support.

@@ -28,6 +28,7 @@ readPreference.name                  | The name of the `ReadPreference` to use  
 readPreference.tagSets               | The `ReadPreference` TagSets to use                                             |
 readConcern.level                    | The `ReadConcern` level to use                                                  |
 sampleSize                           | The sample size to use when inferring the schema                                | 1000
+samplePoolSize                       | The sample pool size, used to limit the results to sample from                  | 10000
 partitioner                          | The class name of the partitioner to use to partition the data                  | MongoDefaultPartitioner
 registerSQLHelperFunctions           | Register helper methods for unsupported Mongo Datatypes                         | false
 sql.inferschema.mapTypes.enabled     | Enable MapType detection in schema infer step                                   | true
