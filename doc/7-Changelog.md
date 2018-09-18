@@ -1,5 +1,8 @@
 # Mongo Spark Connector Changelog
 
+## 2.1.4
+  * [[SPARK-210](https://jira.mongodb.org/browse/SPARK-210)] Added ReadConfig.samplePoolSize to improve the performance of inferring schemas
+
 ## 2.1.3
   * [[SPARK-198](https://jira.mongodb.org/browse/SPARK-198)] Updated MongoDB Java Driver to 3.6.4 to support aggregation configuration.
   * Bumped patch versions of Scala, Spark.

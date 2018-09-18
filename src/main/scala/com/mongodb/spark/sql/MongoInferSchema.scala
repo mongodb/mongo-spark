@@ -50,29 +50,37 @@ object MongoInferSchema extends Logging {
   def apply(sc: SparkContext): StructType = apply(MongoSpark.load[BsonDocument](sc))
 
   /**
-   * Gets a schema for the specified mongo collection. It is required that the
-   * collection provides Documents.
+   * Gets a schema for the specified mongo collection. It is required that the collection provides Documents.
    *
-   * Utilizes the `\$sample` aggregation operator in server versions 3.2+. Older versions take a sample of the most recent 10k documents.
+   * Utilizes the `\$sample` aggregation operator in server versions 3.2+. Older versions take a sample of the documents directly.
+   * Limits the amount of data sampled to improve schema inference performance.
    *
    * @param mongoRDD           the MongoRDD to be sampled
    * @return the schema for the collection
+   * @see [[ReadConfig.samplePoolSize]]
+   * @see [[ReadConfig.sampleSize]]
    */
   def apply(mongoRDD: MongoRDD[BsonDocument]): StructType = {
     val singlePartitionRDD = mongoRDD.copy(readConfig = mongoRDD.readConfig.copy(partitioner = MongoSinglePartitioner))
-    val sampleData: MongoRDD[BsonDocument] = singlePartitionRDD.hasSampleAggregateOperator match {
-      case true => singlePartitionRDD.appendPipeline(Seq(Aggregates.sample(mongoRDD.readConfig.sampleSize)))
-      case false =>
-        val samplePool: Int = 10000
-        val sampleSize: Int = if (singlePartitionRDD.readConfig.sampleSize > samplePool) samplePool else singlePartitionRDD.readConfig.sampleSize
-        val sampleData: Seq[BsonDocument] = singlePartitionRDD.appendPipeline(Seq(
-          Aggregates.project(Projections.include("_id")), Aggregates.sort(Sorts.descending("_id")), Aggregates.limit(samplePool)
-        )).takeSample(withReplacement = false, num = sampleSize).toSeq
-        Try(sampleData.map(_.get("_id")).asJava) match {
-          case Success(_ids) => singlePartitionRDD.appendPipeline(Seq(Aggregates.`match`(Filters.in("_id", _ids))))
-          case Failure(_) =>
-            throw new IllegalArgumentException("The RDD must contain documents that include an '_id' key to infer data when using MongoDB < 3.2")
-        }
+    val samplePoolSize: Int = singlePartitionRDD.readConfig.samplePoolSize
+    val sampleSize: Int = singlePartitionRDD.readConfig.sampleSize
+
+    val sampleData: MongoRDD[BsonDocument] = if (singlePartitionRDD.hasSampleAggregateOperator) {
+      val appendedPipeline = if (singlePartitionRDD.readConfig.pipeline.isEmpty || samplePoolSize < 0) {
+        Seq(Aggregates.sample(sampleSize))
+      } else {
+        Seq(Aggregates.limit(samplePoolSize), Aggregates.sample(sampleSize))
+      }
+      singlePartitionRDD.appendPipeline(appendedPipeline)
+    } else {
+      val sampleData: Seq[BsonDocument] = singlePartitionRDD.appendPipeline(Seq(
+        Aggregates.project(Projections.include("_id")), Aggregates.sort(Sorts.descending("_id")), Aggregates.limit(samplePoolSize)
+      )).takeSample(withReplacement = false, num = sampleSize).toSeq
+      Try(sampleData.map(_.get("_id")).asJava) match {
+        case Success(_ids) => singlePartitionRDD.appendPipeline(Seq(Aggregates.`match`(Filters.in("_id", _ids))))
+        case Failure(_) =>
+          throw new IllegalArgumentException("The RDD must contain documents that include an '_id' key to infer data when using MongoDB < 3.2")
+      }
     }
     // perform schema inference on each row and merge afterwards
     val rootType: DataType = sampleData

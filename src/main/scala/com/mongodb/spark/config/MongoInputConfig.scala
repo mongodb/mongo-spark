@@ -38,6 +38,7 @@ package com.mongodb.spark.config
  *  - [[readPreferenceTagSetsProperty readPreference.tagSets]], the `ReadPreference` TagSets to use.
  *  - [[readConcernLevelProperty readConcern.level]], the `ReadConcern` level to use.
  *  - [[sampleSizeProperty sampleSize]], the sample size to use when inferring the schema.
+ *  - [[samplePoolSizeProperty sampleSize]], the size pool to sample from when inferring the schema.
  *  - [[partitionerProperty partitioner]], the name of the partitioner to use to partition the data.
  *  - [[partitionerOptionsProperty partitionerOptions]], the custom options used to configure the partitioner.
  *  - [[localThresholdProperty localThreshold]], the number of milliseconds used when choosing among multiple MongoDB servers to send a request.
@@ -91,10 +92,23 @@ trait MongoInputConfig extends MongoCompanionConfig {
   /**
    * The sample size property
    *
-   * Used when sampling data from MongoDB to determine the Schema.
+   * Used when sampling data from MongoDB to determine the Schema. Should be equal or less than the sample pool size.
    * Default: `1000`
    */
   val sampleSizeProperty: String = "sampleSize".toLowerCase
+
+  /**
+   * The sample pool size property
+   *
+   * The size of the pool to take a sample from, used when there is no `\$sample` support or if there is a pushed down aggregation. Can be
+   * used to significantly reduce the costs of inferring the schema. A negative value disables limiting when using `\$sample` and
+   * will sample from the whole collection.
+   *
+   * Default: `10000`
+   *
+   * @since 2.3.1
+   */
+  val samplePoolSizeProperty: String = "samplePoolSize".toLowerCase
 
   /**
    * The partition property
