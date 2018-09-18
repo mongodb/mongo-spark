@@ -43,7 +43,7 @@ class ReadConfigSpec extends FlatSpec with Matchers {
     val hint = BsonDocument.parse("{a: 1, b: -1}")
     val expectedReadConfig = ReadConfig("db", "collection", None, 150, MongoShardedPartitioner, Map("shardkey" -> "ID"), 0,
       ReadPreferenceConfig(ReadPreference.secondary()), ReadConcernConfig(ReadConcern.LOCAL),
-      AggregationConfig(List(BsonDocument.parse("""{ "$match" : { "a" : 1 } }""")), collation, hint))
+      AggregationConfig(List(BsonDocument.parse("""{ "$match" : { "a" : 1 } }""")), collation, hint), samplePoolSize = 1500)
 
     val readConfig = ReadConfig(sparkConf)
     readConfig.databaseName should equal(expectedReadConfig.databaseName)
@@ -172,7 +172,8 @@ class ReadConfigSpec extends FlatSpec with Matchers {
       inferSchemaMapTypesEnabled = false,
       inferSchemaMapTypesMinimumKeys = 999,
       pipelineIncludeNullFilters = false,
-      pipelineIncludeFiltersAndProjections = false)
+      pipelineIncludeFiltersAndProjections = false,
+      samplePoolSize = 12000)
 
     val expectedReadConfigMap = Map(
       "database" -> "dbName",
@@ -185,6 +186,7 @@ class ReadConfigSpec extends FlatSpec with Matchers {
       "readpreference.tagsets" -> """[{dc:"east",use:"production"},{}]""",
       "readconcern.level" -> "majority",
       "samplesize" -> "200",
+      "samplepoolsize" -> "12000",
       "registersqlhelperfunctions" -> "false",
       "sql.inferschema.maptypes.enabled" -> "false",
       "sql.inferschema.maptypes.minimumkeys" -> "999",
@@ -231,6 +233,7 @@ class ReadConfigSpec extends FlatSpec with Matchers {
     .set("spark.mongodb.input.readPreference.name", "secondary")
     .set("spark.mongodb.input.readConcern.level", "local")
     .set("spark.mongodb.input.sampleSize", "150")
+    .set("spark.mongodb.input.samplePoolSize", "1500")
     .set("spark.mongodb.input.collation", Collation.builder().locale("en").caseLevel(true).collationCaseFirst(CollationCaseFirst.OFF)
       .collationStrength(CollationStrength.IDENTICAL).numericOrdering(true).collationAlternate(CollationAlternate.SHIFTED)
       .collationMaxVariable(CollationMaxVariable.SPACE).backwards(true).normalization(true).build().asDocument().toJson)
