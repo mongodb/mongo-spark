@@ -44,6 +44,7 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
   type Self = ReadConfig
 
   private val DefaultSampleSize: Int = 1000
+  private val DefaultSamplePoolSize: Int = 10000
   private val DefaultPartitioner = DefaultMongoPartitioner
   private val DefaultPartitionerOptions = Map.empty[String, String]
   private val DefaultPartitionerPath = "com.mongodb.spark.rdd.partitioner."
@@ -98,7 +99,8 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
         cleanedOptions.get(pipelineIncludeFiltersAndProjectionsProperty),
         default.map(conf => conf.pipelineIncludeFiltersAndProjections),
         DefaultPipelineIncludeFiltersAndProjections
-      )
+      ),
+      samplePoolSize = getInt(cleanedOptions.get(samplePoolSizeProperty), default.map(conf => conf.samplePoolSize), DefaultSamplePoolSize)
     )
   }
 
@@ -367,6 +369,7 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
  * @param inferSchemaMapTypesMinimumKeys the minimum number of keys before a document can be inferred as a MapType.
  * @param pipelineIncludeNullFilters true to include and push down null and exists filters into the pipeline when using sql.
  * @param pipelineIncludeFiltersAndProjections true to push down filters and projections into the pipeline when using sql.
+ * @param samplePoolSize the size of the pool to take a sample from, used when there is no `\$sample` support or if there is a pushed down aggregation
  * @since 1.0
  */
 case class ReadConfig(
@@ -384,7 +387,8 @@ case class ReadConfig(
     inferSchemaMapTypesEnabled:           Boolean                        = ReadConfig.DefaultInferSchemaMapTypesEnabled,
     inferSchemaMapTypesMinimumKeys:       Int                            = ReadConfig.DefaultInferSchemaMapTypesMinimumKeys,
     pipelineIncludeNullFilters:           Boolean                        = ReadConfig.DefaultPipelineIncludeNullFilters,
-    pipelineIncludeFiltersAndProjections: Boolean                        = ReadConfig.DefaultPipelineIncludeFiltersAndProjections
+    pipelineIncludeFiltersAndProjections: Boolean                        = ReadConfig.DefaultPipelineIncludeFiltersAndProjections,
+    samplePoolSize:                       Int                            = ReadConfig.DefaultSamplePoolSize
 ) extends MongoCollectionConfig with MongoClassConfig {
   require(Try(connectionString.map(uri => new ConnectionString(uri))).isSuccess, s"Invalid uri: '${connectionString.get}'")
   require(sampleSize > 0, s"sampleSize ($sampleSize) must be greater than 0")
@@ -401,6 +405,7 @@ case class ReadConfig(
       ReadConfig.databaseNameProperty -> databaseName,
       ReadConfig.collectionNameProperty -> collectionName,
       ReadConfig.sampleSizeProperty -> sampleSize.toString,
+      ReadConfig.samplePoolSizeProperty -> samplePoolSize.toString,
       ReadConfig.partitionerProperty -> partitioner.getClass.getName,
       ReadConfig.localThresholdProperty -> localThreshold.toString,
       ReadConfig.registerSQLHelperFunctionsProperty -> registerSQLHelperFunctions.toString,
