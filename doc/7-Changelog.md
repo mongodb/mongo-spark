@@ -1,7 +1,7 @@
 # Mongo Spark Connector Changelog
 
 ## 2.3.1
-  * Updated Mongo Java Driver to 3.8.1
+  * Updated Mongo Java Driver to 3.8.2
   * [[SPARK-206](https://jira.mongodb.org/browse/SPARK-206)] Updated Spark dependency to 2.3.1 
   * [[SPARK-201](https://jira.mongodb.org/browse/SPARK-201)] Added Datasource v2 read support 
 
