@@ -120,6 +120,45 @@ class ReadConfigSpec extends FlatSpec with Matchers {
     readConfig.pipelineIncludeFiltersAndProjections should equal(expectedReadConfig.pipelineIncludeFiltersAndProjections)
   }
 
+  it should "set new options when using withOptions" in {
+    val defaultReadConfig = ReadConfig(Map("uri" -> "mongodb://localhost/db.coll"))
+    val options = Map(
+      "collation" -> """{ "locale" : "en" }""",
+      "collection" -> "collName",
+      "database" -> "dbName",
+      "hint" -> """{ "a" : 1 }""",
+      "localthreshold" -> "99",
+      "partitioner" -> "com.mongodb.spark.rdd.partitioner.MongoSplitVectorPartitioner$",
+      "partitioneroptions.partitionsizemb" -> "15",
+      "pipeline" -> """[{ "$match" : { "a" : 1 } }]""",
+      "readconcern.level" -> "majority",
+      "readpreference.name" -> "secondaryPreferred",
+      "readpreference.tagsets" -> """[{dc:"east", use:"production"}]""",
+      "registersqlhelperfunctions" -> "false",
+      "samplesize" -> "999",
+      "sql.inferschema.maptypes.enabled" -> "false",
+      "sql.inferschema.maptypes.minimumkeys" -> "900",
+      "sql.pipeline.includefiltersandprojections" -> "false",
+      "sql.pipeline.includenullfilters" -> "false",
+      "uri" -> "mongodb://127.0.0.1/"
+    )
+
+    val expectedReadConfig = ReadConfig("dbName", "collName", Some("mongodb://127.0.0.1/"), 999, MongoSplitVectorPartitioner,
+      Map("partitionsizemb" -> "15"), 99,
+      ReadPreferenceConfig(ReadPreference.secondaryPreferred(new TagSet(List(new Tag("dc", "east"), new Tag("use", "production")).asJava))),
+      ReadConcernConfig(ReadConcern.MAJORITY), AggregationConfig(
+        List(BsonDocument.parse("""{ "$match" : { "a" : 1 } }""")),
+        Collation.builder().locale("en").build(), BsonDocument.parse("{a : 1 }")
+      ),
+      inferSchemaMapTypesEnabled = false,
+      inferSchemaMapTypesMinimumKeys = 900,
+      pipelineIncludeNullFilters = false,
+      pipelineIncludeFiltersAndProjections = false
+    )
+
+    defaultReadConfig.withOptions(options) should equal(expectedReadConfig)
+  }
+
   it should "be able to create a map" in {
     val readConfig = ReadConfig("dbName", "collName", Some("mongodb://localhost/"), 200, MongoSplitVectorPartitioner,
       Map("partitionsizemb" -> "15"), 10,
