@@ -256,7 +256,7 @@ Types:
 
 Bson Type               | Scala case class                       | JavaBean
 ------------------------|----------------------------------------|----------------------------------------------
-                        | `com.mongodb.spark.sql.fieldTypes`     | `com.mongodb.spark.sql.fieldTypes.api.java.`
+&nbsp;                  | `com.mongodb.spark.sql.fieldTypes`     | `com.mongodb.spark.sql.fieldTypes.api.java.`
 `Binary data`           | `Binary`                               | `Binary`
 `DBPointer`             | `DBPointer`                            | `DBPointer`
 `JavaScript`            | `JavaScript`                           | `JavaScript`
@@ -284,7 +284,7 @@ alternatively you can manually register the required methods.
 
 Bson Type               | StructField helpers                  | User Defined Function helpers
 ------------------------|--------------------------------------|--------------------------------------------------------------
-                        | `com.mongodb.spark.sql.StructFields` | `com.mongodb.spark.sql.helpers.UDF`
+&nbsp;                  | `com.mongodb.spark.sql.StructFields` | `com.mongodb.spark.sql.helpers.UDF`
 `Binary data`           | `binary`                             | `binary` / `binaryWithSubType`
 `DBPointer`             | `dbPointer`                          | `dbPointer`
 `JavaScript`            | `javascript`                         | `javascript`
