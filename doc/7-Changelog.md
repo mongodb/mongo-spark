@@ -5,6 +5,7 @@
 
 ## 2.2.4
   * [[SPARK-198](https://jira.mongodb.org/browse/SPARK-198)] Updated MongoDB Java Driver to 3.6.4 to support aggregation configuration.
+  * [[SPARK-206](https://jira.mongodb.org/browse/SPARK-206)] Updated Spark version to 2.2.2
   * [[SPARK-192](https://jira.mongodb.org/browse/SPARK-192)] Added WriteConfig.forceInsert property.
     DataFrame overwrites will automatically set force insert to true.
   * [[SPARK-164](https://jira.mongodb.org/browse/SPARK-164)] Added ordered property to WriteConfig.
