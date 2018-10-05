@@ -1,6 +1,7 @@
 # Mongo Spark Connector Changelog
 
 ## 2.1.4
+  * [[SPARK-206](https://jira.mongodb.org/browse/SPARK-206)] Updated Spark version to 2.1.3
   * [[SPARK-210](https://jira.mongodb.org/browse/SPARK-210)] Added ReadConfig.samplePoolSize to improve the performance of inferring schemas
 
 ## 2.1.3
