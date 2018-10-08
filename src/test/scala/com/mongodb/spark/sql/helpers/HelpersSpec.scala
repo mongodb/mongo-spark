@@ -68,8 +68,9 @@ class HelpersSpec extends RequiresMongoDB {
     val code = allBsonTypesDocument.get("code").asJavaScript()
     val df = createDF(sparkSession, StructFields.javaScript("code", nullable = false))
 
-    sparkSession.udf.register("JavaScript", UDF.javaScript _)
-    df.filter(s"code = JavaScript('${code.getCode}')").count() should equal(1)
+    sparkSession.udf.register("JSNoScope", UDF.javaScript _)
+
+    df.filter(s"code = JSNoScope('${code.getCode}')").count() should equal(1)
   }
 
   it should "handle JavaScript with scope" in withSparkSession() { sparkSession =>
@@ -104,9 +105,9 @@ class HelpersSpec extends RequiresMongoDB {
   it should "handle Regular Expressions" in withSparkSession() { sparkSession =>
     val regex = allBsonTypesDocument.get("regex").asRegularExpression()
     val df = createDF(sparkSession, StructFields.regularExpression("regex", nullable = false))
-    sparkSession.udf.register("Regex", UDF.regularExpression _)
+    sparkSession.udf.register("RegexNoOptions", UDF.regularExpression _)
 
-    df.filter(s"regex = Regex('${regex.getPattern}')").count() should equal(1)
+    df.filter(s"regex = RegexNoOptions('${regex.getPattern}')").count() should equal(1)
   }
 
   it should "handle Regular Expressions with options" in withSparkSession() { sparkSession =>
