@@ -153,8 +153,7 @@ class ReadConfigSpec extends FlatSpec with Matchers {
       inferSchemaMapTypesEnabled = false,
       inferSchemaMapTypesMinimumKeys = 900,
       pipelineIncludeNullFilters = false,
-      pipelineIncludeFiltersAndProjections = false
-    )
+      pipelineIncludeFiltersAndProjections = false)
 
     defaultReadConfig.withOptions(options) should equal(expectedReadConfig)
   }

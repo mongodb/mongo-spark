@@ -81,8 +81,8 @@ object UDF {
    *
    * Usage example:
    * {{{
-   * sqlContext.udf.register("JavaScript", udf.javaScript _)
-   * df.filter(s"code = JavaScript('\$code')")
+   * sqlContext.udf.register("JSNoScope", udf.javaScript _)
+   * df.filter(s"code = JSNoScope('\$code')")
    * }}}
    *
    * @param code the JavaScript code
@@ -150,8 +150,8 @@ object UDF {
    *
    * Usage example:
    * {{{
-   * sqlContext.udf.register("Regex", udf.regularExpression _)
-   * df.filter(s"regex = Regex('\$regex')")
+   * sqlContext.udf.register("RegexNoOptions", udf.regularExpression _)
+   * df.filter(s"regex = RegexNoOptions('\$regex')")
    * }}}
    *
    * @param regex the regular expression string
@@ -207,12 +207,12 @@ object UDF {
     sparkSession.udf.register("Binary", UDF.binary _)
     sparkSession.udf.register("BinaryWithSubType", UDF.binaryWithSubType _)
     sparkSession.udf.register("DbPointer", UDF.dbPointer _)
-    sparkSession.udf.register("JavaScript", UDF.javaScript _)
+    sparkSession.udf.register("JSNoScope", UDF.javaScript _)
     sparkSession.udf.register("JavaScript", UDF.javaScriptWithScope _)
     sparkSession.udf.register("maxKey", UDF.maxKey _)
     sparkSession.udf.register("minKey", UDF.minKey _)
     sparkSession.udf.register("ObjectId", UDF.objectId _)
-    sparkSession.udf.register("Regex", UDF.regularExpression _)
+    sparkSession.udf.register("RegexNoOptions", UDF.regularExpression _)
     sparkSession.udf.register("Regex", UDF.regularExpressionWithOptions _)
     sparkSession.udf.register("Symbol", UDF.symbol _)
     sparkSession.udf.register("Timestamp", UDF.timestamp _)
