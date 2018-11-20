@@ -33,9 +33,8 @@ import scala.reflect.runtime.universe.TypeTag
 
 trait DataSourceSpecBase extends RequiresMongoDB with TableDrivenPropertyChecks {
   val defaultSource: String = "com.mongodb.spark.sql.DefaultSource"
-  val defaultSourceV2: Boolean = false
 
-  val characters: Seq[Document] =
+  val characters =
     """
      | {"name": "Bilbo Baggins", "age": 50}
      | {"name": "Gandalf", "age": 1000}
