@@ -1,5 +1,8 @@
 # Mongo Spark Connector Changelog
 
+## 2.2.6
+  * [[SPARK-225](https://jira.mongodb.org/browse/SPARK-225)] Ensure WriteConfig.ordered is applied to write operations.
+  
 ## 2.2.5
   * [[SPARK-210](https://jira.mongodb.org/browse/SPARK-210)] Added ReadConfig.samplePoolSize to improve the performance of inferring schemas
   * [[SPARK-216](https://jira.mongodb.org/browse/SPARK-216)] Updated UDF helpers, don't overwrite JavaScript with no scope and Regex with no options helpers.
