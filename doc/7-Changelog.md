@@ -1,5 +1,9 @@
 # Mongo Spark Connector Changelog
 
+## 2.4.0
+  * [[SPARK-224](https://jira.mongodb.org/browse/SPARK-224)] Support Spark 2.4.0. Updated Spark dependency to 2.4.0
+  * [[SPARK-225](https://jira.mongodb.org/browse/SPARK-225)] Ensure WriteConfig.ordered is applied to write operations.
+
 ## 2.3.1
   * Updated Mongo Java Driver to 3.8.2
   * [[SPARK-206](https://jira.mongodb.org/browse/SPARK-206)] Updated Spark dependency to 2.3.2 

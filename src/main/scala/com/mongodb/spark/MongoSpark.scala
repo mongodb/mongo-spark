@@ -16,11 +16,10 @@
 
 package com.mongodb.spark
 
-import com.mongodb.MongoClient
 import com.mongodb.client.MongoCollection
-import com.mongodb.client.model.{InsertOneModel, ReplaceOneModel, ReplaceOptions, UpdateOneModel, UpdateOptions}
+import com.mongodb.client.model.{BulkWriteOptions, InsertManyOptions, InsertOneModel, ReplaceOneModel, ReplaceOptions, UpdateOneModel, UpdateOptions}
 import com.mongodb.spark.DefaultHelper.DefaultsTo
-import com.mongodb.spark.config.{AggregationConfig, ReadConfig, WriteConfig}
+import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
 import com.mongodb.spark.sql.MapFunctions.rowToDocumentMapper
@@ -116,7 +115,8 @@ object MongoSpark {
     val mongoConnector = MongoConnector(writeConfig.asOptions)
     rdd.foreachPartition(iter => if (iter.nonEmpty) {
       mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[D] =>
-        iter.grouped(writeConfig.maxBatchSize).foreach(batch => collection.insertMany(batch.toList.asJava))
+        iter.grouped(writeConfig.maxBatchSize).foreach(batch => collection.insertMany(batch.toList.asJava,
+          new InsertManyOptions().ordered(writeConfig.ordered)))
       })
     })
   }
@@ -171,7 +171,7 @@ object MongoSpark {
               } else {
                 new InsertOneModel[BsonDocument](doc)
               })
-            collection.bulkWrite(requests.toList.asJava)
+            collection.bulkWrite(requests.toList.asJava, new BulkWriteOptions().ordered(writeConfig.ordered))
           })
         })
       })
