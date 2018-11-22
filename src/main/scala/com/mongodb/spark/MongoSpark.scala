@@ -16,7 +16,6 @@
 
 package com.mongodb.spark
 
-import com.mongodb.MongoClient
 import com.mongodb.client.MongoCollection
 import com.mongodb.client.model.{BulkWriteOptions, InsertManyOptions, InsertOneModel, ReplaceOneModel, ReplaceOptions, UpdateOneModel, UpdateOptions}
 import com.mongodb.spark.DefaultHelper.DefaultsTo
@@ -114,10 +113,12 @@ object MongoSpark {
    */
   def save[D: ClassTag](rdd: RDD[D], writeConfig: WriteConfig): Unit = {
     val mongoConnector = MongoConnector(writeConfig.asOptions)
-    val insertManyOptions = new InsertManyOptions().ordered(writeConfig.ordered)
     rdd.foreachPartition(iter => if (iter.nonEmpty) {
       mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[D] =>
-        iter.grouped(writeConfig.maxBatchSize).foreach(batch => collection.insertMany(batch.toList.asJava, insertManyOptions))
+        iter.grouped(writeConfig.maxBatchSize).foreach(batch => collection.insertMany(
+          batch.toList.asJava,
+          new InsertManyOptions().ordered(writeConfig.ordered)
+        ))
       })
     })
   }
@@ -156,7 +157,6 @@ object MongoSpark {
     if (writeConfig.forceInsert || !queryKeyList.forall(fieldNames.contains(_))) {
       MongoSpark.save(documentRdd, writeConfig)
     } else {
-      val bulkWriteOptions = new BulkWriteOptions().ordered(writeConfig.ordered)
       documentRdd.foreachPartition(iter => if (iter.nonEmpty) {
         mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[BsonDocument] =>
           iter.grouped(writeConfig.maxBatchSize).foreach(batch => {
@@ -173,7 +173,7 @@ object MongoSpark {
               } else {
                 new InsertOneModel[BsonDocument](doc)
               })
-            collection.bulkWrite(requests.toList.asJava, bulkWriteOptions)
+            collection.bulkWrite(requests.toList.asJava, new BulkWriteOptions().ordered(writeConfig.ordered))
           })
         })
       })
