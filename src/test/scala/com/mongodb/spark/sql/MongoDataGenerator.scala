@@ -21,14 +21,12 @@ import java.util.Date
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.util.Random
-
 import org.apache.spark.sql.types._
-
 import org.bson.Document
 import org.bson.types.Binary
 import com.mongodb.spark.sql.types.BsonCompatibility
-
 import org.scalacheck.Gen
+import org.scalactic.anyvals.{PosInt, PosZInt}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 
 // scalastyle:off magic.number
@@ -39,12 +37,11 @@ trait MongoDataGenerator extends GeneratorDrivenPropertyChecks {
 
   val random = new Random()
   val binaryValue = new Binary(Array[Byte](1))
-  val minSuccessful = 5
-  val maxDiscarded = 0
-  val minSize = 10
+  val minSuccessful = PosInt(5)
+  val minSize = PosZInt(10)
   val maxSize = 100
 
-  implicit override val generatorDrivenConfig = PropertyCheckConfig(minSuccessful, maxDiscarded, minSize, maxSize)
+  implicit override val generatorDrivenConfig = PropertyCheckConfiguration(minSuccessful = minSuccessful, minSize = minSize)
 
   val simpleDataTypes: Seq[DataType] = Seq(DataTypes.NullType, DataTypes.BinaryType, DataTypes.BooleanType, DataTypes.DoubleType,
     DataTypes.IntegerType, DataTypes.LongType, DataTypes.StringType, DataTypes.TimestampType)

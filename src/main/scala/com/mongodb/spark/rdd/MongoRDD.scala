@@ -157,7 +157,7 @@ class MongoRDD[D: ClassTag](
   override def compute(split: Partition, context: TaskContext): Iterator[D] = {
     val client = connector.value.acquireClient()
     val cursor = getCursor(client, split.asInstanceOf[MongoPartition])
-    context.addTaskCompletionListener((ctx: TaskContext) => {
+    context.addTaskCompletionListener[Unit]((ctx: TaskContext) => {
       log.debug("Task completed closing the MongoDB cursor")
       Try(cursor.close())
       connector.value.releaseClient(client)
