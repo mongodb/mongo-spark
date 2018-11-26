@@ -16,6 +16,9 @@
 
 package com.mongodb.spark.sql
 
+import com.mongodb.client.MongoCollection
+import com.mongodb.client.model.IndexOptions
+import com.mongodb.spark.{MongoConnector, MongoSpark}
 import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import org.apache.spark.SparkException
 import org.bson._
@@ -177,6 +180,18 @@ class DataFrameWriterSpec extends DataSourceSpecBase {
 
     val savedData = spark.spark.loadDS[ShardedCharacter](readConfig).collect()
     originalData.map(c => c.copy(age = c.age.map(_ + 10))) should contain theSameElementsAs savedData
+  }
+
+  it should "throw an exception and stop the job when failing a bulk operation" in withSparkSession() { spark =>
+    val writeConfig = WriteConfig(spark.getConf)
+    MongoConnector(readConfig).withCollectionDo(writeConfig, { coll: MongoCollection[Document] =>
+      coll.createIndex(new Document("count", 1), new IndexOptions().unique(true))
+    })
+
+    import spark.implicits._
+    val ds = spark.createDataset(Seq(SomeData(1, 1), SomeData(2, 2), SomeData(3, 1)))
+
+    an[SparkException] should be thrownBy MongoSpark.save(ds.write.mode("append"), writeConfig)
   }
 
   // scalastyle:on magic.number
