@@ -23,10 +23,11 @@ import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
 import com.mongodb.spark.sql.MapFunctions.rowToDocumentMapper
-import com.mongodb.spark.sql.{MongoInferSchema, helpers}
+import com.mongodb.spark.sql.{MongoInferSchema, MongoRelation, helpers}
 import org.apache.spark.SparkContext
 import org.apache.spark.api.java.{JavaRDD, JavaSparkContext}
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.sources.BaseRelation
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, DataFrameReader, DataFrameWriter, Dataset, Encoders, SQLContext, SparkSession}
 import org.bson.conversions.Bson
@@ -607,10 +608,7 @@ case class MongoSpark(sparkSession: SparkSession, connector: MongoConnector, rea
    * @return a DataFrame.
    */
   def toDF(schema: StructType): DataFrame = {
-    sparkSession.read.format("com.mongodb.spark.sql")
-      .schema(schema)
-      .options(readConfig.asOptions)
-      .load()
+    sparkSession.baseRelationToDataFrame(MongoRelation(toBsonDocumentRDD, Option(schema))(sparkSession.sqlContext).asInstanceOf[BaseRelation])
   }
 
   /**
