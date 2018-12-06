@@ -16,11 +16,13 @@
 
 package com.mongodb.spark
 
+import com.mongodb.MongoClient
+import com.mongodb.spark.config.{ReadConfig, WriteConfig}
+import com.mongodb.spark.connection.DefaultMongoClientFactory
+import com.mongodb.spark.sql.{Character, _}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.{SparkConf, SparkContext}
 import org.bson.Document
-import com.mongodb.spark.config.{ReadConfig, WriteConfig}
-import com.mongodb.spark.sql.{Character, _}
 
 class NoSparkConfSpec extends RequiresMongoDB {
 
@@ -59,9 +61,28 @@ class NoSparkConfSpec extends RequiresMongoDB {
     ds.collect().toList should equal(characters)
   }
 
+  it should "use the passed in connector" in {
+    val writeConfig = WriteConfig(Map("uri" -> mongoClientURI, "database" -> databaseName, "collection" -> collectionName))
+    val documents = sc.parallelize((1 to 10).map(i => Document.parse(s"{test: $i}")))
+    documents.saveToMongoDB(writeConfig = writeConfig)
+
+    val connector = MongoConnector(CustomMongoClientFactory(mongoClientURI))
+    val readConfig = ReadConfig(Map("uri" -> "mongodb://example.com/", "database" -> databaseName, "collection" -> collectionName,
+      "partitioner" -> "TestPartitioner$"))
+    val mongoSpark = MongoSpark.builder().sparkContext(sc).connector(connector).readConfig(readConfig).build()
+
+    mongoSpark.toRDD().collect().size should equal(10)
+    mongoSpark.toDF().count() should equal(10)
+  }
+
   val sc: SparkContext = TestHelper.getOrCreateSparkContext(
     new SparkConf().setMaster("local").setAppName("MongoSparkConnector"),
     requiredCustomConf = true
   )
 
+}
+
+case class CustomMongoClientFactory(mongoClientURI: String) extends MongoClientFactory {
+  private final val proxy: DefaultMongoClientFactory = DefaultMongoClientFactory(mongoClientURI)
+  def create(): MongoClient = proxy.create()
 }

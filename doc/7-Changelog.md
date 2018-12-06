@@ -5,7 +5,7 @@
   * [[SPARK-225](https://jira.mongodb.org/browse/SPARK-225)] Ensure WriteConfig.ordered is applied to write operations.
   * [[SPARK-226](https://jira.mongodb.org/browse/SPARK-226)] Updated Mongo Java Driver to 3.9.0
   * [[SPARK-227](https://jira.mongodb.org/browse/SPARK-227)] Added Scala 2.12 support
-
+  * [[SPARK-220](https://jira.mongodb.org/browse/SPARK-220)] Fixed MongoSpark.toDF() to use the provided MongoConnector
 
 ## 2.3.1
   * Updated Mongo Java Driver to 3.8.2
