@@ -16,16 +16,18 @@
 
 package com.mongodb.spark
 
+import com.mongodb.client.model.{Aggregates, Collation, CollationStrength, Filters}
+import com.mongodb.spark.config.{AggregationConfig, ReadConfig}
+import com.mongodb.spark.rdd.MongoRDD
+import com.mongodb.spark.sql.types.BsonCompatibility
 import org.apache.spark.SparkException
 import org.apache.spark.sql.catalyst.ScalaReflection
 import org.apache.spark.sql.types.DataTypes._
 import org.apache.spark.sql.types.{DataTypes, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.bson.{BsonDocument, Document}
-import com.mongodb.client.model.{Aggregates, Collation, CollationStrength, Filters}
-import com.mongodb.spark.config.{AggregationConfig, ReadConfig}
-import com.mongodb.spark.rdd.MongoRDD
-import com.mongodb.spark.sql.types.BsonCompatibility
+
+import scala.util.Try
 
 class MongoRDDSpec extends RequiresMongoDB {
   val counters =
@@ -158,6 +160,27 @@ class MongoRDDSpec extends RequiresMongoDB {
     sc.loadFromMongoDB().withPipeline(Seq(Document.parse("{$match: {str: 'FOO'}}"))).count() should equal(1)
     sc.loadFromMongoDB(ReadConfig(sc).copy(aggregationConfig = AggregationConfig(caseInsensitiveCollation)))
       .withPipeline(Seq(Document.parse("{$match: {str: 'FOO'}}"))).count() should equal(2)
+  }
+
+  it should "survive a cursor timeout" in withSparkContext() { sc =>
+    val default = mongoClient.getDatabase("admin")
+      .runCommand(BsonDocument.parse("{ setParameter: 1, cursorTimeoutMillis: 1 }")).getLong("was")
+
+    val result = Try({
+      sc.parallelize((1 to 10).map(i => Document.parse(s"{number: $i}"))).saveToMongoDB()
+      mongoClient.getDatabase("admin").runCommand(BsonDocument.parse("{ setParameter: 1, cursorTimeoutMillis: 100 }"))
+
+      val rdd = sc.loadFromMongoDB(ReadConfig(sc).withOption("batchSize", "6"))
+      val accum = sc.longAccumulator
+      rdd.foreach(d => {
+        accum.add(1)
+        Thread.sleep(1000) // scalastyle:ignore
+      })
+      rdd.count() should equal(accum.value)
+    })
+
+    mongoClient.getDatabase("admin").runCommand(BsonDocument.parse(s"{ setParameter: 1, cursorTimeoutMillis: {$$numberLong: '$default'}}"))
+    result.get
   }
 
 }

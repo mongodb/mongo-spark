@@ -16,26 +16,25 @@
 
 package com.mongodb.spark.rdd
 
-import scala.collection.JavaConverters._
-import scala.reflect.ClassTag
-import scala.reflect.runtime.universe._
-import scala.util.Try
-import org.apache.spark.{Partition, SparkContext, TaskContext}
+import com.mongodb.client.{AggregateIterable, MongoCursor}
+import com.mongodb.spark.config.ReadConfig
+import com.mongodb.spark.rdd.api.java.JavaMongoRDD
+import com.mongodb.spark.rdd.partitioner.MongoPartition
+import com.mongodb.spark.{MongoConnector, MongoSpark, NotNothing, classTagToClassOf}
+import com.mongodb.{MongoClient, MongoCursorNotFoundException, MongoException}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.{Partition, SparkContext, TaskContext}
 import org.bson.conversions.Bson
-import org.bson.{BsonDocument, Document}
-import com.mongodb.{MongoClient, MongoCursorNotFoundException}
-import com.mongodb.client.{AggregateIterable, MongoCursor}
-import com.mongodb.spark.config.ReadConfig
-import com.mongodb.spark.exceptions.MongoSparkCursorNotFoundException
-import com.mongodb.spark.rdd.api.java.JavaMongoRDD
-import com.mongodb.spark.rdd.partitioner.{MongoPartition, MongoSinglePartitioner}
-import com.mongodb.spark.{MongoConnector, MongoSpark, NotNothing, classTagToClassOf}
+import org.bson.{BsonDocument, BsonInt32}
 
 import scala.collection.Iterator
+import scala.collection.JavaConverters._
+import scala.reflect.ClassTag
+import scala.reflect.runtime.universe._
+import scala.util.Try
 
 /**
  * MongoRDD Class
@@ -141,12 +140,12 @@ class MongoRDD[D: ClassTag](
              |WARNING: Partitioning failed.
              |-----------------------------
              |
-            |Partitioning using the '${readConfig.partitioner.getClass.getSimpleName}' failed.
+             |Partitioning using the '${readConfig.partitioner.getClass.getSimpleName}' failed.
              |
-            |Please check the stacktrace to determine the cause of the failure or check the Partitioner API documentation.
+             |Please check the stacktrace to determine the cause of the failure or check the Partitioner API documentation.
              |Note: Not all partitioners are suitable for all toplogies and not all partitioners support views.%n
              |
-            |-----------------------------
+             |-----------------------------
              |""".stripMargin
         )
         throw t
@@ -156,51 +155,70 @@ class MongoRDD[D: ClassTag](
 
   override def compute(split: Partition, context: TaskContext): Iterator[D] = {
     val client = connector.value.acquireClient()
-    val cursor = getCursor(client, split.asInstanceOf[MongoPartition])
+    val sparkCursor = MongoSparkCursor(client, split.asInstanceOf[MongoPartition])
     context.addTaskCompletionListener[Unit]((ctx: TaskContext) => {
       log.debug("Task completed closing the MongoDB cursor")
-      Try(cursor.close())
+      Try(sparkCursor.close())
       connector.value.releaseClient(client)
     })
-    MongoCursorIterator(cursor)
+    sparkCursor
   }
 
-  /**
-   * Retrieves the partition's data from the collection based on the bounds of the partition.
-   *
-   * @return the cursor
-   */
-  private def getCursor(client: MongoClient, partition: MongoPartition)(implicit ct: ClassTag[D]): MongoCursor[D] = {
-    val partitionPipeline: Seq[BsonDocument] = if (partition.queryBounds.isEmpty) {
-      readConfig.pipeline
-    } else {
-      new BsonDocument("$match", partition.queryBounds) +: readConfig.pipeline
-    }
+  private case class MongoSparkCursor(client: MongoClient, partition: MongoPartition) extends Iterator[D] {
+    var skip = 0
+    var cursor: MongoCursor[D] = createCursor(None)
 
-    val aggregateIterable: AggregateIterable[D] = client.getDatabase(readConfig.databaseName)
-      .getCollection[D](readConfig.collectionName, classTagToClassOf(ct))
-      .withReadConcern(readConfig.readConcern)
-      .withReadPreference(readConfig.readPreference)
-      .aggregate(partitionPipeline.asJava)
-
-    readConfig.aggregationConfig.hint.map(aggregateIterable.hint)
-    readConfig.aggregationConfig.collation.map(aggregateIterable.collation)
-    aggregateIterable.allowDiskUse(readConfig.aggregationConfig.allowDiskUse)
-    readConfig.batchSize.map(s => aggregateIterable.batchSize(s))
-    aggregateIterable.iterator
-  }
-
-  private case class MongoCursorIterator(cursor: MongoCursor[D]) extends Iterator[D] {
     override def hasNext: Boolean = try {
       cursor.hasNext
     } catch {
-      case e: MongoCursorNotFoundException => throw new MongoSparkCursorNotFoundException(e)
+      case _: MongoCursorNotFoundException         => regenerateCursor(() => hasNext)
+      case e: MongoException if e.getCode == 13127 => regenerateCursor(() => hasNext)
     }
 
     override def next(): D = try {
-      cursor.next()
+      val res = cursor.next()
+      skip += 1
+      res
     } catch {
-      case e: MongoCursorNotFoundException => throw new MongoSparkCursorNotFoundException(e)
+      case _: MongoCursorNotFoundException         => regenerateCursor(() => next())
+      case e: MongoException if e.getCode == 13127 => regenerateCursor(() => next())
+    }
+
+    def close(): Unit = cursor.close()
+
+    private def regenerateCursor[T](func: () => T): T = {
+      logError(s"""The underlying cursor no longer exists and a new cursor had to be created.
+         |
+         |This is a sign of an inefficient Spark job. Iterating the data from MongoDB is taking an excessive amount of time.
+         |To prevent cursors being timed out ensure that all data is read efficiently from MongoDB into Spark.
+         |The best time to do this is before entering expensive / slow computations or merges.
+         |
+         |By default cursors timeout after 10 minutes of inactivity and are automatically cleaned up by MongoDB.
+         |See: https://docs.mongodb.com/manual/reference/parameters/#param.cursorTimeoutMillis for information about changing the default timeout.
+         """.stripMargin)
+      cursor = createCursor(Some(skip))
+      func()
+    }
+
+    private def createCursor(skip: Option[Int] = None)(implicit ct: ClassTag[D]): MongoCursor[D] = {
+      val pipeline: Seq[BsonDocument] = if (partition.queryBounds.isEmpty) {
+        readConfig.pipeline
+      } else {
+        new BsonDocument("$match", partition.queryBounds) +: readConfig.pipeline
+      }
+      val partitionPipeline: Seq[BsonDocument] = skip.map(s => pipeline :+ new BsonDocument("$skip", new BsonInt32(s))).getOrElse(pipeline)
+
+      val aggregateIterable: AggregateIterable[D] = client.getDatabase(readConfig.databaseName)
+        .getCollection[D](readConfig.collectionName, classTagToClassOf(ct))
+        .withReadConcern(readConfig.readConcern)
+        .withReadPreference(readConfig.readPreference)
+        .aggregate(partitionPipeline.asJava)
+
+      readConfig.aggregationConfig.hint.map(aggregateIterable.hint)
+      readConfig.aggregationConfig.collation.map(aggregateIterable.collation)
+      aggregateIterable.allowDiskUse(readConfig.aggregationConfig.allowDiskUse)
+      readConfig.batchSize.map(s => aggregateIterable.batchSize(s))
+      aggregateIterable.iterator
     }
   }
 

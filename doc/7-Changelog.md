@@ -1,8 +1,8 @@
 # Mongo Spark Connector Changelog
 
-
 ## 2.4.1
   * [[SPARK-233](https://jira.mongodb.org/browse/SPARK-233)] Added ReadConfig.batchSize property
+  * [[SPARK-236](https://jira.mongodb.org/browse/SPARK-236)] Ensure iterating partitions can survive cursor timeouts.
 
 ## 2.4.0
   * [[SPARK-224](https://jira.mongodb.org/browse/SPARK-224)] Support Spark 2.4.0. Updated Spark dependency to 2.4.0
