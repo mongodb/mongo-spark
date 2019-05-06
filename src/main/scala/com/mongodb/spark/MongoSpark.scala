@@ -32,6 +32,7 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, DataFrameReader, DataFrameWriter, Dataset, Encoders, SQLContext, SparkSession}
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
+import org.spark_project.guava.util.concurrent.RateLimiter
 
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
@@ -159,8 +160,17 @@ object MongoSpark {
       MongoSpark.save(documentRdd, writeConfig)
     } else {
       documentRdd.foreachPartition(iter => if (iter.nonEmpty) {
+        var rateLimiter: Option[RateLimiter] = None
+        if (writeConfig.secondLatch.isDefined) {
+          // If secondLatch < maxBatchSize, it will destroy rate limit rule.
+          val permitSize = if (writeConfig.secondLatch.get >= writeConfig.maxBatchSize) (writeConfig.secondLatch.get / writeConfig.maxBatchSize).floor else 1
+          rateLimiter = Option.apply(RateLimiter.create(permitSize))
+        }
         mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[BsonDocument] =>
           iter.grouped(writeConfig.maxBatchSize).foreach(batch => {
+            if (rateLimiter.isDefined){
+              rateLimiter.get.acquire(1)
+            }
             val requests = batch.map(doc =>
               if (queryKeyList.forall(doc.containsKey(_))) {
                 val queryDocument = new BsonDocument()

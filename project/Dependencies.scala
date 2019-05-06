@@ -23,6 +23,7 @@ object Dependencies {
   val mongodbDriverVersion    = "3.9.0"
   val sparkVersion            = "2.4.0"
   val slf4jVersion            = "1.7.16"
+  val guavaVersion            = "12.0"
 
   val scalaTestVersion        = "3.0.5"
   val scalaCheckVersion       = "1.14.0"
@@ -35,6 +36,7 @@ object Dependencies {
   val sparkCore         = "org.apache.spark" %% "spark-core" % sparkVersion % "provided"
   val sparkSql          = "org.apache.spark" %% "spark-sql" % sparkVersion % "provided"
   val slf4j             = "org.slf4j" % "slf4j-api" % slf4jVersion % "provided"
+  val guava             = "com.google.guava" % "guava" % guavaVersion % "provided"
 
   // Test
   val scalaTest         = "org.scalatest" %% "scalatest" % scalaTestVersion % "test"

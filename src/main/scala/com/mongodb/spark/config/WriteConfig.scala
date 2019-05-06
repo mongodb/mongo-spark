@@ -428,6 +428,7 @@ object WriteConfig extends MongoOutputConfig {
  * @param shardKey           an optional shardKey in extended json form: `"{key: 1, key2: 1}"`. Used when upserting DataSets in sharded clusters.
  * @param forceInsert        if true forces the writes to be inserts, even if a Dataset contains an `_id` field. Default `false`.
  * @param ordered            configures the bulk operation ordered property. Defaults to true.
+ * @param secondLatch        the maxBatchSize when performing a bulk update/insert per second.
  * @since 1.0
  */
 case class WriteConfig(
@@ -440,7 +441,8 @@ case class WriteConfig(
     writeConcernConfig: WriteConcernConfig = WriteConcernConfig.Default,
     shardKey:           Option[String]     = None,
     forceInsert:        Boolean            = WriteConfig.DefaultForceInsert,
-    ordered:            Boolean            = WriteConfig.DefautOrdered
+    ordered:            Boolean            = WriteConfig.DefautOrdered,
+    secondLatch:        Option[Int]        = None
 ) extends MongoCollectionConfig with MongoClassConfig {
   require(maxBatchSize >= 1, s"maxBatchSize ($maxBatchSize) must be greater or equal to 1")
   require(localThreshold >= 0, s"localThreshold ($localThreshold) must be greater or equal to 0")
