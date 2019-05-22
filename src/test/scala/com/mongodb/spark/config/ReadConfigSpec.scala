@@ -219,7 +219,7 @@ class ReadConfigSpec extends FlatSpec with Matchers {
     an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set("spark.mongodb.input.uri", "localhost/db.coll"))
     an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set(
       "spark.mongodb.input.uri",
-      "mongodb://localhost/db.coll/readPreference=AllNodes"
+      "mongodb://localhost/db.coll/?readPreference=AllNodes"
     ))
     an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set("spark.mongodb.input.collection", "coll"))
     an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set("spark.mongodb.input.database", "db"))

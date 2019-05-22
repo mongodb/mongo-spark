@@ -64,10 +64,10 @@ $ cd mongo-spark
 $ ./sbt check
 ```
 
-To publish the signed jars:
+To publish the signed jars - first commit and tag all changes to publish.
 
 ```
-$ ./sbt +publish-signed
+$ ./sbt +publishArchives
 ```
 
 To publish to spark packages:
