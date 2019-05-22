@@ -238,6 +238,60 @@ class MapFunctionsSpec extends RequiresMongoDB with GeneratorDrivenPropertyCheck
     val row = new GenericRowWithSchema(Array(Array(1)), schemaFor[MixedNumericsDouble])
     an[MongoTypeConversionException] should be thrownBy rowToDocument(row)
   }
+
+  it should "handle null values if field.nullable" in {
+    val schema: StructType = StructType(Seq(StructField("a", StringType, true), StructField("b", IntegerType, true)))
+    val row: Row = new GenericRowWithSchema(Array(null, 18), schema)
+
+    val converted = rowToDocument(row)
+    converted should equal(BsonDocument.parse("{b: 18}"))
+
+    val row1: Row = new GenericRowWithSchema(Array("a", null), schema)
+    val converted1 = rowToDocument(row1)
+    converted1 should equal(BsonDocument.parse("{a: 'a'}"))
+  }
+
+  it should "handle null values in arrays if ArrayType.containsNull" in {
+    val schema: StructType = StructType(Seq(
+      StructField("a", StringType, true),
+      StructField("b", DataTypes.createArrayType(StringType, true), true)
+    ))
+    val row: Row = new GenericRowWithSchema(Array("ok", Seq("a", null, "c")), schema)
+
+    val converted = rowToDocument(row)
+    converted should equal(BsonDocument.parse("{a: 'ok', b: ['a', null, 'c']}"))
+
+    // Nested lists
+    val nestedSchema: StructType = StructType(Seq(
+      StructField("a", StringType, true),
+      StructField("b", DataTypes.createArrayType(DataTypes.createArrayType(StringType, true), true), true)
+    ))
+    val nestedRow: Row = new GenericRowWithSchema(Array("ok", Seq(Seq("a", null), Seq("c"))), nestedSchema)
+
+    val nestedConverted = rowToDocument(nestedRow)
+    nestedConverted should equal(BsonDocument.parse("{a: 'ok', b: [['a', null], ['c']]}"))
+  }
+
+  it should "handle null values in maps if MapType.valueContainsNull" in {
+    val schema: StructType = StructType(Seq(
+      StructField("a", StringType, true),
+      StructField("b", MapType(StringType, StringType), true)
+    ))
+    val row: Row = new GenericRowWithSchema(Array("ok", Map("ba" -> "ba", "bb" -> null)), schema)
+
+    val converted = rowToDocument(row)
+    converted should equal(BsonDocument.parse("{a: 'ok', b: {ba: 'ba', bb: null}}"))
+
+    // Nested Maps
+    val nestedSchema: StructType = StructType(Seq(
+      StructField("a", StringType, true),
+      StructField("b", MapType(StringType, MapType(StringType, StringType)), true)
+    ))
+    val nestedRow: Row = new GenericRowWithSchema(Array("ok", Map("ba" -> Map("baa" -> "baa"), "bb" -> Map("bbb" -> null))), nestedSchema)
+
+    val nestedConverted = rowToDocument(nestedRow)
+    nestedConverted should equal(BsonDocument.parse("{a: 'ok', b: {ba: {baa: 'baa'}, bb: {bbb: null}}}"))
+  }
   // scalastyle:on magic.number null
 }
 
