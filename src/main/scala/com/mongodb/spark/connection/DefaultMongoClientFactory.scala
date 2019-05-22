@@ -37,7 +37,7 @@ private[spark] object DefaultMongoClientFactory {
 private[spark] case class DefaultMongoClientFactory(connectionString: String, localThreshold: Option[Int] = None) extends MongoClientFactory {
   require(Try(new MongoClientURI(connectionString)).isSuccess, s"Invalid '${MongoSharedConfig.mongoURIProperty}' '$connectionString'")
 
-  private lazy val mongoDriverInformation = MongoDriverInformation.builder().driverName("mongo-spark")
+  @transient private lazy val mongoDriverInformation = MongoDriverInformation.builder().driverName("mongo-spark")
     .driverVersion(BuildInfo.version)
     .driverPlatform(s"Scala/${BuildInfo.scalaVersion}:Spark/${SPARK_VERSION}")
     .build()
