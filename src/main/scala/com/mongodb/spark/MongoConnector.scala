@@ -119,7 +119,8 @@ object MongoConnector {
     MongoConnector(mongoClientFactory)
   }
 
-  private[spark] val mongoClientKeepAlive = Duration(System.getProperty("spark.mongodb.keep_alive_ms", "5000").toInt, TimeUnit.MILLISECONDS)
+  private[spark] val mongoClientKeepAlive = Duration(System.getProperty("mongodb.keep_alive_ms",
+    System.getProperty("spark.mongodb.keep_alive_ms", "5000")).toInt, TimeUnit.MILLISECONDS)
   private val mongoClientCache = new MongoClientCache(mongoClientKeepAlive)
   Runtime.getRuntime.addShutdownHook(new Thread(new Runnable {
     def run() {
