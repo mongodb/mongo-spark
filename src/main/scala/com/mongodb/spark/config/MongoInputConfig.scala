@@ -51,6 +51,7 @@ package com.mongodb.spark.config
  *    the aggregation pipeline
  *  - [[pipelineProperty pipeline]], enables custom aggregation pipelines to applied to the collection before sending to Spark
  *  - [[allowDiskUseProperty allowDiskUse]], enables writing to temporary files during aggregation in MongoDB.
+ *  - [[batchSizeProperty batchSize]], customize the size of the internal batches within the MongoDB cursor.
  */
 trait MongoInputConfig extends MongoCompanionConfig {
 
@@ -236,4 +237,14 @@ trait MongoInputConfig extends MongoCompanionConfig {
    */
   val allowDiskUseProperty: String = "allowDiskUse".toLowerCase
 
+  /**
+   * The batch size property
+   *
+   * The size of batches used by the underlying cursor. Smaller batches will result in more round trips to MongoDB.
+   *
+   * Default: The servers default
+   *
+   * @since 2.4.1
+   */
+  val batchSizeProperty: String = "batchSize".toLowerCase
 }
