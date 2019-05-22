@@ -43,7 +43,8 @@ class ReadConfigSpec extends FlatSpec with Matchers {
     val hint = BsonDocument.parse("{a: 1, b: -1}")
     val expectedReadConfig = ReadConfig("db", "collection", None, 150, MongoShardedPartitioner, Map("shardkey" -> "ID"), 0,
       ReadPreferenceConfig(ReadPreference.secondary()), ReadConcernConfig(ReadConcern.LOCAL),
-      AggregationConfig(List(BsonDocument.parse("""{ "$match" : { "a" : 1 } }""")), collation, hint), samplePoolSize = 1500)
+      AggregationConfig(List(BsonDocument.parse("""{ "$match" : { "a" : 1 } }""")), collation, hint), registerSQLHelperFunctions = true,
+      samplePoolSize = 1500, batchSize = Some(5))
 
     val readConfig = ReadConfig(sparkConf)
     readConfig.databaseName should equal(expectedReadConfig.databaseName)
@@ -55,11 +56,14 @@ class ReadConfigSpec extends FlatSpec with Matchers {
     readConfig.localThreshold should equal(expectedReadConfig.localThreshold)
     readConfig.readPreferenceConfig should equal(expectedReadConfig.readPreferenceConfig)
     readConfig.readConcernConfig should equal(expectedReadConfig.readConcernConfig)
+    readConfig.aggregationConfig should equal(expectedReadConfig.aggregationConfig)
+    readConfig.registerSQLHelperFunctions should equal(expectedReadConfig.registerSQLHelperFunctions)
     readConfig.inferSchemaMapTypesMinimumKeys should equal(expectedReadConfig.inferSchemaMapTypesMinimumKeys)
     readConfig.inferSchemaMapTypesEnabled should equal(expectedReadConfig.inferSchemaMapTypesEnabled)
     readConfig.pipelineIncludeNullFilters should equal(expectedReadConfig.pipelineIncludeNullFilters)
     readConfig.pipelineIncludeFiltersAndProjections should equal(expectedReadConfig.pipelineIncludeFiltersAndProjections)
-    readConfig.aggregationConfig should equal(expectedReadConfig.aggregationConfig)
+    readConfig.samplePoolSize should equal(expectedReadConfig.samplePoolSize)
+    readConfig.batchSize should equal(expectedReadConfig.batchSize)
   }
 
   it should "use the URI for default values" in {
@@ -100,7 +104,9 @@ class ReadConfigSpec extends FlatSpec with Matchers {
       inferSchemaMapTypesEnabled = false,
       inferSchemaMapTypesMinimumKeys = 999,
       pipelineIncludeNullFilters = false,
-      pipelineIncludeFiltersAndProjections = false)
+      pipelineIncludeFiltersAndProjections = false,
+      samplePoolSize = 2000,
+      batchSize = Some(5))
 
     val readConfig = defaultReadConfig.withOptions(expectedReadConfig.asOptions)
 
@@ -108,16 +114,19 @@ class ReadConfigSpec extends FlatSpec with Matchers {
     readConfig.collectionName should equal(expectedReadConfig.collectionName)
     readConfig.connectionString should equal(expectedReadConfig.connectionString)
     readConfig.sampleSize should equal(expectedReadConfig.sampleSize)
-    readConfig.partitioner should equal(expectedReadConfig.partitioner)
+    readConfig.partitioner.getClass should equal(expectedReadConfig.partitioner.getClass)
     readConfig.partitionerOptions should equal(expectedReadConfig.partitionerOptions)
     readConfig.localThreshold should equal(expectedReadConfig.localThreshold)
     readConfig.readPreferenceConfig should equal(expectedReadConfig.readPreferenceConfig)
     readConfig.readConcernConfig should equal(expectedReadConfig.readConcernConfig)
     readConfig.aggregationConfig should equal(expectedReadConfig.aggregationConfig)
+    readConfig.registerSQLHelperFunctions should equal(expectedReadConfig.registerSQLHelperFunctions)
     readConfig.inferSchemaMapTypesMinimumKeys should equal(expectedReadConfig.inferSchemaMapTypesMinimumKeys)
     readConfig.inferSchemaMapTypesEnabled should equal(expectedReadConfig.inferSchemaMapTypesEnabled)
     readConfig.pipelineIncludeNullFilters should equal(expectedReadConfig.pipelineIncludeNullFilters)
     readConfig.pipelineIncludeFiltersAndProjections should equal(expectedReadConfig.pipelineIncludeFiltersAndProjections)
+    readConfig.samplePoolSize should equal(expectedReadConfig.samplePoolSize)
+    readConfig.batchSize should equal(expectedReadConfig.batchSize)
   }
 
   it should "set new options when using withOptions" in {
@@ -229,6 +238,7 @@ class ReadConfigSpec extends FlatSpec with Matchers {
     .set("spark.mongodb.input.partitioner", "MongoShardedPartitioner$")
     .set("spark.mongodb.input.partitionerOptions.shardKey", "ID")
     .set("spark.mongodb.input.localThreshold", "0")
+    .set("spark.mongodb.input.registerSQLHelperFunctions", "true")
     .set("spark.mongodb.input.readPreference.name", "secondary")
     .set("spark.mongodb.input.readConcern.level", "local")
     .set("spark.mongodb.input.sampleSize", "150")
@@ -238,6 +248,7 @@ class ReadConfigSpec extends FlatSpec with Matchers {
       .collationMaxVariable(CollationMaxVariable.SPACE).backwards(true).normalization(true).build().asDocument().toJson)
     .set("spark.mongodb.input.hint", """{ "a" : 1, "b" : -1 }""")
     .set("spark.mongodb.input.pipeline", """[{ "$match" : { "a" : 1 } }]""")
+    .set("spark.mongodb.input.batchSize", "5")
 
 }
 // scalastyle:on magic.number

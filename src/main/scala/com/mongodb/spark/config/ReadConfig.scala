@@ -55,6 +55,7 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
   private val DefaultInferSchemaMapTypesMinimumKeys = 250
   private val DefaultPipelineIncludeNullFilters = true
   private val DefaultPipelineIncludeFiltersAndProjections = true
+  private val DefaultBatchSize = None
 
   override def apply(options: collection.Map[String, String], default: Option[ReadConfig]): ReadConfig = {
     val cleanedOptions = stripPrefix(options)
@@ -100,7 +101,8 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
         default.map(conf => conf.pipelineIncludeFiltersAndProjections),
         DefaultPipelineIncludeFiltersAndProjections
       ),
-      samplePoolSize = getInt(cleanedOptions.get(samplePoolSizeProperty), default.map(conf => conf.samplePoolSize), DefaultSamplePoolSize)
+      samplePoolSize = getInt(cleanedOptions.get(samplePoolSizeProperty), default.map(conf => conf.samplePoolSize), DefaultSamplePoolSize),
+      batchSize = cleanedOptions.get(batchSizeProperty).map(_.toInt).orElse(default.flatMap(conf => conf.batchSize))
     )
   }
 
@@ -370,6 +372,7 @@ object ReadConfig extends MongoInputConfig with LoggingTrait {
  * @param pipelineIncludeNullFilters true to include and push down null and exists filters into the pipeline when using sql.
  * @param pipelineIncludeFiltersAndProjections true to push down filters and projections into the pipeline when using sql.
  * @param samplePoolSize the size of the pool to take a sample from, used when there is no `\$sample` support or if there is a pushed down aggregation
+ * @param batchSize the optional size for the internal batches used within the cursor
  * @since 1.0
  */
 case class ReadConfig(
@@ -388,11 +391,13 @@ case class ReadConfig(
     inferSchemaMapTypesMinimumKeys:       Int                            = ReadConfig.DefaultInferSchemaMapTypesMinimumKeys,
     pipelineIncludeNullFilters:           Boolean                        = ReadConfig.DefaultPipelineIncludeNullFilters,
     pipelineIncludeFiltersAndProjections: Boolean                        = ReadConfig.DefaultPipelineIncludeFiltersAndProjections,
-    samplePoolSize:                       Int                            = ReadConfig.DefaultSamplePoolSize
+    samplePoolSize:                       Int                            = ReadConfig.DefaultSamplePoolSize,
+    batchSize:                            Option[Int]                    = ReadConfig.DefaultBatchSize
 ) extends MongoCollectionConfig with MongoClassConfig {
   require(Try(connectionString.map(uri => new ConnectionString(uri))).isSuccess, s"Invalid uri: '${connectionString.get}'")
   require(sampleSize > 0, s"sampleSize ($sampleSize) must be greater than 0")
   require(localThreshold >= 0, s"localThreshold ($localThreshold) must be greater or equal to 0")
+  require(batchSize.getOrElse(2) > 1, s"batchSize (${batchSize.get} must be greater than 1.")
 
   type Self = ReadConfig
 
@@ -417,6 +422,7 @@ case class ReadConfig(
 
     partitionerOptions.map(kv => options += s"${ReadConfig.partitionerOptionsProperty}.${kv._1}".toLowerCase -> kv._2)
     connectionString.map(uri => options += ReadConfig.mongoURIProperty -> uri)
+    batchSize.map(size => options += ReadConfig.batchSizeProperty -> size.toString)
     options ++= readPreferenceConfig.asOptions
     options ++= readConcernConfig.asOptions
     options ++= aggregationConfig.asOptions
