@@ -1,6 +1,6 @@
 # Mongo Spark Connector Changelog
 
-## 2.4.0
+## 2.4.1
   * [[SPARK-235](https://jira.mongodb.org/browse/SPARK-235)] Ensure nullable fields or container types accept null values
 
 ## 2.4.0
