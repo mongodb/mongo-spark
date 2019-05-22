@@ -66,7 +66,8 @@ object Publish {
             "oss.sonatype.org",
             props.getProperty(username),
             props.getProperty(password)),
-          publishSnapshot <<= publishSnapshotTask
+          publishSnapshot := publishSnapshotTask.value,
+          publishArchives := publishArchivesTask.value
         )
       } else {
         Seq.empty
@@ -114,6 +115,7 @@ object Publish {
     publish :=(),
     publishLocal :=(),
     publishTo := None,
+    publishArchives := None,
     publishSnapshot := None,
     PgpKeys.publishSigned := ()
   )
@@ -122,6 +124,25 @@ object Publish {
   val publishSnapshotTask = Def.taskDyn {
     // Only publish if snapshot
     if(isSnapshot.value) Def.task { PgpKeys.publishSigned.value } else Def.task { }
+  }
+
+  lazy val publishArchives: TaskKey[Unit] = TaskKey[Unit]("publish-archives", "publishes the archives")
+  val publishArchivesTask = Def.taskDyn {
+      if(isSnapshot.value) {
+        throw new MessageOnlyException(
+          """
+            |===================
+            | Snapshot version!
+            |===================
+            |
+            |The project version does not match the git tag.
+            |
+            |Please tag and try again.
+            |
+        """.stripMargin)
+      } else {
+        Def.task { PgpKeys.publishSigned.value }
+      }
   }
 
   def isScala210(scalaVersion: String): Boolean = CrossVersion.partialVersion(scalaVersion).exists(value => value != (2, 10))

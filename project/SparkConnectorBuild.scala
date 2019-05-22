@@ -14,23 +14,26 @@
   * limitations under the License.
   */
 
+import com.typesafe.sbt.GitVersioning
 import scalariform.formatter.preferences.FormattingPreferences
-
 import com.typesafe.sbt.SbtScalariform._
 import org.scalastyle.sbt.ScalastylePlugin._
 import sbtsparkpackage.SparkPackagePlugin.autoImport._
 import sbt.Keys._
 import sbt._
+import sbtbuildinfo.{BuildInfoKey, BuildInfoPlugin}
+import sbtbuildinfo.BuildInfoKeys.{buildInfoKeys, buildInfoPackage}
 
 object SparkConnectorBuild extends Build {
 
   import Dependencies.{scalaCoreVersion, scalaVersions, coreDependencies, testDependencies}
   import Resolvers._
 
+  val baseVersion = "2.3.3"
+
   val buildSettings = Seq(
     organization := "org.mongodb.spark",
     organizationHomepage := Some(url("http://www.mongodb.org")),
-    version := "2.3.3-SNAPSHOT",
     scalaVersion := scalaCoreVersion,
     crossScalaVersions := scalaVersions,
     libraryDependencies ++= coreDependencies,
@@ -71,6 +74,12 @@ object SparkConnectorBuild extends Build {
     credentials += Credentials(Path.userHome / ".ivy2" / ".spCredentials")
   )
 
+
+  val versionSettings = Versioning.settings(baseVersion)
+  val buildInfoSettings = Seq(
+    buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion),
+    buildInfoPackage := "com.mongodb.spark.config"
+  )
   /*
    * Style and formatting
    */
@@ -99,6 +108,8 @@ object SparkConnectorBuild extends Build {
     id = "mongo-spark-connector",
     base = file(".")
   ).settings(buildSettings)
+    .settings(buildInfoSettings)
+    .settings(versionSettings)
     .settings(testSettings)
     .settings(customScalariformSettings)
     .settings(scalaStyleSettings)
@@ -107,6 +118,7 @@ object SparkConnectorBuild extends Build {
     .settings(Publish.assemblySettings)
     .settings(sparkPackages)
     .settings(checkAlias)
+    .enablePlugins(GitVersioning, BuildInfoPlugin)
 
   lazy val examples = Project(
     id = "mongo-spark-connector-examples",
