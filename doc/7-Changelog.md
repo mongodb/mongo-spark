@@ -1,6 +1,9 @@
 # Mongo Spark Connector Changelog
 
 ## 2.4.0
+  * [[SPARK-235](https://jira.mongodb.org/browse/SPARK-235)] Ensure nullable fields or container types accept null values
+
+## 2.4.0
   * [[SPARK-224](https://jira.mongodb.org/browse/SPARK-224)] Support Spark 2.4.0. Updated Spark dependency to 2.4.0
   * [[SPARK-225](https://jira.mongodb.org/browse/SPARK-225)] Ensure WriteConfig.ordered is applied to write operations.
   * [[SPARK-226](https://jira.mongodb.org/browse/SPARK-226)] Updated Mongo Java Driver to 3.9.0
