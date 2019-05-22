@@ -21,7 +21,7 @@ import com.mongodb.{MongoClient, MongoClientOptions, MongoClientURI, MongoDriver
 import scala.util.Try
 import com.mongodb.spark.MongoClientFactory
 import com.mongodb.spark.config.{BuildInfo, MongoSharedConfig, ReadConfig}
-import org.apache.spark.SparkContext
+import org.apache.spark.SPARK_VERSION
 
 private[spark] object DefaultMongoClientFactory {
   def apply(options: collection.Map[String, String]): DefaultMongoClientFactory = {
@@ -39,7 +39,7 @@ private[spark] case class DefaultMongoClientFactory(connectionString: String, lo
 
   private lazy val mongoDriverInformation = MongoDriverInformation.builder().driverName("mongo-spark")
     .driverVersion(BuildInfo.version)
-    .driverPlatform(s"Scala/${BuildInfo.scalaVersion}:Spark/${SparkContext.getOrCreate().version}")
+    .driverPlatform(s"Scala/${BuildInfo.scalaVersion}:Spark/${SPARK_VERSION}")
     .build()
 
   override def create(): MongoClient = {
