@@ -157,7 +157,7 @@ Spark Configuration is available it can only be configured via a System Property
 
 System Property name         | Description                                                     | Default value
 -----------------------------|-----------------------------------------------------------------|--------------------
-spark.mongodb.keep_alive_ms  | The length of time to keep a MongoClient available for sharing  | 5000
+mongodb.keep_alive_ms        | The length of time to keep a MongoClient available for sharing  | 5000
 
 -----
 
