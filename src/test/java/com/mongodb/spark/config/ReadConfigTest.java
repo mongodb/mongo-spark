@@ -69,8 +69,8 @@ public final class ReadConfigTest extends JavaRequiresMongoDB {
         options.put(ReadConfig.readPreferenceNameProperty(), "secondaryPreferred");
         options.put(ReadConfig.readPreferenceTagSetsProperty(), "[{dc: \"east\", use: \"production\"},{}]");
         options.put(ReadConfig.readConcernLevelProperty(), "majority");
-        options.put(ReadConfig.collationProperty(), "{ \"locale\" : \"en\" }");
-        options.put(ReadConfig.hintProperty(), "{ \"a\" : 1 }");
+        options.put(ReadConfig.collationProperty(), "{\"locale\": \"en\"}");
+        options.put(ReadConfig.hintProperty(), "{\"a\": 1}");
         options.put(ReadConfig.registerSQLHelperFunctionsProperty(), "false");
         options.put(ReadConfig.inferSchemaMapTypeEnabledProperty(), "false");
         options.put(ReadConfig.inferSchemaMapTypeMinimumKeysProperty(), "999");
