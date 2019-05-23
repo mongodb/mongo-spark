@@ -43,7 +43,7 @@ class ReadConfigSpec extends FlatSpec with Matchers {
     val hint = BsonDocument.parse("{a: 1, b: -1}")
     val expectedReadConfig = ReadConfig("db", "collection", None, 150, MongoShardedPartitioner, Map("shardkey" -> "ID"), 0,
       ReadPreferenceConfig(ReadPreference.secondary()), ReadConcernConfig(ReadConcern.LOCAL),
-      AggregationConfig(List(BsonDocument.parse("""{ "$match" : { "a" : 1 } }""")), collation, hint), registerSQLHelperFunctions = true,
+      AggregationConfig(List(BsonDocument.parse("""{"$match": {"a": 1}}""")), collation, hint), registerSQLHelperFunctions = true,
       samplePoolSize = 1500, batchSize = Some(5))
 
     val readConfig = ReadConfig(sparkConf)
@@ -98,8 +98,8 @@ class ReadConfigSpec extends FlatSpec with Matchers {
       Map("partitioneroptions.partitionsizemb" -> "15"), 0,
       ReadPreferenceConfig(ReadPreference.secondaryPreferred(new TagSet(List(new Tag("dc", "east"), new Tag("use", "production")).asJava))),
       ReadConcernConfig(ReadConcern.MAJORITY), AggregationConfig(
-        List(BsonDocument.parse("""{ "$match" : { "a" : 1 } }""")),
-        Collation.builder().locale("en").build(), BsonDocument.parse("{a : 1 }")
+        List(BsonDocument.parse("""{"$match": {"a": 1 }}""")),
+        Collation.builder().locale("en").build(), BsonDocument.parse("{a: 1}")
       ),
       inferSchemaMapTypesEnabled = false,
       inferSchemaMapTypesMinimumKeys = 999,
@@ -132,14 +132,14 @@ class ReadConfigSpec extends FlatSpec with Matchers {
   it should "set new options when using withOptions" in {
     val defaultReadConfig = ReadConfig(Map("uri" -> "mongodb://localhost/db.coll"))
     val options = Map(
-      "collation" -> """{ "locale" : "en" }""",
+      "collation" -> """{"locale": "en"}""",
       "collection" -> "collName",
       "database" -> "dbName",
-      "hint" -> """{ "a" : 1 }""",
+      "hint" -> """{"a": 1}""",
       "localthreshold" -> "99",
       "partitioner" -> "com.mongodb.spark.rdd.partitioner.MongoSplitVectorPartitioner$",
       "partitioneroptions.partitionsizemb" -> "15",
-      "pipeline" -> """[{ "$match" : { "a" : 1 } }]""",
+      "pipeline" -> """[{"$match": {"a": 1}}]""",
       "readconcern.level" -> "majority",
       "readpreference.name" -> "secondaryPreferred",
       "readpreference.tagsets" -> """[{dc:"east", use:"production"}]""",
@@ -156,8 +156,8 @@ class ReadConfigSpec extends FlatSpec with Matchers {
       Map("partitionsizemb" -> "15"), 99,
       ReadPreferenceConfig(ReadPreference.secondaryPreferred(new TagSet(List(new Tag("dc", "east"), new Tag("use", "production")).asJava))),
       ReadConcernConfig(ReadConcern.MAJORITY), AggregationConfig(
-        List(BsonDocument.parse("""{ "$match" : { "a" : 1 } }""")),
-        Collation.builder().locale("en").build(), BsonDocument.parse("{a : 1 }")
+        List(BsonDocument.parse("""{"$match": {"a": 1 }}""")),
+        Collation.builder().locale("en").build(), BsonDocument.parse("{a: 1}")
       ),
       inferSchemaMapTypesEnabled = false,
       inferSchemaMapTypesMinimumKeys = 900,
@@ -200,7 +200,7 @@ class ReadConfigSpec extends FlatSpec with Matchers {
       "sql.inferschema.maptypes.minimumkeys" -> "999",
       "sql.pipeline.includenullfilters" -> "false",
       "sql.pipeline.includefiltersandprojections" -> "false",
-      "pipeline" -> """[{ "$match" : { "a" : 1 } }]"""
+      "pipeline" -> """[{"$match": {"a": 1}}]"""
     )
 
     readConfig.asOptions should equal(expectedReadConfigMap)
@@ -219,7 +219,7 @@ class ReadConfigSpec extends FlatSpec with Matchers {
     an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set("spark.mongodb.input.uri", "localhost/db.coll"))
     an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set(
       "spark.mongodb.input.uri",
-      "mongodb://localhost/db.coll/readPreference=AllNodes"
+      "mongodb://localhost/db.coll/?readPreference=AllNodes"
     ))
     an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set("spark.mongodb.input.collection", "coll"))
     an[IllegalArgumentException] should be thrownBy ReadConfig(new SparkConf().set("spark.mongodb.input.database", "db"))
@@ -246,8 +246,8 @@ class ReadConfigSpec extends FlatSpec with Matchers {
     .set("spark.mongodb.input.collation", Collation.builder().locale("en").caseLevel(true).collationCaseFirst(CollationCaseFirst.OFF)
       .collationStrength(CollationStrength.IDENTICAL).numericOrdering(true).collationAlternate(CollationAlternate.SHIFTED)
       .collationMaxVariable(CollationMaxVariable.SPACE).backwards(true).normalization(true).build().asDocument().toJson)
-    .set("spark.mongodb.input.hint", """{ "a" : 1, "b" : -1 }""")
-    .set("spark.mongodb.input.pipeline", """[{ "$match" : { "a" : 1 } }]""")
+    .set("spark.mongodb.input.hint", """{"a": 1, "b": -1}""")
+    .set("spark.mongodb.input.pipeline", """[{"$match": {"a": 1}}]""")
     .set("spark.mongodb.input.batchSize", "5")
 
 }
