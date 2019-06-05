@@ -106,14 +106,43 @@ object PartitionerHelper {
   /**
    * Returns the head `\$match` from a pipeline
    *
+   * Removes any `\$exists` and `\$ne` queries as they cannot use an index.
+   *
    * @param pipeline the users pipeline
    * @return the head `\$match` or an empty `BsonDocument`.
    */
   def matchQuery(pipeline: Array[BsonDocument]): BsonDocument = {
     val defaultQuery = new BsonDocument()
     pipeline.headOption match {
-      case Some(document) => document.getDocument("$match", defaultQuery)
+      case Some(document) => removeExistsAndNeChecks(document.getDocument("$match", defaultQuery)).asDocument()
       case None           => defaultQuery
+    }
+  }
+
+  private def removeExistsAndNeChecks(value: BsonValue): BsonValue = {
+    if (value.isDocument) {
+      val excludeKeys = List("$exists", "$ne")
+      val cleanedDocument = new BsonDocument()
+      value.asDocument().asScala.foreach {
+        case (k: String, v: BsonValue) =>
+          if (v.isDocument) {
+            val cleanedSubDocument = new BsonDocument()
+            v.asDocument().asScala.foreach({
+              case (sk: String, sv: BsonValue) =>
+                if (!excludeKeys.contains(sk)) {
+                  cleanedSubDocument.put(sk, removeExistsAndNeChecks(sv))
+                }
+            })
+            if (!cleanedSubDocument.isEmpty) {
+              cleanedDocument.put(k, cleanedSubDocument)
+            }
+          } else {
+            cleanedDocument.put(k, v)
+          }
+      }
+      cleanedDocument
+    } else {
+      value
     }
   }
 
