@@ -75,4 +75,6 @@ case class MongoPartition(index: Int, queryBounds: BsonDocument, locations: Seq[
     case p: MongoPartition if index.equals(p.index) && queryBounds.equals(p.queryBounds) && locations.equals(p.locations) => true
     case _ => false
   }
+
+  override def toString: String = s"MongoPartition(index=$index, queryBounds=${queryBounds.toJson}, locations=${locations.toList})"
 }
