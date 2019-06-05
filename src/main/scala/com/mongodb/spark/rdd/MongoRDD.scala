@@ -132,7 +132,9 @@ class MongoRDD[D: ClassTag](
   override protected def getPartitions: Array[Partition] = {
     checkSparkContext()
     try {
-      readConfig.partitioner.partitions(connector.value, readConfig, readConfig.pipeline.toArray).asInstanceOf[Array[Partition]]
+      val partitions = readConfig.partitioner.partitions(connector.value, readConfig, readConfig.pipeline.toArray)
+      logDebug(s"Created partitions: ${partitions.toList}")
+      partitions.asInstanceOf[Array[Partition]]
     } catch {
       case t: Throwable =>
         logError(
@@ -158,7 +160,7 @@ class MongoRDD[D: ClassTag](
     val client = connector.value.acquireClient()
     val cursor = getCursor(client, split.asInstanceOf[MongoPartition])
     context.addTaskCompletionListener[Unit]((ctx: TaskContext) => {
-      log.debug("Task completed closing the MongoDB cursor")
+      logDebug("Task completed closing the MongoDB cursor")
       Try(cursor.close())
       connector.value.releaseClient(client)
     })
@@ -177,6 +179,7 @@ class MongoRDD[D: ClassTag](
       new BsonDocument("$match", partition.queryBounds) +: readConfig.pipeline
     }
 
+    logDebug(s"Creating cursor for partition #${partition.index}. pipeline = ${partitionPipeline.map(_.toJson).mkString("[", ", ", "]")}")
     val aggregateIterable: AggregateIterable[D] = client.getDatabase(readConfig.databaseName)
       .getCollection[D](readConfig.collectionName, classTagToClassOf(ct))
       .withReadConcern(readConfig.readConcern)
