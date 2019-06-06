@@ -21,7 +21,7 @@ The python API works via DataFrames and uses underlying Scala DataFrame.
 
 ## DataFrames and Datasets
 
-Creating a dataframe is easy you can either load the data via `DefaultSource` ("com.mongodb.spark.sql.DefaultSource").
+Creating a dataframe is easy you can either load the data via `DefaultSource` ("mongo").
 
 First, in an empty collection we load the following data:
 
@@ -29,13 +29,13 @@ First, in an empty collection we load the following data:
 charactersRdd = sc.parallelize([("Bilbo Baggins",  50), ("Gandalf", 1000), ("Thorin", 195), ("Balin", 178), ("Kili", 77),
                                 ("Dwalin", 169), ("Oin", 167), ("Gloin", 158), ("Fili", 82), ("Bombur", None)])
 characters = sqlContext.createDataFrame(charactersRdd, ["name", "age"])
-characters.write.format("com.mongodb.spark.sql.DefaultSource").mode("overwrite").save()
+characters.write.format("mongo").mode("overwrite").save()
 ```
 
 Then to load the characters into a DataFrame via the standard source method:
 
 ```python
-df = sqlContext.read.format("com.mongodb.spark.sql.DefaultSource").load()
+df = sqlContext.read.format("mongo").load()
 df.printSchema()
 ```
 
@@ -50,13 +50,13 @@ root
 Alternatively, you can specify the database and collection while reading the dataframe:
 
 ```python
-df = spark.read.format("com.mongodb.spark.sql.DefaultSource")\
+df = spark.read.format("mongo")\
     .option("spark.mongodb.input.uri", "mongodb://<host>:<port>/<db>.<collection>").load()
 ```
 And to write a dataframe to a collection:
 
 ```python
-df.write.format("com.mongodb.spark.sql.DefaultSource")\
+df.write.format("mongo")\
     .option("spark.mongodb.output.uri", "mongodb://<host>:<port>/<db>.<collection>").save()
 ```
 

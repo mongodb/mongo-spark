@@ -89,7 +89,7 @@ public final class MongoDataFrameTest extends JavaRequiresMongoDB {
 
         // When
         MongoSpark.load(jsc).toDF()
-                .write().format("com.mongodb.spark.sql").option("collection", newCollectionName).option("mode", "overwrite").save();
+                .write().format("mongo").option("collection", newCollectionName).option("mode", "overwrite").save();
 
         getDatabase().getCollection(getCollectionName()).find().into(original);
         getDatabase().getCollection(newCollectionName).find().into(copied);
