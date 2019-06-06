@@ -30,7 +30,7 @@ class WriteConfigSpec extends FlatSpec with Matchers {
 
   "WriteConfig" should "have the expected defaults" in {
     val expectedWriteConfig = WriteConfig("db", "collection", None, true, 512, MongoSharedConfig.DefaultLocalThreshold,
-      WriteConcern.ACKNOWLEDGED, None, false, true)
+      WriteConcern.ACKNOWLEDGED, None, false, true, true)
 
     WriteConfig("db", "collection") should equal(expectedWriteConfig)
   }
@@ -40,7 +40,7 @@ class WriteConfigSpec extends FlatSpec with Matchers {
 
     forAll(writeConcerns) { writeConcern: WriteConcern =>
       val expectedWriteConfig = WriteConfig("db", "collection", None, false, 1024, MongoSharedConfig.DefaultLocalThreshold, writeConcern,
-        Some("{a: 1, b:1}"), true, false)
+        Some("{a: 1, b:1}"), true, false, false)
       val conf = sparkConf.clone()
 
       forAll(configPrefix) { prefix: String =>
@@ -53,6 +53,7 @@ class WriteConfigSpec extends FlatSpec with Matchers {
         conf.set(s"$prefix${WriteConfig.shardKeyProperty}", "{a: 1, b:1}")
         conf.set(s"$prefix${WriteConfig.forceInsertProperty}", "true")
         conf.set(s"$prefix${WriteConfig.orderedProperty}", "false")
+        conf.set(s"$prefix${WriteConfig.extendedBsonTypesProperty}", "false")
 
         WriteConfig(conf) should equal(expectedWriteConfig)
       }
@@ -67,11 +68,12 @@ class WriteConfigSpec extends FlatSpec with Matchers {
     val shardKey = Some("{a: 1}")
     val forceInsert = true
     val ordered = false
+    val extendedBsonTypes = false
     val defaultWriteConfig = WriteConfig("dbName", "collName", uri, replaceDocument, maxBatchSize, localThreshold,
-      WriteConcern.ACKNOWLEDGED, shardKey, forceInsert, ordered)
+      WriteConcern.ACKNOWLEDGED, shardKey, forceInsert, ordered, extendedBsonTypes)
     forAll(writeConcerns) { writeConcern: WriteConcern =>
       val expectedWriteConfig = WriteConfig("db", "collection", uri, replaceDocument, maxBatchSize, localThreshold, writeConcern, shardKey,
-        forceInsert, ordered)
+        forceInsert, ordered, extendedBsonTypes)
       defaultWriteConfig.withOptions(expectedWriteConfig.asOptions) should equal(expectedWriteConfig)
     }
   }

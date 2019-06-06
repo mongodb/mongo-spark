@@ -50,15 +50,15 @@ private[spark] object MapFunctions {
     new GenericRowWithSchema(requiredValues.map(_._1), DataTypes.createStructType(requiredValues.map(_._2)))
   }
 
-  def rowToDocument(row: Row): BsonDocument = rowToDocumentMapper(row.schema)(row)
+  def rowToDocument(row: Row): BsonDocument = rowToDocumentMapper(row.schema, extendedBsonTypes = true)(row)
 
-  private[spark] def rowToDocumentMapper(schema: StructType): (Row) => BsonDocument = {
+  private[spark] def rowToDocumentMapper(schema: StructType, extendedBsonTypes: Boolean): (Row) => BsonDocument = {
     // foreach field type, decide what function to use to map its value
     val mappers = schema.fields.map({ field =>
       if (field.dataType == NullType) {
         (data: Any, document: BsonDocument) => document.append(field.name, new BsonNull())
       } else {
-        val mapper = wrappedDataTypeToBsonValueMapper(field.dataType, field.nullable)
+        val mapper = wrappedDataTypeToBsonValueMapper(field.dataType, field.nullable, extendedBsonTypes)
         (data: Any, document: BsonDocument) => if (data != null) document.append(field.name, mapper(data))
       }
     })
@@ -77,16 +77,16 @@ private[spark] object MapFunctions {
     }
   }
 
-  private def wrappedDataTypeToBsonValueMapper(elementType: DataType, nullable: Boolean): (Any) => BsonValue = {
+  private def wrappedDataTypeToBsonValueMapper(elementType: DataType, nullable: Boolean, extendedBsonTypes: Boolean): (Any) => BsonValue = {
     element =>
-      Try(dataTypeToBsonValueMapper(elementType, nullable)(element)) match {
+      Try(dataTypeToBsonValueMapper(elementType, nullable, extendedBsonTypes)(element)) match {
         case Success(bsonValue)                        => bsonValue
         case Failure(ex: MongoTypeConversionException) => throw ex
         case Failure(e)                                => throw new MongoTypeConversionException(s"Cannot cast $element into a $elementType")
       }
   }
 
-  private def dataTypeToBsonValueMapper(elementType: DataType, nullable: Boolean): (Any) => BsonValue = {
+  private def dataTypeToBsonValueMapper(elementType: DataType, nullable: Boolean, extendedBsonTypes: Boolean): (Any) => BsonValue = {
     val mapper: (Any) => BsonValue = elementType match {
       case BinaryType => (element: Any) => new BsonBinary(element.asInstanceOf[Array[Byte]])
       case BooleanType => (element: Any) => new BsonBoolean(element.asInstanceOf[Boolean])
@@ -97,16 +97,17 @@ private[spark] object MapFunctions {
       case StringType => (element: Any) => new BsonString(element.asInstanceOf[String])
       case TimestampType => (element: Any) => new BsonDateTime(element.asInstanceOf[Timestamp].getTime)
       case arrayType: ArrayType => {
-        val mapper = arrayTypeToBsonValueMapper(arrayType.elementType, arrayType.containsNull)
+        val mapper = arrayTypeToBsonValueMapper(arrayType.elementType, arrayType.containsNull, extendedBsonTypes)
         (element: Any) => mapper(element.asInstanceOf[Seq[_]])
       }
       case schema: StructType => {
-        val mapper = structTypeToBsonValueMapper(schema)
+        val mapper = structTypeToBsonValueMapper(schema, extendedBsonTypes)
         (element: Any) => mapper(element.asInstanceOf[Row])
       }
       case mapType: MapType =>
         mapType.keyType match {
-          case StringType => element => mapTypeToBsonValueMapper(mapType.valueType, mapType.valueContainsNull)(element.asInstanceOf[Map[String, _]])
+          case StringType => element =>
+            mapTypeToBsonValueMapper(mapType.valueType, mapType.valueContainsNull, extendedBsonTypes)(element.asInstanceOf[Map[String, _]])
           case _ => element => throw new MongoTypeConversionException(
             s"Cannot cast $element into a BsonValue. MapTypes must have keys of StringType for conversion into a BsonDocument"
           )
@@ -127,24 +128,24 @@ private[spark] object MapFunctions {
     }
   }
 
-  private def mapTypeToBsonValueMapper(valueType: DataType, valueContainsNull: Boolean): (Map[String, Any]) => BsonValue = {
+  private def mapTypeToBsonValueMapper(valueType: DataType, valueContainsNull: Boolean, extendedBsonTypes: Boolean): (Map[String, Any]) => BsonValue = {
     val internalDataMapper = valueType match {
       case subDocuments: StructType => {
-        val mapper = structTypeToBsonValueMapper(subDocuments)
+        val mapper = structTypeToBsonValueMapper(subDocuments, extendedBsonTypes)
         (data: Map[String, Any]) => data.map(kv => {
           val value = if (valueContainsNull && kv._2 == null) new BsonNull() else mapper(kv._2.asInstanceOf[Row])
           new BsonElement(kv._1, value)
         })
       }
       case subArray: ArrayType => {
-        val mapper = arrayTypeToBsonValueMapper(subArray.elementType, subArray.containsNull)
+        val mapper = arrayTypeToBsonValueMapper(subArray.elementType, subArray.containsNull, extendedBsonTypes)
         (data: Map[String, Any]) => data.map(kv => {
           val value = if (valueContainsNull && kv._2 == null) new BsonNull() else mapper(kv._2.asInstanceOf[Seq[Any]])
           new BsonElement(kv._1, value)
         })
       }
       case _ => {
-        val mapper = wrappedDataTypeToBsonValueMapper(valueType, valueContainsNull)
+        val mapper = wrappedDataTypeToBsonValueMapper(valueType, valueContainsNull, extendedBsonTypes)
         (data: Map[String, Any]) => data.map(kv => new BsonElement(kv._1, mapper(kv._2)))
       }
     }
@@ -152,38 +153,42 @@ private[spark] object MapFunctions {
     data => new BsonDocument(internalDataMapper(data).toList.asJava)
   }
 
-  private def arrayTypeToBsonValueMapper(elementType: DataType, containsNull: Boolean): (Seq[Any]) => BsonValue = {
+  private def arrayTypeToBsonValueMapper(elementType: DataType, containsNull: Boolean, extendedBsonTypes: Boolean): (Seq[Any]) => BsonValue = {
     val bsonArrayValuesMapper = elementType match {
       case subDocuments: StructType => {
-        val mapper = structTypeToBsonValueMapper(subDocuments)
+        val mapper = structTypeToBsonValueMapper(subDocuments, extendedBsonTypes)
         (data: Seq[Any]) => data.map(x => if (containsNull && x == null) new BsonNull() else mapper(x.asInstanceOf[Row])).asJava
       }
       case subArray: ArrayType => {
-        val mapper = arrayTypeToBsonValueMapper(subArray.elementType, subArray.containsNull)
+        val mapper = arrayTypeToBsonValueMapper(subArray.elementType, subArray.containsNull, extendedBsonTypes)
         (data: Seq[Any]) => data.map(x => if (containsNull && x == null) new BsonNull() else mapper(x.asInstanceOf[Seq[Any]])).asJava
       }
       case _ => {
-        val mapper = wrappedDataTypeToBsonValueMapper(elementType, containsNull)
+        val mapper = wrappedDataTypeToBsonValueMapper(elementType, containsNull, extendedBsonTypes)
         (data: Seq[Any]) => data.map(x => if (containsNull && x == null) new BsonNull() else mapper(x)).asJava
       }
     }
     data => new BsonArray(bsonArrayValuesMapper(data))
   }
 
-  private def structTypeToBsonValueMapper(dataType: StructType): (Row) => BsonValue = {
-    dataType match {
-      case BsonCompatibility.ObjectId()            => BsonCompatibility.ObjectId.apply
-      case BsonCompatibility.MinKey()              => BsonCompatibility.MinKey.apply
-      case BsonCompatibility.MaxKey()              => BsonCompatibility.MaxKey.apply
-      case BsonCompatibility.Timestamp()           => BsonCompatibility.Timestamp.apply
-      case BsonCompatibility.JavaScript()          => BsonCompatibility.JavaScript.apply
-      case BsonCompatibility.JavaScriptWithScope() => BsonCompatibility.JavaScriptWithScope.apply
-      case BsonCompatibility.RegularExpression()   => BsonCompatibility.RegularExpression.apply
-      case BsonCompatibility.Undefined()           => BsonCompatibility.Undefined.apply
-      case BsonCompatibility.Binary()              => BsonCompatibility.Binary.apply
-      case BsonCompatibility.Symbol()              => BsonCompatibility.Symbol.apply
-      case BsonCompatibility.DbPointer()           => BsonCompatibility.DbPointer.apply
-      case _                                       => rowToDocumentMapper(dataType)
+  private def structTypeToBsonValueMapper(dataType: StructType, extendedBsonTypes: Boolean): (Row) => BsonValue = {
+    if (extendedBsonTypes) {
+      dataType match {
+        case BsonCompatibility.ObjectId()            => BsonCompatibility.ObjectId.apply
+        case BsonCompatibility.MinKey()              => BsonCompatibility.MinKey.apply
+        case BsonCompatibility.MaxKey()              => BsonCompatibility.MaxKey.apply
+        case BsonCompatibility.Timestamp()           => BsonCompatibility.Timestamp.apply
+        case BsonCompatibility.JavaScript()          => BsonCompatibility.JavaScript.apply
+        case BsonCompatibility.JavaScriptWithScope() => BsonCompatibility.JavaScriptWithScope.apply
+        case BsonCompatibility.RegularExpression()   => BsonCompatibility.RegularExpression.apply
+        case BsonCompatibility.Undefined()           => BsonCompatibility.Undefined.apply
+        case BsonCompatibility.Binary()              => BsonCompatibility.Binary.apply
+        case BsonCompatibility.Symbol()              => BsonCompatibility.Symbol.apply
+        case BsonCompatibility.DbPointer()           => BsonCompatibility.DbPointer.apply
+        case _                                       => rowToDocumentMapper(dataType, extendedBsonTypes)
+      }
+    } else {
+      rowToDocumentMapper(dataType, extendedBsonTypes)
     }
   }
 
