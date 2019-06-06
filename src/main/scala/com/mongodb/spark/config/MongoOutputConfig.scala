@@ -137,4 +137,15 @@ trait MongoOutputConfig extends MongoCompanionConfig {
    * @since 2.3
    */
   val orderedProperty = "ordered"
+
+  /**
+   * The extended bson types property
+   *
+   * The data contains extended bson types and any datasets that contain structs that follow the extended bson types will automatically
+   * be converted into native bson types.
+   *
+   * Default: true
+   * @since 2.4.1
+   */
+  val extendedBsonTypesProperty = "extendedBsonTypes".toLowerCase
 }

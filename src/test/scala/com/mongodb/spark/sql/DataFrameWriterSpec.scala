@@ -194,6 +194,17 @@ class DataFrameWriterSpec extends DataSourceSpecBase {
     an[SparkException] should be thrownBy MongoSpark.save(ds.write.mode("append"), writeConfig)
   }
 
+  it should "be able to turn off support for extended bson Types" in withSparkSession() { spark =>
+    import spark.implicits._
+    val df = Seq(NestedCode(Code(null))).toDS // scalastyle:ignore
+
+    assertThrows[SparkException] {
+      df.saveToMongoDB()
+    }
+
+    df.saveToMongoDB(WriteConfig(spark.getConf).withOption(WriteConfig.extendedBsonTypesProperty, "false"))
+  }
+
   // scalastyle:on magic.number
 }
 
@@ -207,3 +218,6 @@ case class CharacterUpperCaseNames(_id: Option[fieldTypes.ObjectId], name: Strin
 
 case class ShardedCharacter(_id: Int, shardKey1: Int, shardKey2: Int, name: String, age: Option[Int])
 
+case class NestedCode(nested: Code)
+
+case class Code(code: String)
