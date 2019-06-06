@@ -59,7 +59,7 @@ private[spark] case class MongoRelation(mongoRDD: MongoRDD[BsonDocument], _schem
   }
 
   override def insert(data: DataFrame, overwrite: Boolean): Unit = {
-    val dfw = data.write.format("com.mongodb.spark.sql")
+    val dfw = data.write.format("mongo")
     if (overwrite) {
       dfw.mode(SaveMode.Overwrite).option(WriteConfig.forceInsertProperty, "true").save()
     } else {
