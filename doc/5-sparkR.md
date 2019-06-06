@@ -21,7 +21,7 @@ The Spark R API works via DataFrames and uses underlying Scala DataFrame.
 
 ## DataFrames and Datasets
 
-Creating a dataframe is easy you can either load the data via `DefaultSource` ("com.mongodb.spark.sql.DefaultSource").
+Creating a dataframe is easy you can either load the data via `DefaultSource` ("mongo").
 
 First, in an empty collection we load the following data:
 
@@ -29,13 +29,13 @@ First, in an empty collection we load the following data:
 charactersRdf <- data.frame(list(name=c("Bilbo Baggins", "Gandalf", "Thorin", "Balin", "Kili", "Dwalin", "Oin", "Gloin", "Fili", "Bombur"),
                                  age=c(50, 1000, 195, 178, 77, 169, 167, 158, 82, NA)))
 charactersSparkdf <- createDataFrame(sqlContext, charactersRdf)
-write.df(charactersSparkdf, "", source = "com.mongodb.spark.sql.DefaultSource", mode = "overwrite")
+write.df(charactersSparkdf, "", source = "mongo", mode = "overwrite")
 ```
 
 Then to load the characters into a DataFrame via the standard source method:
 
 ```r
-characters <- read.df(sqlContext, source = "com.mongodb.spark.sql.DefaultSource")
+characters <- read.df(sqlContext, source = "mongo")
 printSchema(characters)
 ```
 

@@ -47,7 +47,7 @@ object MongoSpark {
   /**
    * The default source string for creating DataFrames from MongoDB
    */
-  val defaultSource = "com.mongodb.spark.sql.DefaultSource"
+  val defaultSource = "mongo"
 
   /**
    * Create a builder for configuring the [[MongoSpark]]
@@ -205,7 +205,7 @@ object MongoSpark {
    * @param sparkSession the SparkSession
    * @return the DataFrameReader
    */
-  def read(sparkSession: SparkSession): DataFrameReader = sparkSession.read.format("com.mongodb.spark.sql")
+  def read(sparkSession: SparkSession): DataFrameReader = sparkSession.read.format("mongo")
 
   /**
    * Creates a DataFrameWriter with the `MongoDB` underlying output data source.
@@ -213,7 +213,7 @@ object MongoSpark {
    * @param dataset the Dataset to convert into a DataFrameWriter
    * @return the DataFrameWriter
    */
-  def write[T](dataset: Dataset[T]): DataFrameWriter[T] = dataset.write.format("com.mongodb.spark.sql")
+  def write[T](dataset: Dataset[T]): DataFrameWriter[T] = dataset.write.format("mongo")
 
   /**
    * Builder for configuring and creating a [[MongoSpark]]
