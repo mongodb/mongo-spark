@@ -108,7 +108,7 @@ public final class MongoDataFrameReaderTest extends JavaRequiresMongoDB {
         StructType expectedSchema = createStructType(asList(_idField, ageField, nameField));
 
         // When
-        Dataset<Row> df = sparkSession.read().format("com.mongodb.spark.sql").option("pipeline", "{ $match: { name: { $exists: true } } }").load();
+        Dataset<Row> df = sparkSession.read().format("mongo").option("pipeline", "{ $match: { name: { $exists: true } } }").load();
 
         // Then
         assertEquals(df.schema(), expectedSchema);
@@ -116,7 +116,7 @@ public final class MongoDataFrameReaderTest extends JavaRequiresMongoDB {
         assertEquals(df.filter("age > 100").count(), 6);
 
         // When - single item pipeline
-        df = sparkSession.read().format("com.mongodb.spark.sql").option("pipeline", "{ $match: { name: { $exists: true } } }").load();
+        df = sparkSession.read().format("mongo").option("pipeline", "{ $match: { name: { $exists: true } } }").load();
 
         // Then
         assertEquals(df.schema(), expectedSchema);
@@ -162,7 +162,7 @@ public final class MongoDataFrameReaderTest extends JavaRequiresMongoDB {
         JavaSparkContext jsc = getJavaSparkContext();
         MongoSpark.save(jsc.parallelize(characters).map(JsonToDocument));
 
-        SparkSession.builder().getOrCreate().read().format("com.mongodb.spark.sql").option("pipeline", "[1, 2, 3]").load();
+        SparkSession.builder().getOrCreate().read().format("mongo").option("pipeline", "[1, 2, 3]").load();
     }
 
     private StructField _idField = createStructField("_id", ObjectIdStruct(), true);

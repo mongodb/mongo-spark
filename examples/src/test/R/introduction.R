@@ -32,10 +32,10 @@ sparkR.session()
 charactersRdf <- data.frame(list(name=c("Bilbo Baggins", "Gandalf", "Thorin", "Balin", "Kili", "Dwalin", "Oin", "Gloin", "Fili", "Bombur"),
                                  age=c(50, 1000, 195, 178, 77, 169, 167, 158, 82, NA)))
 charactersSparkdf <- createDataFrame(charactersRdf)
-write.df(charactersSparkdf, "", source = "com.mongodb.spark.sql.DefaultSource", mode = "overwrite")
+write.df(charactersSparkdf, "", source = "mongo", mode = "overwrite")
 
 # Load the data
-characters <- read.df("", source = "com.mongodb.spark.sql.DefaultSource")
+characters <- read.df("", source = "mongo")
 print("Schema:")
 printSchema(characters)
 

@@ -75,11 +75,11 @@ sparkSession.loadFromMongoDB() // Uses the SparkConf for configuration
 sparkSession.loadFromMongoDB(ReadConfig(Map("uri" -> "mongodb://example.com/database.collection"))) // Uses the ReadConfig
 
 sparkSession.read.mongo()
-sparkSession.read.format("com.mongodb.spark.sql").load()
+sparkSession.read.format("mongo").load()
 
 // Set custom options:
 sparkSession.read.mongo(customReadConfig)
-sparkSession.read.format("com.mongodb.spark.sql").options.(customReadConfig.asOptions).load()
+sparkSession.read.format("mongo").options.(customReadConfig.asOptions).load()
 ```
 
 -----
@@ -208,7 +208,7 @@ methods for writing DataFrames to MongoDB:
 
 ```scala
 dataFrameWriter.write.mongo()
-dataFrameWriter.write.format("com.mongodb.spark.sql").save()
+dataFrameWriter.write.format("mongo").save()
 ```
 
 -----
