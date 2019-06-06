@@ -244,7 +244,7 @@ trait MongoInputConfig extends MongoCompanionConfig {
    *
    * Default: The servers default
    *
-   * @since 2.4.1
+   * @since 2.2.7
    */
   val batchSizeProperty: String = "batchSize".toLowerCase
 }
