@@ -77,6 +77,8 @@ $ ./sbt +spPublish
 ```
 See the [sbt-spark-package](https://github.com/databricks/sbt-spark-package) plugin for more information.
 
+Note: If uploading fails run `./sbt +spDist` and manually upload the archives to `https://spark-packages.org/package/mongodb/mongo-spark`
+
 ## Maintainers
 
 * Ross Lawley          ross@mongodb.com
