@@ -23,6 +23,7 @@ Property name                        | Description                              
 uri                                  | The connection string                                                           |
 database                             | The database name to read data from                                             |
 collection                           | The collection name to read data from                                           |
+batchSize                            | The optional size for the internal batches used within the cursor               |
 localThreshold                       | The threshold for choosing a server from multiple MongoDB servers               | 15 ms
 readPreference.name                  | The name of the `ReadPreference` to use                                         | Primary
 readPreference.tagSets               | The `ReadPreference` TagSets to use                                             |
@@ -45,20 +46,21 @@ collation                            | The json representation of a collation. U
 
 The following options are available:
 
-Property name           | Description                                                       | Default value
-------------------------|-------------------------------------------------------------------|--------------------
-uri                     | The connection string                                             |
-database                | The database name to write data to                                |
-collection              | The collection name to write data to                              |
-replaceDocument         | Replace the whole document or just the fields in a Dataset        | true
-maxBatchSize            | The maximum batchsize for bulk operations when saving data        | 512
-localThreshold          | The threshold for choosing a server from multiple MongoDB servers | 15 ms
-writeConcern.w          | The write concern w value                                         | (WriteConcern.ACKNOWLEDGED)
-writeConcern.journal    | The write concern journal value                                   |
-writeConcern.wTimeoutMS | The write concern wTimeout value                                  |
-shardKey                | An optional shardKey, used for upserts of Datasets                | None
-forceInsert             | Forces saves to use inserts, even if a Dataset contains `_id`     | false
-ordered                 | Sets the bulk operations ordered property                         | true
+Property name           | Description                                                           | Default value
+------------------------|-----------------------------------------------------------------------|--------------------
+uri                     | The connection string                                                 |
+database                | The database name to write data to                                    |
+collection              | The collection name to write data to                                  |
+extendedBsonTypes       | Enables support for extended Bson Types when writing data to MongoDB  | true
+replaceDocument         | Replace the whole document or just the fields in a Dataset            | true
+maxBatchSize            | The maximum batchsize for bulk operations when saving data            | 512
+localThreshold          | The threshold for choosing a server from multiple MongoDB servers     | 15 ms
+writeConcern.w          | The write concern w value                                             | (WriteConcern.ACKNOWLEDGED)
+writeConcern.journal    | The write concern journal value                                       |
+writeConcern.wTimeoutMS | The write concern wTimeout value                                      |
+shardKey                | An optional shardKey, used for upserts of Datasets                    | None
+forceInsert             | Forces saves to use inserts, even if a Dataset contains `_id`         | false
+ordered                 | Sets the bulk operations ordered property                             | true
 
 -----
 **Note**: When setting output configurations in the `SparkConf` then the prefix `spark.mongodb.output.` is required.
