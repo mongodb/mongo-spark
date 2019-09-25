@@ -258,7 +258,7 @@ private[spark] object MapFunctions {
   }
 
   private object isBsonNumber {
-    val bsonNumberTypes = Set(BsonType.INT32, BsonType.INT64, BsonType.DOUBLE, BsonType.DECIMAL128)
+    val bsonNumberTypes = Set(BsonType.INT32, BsonType.INT64, BsonType.DOUBLE, BsonType.DECIMAL128,BsonType.STRING)
     def unapply(x: BsonType): Boolean = bsonNumberTypes.contains(x)
   }
 
@@ -268,6 +268,7 @@ private[spark] object MapFunctions {
       case BsonType.INT32      => bsonValue.asInt32().intValue()
       case BsonType.INT64      => bsonValue.asInt64().intValue()
       case BsonType.DOUBLE     => bsonValue.asDouble().intValue()
+      case BsonType.STRING     => bsonValue.asString().getValue.toInt
       case _                   => throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Int")
     }
   }
@@ -278,6 +279,8 @@ private[spark] object MapFunctions {
       case BsonType.INT32      => bsonValue.asInt32().longValue()
       case BsonType.INT64      => bsonValue.asInt64().longValue()
       case BsonType.DOUBLE     => bsonValue.asDouble().longValue()
+      case BsonType.STRING     => if(StringUtils.isNumeric(bsonValue.asString().getValue)){bsonValue.asString().getValue.toLong
+                                   }else{  throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Long")}
       case _                   => throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Long")
     }
   }
@@ -288,6 +291,7 @@ private[spark] object MapFunctions {
       case BsonType.INT32      => bsonValue.asInt32().doubleValue()
       case BsonType.INT64      => bsonValue.asInt64().doubleValue()
       case BsonType.DOUBLE     => bsonValue.asDouble().doubleValue()
+      case BsonType.STRING     => bsonValue.asString().getValue.toDouble
       case _                   => throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Double")
     }
   }
@@ -298,6 +302,7 @@ private[spark] object MapFunctions {
       case BsonType.INT32      => BigDecimal(bsonValue.asInt32().intValue())
       case BsonType.INT64      => BigDecimal(bsonValue.asInt64().longValue())
       case BsonType.DOUBLE     => BigDecimal(bsonValue.asDouble().doubleValue())
+      case BsonType.STRING     => BigDecimal(bsonValue.asString().getValue)
       case _                   => throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a BigDecimal")
     }
   }
