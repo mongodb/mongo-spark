@@ -194,10 +194,13 @@ private[spark] object MapFunctions {
 
   private def convertToDataType(element: BsonValue, elementType: DataType): Any = {
     (element.getBsonType, elementType) match {
-      case (BsonType.DOCUMENT, mapType: MapType) => element.asDocument().asScala.map(kv => (kv._1, convertToDataType(kv._2, mapType.valueType))).toMap
+      case (BsonType.DOCUMENT, mapType: MapType)  => element.asDocument().asScala.map(kv => (kv._1, convertToDataType(kv._2, mapType.valueType))).toMap
       case (BsonType.ARRAY, arrayType: ArrayType) => element.asArray().getValues.asScala.map(convertToDataType(_, arrayType.elementType))
-      case (BsonType.BINARY, BinaryType) => element.asBinary().getData
-      case (BsonType.BOOLEAN, BooleanType) => element.asBoolean().getValue
+      case (BsonType.BINARY, BinaryType)          => element.asBinary().getData
+      case (BsonType.BOOLEAN, BooleanType)        => element.asBoolean().getValue
+      case (BsonType.STRING, BooleanType) => if (StringUtils.isBlank(element.asString().getValue)) { false }
+      else if ("true".equals(element.asString().getValue)) { true }
+      else { false }
       case (BsonType.DATE_TIME, DateType) => new Date(element.asDateTime().getValue)
       case (BsonType.DATE_TIME, TimestampType) => new Timestamp(element.asDateTime().getValue)
       case (BsonType.NULL, NullType) => null
@@ -211,7 +214,7 @@ private[spark] object MapFunctions {
         if (element.isNull) {
           null
         } else {
-          throw new MongoTypeConversionException(s"Cannot cast ${element.getBsonType} into a $elementType (value: $element)")
+          throw new MongoTypeConversionException(s"Cannot cast ${element.getBsonType} into a $elementType (value: $element) element=${element}")
         }
     }
   }
@@ -296,11 +299,12 @@ private[spark] object MapFunctions {
       case BsonType.INT32      => bsonValue.asInt32().doubleValue()
       case BsonType.INT64      => bsonValue.asInt64().doubleValue()
       case BsonType.DOUBLE     => bsonValue.asDouble().doubleValue()
-      case BsonType.STRING => if (StringUtils.isBlank(bsonValue.asString().getValue)) { 0 } else if (StringUtils.isNumeric(bsonValue.asString().getValue)) {
-        bsonValue.asString().getValue.toDouble
-      } else {
-        throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Double")
-      }
+      case BsonType.STRING =>
+        if (StringUtils.isBlank(bsonValue.asString().getValue)) { 0 } else if (StringUtils.isNumeric(bsonValue.asString().getValue.replace(".", ""))) {
+          bsonValue.asString().getValue.toDouble
+        } else {
+          throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Double")
+        }
       case _ => throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Double")
     }
   }
@@ -311,8 +315,14 @@ private[spark] object MapFunctions {
       case BsonType.INT32      => BigDecimal(bsonValue.asInt32().intValue())
       case BsonType.INT64      => BigDecimal(bsonValue.asInt64().longValue())
       case BsonType.DOUBLE     => BigDecimal(bsonValue.asDouble().doubleValue())
-      case BsonType.STRING     => BigDecimal(bsonValue.asString().getValue)
-      case _                   => throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a BigDecimal")
+      case BsonType.STRING =>
+        if (StringUtils.isBlank(bsonValue.asString().getValue)) { BigDecimal(0) }
+        else if (StringUtils.isNumeric(bsonValue.asString().getValue.replace(".", ""))) {
+          BigDecimal(bsonValue.asString().getValue)
+        } else {
+          throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Double")
+        }
+      case _ => throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a BigDecimal")
     }
   }
 

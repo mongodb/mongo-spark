@@ -3,7 +3,7 @@ package com.mongodb.spark.sql
 import com.mongodb.spark.exceptions.MongoTypeConversionException
 import com.mongodb.spark.sql.MapFunctions.documentToRow
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.{StructField, _}
 import org.bson.{BsonDocument, BsonType, BsonValue}
 
 /**
@@ -15,14 +15,17 @@ object TypeFunctionsTest {
   def main(args: Array[String]): Unit = {
     println("hello")
     //    val newDocs = Seq(new Document("_id", new ObjectId(objectId)).append("a", 1), new Document("_id", new ObjectId()).append("a", 2))
-    val document: BsonDocument = BsonDocument.parse("{name: 'John', age: \"\", height: \"192\"}")
+    val document: BsonDocument = BsonDocument.parse("{name: 'John', age: \"\", height: \"192\",sfb: 'true', money:'25.5'}")
     println(document)
     val bsonValue: BsonValue = document.get("age")
     println(bsonValue)
     val schema = StructType(Seq(
       StructField("name", StringType, nullable = false),
       StructField("age", DoubleType, nullable = false),
-      StructField("height", IntegerType, nullable = true)
+      StructField("height", IntegerType, nullable = true),
+      StructField("sfb", BooleanType, nullable = true),
+      StructField("money", DoubleType, nullable = true)
+
     ))
 
     val row: Row = documentToRow(document, schema)
