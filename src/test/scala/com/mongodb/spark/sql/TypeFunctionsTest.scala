@@ -15,7 +15,7 @@ object TypeFunctionsTest {
   def main(args: Array[String]): Unit = {
     println("hello")
     //    val newDocs = Seq(new Document("_id", new ObjectId(objectId)).append("a", 1), new Document("_id", new ObjectId()).append("a", 2))
-    val document: BsonDocument = BsonDocument.parse("{name: 'John', age: \"18.02\", height: \"192\"}")
+    val document: BsonDocument = BsonDocument.parse("{name: 'John', age: \"\", height: \"192\"}")
     println(document)
     val bsonValue: BsonValue = document.get("age")
     println(bsonValue)
