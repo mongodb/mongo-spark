@@ -27,14 +27,26 @@ import org.bson._
 import org.bson.types.Decimal128
 import com.mongodb.spark.exceptions.MongoTypeConversionException
 import com.mongodb.spark.sql.types.BsonCompatibility
+import org.apache.spark.internal.Logging
 
-private[spark] object MapFunctions {
+private[spark] object MapFunctions extends Logging {
 
   // scalastyle:off cyclomatic.complexity null
   def documentToRow(bsonDocument: BsonDocument, schema: StructType, requiredColumns: Array[String] = Array.empty[String]): Row = {
     val values: Array[(Any, StructField)] = schema.fields.map(field =>
       bsonDocument.containsKey(field.name) match {
-        case true  => (convertToDataType(bsonDocument.get(field.name), field.dataType), field)
+        case true =>
+          try {
+            //异常数据不中断，记录来下
+            (convertToDataType(bsonDocument.get(field.name), field.dataType), field)
+          } catch {
+            case e: Exception =>
+              e.printStackTrace()
+              logError("documentToRow candao convertToDataType Exception==>" + e)
+              logError("schema=" + schema)
+              logError("bsonDocument=" + bsonDocument)
+              (null, field)
+          }
         case false => (null, field)
       })
 
@@ -218,7 +230,23 @@ private[spark] object MapFunctions {
         }
     }
   }
-
+  //  private def convertToDataType(element: BsonValue, elementType: DataType, bsonDocument: BsonDocument): Any = {
+  //    var rtn: Any = null
+  //    try {
+  //      rtn = convertToDataType(element, elementType)
+  //    } catch {
+  //      case e: MongoTypeConversionException =>
+  //        e.printStackTrace()
+  //        logError("cabdao convertToDataType MongoTypeConversionException==>" + e)
+  //        logError("element=" + element)
+  //        logError("bsonDocument=" + bsonDocument)
+  //      case e: Exception =>
+  //        logError("cabdao convertToDataType MongoTypeConversionException==>" + e)
+  //        logError("element=" + element)
+  //        logError("bsonDocument=" + bsonDocument)
+  //    }
+  //    rtn
+  //  }
   private def bsonValueToString(element: BsonValue): String = {
     element.getBsonType match {
       case BsonType.STRING    => element.asString().getValue
