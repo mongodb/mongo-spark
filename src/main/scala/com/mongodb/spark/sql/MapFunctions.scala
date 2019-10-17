@@ -38,7 +38,13 @@ private[spark] object MapFunctions extends Logging {
         case true =>
           try {
             //异常数据不中断，记录来下
-            (convertToDataType(bsonDocument.get(field.name), field.dataType), field)
+            var n_field = field
+            var n_dataType = StringType
+            if (field.dataType.simpleString.startsWith("array") || field.dataType.simpleString.startsWith("map") ||
+              field.dataType.simpleString.startsWith("struct")) {
+              n_field = StructField(field.name, StringType, nullable = true)
+            }
+            (convertToDataType(bsonDocument.get(field.name), n_dataType), n_field)
           } catch {
             case e: Exception =>
               e.printStackTrace()
@@ -120,9 +126,10 @@ private[spark] object MapFunctions extends Logging {
         mapType.keyType match {
           case StringType => element =>
             mapTypeToBsonValueMapper(mapType.valueType, mapType.valueContainsNull, extendedBsonTypes)(element.asInstanceOf[Map[String, _]])
-          case _ => element => throw new MongoTypeConversionException(
-            s"Cannot cast $element into a BsonValue. MapTypes must have keys of StringType for conversion into a BsonDocument"
-          )
+          case _ => element =>
+            throw new MongoTypeConversionException(
+              s"Cannot cast $element into a BsonValue. MapTypes must have keys of StringType for conversion into a BsonDocument"
+            )
         }
       case _ if elementType.typeName.startsWith("decimal") =>
         val jBigDecimal = (element: Any) => element match {
@@ -144,17 +151,19 @@ private[spark] object MapFunctions extends Logging {
     val internalDataMapper = valueType match {
       case subDocuments: StructType => {
         val mapper = structTypeToBsonValueMapper(subDocuments, extendedBsonTypes)
-        (data: Map[String, Any]) => data.map(kv => {
-          val value = if (valueContainsNull && kv._2 == null) new BsonNull() else mapper(kv._2.asInstanceOf[Row])
-          new BsonElement(kv._1, value)
-        })
+        (data: Map[String, Any]) =>
+          data.map(kv => {
+            val value = if (valueContainsNull && kv._2 == null) new BsonNull() else mapper(kv._2.asInstanceOf[Row])
+            new BsonElement(kv._1, value)
+          })
       }
       case subArray: ArrayType => {
         val mapper = arrayTypeToBsonValueMapper(subArray.elementType, subArray.containsNull, extendedBsonTypes)
-        (data: Map[String, Any]) => data.map(kv => {
-          val value = if (valueContainsNull && kv._2 == null) new BsonNull() else mapper(kv._2.asInstanceOf[Seq[Any]])
-          new BsonElement(kv._1, value)
-        })
+        (data: Map[String, Any]) =>
+          data.map(kv => {
+            val value = if (valueContainsNull && kv._2 == null) new BsonNull() else mapper(kv._2.asInstanceOf[Seq[Any]])
+            new BsonElement(kv._1, value)
+          })
       }
       case _ => {
         val mapper = wrappedDataTypeToBsonValueMapper(valueType, valueContainsNull, extendedBsonTypes)
@@ -208,11 +217,17 @@ private[spark] object MapFunctions extends Logging {
     (element.getBsonType, elementType) match {
       case (BsonType.DOCUMENT, mapType: MapType)  => element.asDocument().asScala.map(kv => (kv._1, convertToDataType(kv._2, mapType.valueType))).toMap
       case (BsonType.ARRAY, arrayType: ArrayType) => element.asArray().getValues.asScala.map(convertToDataType(_, arrayType.elementType))
+      //      case (BsonType.DOCUMENT, mapType: MapType) => element.asDocument().toString
+      //      case (BsonType.ARRAY, arrayType: ArrayType) => element.asArray().getValues.toString
       case (BsonType.BINARY, BinaryType)          => element.asBinary().getData
       case (BsonType.BOOLEAN, BooleanType)        => element.asBoolean().getValue
-      case (BsonType.STRING, BooleanType) => if (StringUtils.isBlank(element.asString().getValue)) { false }
-      else if ("true".equals(element.asString().getValue)) { true }
-      else { false }
+      case (BsonType.STRING, BooleanType) => if (StringUtils.isBlank(element.asString().getValue)) {
+        false
+      } else if ("true".equals(element.asString().getValue)) {
+        true
+      } else {
+        false
+      }
       case (BsonType.DATE_TIME, DateType) => new Date(element.asDateTime().getValue)
       case (BsonType.DATE_TIME, TimestampType) => new Timestamp(element.asDateTime().getValue)
       case (BsonType.NULL, NullType) => null
@@ -230,6 +245,7 @@ private[spark] object MapFunctions extends Logging {
         }
     }
   }
+
   //  private def convertToDataType(element: BsonValue, elementType: DataType, bsonDocument: BsonDocument): Any = {
   //    var rtn: Any = null
   //    try {
@@ -293,6 +309,7 @@ private[spark] object MapFunctions extends Logging {
 
   private object isBsonNumber {
     val bsonNumberTypes = Set(BsonType.INT32, BsonType.INT64, BsonType.DOUBLE, BsonType.DECIMAL128, BsonType.STRING)
+
     def unapply(x: BsonType): Boolean = bsonNumberTypes.contains(x)
   }
 
@@ -313,10 +330,13 @@ private[spark] object MapFunctions extends Logging {
       case BsonType.INT32      => bsonValue.asInt32().longValue()
       case BsonType.INT64      => bsonValue.asInt64().longValue()
       case BsonType.DOUBLE     => bsonValue.asDouble().longValue()
-      case BsonType.STRING => if (StringUtils.isBlank(bsonValue.asString().getValue)) { 0 }
-      else if (StringUtils.isNumeric(bsonValue.asString().getValue)) {
+      case BsonType.STRING => if (StringUtils.isBlank(bsonValue.asString().getValue)) {
+        0
+      } else if (StringUtils.isNumeric(bsonValue.asString().getValue)) {
         bsonValue.asString().getValue.toLong
-      } else { throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Long") }
+      } else {
+        throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Long")
+      }
       case _ => throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Long")
     }
   }
@@ -328,7 +348,9 @@ private[spark] object MapFunctions extends Logging {
       case BsonType.INT64      => bsonValue.asInt64().doubleValue()
       case BsonType.DOUBLE     => bsonValue.asDouble().doubleValue()
       case BsonType.STRING =>
-        if (StringUtils.isBlank(bsonValue.asString().getValue)) { 0 } else if (StringUtils.isNumeric(bsonValue.asString().getValue.replace(".", ""))) {
+        if (StringUtils.isBlank(bsonValue.asString().getValue)) {
+          0
+        } else if (StringUtils.isNumeric(bsonValue.asString().getValue.replace(".", ""))) {
           bsonValue.asString().getValue.toDouble
         } else {
           throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Double")
@@ -344,8 +366,9 @@ private[spark] object MapFunctions extends Logging {
       case BsonType.INT64      => BigDecimal(bsonValue.asInt64().longValue())
       case BsonType.DOUBLE     => BigDecimal(bsonValue.asDouble().doubleValue())
       case BsonType.STRING =>
-        if (StringUtils.isBlank(bsonValue.asString().getValue)) { BigDecimal(0) }
-        else if (StringUtils.isNumeric(bsonValue.asString().getValue.replace(".", ""))) {
+        if (StringUtils.isBlank(bsonValue.asString().getValue)) {
+          BigDecimal(0)
+        } else if (StringUtils.isNumeric(bsonValue.asString().getValue.replace(".", ""))) {
           BigDecimal(bsonValue.asString().getValue)
         } else {
           throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Double")
