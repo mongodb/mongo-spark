@@ -39,11 +39,12 @@ private[spark] object MapFunctions extends Logging {
           try {
             //异常数据不中断，记录来下
             var n_field = field
-            var n_dataType = StringType
-            if (field.dataType.simpleString.startsWith("array") || field.dataType.simpleString.startsWith("map") ||
-              field.dataType.simpleString.startsWith("struct")) {
-              n_field = StructField(field.name, StringType, nullable = true)
-            }
+            var n_dataType = field.dataType
+            //            if (field.dataType.simpleString.startsWith("array") || field.dataType.simpleString.startsWith("map") ||
+            //              field.dataType.simpleString.startsWith("struct")) {
+            //              n_field = StructField(field.name, StringType, nullable = true)
+            //              n_dataType = StringType
+            //            }
             (convertToDataType(bsonDocument.get(field.name), n_dataType), n_field)
           } catch {
             case e: Exception =>
