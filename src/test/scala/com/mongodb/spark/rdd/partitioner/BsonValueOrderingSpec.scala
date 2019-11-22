@@ -18,11 +18,9 @@ package com.mongodb.spark.rdd.partitioner
 
 import scala.collection.JavaConverters._
 import scala.util.Random
-
 import org.bson.types.{Decimal128, ObjectId}
 import org.bson.{BsonDbPointer, _}
-
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{Assertion, FlatSpec, Matchers}
 
 class BsonValueOrderingSpec extends FlatSpec with Matchers {
   // scalastyle:off magic.number
@@ -65,19 +63,21 @@ class BsonValueOrderingSpec extends FlatSpec with Matchers {
 
   "The BsonValueOrdering trait" should "order all bson types correctly" in {
     val data = allBsonTypes.filter({ case kv => orderedKeys.contains(kv._1) }).map(_._2)
-    val ordered = Random.shuffle(data).sorted
-    ordered should equal(orderedKeys.map(allBsonTypesDocument.get(_)))
+
+    for (_ <- 1 to 100) {
+      val ordered = Random.shuffle(data).sorted
+      ordered should equal(orderedKeys.map(allBsonTypesDocument.get(_)))
+    }
   }
 
   it should "compare numbers types correctly" in {
     val data: Seq[BsonValue] = Seq(new BsonInt32(1), new BsonInt64(2), new BsonDecimal128(Decimal128.parse("2.5")),
       new BsonDouble(3.0), new BsonDouble(4.0), new BsonInt64(5), new BsonInt32(6))
-    val ordered = Random.shuffle(data).sorted
-    ordered should equal(data)
+    testAllPermutations(data)
   }
 
   it should "compare numbers and longs correctly" in {
-    val longAndDoubleData: Seq[BsonValue] = Seq(
+    val data: Seq[BsonValue] = Seq(
       new BsonDouble(Double.NegativeInfinity),
       new BsonDouble(Long.MinValue), new BsonInt64(Long.MinValue + 1),
       new BsonDouble(Double.MinPositiveValue), new BsonInt64(1L),
@@ -85,22 +85,20 @@ class BsonValueOrderingSpec extends FlatSpec with Matchers {
       new BsonDouble(Double.PositiveInfinity)
     )
 
-    val orderedLongsAndDouble = Random.shuffle(longAndDoubleData).sorted
-    orderedLongsAndDouble should equal(longAndDoubleData)
+    testAllPermutations(data)
   }
 
   it should "compare string types correctly" in {
-    val data: Seq[BsonValue] = Seq(new BsonString("12345"), new BsonSymbol("a"), new BsonSymbol("b"), new BsonSymbol("c 1"),
+    val data: Seq[BsonValue] = Seq(new BsonString("1"), new BsonString("12345"), new BsonSymbol("a"), new BsonSymbol("b"), new BsonSymbol("c 1"),
       new BsonString("c 2"), new BsonSymbol("d"), new BsonString("e"))
-    val ordered = Random.shuffle(data).sorted
-    ordered should equal(data)
+
+    testAllPermutations(data)
   }
 
   it should "compare timestamp types correctly" in {
     val data: Seq[BsonValue] = Seq(new BsonTimestamp(1, 5), new BsonTimestamp(1, 6), new BsonTimestamp(2, 1),
       new BsonTimestamp(2, 10), new BsonTimestamp(3, 0), new BsonTimestamp(3, 1), new BsonTimestamp(10010101, 0))
-    val ordered = Random.shuffle(data).sorted
-    ordered should equal(data)
+    testAllPermutations(data)
   }
 
   it should "compare binary types correctly" in {
@@ -111,8 +109,7 @@ class BsonValueOrderingSpec extends FlatSpec with Matchers {
       new BsonBinary(BsonBinarySubType.OLD_BINARY, Array[Byte](2, 2, 2, 2, 2, 2, 2)),
       new BsonBinary(BsonBinarySubType.OLD_BINARY, Array[Byte](2, 2, 2, 2, 2, 2, 3))
     )
-    val ordered = Random.shuffle(data).sorted
-    ordered should equal(data)
+    testAllPermutations(data)
   }
 
   it should "compare array types correctly" in {
@@ -122,8 +119,7 @@ class BsonValueOrderingSpec extends FlatSpec with Matchers {
       new BsonArray(List(new BsonInt32(1), new BsonInt32(2), new BsonInt32(3)).asJava),
       new BsonArray(List(new BsonString("1")).asJava)
     )
-    val ordered = Random.shuffle(data).sorted
-    ordered should equal(data)
+    testAllPermutations(data)
   }
 
   it should "compare regex types correctly" in {
@@ -133,34 +129,39 @@ class BsonValueOrderingSpec extends FlatSpec with Matchers {
       new BsonRegularExpression("[0-9a-z]+"),
       new BsonRegularExpression("[a-z]+")
     )
-    val ordered = Random.shuffle(data).sorted
-    ordered should equal(data)
+    testAllPermutations(data)
   }
 
   it should "compare document types correctly" in {
     val data: Seq[BsonValue] = Seq(
       BsonDocument.parse("""{}"""),
       BsonDocument.parse("""{a: -1}"""),
-      BsonDocument.parse("""{a: 0}"""),
       BsonDocument.parse("""{a: 1}"""),
       BsonDocument.parse("""{a: 1, b: 1}"""),
-      BsonDocument.parse("""{a: 2}"""),
-      BsonDocument.parse("""{a: 9, b: 1}"""),
-      BsonDocument.parse("""{a: 10, b: 0}"""),
-      BsonDocument.parse("""{a: 100, b: 10}"""),
-      BsonDocument.parse("""{a: 1000, b: 10}"""),
-      BsonDocument.parse("""{a: 1000, b: 10, c: -1}"""),
-      BsonDocument.parse("""{a: "1", b: 0}""")
+      BsonDocument.parse("""{a: 1, b: 2}"""),
+      BsonDocument.parse("""{a: 1, b: 2, c: -1}"""),
+      BsonDocument.parse("""{a: "1", b: 0}"""),
+      BsonDocument.parse("""{a: [1, 2], b: 0}""")
     )
-    val ordered = Random.shuffle(data).sorted
-    ordered should equal(data)
+
+    testAllPermutations(data)
   }
 
   it should "have no defined order for undefined types" in {
     val data: Seq[BsonValue] = allBsonTypes.filter({ case kv => undefinedOrderingKeys.contains(kv._1) }).map(_._2)
-    val randomised = Random.shuffle(data)
-    val ordered = randomised.sorted
-    ordered should equal(randomised)
+
+    for (perm <- data.permutations) {
+      val randomised = Random.shuffle(perm)
+      val ordered = randomised.sorted
+      ordered should equal(randomised)
+    }
+  }
+
+  def testAllPermutations(data: Seq[BsonValue]): Unit = {
+    for (perm <- data.permutations) {
+      val ordered = perm.sorted
+      ordered should equal(data)
+    }
   }
   // scalastyle:on magic.number
 }
