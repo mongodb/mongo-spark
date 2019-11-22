@@ -191,7 +191,7 @@ trait BsonValueOrdering extends Ordering[BsonValue] {
       case (BsonType.SYMBOL, BsonType.SYMBOL) => (x.asSymbol.getSymbol, y.asSymbol.getSymbol)
       case _                                  => throw new UnsupportedOperationException(s"Cannot compare $x with $y. Not string compatible types.")
     }
-    compareBytes(xString.getBytes("utf-8") zip yString.getBytes("utf-8"))
+    xString.compareTo(yString)
   }
 
   private def compareNumbers(x: BsonValue, y: BsonValue): Int = {
