@@ -2,6 +2,8 @@
 
 ## 2.4.2
 
+  * [[SPARK-262](https://jira.mongodb.org/browse/SPARK-262)] Fix BsonOrdering bug for Strings of different lengths
+
 ## 2.4.1
   * [[SPARK-235](https://jira.mongodb.org/browse/SPARK-235)] Ensure nullable fields or container types accept null values
   * [[SPARK-233](https://jira.mongodb.org/browse/SPARK-233)] Added ReadConfig.batchSize property
