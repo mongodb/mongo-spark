@@ -76,7 +76,7 @@ object MongoConnector {
   def apply(options: collection.Map[String, String]): MongoConnector = new MongoConnector(DefaultMongoClientFactory(options))
 
   /**
-   * Creates a MongoConnector
+   * Creates a MongoConnector using the [[com.mongodb.spark.config.ReadConfig]] from the `sparkConf`.
    *
    * @param javaSparkContext the Java Spark context
    * @return the MongoConnector
@@ -87,7 +87,7 @@ object MongoConnector {
   }
 
   /**
-   * Creates a MongoConnector
+   * Creates a MongoConnector using the [[com.mongodb.spark.config.ReadConfig]] from the `sparkConf`.
    *
    * @param sparkConf the spark configuration
    * @return the MongoConnector
