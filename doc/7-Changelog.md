@@ -1,6 +1,7 @@
 # Mongo Spark Connector Changelog
 
 ## 2.2.8
+  * [[SPARK-265](https://jira.mongodb.org/browse/SPARK-265)] Updated Mongo Java Driver to 3.11.2
   * [[SPARK-262](https://jira.mongodb.org/browse/SPARK-262)] Fix BsonOrdering bug for Strings of different lengths
 
 ## 2.2.7
