@@ -205,7 +205,7 @@ object MongoSpark {
    * @param sparkSession the SparkSession
    * @return the DataFrameReader
    */
-  def read(sparkSession: SparkSession): DataFrameReader = sparkSession.read.format("mongo")
+  def read(sparkSession: SparkSession): DataFrameReader = sparkSession.read.format("com.mongodb.spark.sql")
 
   /**
    * Creates a DataFrameWriter with the `MongoDB` underlying output data source.
@@ -213,7 +213,7 @@ object MongoSpark {
    * @param dataset the Dataset to convert into a DataFrameWriter
    * @return the DataFrameWriter
    */
-  def write[T](dataset: Dataset[T]): DataFrameWriter[T] = dataset.write.format("mongo")
+  def write[T](dataset: Dataset[T]): DataFrameWriter[T] = dataset.write.format("com.mongodb.spark.sql")
 
   /**
    * Builder for configuring and creating a [[MongoSpark]]
