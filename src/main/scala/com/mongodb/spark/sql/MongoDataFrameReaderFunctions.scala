@@ -64,7 +64,7 @@ private[spark] case class MongoDataFrameReaderFunctions(@transient dfr: DataFram
   def mongo(schema: StructType, readConfig: ReadConfig): DataFrame = createDataFrame(Some(schema), Some(readConfig))
 
   private def createDataFrame(schema: Option[StructType], readConfig: Option[ReadConfig]): DataFrame = {
-    val builder = dfr.format("mongo")
+    val builder = dfr.format("com.mongodb.spark.sql")
     if (schema.isDefined) dfr.schema(schema.get)
     if (readConfig.isDefined) dfr.options(readConfig.get.asOptions)
     builder.load()
