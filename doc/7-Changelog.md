@@ -2,7 +2,7 @@
 
 ## 2.4.2
 
-  * [[SPARK-265](https://jira.mongodb.org/browse/SPARK-265)] Updated Mongo Java Driver to 3.11.2
+  * [[SPARK-265](https://jira.mongodb.org/browse/SPARK-265)] Updated Mongo Java Driver to 3.12.4
   * [[SPARK-262](https://jira.mongodb.org/browse/SPARK-262)] Fix BsonOrdering bug for Strings of different lengths
 
 ## 2.4.1
