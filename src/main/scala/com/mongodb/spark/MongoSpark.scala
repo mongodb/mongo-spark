@@ -47,7 +47,7 @@ object MongoSpark {
   /**
    * The default source string for creating DataFrames from MongoDB
    */
-  val defaultSource = "mongo"
+  val defaultSource = "com.mongodb.spark.sql"
 
   /**
    * Create a builder for configuring the [[MongoSpark]]
