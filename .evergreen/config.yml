@@ -266,15 +266,6 @@ functions:
           ${PREPARE_SHELL}
           .evergreen/run-static-checks.sh
 
-  "run coverage":
-    - command: shell.exec
-      type: test
-      params:
-        working_dir: "src"
-        script: |
-          ${PREPARE_SHELL}
-          MONGODB_URI="${MONGODB_URI}" .evergreen/run-coverage.sh
-
   "run tests":
     - command: shell.exec
       type: test
@@ -316,22 +307,7 @@ tasks:
       commands:
         - func: "run static checks"
 
-    - name: "coverage-task"
-      depends_on:
-        - variant: "static-checks"
-          name: "static-checks-task"
-      commands:
-        - func: "bootstrap mongo-orchestration"
-          vars:
-            VERSION: "3.4"
-            TOPOLOGY: "server"
-        - func: "run coverage"
-        - func: "upload build"
-
     - name: "test-task"
-      depends_on:
-        - variant: "coverage"
-          name: "coverage-task"
       commands:
         - func: "bootstrap mongo-orchestration"
         - func: "run tests"
@@ -434,11 +410,6 @@ buildvariants:
   tasks:
     - name: "static-checks-task"
 
-- name: "coverage"
-  display_name: "Coverage"
-  run_on: ubuntu1804-test
-  tasks:
-    - name: "coverage-task"
 
 - matrix_name: "tests-4.4-auth-ssl"
   matrix_spec: { version: "4.4", scalaVersion: "2.11", auth: "auth", ssl: "ssl", topology: "standalone", os: "ubuntu" }
