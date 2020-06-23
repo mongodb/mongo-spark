@@ -41,7 +41,7 @@ Connecting to MongoDB happens automatically when an `RDD` action requires to loa
 First we enable the Mongo Connector specific functions and implicits for the `SparkContext` and `RDD`:
 
 ```scala
-import com.mongodb.spark._
+import com.mongodb.dtxspark._
 ```
 
 ### Saving data from an RDD to MongoDB
@@ -74,7 +74,7 @@ To change which collection the data is inserted into or how the data is inserted
 The following example saves data to the "spark" collection with a `majority` WriteConcern:
 
 ```scala
-import com.mongodb.spark.config._
+import com.mongodb.dtxspark.config._
 
 val writeConfig = WriteConfig(Map("collection" -> "spark", "writeConcern.w" -> "majority"), Some(WriteConfig(sc))
 val sparkDocuments = sc.parallelize((1 to 10).map(i => Document.parse(s"{spark: $i}")))
@@ -105,7 +105,7 @@ To change where the data is read from or how the data is read, supply a `ReadCon
 The following example reads from the "spark" collection with a `secondaryPreferred` ReadPreference:
 
 ```scala
-import com.mongodb.spark.config._
+import com.mongodb.dtxspark.config._
 
 val readConfig = ReadConfig(Map("collection" -> "spark", "readPreference.name" -> "secondaryPreferred"), Some(ReadConfig(sc)))
 val customRdd = MongoSpark.load(sc, readConfig)

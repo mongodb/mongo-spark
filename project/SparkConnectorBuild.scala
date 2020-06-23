@@ -32,7 +32,7 @@ object SparkConnectorBuild extends Build {
   val baseVersion = "2.4.2"
 
   val buildSettings = Seq(
-    organization := "org.mongodb.spark",
+    organization := "org.mongodb.dtxspark",
     organizationHomepage := Some(url("http://www.mongodb.org")),
     scalaVersion := scalaCoreVersion,
     crossScalaVersions := scalaVersions,
@@ -64,7 +64,7 @@ object SparkConnectorBuild extends Build {
 
   // See https://github.com/databricks/sbt-spark-package
   val sparkPackages = Seq(
-    spName := "mongodb/mongo-spark",
+    spName := "mongodb/mongo-dtxspark",
     sparkVersion := Dependencies.sparkVersion,
     sparkComponents := Seq("sql"),
     spAppendScalaVersion := true,
@@ -78,7 +78,7 @@ object SparkConnectorBuild extends Build {
   val versionSettings = Versioning.settings(baseVersion)
   val buildInfoSettings = Seq(
     buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion),
-    buildInfoPackage := "com.mongodb.spark.config"
+    buildInfoPackage := "com.mongodb.dtxspark.config"
   )
   /*
    * Style and formatting
@@ -105,7 +105,7 @@ object SparkConnectorBuild extends Build {
   val checkAlias = addCommandAlias("check", ";clean;scalastyle;coverage;test;coverageAggregate;coverageReport")
 
   lazy val connector = Project(
-    id = "mongo-spark-connector",
+    id = "mongo-dtxspark-connector",
     base = file(".")
   ).settings(buildSettings)
     .settings(buildInfoSettings)
@@ -121,7 +121,7 @@ object SparkConnectorBuild extends Build {
     .enablePlugins(GitVersioning, BuildInfoPlugin)
 
   lazy val examples = Project(
-    id = "mongo-spark-connector-examples",
+    id = "mongo-dtxspark-connector-examples",
     base = file("examples")
   ).dependsOn(connector)
     .settings(buildSettings)
