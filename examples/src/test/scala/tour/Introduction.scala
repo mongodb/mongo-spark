@@ -30,7 +30,7 @@ object Introduction extends TourHelper {
   def main(args: Array[String]): Unit = {
     val sc = getSparkContext(args) // Don't copy and paste as its already configured in the shell
 
-    import com.mongodb.dtxspark._
+    import com.mongodb.cosmosspark._
 
     // Saving data from an RDD to MongoDB
     import org.bson.Document
@@ -38,7 +38,7 @@ object Introduction extends TourHelper {
     MongoSpark.save(documents)
 
     // Saving data with a custom WriteConfig
-    import com.mongodb.dtxspark.config._
+    import com.mongodb.cosmosspark.config._
     val writeConfig = WriteConfig(Map("collection" -> "spark", "writeConcern.w" -> "majority"), Some(WriteConfig(sc)))
 
     val sparkDocuments = sc.parallelize((1 to 10).map(i => Document.parse(s"{spark: $i}")))

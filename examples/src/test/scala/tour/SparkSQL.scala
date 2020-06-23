@@ -20,7 +20,7 @@ import org.apache.spark.sql.{SQLContext, SparkSession}
 
 import org.bson.Document
 import org.bson.types.ObjectId
-import com.mongodb.dtxspark.config.ReadConfig
+import com.mongodb.cosmosspark.config.ReadConfig
 
 
 /**
@@ -39,7 +39,7 @@ object SparkSQL extends TourHelper {
     val sc = getSparkContext(args) // Don't copy and paste as its already configured in the shell
 
     // Load sample data
-    import com.mongodb.dtxspark._
+    import com.mongodb.cosmosspark._
     val docs = """
                        |{"name": "Bilbo Baggins", "age": 50}
                        |{"name": "Gandalf", "age": 1000}
@@ -88,7 +88,7 @@ object SparkSQL extends TourHelper {
 
     // Set the schema using the ObjectId StructFields helper
     import org.apache.spark.sql.types.DataTypes
-    import com.mongodb.dtxspark.sql.helpers.StructFields
+    import com.mongodb.cosmosspark.sql.helpers.StructFields
 
     val schema = DataTypes.createStructType(Array(
       StructFields.objectId("_id", nullable = false),

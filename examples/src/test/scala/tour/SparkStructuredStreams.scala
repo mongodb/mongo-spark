@@ -17,8 +17,8 @@
 package tour
 
 import com.mongodb.client.MongoCollection
-import com.mongodb.dtxspark.config.WriteConfig
-import com.mongodb.dtxspark.{MongoConnector}
+import com.mongodb.cosmosspark.config.WriteConfig
+import com.mongodb.cosmosspark.{MongoConnector}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable

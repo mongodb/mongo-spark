@@ -11,7 +11,7 @@ Insert some sample data into an empty database:
 
 ```scala
 import org.bson.Document
-import com.mongodb.dtxspark._
+import com.mongodb.cosmosspark._
 
 val docs = """
  |{"name": "Bilbo Baggins", "age": 50}
@@ -42,7 +42,7 @@ val sparkSession = SparkSession.builder().getOrCreate()
 First enable the Mongo Connector specific functions on the `SparkSession`:
 
 ```scala
-import com.mongodb.dtxspark.sql._
+import com.mongodb.cosmosspark.sql._
 ```
 
 ### Datasets
@@ -309,8 +309,8 @@ Below is an example of using the helpers when defining and querying an `ObjectId
 // Load sample data
 import org.bson.Document
 import org.bson.types.ObjectId
-import com.mongodb.dtxspark._
-import com.mongodb.dtxspark.sql._
+import com.mongodb.cosmosspark._
+import com.mongodb.cosmosspark.sql._
 
 val objectId = "123400000000000000000000"
 val newDocs = Seq(new Document("_id", new ObjectId(objectId)).append("a", 1), new Document("_id", new ObjectId()).append("a", 2))
@@ -318,7 +318,7 @@ MongoSpark.save(sc.parallelize(newDocs))
 
 // Set the schema using the ObjectId StructFields helper
 import org.apache.spark.sql.types.DataTypes
-import com.mongodb.dtxspark.sql.helpers.StructFields
+import com.mongodb.cosmosspark.sql.helpers.StructFields
 
 val schema = DataTypes.createStructType(Array(
   StructFields.objectId("_id", nullable = false),

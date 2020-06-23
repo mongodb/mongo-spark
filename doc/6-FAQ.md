@@ -23,7 +23,7 @@ results of a Spark Stream. The following example is adapted from the
 [SparkStreams.scala](../examples/src/test/scala/tour/SparkStreams.scala):
 
 ```scala
-import com.mongodb.dtxspark.sql._
+import com.mongodb.cosmosspark.sql._
 import org.apache.spark.streaming._
 
 val sc = ...                // existing SparkContext

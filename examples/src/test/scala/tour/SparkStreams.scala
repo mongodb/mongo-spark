@@ -37,7 +37,7 @@ object SparkStreams extends TourHelper {
   def main(args: Array[String]): Unit = {
     val sc = getSparkContext(args) // Don't copy and paste as its already configured in the shell
 
-    import com.mongodb.dtxspark.sql._
+    import com.mongodb.cosmosspark.sql._
     import org.apache.spark.streaming._
 
     val ssc = new StreamingContext(sc, Seconds(1))

@@ -19,8 +19,8 @@ package tour
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.{SparkConf, SparkContext}
 
-import com.mongodb.dtxspark.MongoConnector
-import com.mongodb.dtxspark.config.WriteConfig
+import com.mongodb.cosmosspark.MongoConnector
+import com.mongodb.cosmosspark.config.WriteConfig
 
 /**
  * A helper for the tour

@@ -21,7 +21,7 @@ You may have add a `map` step to transform the data into a `Document` (or `BsonD
 Add Documents to the collection using a `JavaSparkContext`:
 
 ```java
-import com.mongodb.dtxspark.MongoSpark;
+import com.mongodb.cosmosspark.MongoSpark;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function;
 import static java.util.Arrays.asList;
@@ -43,7 +43,7 @@ To change which collection the data is inserted into or how the data is inserted
 The following example saves data to the "spark" collection, with a `majority` WriteConcern:
 
 ```java
-import com.mongodb.dtxspark.config.WriteConfig;
+import com.mongodb.cosmosspark.config.WriteConfig;
 
 // Saving data with a custom WriteConfig
 Map<String, String> writeOverrides = new HashMap<String, String>();
