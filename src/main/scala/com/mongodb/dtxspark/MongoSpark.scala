@@ -16,6 +16,7 @@
 
 package com.mongodb.dtxspark
 
+import com.mongodb.MongoBulkWriteException
 import com.mongodb.client.MongoCollection
 import com.mongodb.client.model.{BulkWriteOptions, InsertManyOptions, InsertOneModel, ReplaceOneModel, ReplaceOptions, UpdateOneModel, UpdateOptions}
 import com.mongodb.dtxspark.DefaultHelper.DefaultsTo
@@ -174,7 +175,31 @@ object MongoSpark {
               } else {
                 new InsertOneModel[BsonDocument](doc)
               })
-            collection.bulkWrite(requests.toList.asJava, new BulkWriteOptions().ordered(writeConfig.ordered))
+            var done = false
+            var tries = 0
+            while (!done && (tries < 10)) {
+              try {
+                collection.bulkWrite(requests.toList.asJava, new BulkWriteOptions().ordered(writeConfig.ordered))
+                done = true
+              } catch {
+                case ex: MongoBulkWriteException =>
+                  if (ex.getMessage().contains("16500")) {
+                    val pattern = ".*RetryAfterMs=([0-9]+).*".r
+                    var delay = 100
+                    ex.getMessage() match {
+                      case pattern(delayStr) => delay = delayStr.toInt
+                      case _                 =>
+                    }
+                    println("Delay " + delay)
+                    try {
+                      Thread.sleep(delay)
+                    }
+                    tries += 1
+                  } else {
+                    throw ex
+                  }
+              }
+            }
           })
         })
       })

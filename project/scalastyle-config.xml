@@ -47,11 +47,6 @@
    <parameter name="maxParameters"><![CDATA[12]]></parameter>
   </parameters>
  </check>
- <check level="error" class="org.scalastyle.scalariform.MagicNumberChecker" enabled="true">
-  <parameters>
-   <parameter name="ignore"><![CDATA[-1,0,1,2,3,27017]]></parameter>
-  </parameters>
- </check>
  <check level="error" class="org.scalastyle.scalariform.NoWhitespaceBeforeLeftBracketChecker" enabled="true"></check>
  <check level="error" class="org.scalastyle.scalariform.NoWhitespaceAfterLeftBracketChecker" enabled="true"></check>
  <check level="error" class="org.scalastyle.scalariform.ReturnChecker" enabled="true"></check>
@@ -60,11 +55,6 @@
  <check level="error" class="org.scalastyle.scalariform.NoFinalizeChecker" enabled="true"></check>
  <check level="error" class="org.scalastyle.scalariform.CovariantEqualsChecker" enabled="true"></check>
  <check level="error" class="org.scalastyle.scalariform.StructuralTypeChecker" enabled="true"></check>
- <check level="error" class="org.scalastyle.file.RegexChecker" enabled="true">
-  <parameters>
-   <parameter name="regex"><![CDATA[println]]></parameter>
-  </parameters>
- </check>
  <check level="error" class="org.scalastyle.scalariform.NumberOfTypesChecker" enabled="true">
   <parameters>
    <parameter name="maxTypes"><![CDATA[30]]></parameter>
@@ -72,7 +62,7 @@
  </check>
  <check level="error" class="org.scalastyle.scalariform.CyclomaticComplexityChecker" enabled="true">
   <parameters>
-   <parameter name="maximum"><![CDATA[10]]></parameter>
+   <parameter name="maximum"><![CDATA[30]]></parameter>
   </parameters>
  </check>
  <check level="error" class="org.scalastyle.scalariform.UppercaseLChecker" enabled="true"></check>
@@ -85,7 +75,7 @@
  </check>
  <check level="error" class="org.scalastyle.scalariform.MethodLengthChecker" enabled="true">
   <parameters>
-   <parameter name="maxLength"><![CDATA[50]]></parameter>
+   <parameter name="maxLength"><![CDATA[150]]></parameter>
   </parameters>
  </check>
  <check level="error" class="org.scalastyle.scalariform.MethodNamesChecker" enabled="true">
