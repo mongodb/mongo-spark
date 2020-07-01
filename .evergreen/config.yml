@@ -417,10 +417,6 @@ axes:
   - id: "scalaVersion"
     display_name: "Scala Version"
     values:
-      - id: "2.11"
-        display_name: "2.11"
-        variables:
-           SCALA_VERSION: "2.11.12"
       - id: "2.12"
         display_name: "2.12"
         variables:
@@ -441,7 +437,7 @@ buildvariants:
     - name: "coverage-task"
 
 - matrix_name: "tests-4.4-auth-ssl"
-  matrix_spec: { version: "4.4", scalaVersion: "2.11", auth: "auth", ssl: "ssl", topology: "standalone", os: "ubuntu" }
+  matrix_spec: { version: "4.4", scalaVersion: "2.12", auth: "auth", ssl: "ssl", topology: "standalone", os: "ubuntu" }
   display_name: "${scalaVersion} ${version} ${topology} ${auth} ${ssl} ${os}"
   tags: ["tests"]
   tasks:
@@ -455,7 +451,7 @@ buildvariants:
      - name: "test-task"
 
 - matrix_name: "tests-older"
-  matrix_spec: { version: "*", scalaVersion: "2.11", auth: "noauth", ssl: "nossl", topology: "standalone", os: "ubuntu" }
+  matrix_spec: { version: "*", scalaVersion: "2.12", auth: "noauth", ssl: "nossl", topology: "standalone", os: "ubuntu" }
   exclude_spec: { version: "4.4", scalaVersion: "*", auth: "*", ssl: "*", topology: "*", os: "*" }
   display_name: "${scalaVersion} ${version} ${topology} ${auth} ${ssl} ${os}"
   tags: ["tests"]

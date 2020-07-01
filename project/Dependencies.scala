@@ -18,10 +18,10 @@ import sbt._
 
 object Dependencies {
   // Versions
-  val scalaCoreVersion        = "2.11.12"
-  val scalaVersions           = Seq("2.11.12", "2.12.11")
+  val scalaCoreVersion        = "2.12.11"
+  val scalaVersions           = Seq("2.12.11")
   val mongodbDriverVersion    = "3.12.5"
-  val sparkVersion            = "2.4.0"
+  val sparkVersion            = "3.0.0"
   val slf4jVersion            = "1.7.16"
 
   val scalaTestVersion        = "3.0.5"
