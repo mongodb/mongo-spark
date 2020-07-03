@@ -16,7 +16,7 @@
 
 package tour
 
-import org.apache.spark.sql.{SQLContext, SparkSession}
+import org.apache.spark.sql.SparkSession
 
 import org.bson.Document
 import org.bson.types.ObjectId

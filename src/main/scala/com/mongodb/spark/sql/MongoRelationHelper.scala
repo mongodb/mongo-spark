@@ -19,11 +19,10 @@ package com.mongodb.spark.sql
 import java.util.regex.Pattern
 
 import scala.collection.JavaConverters._
-
 import org.apache.spark.sql.sources._
-
 import org.bson.conversions.Bson
 import com.mongodb.client.model.{Aggregates, Filters, Projections}
+import org.bson.{BsonDocument, BsonInt32}
 
 private[spark] object MongoRelationHelper {
 
@@ -45,7 +44,7 @@ private[spark] object MongoRelationHelper {
       case LessThan(field, value)           => Filters.lt(field, value)
       case LessThanOrEqual(field, value)    => Filters.lte(field, value)
       case IsNull(field)                    => Filters.eq(field, null)
-      case IsNotNull(field)                 => Filters.and(Filters.exists(field), Filters.ne(field, null))
+      case IsNotNull(field)                 => BsonDocument.parse(s"""{"$field": {"$$exists": true, "$$ne": null}}""")
       case And(leftFilter, rightFilter)     => Filters.and(createMatch(Array(leftFilter)), createMatch(Array(rightFilter)))
       case Or(leftFilter, rightFilter)      => Filters.or(createMatch(Array(leftFilter)), createMatch(Array(rightFilter)))
       case Not(filter)                      => Filters.not(createMatch(Array(filter)))
@@ -53,14 +52,18 @@ private[spark] object MongoRelationHelper {
       case StringEndsWith(field, value)     => Filters.regex(field, Pattern.compile(value + "$"))
       case StringContains(field, value)     => Filters.regex(field, Pattern.compile(value))
     }
-    Filters.and(matchPipelineStage: _*)
+    if (matchPipelineStage.length > 1) Filters.and(matchPipelineStage: _*) else matchPipelineStage.head
   }
   // scalastyle:on cyclomatic.complexity null
 
   private def createProjection(requiredColumns: Array[String]): Bson = {
     requiredColumns.contains("_id") match {
-      case true  => Projections.include(requiredColumns: _*)
-      case false => Filters.and(Projections.include(requiredColumns: _*), Projections.excludeId())
+      case true => Projections.include(requiredColumns: _*)
+      case false => {
+        val projections = new BsonDocument()
+        requiredColumns.map(projections.append(_, new BsonInt32(1)))
+        projections.append("_id", new BsonInt32(0))
+      }
     }
   }
 

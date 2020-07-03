@@ -16,12 +16,14 @@
 
 package com.mongodb.spark.sql
 
+import com.mongodb.MongoClientSettings
+
 import scala.collection.JavaConverters._
 import org.apache.spark.sql.types.DataTypes.{createArrayType, createStructField, createStructType}
-import org.apache.spark.sql.types.{StructField, DataTypes, StructType, ArrayType, MapType, StringType, IntegerType}
+import org.apache.spark.sql.types.{ArrayType, DataTypes, IntegerType, MapType, StringType, StructField, StructType}
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
-import com.mongodb.MongoClient
+import com.mongodb.client.MongoClient
 import com.mongodb.spark._
 import org.scalatest.prop.TableDrivenPropertyChecks
 
@@ -140,7 +142,6 @@ class MongoInferSchemaSpec extends RequiresMongoDB with MongoDataGenerator with 
   it should "be able to infer the schema from arrays with mixed numerics" in withSparkContext() { sc =>
     val arrayField = createStructField("a", createArrayType(DataTypes.DoubleType, true), true)
     val expectedSchema = createStructType(Array(_idField, arrayField))
-    val documents = Seq("{a: [1, 2, 3.0]}")
     val validSchemas = Table(
       "documents",
       Seq("{a: [1, 2, 3.0]}"),
@@ -322,7 +323,7 @@ class MongoInferSchemaSpec extends RequiresMongoDB with MongoDataGenerator with 
 
   implicit class DocHelpers(val pipeline: Seq[Bson]) {
     def toBson: Seq[BsonDocument] =
-      pipeline.map(_.toBsonDocument(classOf[BsonDocument], MongoClient.getDefaultCodecRegistry))
+      pipeline.map(_.toBsonDocument(classOf[BsonDocument], MongoClientSettings.getDefaultCodecRegistry))
   }
 
 }

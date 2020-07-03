@@ -16,7 +16,7 @@
 
 package com.mongodb.spark
 
-import com.mongodb.MongoClient
+import com.mongodb.client.MongoClient
 import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.connection.DefaultMongoClientFactory
 import com.mongodb.spark.sql.{Character, _}
@@ -75,7 +75,7 @@ class NoSparkConfSpec extends RequiresMongoDB {
     mongoSpark.toDF().count() should equal(10)
   }
 
-  val sc: SparkContext = TestHelper.getOrCreateSparkContext(
+  lazy val sc: SparkContext = TestHelper.getOrCreateSparkContext(
     new SparkConf().setMaster("local").setAppName("MongoSparkConnector"),
     requiredCustomConf = true
   )

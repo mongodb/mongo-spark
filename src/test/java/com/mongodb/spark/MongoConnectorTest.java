@@ -16,7 +16,7 @@
 
 package com.mongodb.spark;
 
-import com.mongodb.MongoClient;
+import com.mongodb.client.MongoClient;
 import com.mongodb.spark.config.ReadConfig;
 import com.mongodb.spark.connection.DefaultMongoClientFactory;
 import org.apache.spark.SparkConf;

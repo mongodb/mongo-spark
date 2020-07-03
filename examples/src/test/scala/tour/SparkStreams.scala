@@ -18,7 +18,7 @@ package tour
 
 
 import org.apache.spark.SparkContext
-import org.apache.spark.sql.{SQLContext, SparkSession}
+import org.apache.spark.sql.SparkSession
 
 /**
  * The spark streams code example adapted from: http://spark.apache.org/docs/latest/streaming-programming-guide.html

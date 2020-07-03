@@ -20,13 +20,13 @@ package com.mongodb.spark.connection
 
 import java.util.concurrent.{Executors, ThreadFactory, TimeUnit}
 
+import com.mongodb.client.MongoClient
+
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}
-
-import com.mongodb.MongoClient
 import com.mongodb.spark.{Logging, MongoClientFactory}
 
 /**
@@ -158,7 +158,7 @@ private[spark] final class MongoClientCache(keepAlive: Duration) extends Logging
 
   private def logClient(mongoClient: MongoClient, closing: Boolean = false): Unit = {
     val status = if (closing) "Closing" else "Creating"
-    logInfo(s"""$status MongoClient: ${mongoClient.getServerAddressList.asScala.map(_.toString).mkString("[", ",", "]")}""")
+    logInfo(s"""$status MongoClient: ${mongoClient.getClusterDescription.getServerDescriptions.asScala.map(_.getAddress.toString).mkString("[", ",", "]")}""")
   }
 
 }

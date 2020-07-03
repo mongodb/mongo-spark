@@ -18,10 +18,10 @@
 //scalastyle:on
 package com.mongodb.spark.connection
 
+import com.mongodb.client.MongoClient
+
 import scala.annotation.tailrec
 import scala.collection.concurrent.TrieMap
-
-import com.mongodb.MongoClient
 
 /**
  * Atomically counts references to MongoClients

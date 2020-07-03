@@ -79,6 +79,8 @@ class MongoPaginateBySizePartitionerSpec extends RequiresMongoDB {
     val dfPartitions = df.rdd.partitions.toList
     getQueryBoundForKey(dfPartitions.head.asInstanceOf[MongoPartition], "$gte") should equal("00001")
     getQueryBoundForKey(dfPartitions.reverse.head.asInstanceOf[MongoPartition], "$lte") should equal("00030")
+    getQueryBoundForKey(dfPartitions.head.asInstanceOf[MongoPartition], "$exists") should equal("-no-key-")
+    getQueryBoundForKey(dfPartitions.head.asInstanceOf[MongoPartition], "$ne") should equal("-no-key-")
 
     val df2 = MongoSpark.load(sparkSession, readConf).filter(s"""$partitionKey < "00049"""")
     df2.count() should equal(48)
@@ -114,8 +116,9 @@ class MongoPaginateBySizePartitionerSpec extends RequiresMongoDB {
     MongoPaginateBySizePartitioner.partitions(mongoConnector, readConfig, pipeline) should equal(expectedPartitions)
   }
 
-  private def getQueryBoundForKey(partition: MongoPartition, key: String): String =
-    partition.queryBounds.getDocument(partitionKey).getString(key).getValue
+  private def getQueryBoundForKey(partition: MongoPartition, key: String): String = {
+    partition.queryBounds.getDocument(partitionKey).getString(key, new BsonString("-no-key-")).getValue
+  }
 
 }
 

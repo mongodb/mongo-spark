@@ -17,11 +17,11 @@
 package com.mongodb.spark.rdd.partitioner
 
 import scala.util.{Failure, Success, Try}
-
 import org.bson.{BsonDocument, Document}
 import com.mongodb.spark.MongoConnector
 import com.mongodb.spark.config.ReadConfig
-import com.mongodb.{MongoClient, MongoCommandException}
+import com.mongodb.MongoCommandException
+import com.mongodb.client.MongoClient
 
 /**
  * The test collection partitioner implementation

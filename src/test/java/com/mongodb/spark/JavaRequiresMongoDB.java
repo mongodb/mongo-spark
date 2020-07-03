@@ -16,7 +16,7 @@
 
 package com.mongodb.spark;
 
-import com.mongodb.MongoClient;
+import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.spark.sql.types.BsonCompatibility;

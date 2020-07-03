@@ -16,7 +16,11 @@
 
 package com.mongodb.spark.connection
 
-import com.mongodb.{MongoClient, MongoClientOptions, MongoClientURI, MongoDriverInformation}
+import java.util.concurrent.TimeUnit
+
+import com.mongodb.client.{MongoClient, MongoClients}
+import com.mongodb.connection.ClusterSettings
+import com.mongodb.{ConnectionString, MongoClientSettings, MongoDriverInformation}
 
 import scala.util.Try
 import com.mongodb.spark.MongoClientFactory
@@ -28,14 +32,14 @@ private[spark] object DefaultMongoClientFactory {
     val cleanedOptions = ReadConfig.stripPrefix(options)
     require(cleanedOptions.contains(MongoSharedConfig.mongoURIProperty), s"Missing '${MongoSharedConfig.mongoURIProperty}' property from options")
     DefaultMongoClientFactory(
-      cleanedOptions.get(MongoSharedConfig.mongoURIProperty).get,
+      cleanedOptions(MongoSharedConfig.mongoURIProperty),
       cleanedOptions.get(ReadConfig.localThresholdProperty).map(_.toInt)
     )
   }
 }
 
 private[spark] case class DefaultMongoClientFactory(connectionString: String, localThreshold: Option[Int] = None) extends MongoClientFactory {
-  require(Try(new MongoClientURI(connectionString)).isSuccess, s"Invalid '${MongoSharedConfig.mongoURIProperty}' '$connectionString'")
+  require(Try(new ConnectionString(connectionString)).isSuccess, s"Invalid '${MongoSharedConfig.mongoURIProperty}' '$connectionString'")
 
   @transient private lazy val mongoDriverInformation = MongoDriverInformation.builder().driverName("mongo-spark")
     .driverVersion(BuildInfo.version)
@@ -43,9 +47,9 @@ private[spark] case class DefaultMongoClientFactory(connectionString: String, lo
     .build()
 
   override def create(): MongoClient = {
-    val builder = new MongoClientOptions.Builder
-    localThreshold.map(builder.localThreshold)
-    val clientURI = new MongoClientURI(connectionString, builder)
-    new MongoClient(clientURI, mongoDriverInformation)
+    val builder = MongoClientSettings.builder().applyConnectionString(new ConnectionString(connectionString))
+    localThreshold.map(lt => builder.applyToClusterSettings((b: ClusterSettings.Builder) => b.localThreshold(lt, TimeUnit.MILLISECONDS)))
+
+    MongoClients.create(builder.build(), mongoDriverInformation)
   }
 }

@@ -20,7 +20,7 @@ object Dependencies {
   // Versions
   val scalaCoreVersion        = "2.12.11"
   val scalaVersions           = Seq("2.12.11")
-  val mongodbDriverVersion    = "3.12.5"
+  val mongodbDriverVersion    = "4.0.4"
   val sparkVersion            = "3.0.0"
   val slf4jVersion            = "1.7.16"
 
@@ -31,7 +31,7 @@ object Dependencies {
   val junitInterfaceVersion   = "0.11"
 
   // Libraries
-  val mongodbDriver     = "org.mongodb" % "mongo-java-driver" % mongodbDriverVersion
+  val mongodbDriver     = "org.mongodb" % "mongodb-driver-sync" % mongodbDriverVersion
   val sparkCore         = "org.apache.spark" %% "spark-core" % sparkVersion % "provided"
   val sparkSql          = "org.apache.spark" %% "spark-sql" % sparkVersion % "provided"
   val slf4j             = "org.slf4j" % "slf4j-api" % slf4jVersion % "provided"

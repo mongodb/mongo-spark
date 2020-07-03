@@ -21,7 +21,7 @@ import java.util
 import com.mongodb.client.model.Collation
 import com.mongodb.spark.rdd.partitioner.{DefaultMongoPartitioner, MongoPartitioner}
 import com.mongodb.spark.{LoggingTrait, notNull}
-import com.mongodb.{ConnectionString, MongoClient, ReadConcern, ReadPreference}
+import com.mongodb.{ConnectionString, MongoClientSettings, ReadConcern, ReadPreference}
 import org.apache.spark.SparkConf
 import org.apache.spark.api.java.JavaSparkContext
 import org.apache.spark.sql.{SQLContext, SparkSession}
@@ -458,7 +458,7 @@ case class ReadConfig(
     val pipelineString = if (pipeline.isEmpty) {
       None
     } else {
-      Some(pipeline.map(x => x.toBsonDocument(classOf[BsonDocument], MongoClient.getDefaultCodecRegistry).toJson()).mkString("[", ",", "]"))
+      Some(pipeline.map(x => x.toBsonDocument(classOf[BsonDocument], MongoClientSettings.getDefaultCodecRegistry).toJson()).mkString("[", ",", "]"))
     }
     copy(aggregationConfig = aggregationConfig.copy(pipelineString = pipelineString))
   }

@@ -65,7 +65,6 @@ class MongoSplitVectorPartitioner extends MongoPartitioner {
 
     val keyPattern: BsonDocument = new BsonDocument(partitionKey, new BsonInt32(1))
     val minKeyMaxKey = PartitionerHelper.getSplitVectorRangeQuery(partitionKey, pipeline)
-
     val splitVectorCommand: BsonDocument = new BsonDocument("splitVector", new BsonString(ns))
       .append("keyPattern", keyPattern)
       .append("maxChunkSize", new BsonInt32(partitionSize))
@@ -75,7 +74,8 @@ class MongoSplitVectorPartitioner extends MongoPartitioner {
     connector.withDatabaseDo(readConfig, { db =>
       Try(db.runCommand(splitVectorCommand, classOf[BsonDocument])) match {
         case Success(result: BsonDocument) =>
-          val locations: Seq[String] = connector.withMongoClientDo(mongoClient => mongoClient.getAllAddress.asScala.map(_.getHost).distinct)
+          val locations: Seq[String] = connector.withMongoClientDo(mongoClient =>
+            mongoClient.getClusterDescription.getServerDescriptions.asScala.flatMap(_.getHosts.asScala))
           createPartitions(partitionKey, result, locations, minKeyMaxKey)
         case Failure(e: MongoNotPrimaryException) =>
           logWarning("The `SplitVector` command must be run on the primary node")

@@ -23,15 +23,12 @@ import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
-
 import org.apache.spark.api.java.JavaSparkContext
 import org.apache.spark.api.java.function.Function
 import org.apache.spark.{SparkConf, SparkContext}
-
 import org.bson.codecs.configuration.CodecRegistry
 import org.bson.{BsonDocument, Document}
-import com.mongodb.MongoClient
-import com.mongodb.client.{MongoCollection, MongoDatabase}
+import com.mongodb.client.{MongoClient, MongoCollection, MongoDatabase}
 import com.mongodb.connection.ServerVersion
 import com.mongodb.spark.config.{MongoCollectionConfig, ReadConfig, WriteConfig}
 import com.mongodb.spark.connection.{DefaultMongoClientFactory, MongoClientCache}
@@ -241,7 +238,6 @@ case class MongoConnector(mongoClientFactory: MongoClientFactory)
 
   private[spark] def acquireClient(): MongoClient = MongoConnector.mongoClientCache.acquire(mongoClientFactory)
   private[spark] def releaseClient(client: MongoClient): Unit = MongoConnector.mongoClientCache.release(client)
-  private[spark] def codecRegistry: CodecRegistry = withMongoClientDo({ client => client.getMongoClientOptions.getCodecRegistry })
 
   override def close(): Unit = MongoConnector.mongoClientCache.shutdown()
 

@@ -16,13 +16,11 @@
 
 package com.mongodb.spark.sql
 
+import com.mongodb.MongoClientSettings
 import org.apache.spark.sql.sources._
-
 import org.bson.BsonDocument
 import org.bson.conversions.Bson
-import com.mongodb.MongoClient
 import com.mongodb.spark.RequiresMongoDB
-
 import org.scalatest.prop.PropertyChecks
 
 class MongoRelationHelperSpec extends RequiresMongoDB with PropertyChecks {
@@ -49,7 +47,7 @@ class MongoRelationHelperSpec extends RequiresMongoDB with PropertyChecks {
 
   it should "and multiple spark Filters" in {
     MongoRelationHelper.createPipeline(Array.empty[String], Array(GreaterThan("f", 5), LessThan("f", 10))).toBson should
-      equal(Seq("{$match: {f: {$gt: 5, $lt: 10}}}".toBson))
+      equal(Seq("{$match: {$and: [{f: {$gt: 5}}, {f: {$lt: 10}}]}}".toBson))
   }
 
   val filters = Table(
@@ -67,13 +65,13 @@ class MongoRelationHelperSpec extends RequiresMongoDB with PropertyChecks {
     (StringEndsWith("f", "A"), """{$match: {f:  {$regex: "A$", $options: ""}}}"""),
     (StringContains("f", "A"), """{$match: {f:  {$regex: "A", $options: ""}}}"""),
     (Not(EqualTo("f", 1)), "{$match: {f: {$not: {$eq: 1}}}}"),
-    (And(GreaterThan("f", 5), LessThan("f", 10)), "{$match: {f: {$gt: 5, $lt: 10}}}"),
+    (And(GreaterThan("f", 5), LessThan("f", 10)), "{$match: {$and: [{f: {$gt: 5}}, {f: {$lt: 10}}]}}"),
     (Or(EqualTo("f", 1), EqualTo("f", 2)), "{$match: {$or: [{f: 1}, {f: 2}]}}")
   )
 
   implicit class PipelineHelpers(val pipeline: Seq[Bson]) {
     def toBson: Seq[BsonDocument] =
-      pipeline.map(_.toBsonDocument(classOf[BsonDocument], MongoClient.getDefaultCodecRegistry))
+      pipeline.map(_.toBsonDocument(classOf[BsonDocument], MongoClientSettings.getDefaultCodecRegistry))
   }
 
   implicit class JsonHelpers(val json: String) {

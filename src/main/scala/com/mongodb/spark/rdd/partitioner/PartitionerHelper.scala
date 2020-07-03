@@ -89,7 +89,7 @@ object PartitionerHelper {
    * @return the locations
    */
   def locations(connector: MongoConnector): Seq[String] =
-    connector.withMongoClientDo(mongoClient => mongoClient.getAllAddress.asScala.map(_.getHost).distinct)
+    connector.withMongoClientDo(mongoClient => mongoClient.getClusterDescription.getServerDescriptions.asScala.flatMap(_.getHosts.asScala))
 
   /**
    * Runs the `collStats` command and returns the results
@@ -119,30 +119,47 @@ object PartitionerHelper {
     }
   }
 
+  private val EXCLUDE_KEYS = List("$exists", "$ne")
   private def removeExistsAndNeChecks(value: BsonValue): BsonValue = {
-    if (value.isDocument) {
-      val excludeKeys = List("$exists", "$ne")
+    if (value.isDocument && !value.asDocument().isEmpty) {
       val cleanedDocument = new BsonDocument()
       value.asDocument().asScala.foreach {
-        case (k: String, v: BsonValue) =>
-          if (v.isDocument) {
-            val cleanedSubDocument = new BsonDocument()
-            v.asDocument().asScala.foreach({
-              case (sk: String, sv: BsonValue) =>
-                if (!excludeKeys.contains(sk)) {
-                  cleanedSubDocument.put(sk, removeExistsAndNeChecks(sv))
-                }
-            })
-            if (!cleanedSubDocument.isEmpty) {
-              cleanedDocument.put(k, cleanedSubDocument)
-            }
-          } else {
-            cleanedDocument.put(k, v)
+        case (k: String, v: BsonDocument) =>
+          val cleanedSubDocument = new BsonDocument()
+          v.asDocument().asScala.foreach({
+            case (sk: String, sv: BsonValue) =>
+              if (!EXCLUDE_KEYS.contains(sk)) {
+                cleanedSubDocument.put(sk, removeExistsAndNeChecks(sv))
+              }
+          })
+          if (!cleanedSubDocument.isEmpty) {
+            cleanedDocument.put(k, cleanedSubDocument)
           }
+        case (k: String, v: BsonArray) => {
+          val cleanedArray = removeExistsAndNeChecksFromBsonArray(k, v)
+          if (!cleanedArray.isEmpty) cleanedDocument.put(k, cleanedArray)
+        }
+        case (k: String, v: BsonValue) => cleanedDocument.put(k, v)
       }
       cleanedDocument
     } else {
       value
+    }
+  }
+
+  private val AND_KEY = "$and"
+  def removeExistsAndNeChecksFromBsonArray(k: String, v: BsonArray): BsonArray = {
+    if (k == AND_KEY) {
+      val cleanedArray = new BsonArray()
+      v.asArray().forEach(bv => if (bv.isDocument) {
+        val cleanedSubDocument = removeExistsAndNeChecks(bv)
+        if (!cleanedSubDocument.asDocument().isEmpty) cleanedArray.add(cleanedSubDocument)
+      } else {
+        cleanedArray.add(bv)
+      })
+      cleanedArray
+    } else {
+      v
     }
   }
 
@@ -197,6 +214,19 @@ object PartitionerHelper {
       } else {
         new BsonDocument()
       }
+    } else {
+      checkForKeysInNestedAndQuery(keys, document)
+    }
+  }
+
+  private def checkForKeysInNestedAndQuery(keys: Seq[String], document: BsonDocument): BsonDocument = {
+    if (keys.length == 1 && document.containsKey(AND_KEY) && document.isArray(AND_KEY)) {
+      val key = keys.head
+      val documentValues = removeExistsAndNeChecksFromBsonArray(AND_KEY, document.getArray(AND_KEY)).asArray()
+        .getValues.asScala.map(_.asDocument()).filter(d => d.containsKey(key) && d.get(key).isDocument)
+      val valueDoc = new BsonDocument()
+      documentValues.foreach(_.getDocument(key).entrySet().asScala.foreach(e => valueDoc.append(e.getKey, e.getValue)))
+      valueDoc
     } else {
       new BsonDocument()
     }

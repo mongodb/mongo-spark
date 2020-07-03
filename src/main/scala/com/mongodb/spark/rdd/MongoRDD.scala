@@ -27,8 +27,8 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
-import com.mongodb.{MongoClient, MongoCursorNotFoundException}
-import com.mongodb.client.{AggregateIterable, MongoCursor}
+import com.mongodb.MongoCursorNotFoundException
+import com.mongodb.client.{AggregateIterable, MongoClient, MongoCursor}
 import com.mongodb.spark.config.ReadConfig
 import com.mongodb.spark.exceptions.MongoSparkCursorNotFoundException
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
