@@ -155,7 +155,7 @@ class DataFrameWriterSpec extends DataSourceSpecBase {
       case (doc: Document, i: Int) =>
         ShardedCharacter(i, i, i, doc.getString("name"), if (doc.containsKey("age")) Some(doc.getInteger("age")) else None)
     }
-    originalData.toDS().saveToMongoDB()
+    originalData.toDS().saveToMongoDB(writeConfig)
 
     spark.loadDS[ShardedCharacter](readConfig).map(c => c.copy(age = c.age.map(_ + 10))).save(writeConfig)
 
@@ -176,7 +176,7 @@ class DataFrameWriterSpec extends DataSourceSpecBase {
       case (doc: Document, i: Int) =>
         ShardedCharacter(i, i, i, doc.getString("name"), if (doc.containsKey("age")) Some(doc.getInteger("age")) else None)
     }
-    originalData.toDS().saveToMongoDB()
+    originalData.toDS().saveToMongoDB(writeConfig)
 
     spark.spark.loadDS[ShardedCharacter](readConfig).map(c => c.copy(age = c.age.map(_ + 10))).save(writeConfig)
 
