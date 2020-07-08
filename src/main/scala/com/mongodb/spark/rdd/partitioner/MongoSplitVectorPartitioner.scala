@@ -74,8 +74,7 @@ class MongoSplitVectorPartitioner extends MongoPartitioner {
     connector.withDatabaseDo(readConfig, { db =>
       Try(db.runCommand(splitVectorCommand, classOf[BsonDocument])) match {
         case Success(result: BsonDocument) =>
-          val locations: Seq[String] = connector.withMongoClientDo(mongoClient =>
-            mongoClient.getClusterDescription.getServerDescriptions.asScala.flatMap(_.getHosts.asScala))
+          val locations: Seq[String] = PartitionerHelper.locations(connector)
           createPartitions(partitionKey, result, locations, minKeyMaxKey)
         case Failure(e: MongoNotPrimaryException) =>
           logWarning("The `SplitVector` command must be run on the primary node")
