@@ -29,7 +29,7 @@ object SparkConnectorBuild extends Build {
   import Dependencies.{scalaCoreVersion, scalaVersions, coreDependencies, testDependencies}
   import Resolvers._
 
-  val baseVersion = "2.4.2"
+  val baseVersion = "3.0.0"
 
   val buildSettings = Seq(
     organization := "org.mongodb.cosmosspark",
