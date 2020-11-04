@@ -7,6 +7,9 @@ import com.mongodb.spark.config.WriteConfig;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.api.java.function.Function;
+import org.apache.spark.scheduler.SparkListener;
+import org.apache.spark.scheduler.SparkListenerApplicationEnd;
+import org.apache.spark.scheduler.SparkListenerStageCompleted;
 import org.apache.spark.sql.SparkSession;
 import org.bson.Document;
 import org.junit.Test;
@@ -79,6 +82,36 @@ public final class MongoDataFrameWriterTest extends JavaRequiresMongoDB {
 
         // Then
         assertEquals(MongoSpark.read(sparkSession).options(readConfig.asOptions()).load().count(), 9);
+    }
+
+    @Test
+    public void shouldAccumulateMetrics() {
+        // Given
+        JavaSparkContext jsc = getJavaSparkContext();
+        JavaRDD<CharacterBean> people = jsc.parallelize(characters).map(JsonToCharacter);
+        SparkSession sparkSession = SparkSession.builder().getOrCreate();
+
+        final long[] recordsRead = {0};
+        final long[] bytesRead = {0};
+        final long[] recordsWritten = {0};
+        final long[] bytesWritten = { 0 };
+        sparkSession.sparkContext().addSparkListener(new SparkListener() {
+
+            @Override
+            public void onStageCompleted( SparkListenerStageCompleted stageCompleted) {
+                recordsRead[0] += stageCompleted.stageInfo().taskMetrics().inputMetrics().recordsRead();
+                bytesRead[0] += stageCompleted.stageInfo().taskMetrics().inputMetrics().bytesRead();
+                recordsWritten[0] += stageCompleted.stageInfo().taskMetrics().outputMetrics().recordsWritten();
+                bytesWritten[0] += stageCompleted.stageInfo().taskMetrics().outputMetrics().bytesWritten();
+            }
+        });
+
+        MongoSpark.write(sparkSession.createDataFrame(people, CharacterBean.class)).save();
+
+        MongoSpark.read(sparkSession).load();
+
+        assertEquals(recordsRead[0], people.count());
+        assertEquals(recordsWritten[0], people.count());
     }
 
     private static Function<String, CharacterBean> JsonToCharacter = new Function<String, CharacterBean>() {

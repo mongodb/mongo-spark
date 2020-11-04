@@ -20,13 +20,13 @@ import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 import scala.util.Try
-import org.apache.spark.{Partition, SparkContext, TaskContext}
+import org.apache.spark.{Partition, SparkContext, SparkMetricsUtil, TaskContext}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 import org.bson.conversions.Bson
-import org.bson.{BsonDocument, Document}
+import org.bson.{BsonDocument, Document, RawBsonDocument}
 import com.mongodb.MongoCursorNotFoundException
 import com.mongodb.client.{AggregateIterable, MongoClient, MongoCursor}
 import com.mongodb.spark.config.ReadConfig
@@ -34,6 +34,7 @@ import com.mongodb.spark.exceptions.MongoSparkCursorNotFoundException
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
 import com.mongodb.spark.rdd.partitioner.{MongoPartition, MongoSinglePartitioner}
 import com.mongodb.spark.{MongoConnector, MongoSpark, NotNothing, classTagToClassOf}
+import org.apache.spark.executor.InputMetrics
 
 import scala.collection.Iterator
 
@@ -164,7 +165,8 @@ class MongoRDD[D: ClassTag](
       Try(cursor.close())
       connector.value.releaseClient(client)
     })
-    MongoCursorIterator(cursor)
+
+    MongoCursorIterator(cursor, context.taskMetrics().inputMetrics)
   }
 
   /**
@@ -193,7 +195,7 @@ class MongoRDD[D: ClassTag](
     aggregateIterable.iterator
   }
 
-  private case class MongoCursorIterator(cursor: MongoCursor[D]) extends Iterator[D] {
+  private case class MongoCursorIterator(cursor: MongoCursor[D], inputMetrics: InputMetrics) extends Iterator[D] {
     override def hasNext: Boolean = try {
       cursor.hasNext
     } catch {
@@ -201,10 +203,24 @@ class MongoRDD[D: ClassTag](
     }
 
     override def next(): D = try {
-      cursor.next()
+      val next = cursor.next()
+      incInputMetrics(inputMetrics, next.asInstanceOf[BsonDocument])
+      next
     } catch {
       case e: MongoCursorNotFoundException => throw new MongoSparkCursorNotFoundException(e)
     }
+  }
+
+  /**
+   * Incs input metrics.
+   *
+   * @param inputMetrics - Input Metrics Object.
+   * @param bson - Bson Document.
+   */
+  private def incInputMetrics(inputMetrics: InputMetrics, bson: BsonDocument) : Unit = {
+    SparkMetricsUtil.incRecordsRead(inputMetrics, 1)
+    val bytesRead = RawBsonDocument.parse(bson.toJson).getByteBuffer.remaining
+    SparkMetricsUtil.incBytesRead(inputMetrics, bytesRead)
   }
 
   private def checkSparkContext(): Unit = {

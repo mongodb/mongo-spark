@@ -24,14 +24,15 @@ import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.rdd.api.java.JavaMongoRDD
 import com.mongodb.spark.sql.MapFunctions.rowToDocumentMapper
 import com.mongodb.spark.sql.{MongoInferSchema, MongoRelation, helpers}
-import org.apache.spark.SparkContext
+import org.apache.spark.{SparkContext, SparkMetricsUtil, TaskContext}
 import org.apache.spark.api.java.{JavaRDD, JavaSparkContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.sources.BaseRelation
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, DataFrameReader, DataFrameWriter, Dataset, Encoders, SQLContext, SparkSession}
+import org.apache.spark.util.LongAccumulator
 import org.bson.conversions.Bson
-import org.bson.{BsonDocument, Document}
+import org.bson.{BsonDocument, Document, RawBsonDocument}
 
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
@@ -116,10 +117,30 @@ object MongoSpark {
     val mongoConnector = MongoConnector(writeConfig.asOptions)
     rdd.foreachPartition(iter => if (iter.nonEmpty) {
       mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[D] =>
-        iter.grouped(writeConfig.maxBatchSize).foreach(batch => collection.insertMany(
-          batch.toList.asJava,
-          new InsertManyOptions().ordered(writeConfig.ordered)
-        ))
+        val recordsWritten = new LongAccumulator
+        val bytesWritten = new LongAccumulator
+
+
+        iter.grouped(writeConfig.maxBatchSize).foreach(batch => {
+          val batchList = batch.toList.asJava
+          batch.map(doc =>{
+            val bsonSize = RawBsonDocument.parse(doc.asInstanceOf[BsonDocument].toJson).getByteBuffer.remaining
+            bytesWritten.add(bsonSize)
+          })
+          recordsWritten.add(batchList.size())
+
+          collection.insertMany(
+            batchList,
+            new InsertManyOptions().ordered(writeConfig.ordered)
+          )
+        })
+
+        val outputMetrics = TaskContext.get().taskMetrics().outputMetrics
+
+
+        SparkMetricsUtil.setRecordsWritten(outputMetrics, outputMetrics.recordsWritten + recordsWritten.sum)
+        SparkMetricsUtil.setBytesWritten(outputMetrics, outputMetrics.bytesWritten + bytesWritten.sum)
+
       })
     })
   }
@@ -160,8 +181,11 @@ object MongoSpark {
     } else {
       documentRdd.foreachPartition(iter => if (iter.nonEmpty) {
         mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[BsonDocument] =>
+          val bytesWritten = new LongAccumulator
           iter.grouped(writeConfig.maxBatchSize).foreach(batch => {
-            val requests = batch.map(doc =>
+            val requests = batch.map(doc =>{
+            val bsonSize = RawBsonDocument.parse(doc.toJson).getByteBuffer.remaining
+            bytesWritten.add(bsonSize)
               if (queryKeyList.forall(doc.containsKey(_))) {
                 val queryDocument = new BsonDocument()
                 queryKeyList.foreach(key => queryDocument.append(key, doc.get(key)))
@@ -173,8 +197,17 @@ object MongoSpark {
                 }
               } else {
                 new InsertOneModel[BsonDocument](doc)
-              })
+              }
+          })
+
+            val requestList = requests.toList.asJava
+            val outputMetrics = TaskContext.get().taskMetrics().outputMetrics
+            val recordsWritten = requestList.size()
+
             collection.bulkWrite(requests.toList.asJava, new BulkWriteOptions().ordered(writeConfig.ordered))
+
+            SparkMetricsUtil.setRecordsWritten(outputMetrics, outputMetrics.recordsWritten + recordsWritten)
+            SparkMetricsUtil.setBytesWritten(outputMetrics, outputMetrics.bytesWritten + bytesWritten.sum)
           })
         })
       })
@@ -641,3 +674,4 @@ case class MongoSpark(sparkSession: SparkSession, connector: MongoConnector, rea
 
 }
 
+  
