@@ -207,6 +207,9 @@ private[spark] object MapFunctions {
       case (isBsonNumber(), _) if elementType.typeName.startsWith("decimal") => toDecimal(element)
       case (notNull(), schema: StructType) => castToStructType(element, schema)
       case (_, StringType) => bsonValueToString(element)
+      case (BsonType.STRING, NullType) => {
+        bsonValueToString(element)
+      }
       case _ =>
         if (element.isNull) {
           null
