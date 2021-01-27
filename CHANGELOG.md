@@ -1,5 +1,8 @@
 # Mongo Spark Connector Changelog
 
+## 3.0.1
+  * [[SPARK-268](https://jira.mongodb.org/browse/SPARK-268)] Improve Spark numeric type interoperability.
+
 ## 3.0.0
   * [[SPARK-274](https://jira.mongodb.org/browse/SPARK-274)] Spark 3.0.0 support
   * [[SPARK-275](https://jira.mongodb.org/browse/SPARK-275)] Updated mongodb-driver-sync version to 4.0.4
