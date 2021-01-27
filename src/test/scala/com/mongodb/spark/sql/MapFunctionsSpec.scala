@@ -44,9 +44,15 @@ class MapFunctionsSpec extends RequiresMongoDB with GeneratorDrivenPropertyCheck
 
   case class MixedNumericsInt(num: Int)
 
+  case class MixedNumericsShort(num: Short)
+
+  case class MixedNumericsByte(num: Byte)
+
   case class MixedNumericsLong(num: Long)
 
   case class MixedNumericsDouble(num: Double)
+
+  case class MixedNumericsFloat(num: Float)
 
   case class MixedNumericsDecimal(num: BigDecimal)
 
@@ -215,16 +221,28 @@ class MapFunctionsSpec extends RequiresMongoDB with GeneratorDrivenPropertyCheck
       val convertedInt = rowToDocument(row)
       convertedInt should equal(bsonIntDoc)
 
-      val row2 = documentToRow(elem, schemaFor[MixedNumericsLong])
-      val convertedLong = rowToDocument(row2)
+      val row2 = documentToRow(elem, schemaFor[MixedNumericsShort])
+      val convertedShort = rowToDocument(row2)
+      convertedShort should equal(bsonIntDoc)
+
+      val row3 = documentToRow(elem, schemaFor[MixedNumericsByte])
+      val convertedByte = rowToDocument(row3)
+      convertedByte should equal(bsonIntDoc)
+
+      val row4 = documentToRow(elem, schemaFor[MixedNumericsLong])
+      val convertedLong = rowToDocument(row4)
       convertedLong should equal(bsonLongDoc)
 
-      val row3 = documentToRow(elem, schemaFor[MixedNumericsDouble])
-      val convertedDouble = rowToDocument(row3)
+      val row5 = documentToRow(elem, schemaFor[MixedNumericsDouble])
+      val convertedDouble = rowToDocument(row5)
       convertedDouble should equal(bsonDoubleDoc)
 
-      val row4 = documentToRow(elem, schemaFor[MixedNumericsDecimal])
-      val convertedDecimal = rowToDocument(row4)
+      val row6 = documentToRow(elem, schemaFor[MixedNumericsFloat])
+      val convertedFloat = rowToDocument(row6)
+      convertedFloat should equal(bsonDoubleDoc)
+
+      val row7 = documentToRow(elem, schemaFor[MixedNumericsDecimal])
+      val convertedDecimal = rowToDocument(row7)
       if (elem == bsonDoubleDoc) {
         convertedDecimal should equal(bsonDecimalDoubleDoc)
       } else {

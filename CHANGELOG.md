@@ -3,6 +3,7 @@
 ## 2.2.9
   * [[SPARK-280](https://jira.mongodb.org/browse/SPARK-280)] Support replace and updates from RDD's that include an `_id`.
     Use `forceInsert` to keep existing behaviour.
+  * [[SPARK-268](https://jira.mongodb.org/browse/SPARK-268)] Improve Spark numeric type interoperability.
 
 ## 2.2.8
   * [[SPARK-265](https://jira.mongodb.org/browse/SPARK-265)] Updated Mongo Java Driver to 3.12.5
