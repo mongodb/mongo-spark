@@ -160,4 +160,13 @@ class MongoRDDSpec extends RequiresMongoDB {
       .withPipeline(Seq(Document.parse("{$match: {str: 'FOO'}}"))).count() should equal(2)
   }
 
+  it should "support replacing existing documents" in withSparkContext() { sc =>
+    sc.parallelize((1 to 100).map(i => Document.parse(s"{_id: $i, number: $i}"))).saveToMongoDB()
+    sc.loadFromMongoDB().count() shouldBe 100
+    sc.loadFromMongoDB().withPipeline(List(Document.parse("{$match: { number: {$gt: 100}}}"))).count() shouldBe 0
+
+    sc.parallelize((1 to 100).map(i => Document.parse(s"{_id: $i, number: ${i + 1000}}"))).saveToMongoDB()
+    sc.loadFromMongoDB().count() shouldBe 100
+    sc.loadFromMongoDB().withPipeline(List(Document.parse("{$match: { number: {$gt: 100}}}"))).count() shouldBe 100
+  }
 }
