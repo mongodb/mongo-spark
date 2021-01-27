@@ -91,9 +91,12 @@ private[spark] object MapFunctions {
       case BinaryType => (element: Any) => new BsonBinary(element.asInstanceOf[Array[Byte]])
       case BooleanType => (element: Any) => new BsonBoolean(element.asInstanceOf[Boolean])
       case DateType => (element: Any) => new BsonDateTime(element.asInstanceOf[Date].getTime)
-      case DoubleType => (element: Any) => new BsonDouble(element.asInstanceOf[Double])
-      case IntegerType => (element: Any) => new BsonInt32(element.asInstanceOf[Int])
-      case LongType => (element: Any) => new BsonInt64(element.asInstanceOf[Long])
+      case DoubleType => (element: Any) => new BsonDouble(element.asInstanceOf[Number].doubleValue())
+      case FloatType => (element: Any) => new BsonDouble(element.asInstanceOf[Number].floatValue())
+      case IntegerType => (element: Any) => new BsonInt32(element.asInstanceOf[Number].intValue())
+      case ShortType => (element: Any) => new BsonInt32(element.asInstanceOf[Number].intValue())
+      case ByteType => (element: Any) => new BsonInt32(element.asInstanceOf[Number].intValue())
+      case LongType => (element: Any) => new BsonInt64(element.asInstanceOf[Number].longValue())
       case StringType => (element: Any) => new BsonString(element.asInstanceOf[String])
       case TimestampType => (element: Any) => new BsonDateTime(element.asInstanceOf[Timestamp].getTime)
       case arrayType: ArrayType => {
@@ -202,7 +205,10 @@ private[spark] object MapFunctions {
       case (BsonType.DATE_TIME, TimestampType) => new Timestamp(element.asDateTime().getValue)
       case (BsonType.NULL, NullType) => null
       case (isBsonNumber(), DoubleType) => toDouble(element)
+      case (isBsonNumber(), FloatType) => toFloat(element)
       case (isBsonNumber(), IntegerType) => toInt(element)
+      case (isBsonNumber(), ShortType) => toShort(element)
+      case (isBsonNumber(), ByteType) => toByte(element)
       case (isBsonNumber(), LongType) => toLong(element)
       case (isBsonNumber(), _) if elementType.typeName.startsWith("decimal") => toDecimal(element)
       case (notNull(), schema: StructType) => castToStructType(element, schema)
@@ -271,6 +277,19 @@ private[spark] object MapFunctions {
       case _                   => throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Int")
     }
   }
+  private def toShort(bsonValue: BsonValue): Short = {
+    Try(toInt(bsonValue).toShort) match {
+      case Success(v) => v
+      case Failure(_) => throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Short")
+    }
+  }
+
+  private def toByte(bsonValue: BsonValue): Byte = {
+    Try(toInt(bsonValue).toByte) match {
+      case Success(v) => v
+      case Failure(_) => throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Byte")
+    }
+  }
 
   private def toLong(bsonValue: BsonValue): Long = {
     bsonValue.getBsonType match {
@@ -289,6 +308,13 @@ private[spark] object MapFunctions {
       case BsonType.INT64      => bsonValue.asInt64().doubleValue()
       case BsonType.DOUBLE     => bsonValue.asDouble().doubleValue()
       case _                   => throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Double")
+    }
+  }
+
+  private def toFloat(bsonValue: BsonValue): Double = {
+    Try(toDouble(bsonValue).toFloat) match {
+      case Success(v) => v
+      case Failure(_) => throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Float")
     }
   }
 
