@@ -17,7 +17,11 @@
 package com.mongodb.spark
 
 import com.mongodb.client.MongoCollection
+<<<<<<< HEAD
 import com.mongodb.client.model.{BulkWriteOptions, InsertManyOptions, InsertOneModel, ReplaceOneModel, UpdateOneModel, UpdateOptions}
+=======
+import com.mongodb.client.model.{BulkWriteOptions, InsertOneModel, ReplaceOneModel, ReplaceOptions, UpdateOneModel, UpdateOptions}
+>>>>>>> aa8aab5... Added replace and update support for RDD's
 import com.mongodb.spark.DefaultHelper.DefaultsTo
 import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.rdd.MongoRDD
@@ -30,6 +34,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.sources.BaseRelation
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, DataFrameReader, DataFrameWriter, Dataset, Encoders, SQLContext, SparkSession}
+import org.bson.BsonDocumentWrapper.asBsonDocument
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
 
@@ -114,12 +119,28 @@ object MongoSpark {
    */
   def save[D: ClassTag](rdd: RDD[D], writeConfig: WriteConfig): Unit = {
     val mongoConnector = MongoConnector(writeConfig.asOptions)
+    val queryKeyList = BsonDocument.parse(writeConfig.shardKey.getOrElse("{_id: 1}")).keySet().asScala.toList
+
     rdd.foreachPartition(iter => if (iter.nonEmpty) {
-      mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[D] =>
-        iter.grouped(writeConfig.maxBatchSize).foreach(batch => collection.insertMany(
-          batch.toList.asJava,
-          new InsertManyOptions().ordered(writeConfig.ordered)
-        ))
+      mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[BsonDocument] =>
+        iter.grouped(writeConfig.maxBatchSize).foreach(batch => {
+          val requests = batch.map(data => {
+            val doc = asBsonDocument(data, collection.getCodecRegistry)
+            if (!writeConfig.forceInsert && queryKeyList.forall(doc.containsKey(_))) {
+              val queryDocument = new BsonDocument()
+              queryKeyList.foreach(key => queryDocument.append(key, doc.get(key)))
+              if (writeConfig.replaceDocument) {
+                new ReplaceOneModel[BsonDocument](queryDocument, doc, new ReplaceOptions().upsert(true))
+              } else {
+                queryDocument.keySet().asScala.foreach(doc.remove(_))
+                new UpdateOneModel[BsonDocument](queryDocument, new BsonDocument("$set", doc), new UpdateOptions().upsert(true))
+              }
+            } else {
+              new InsertOneModel[BsonDocument](doc)
+            }
+          })
+          collection.bulkWrite(requests.toList.asJava, new BulkWriteOptions().ordered(writeConfig.ordered))
+        })
       })
     })
   }
@@ -148,6 +169,7 @@ object MongoSpark {
    * @since 1.1.0
    */
   def save[D](dataset: Dataset[D], writeConfig: WriteConfig): Unit = {
+<<<<<<< HEAD
     val mongoConnector = MongoConnector(writeConfig.asOptions)
     val dataSet = dataset.toDF()
     val mapper = rowToDocumentMapper(dataSet.schema, writeConfig.extendedBsonTypes)
@@ -180,6 +202,10 @@ object MongoSpark {
         })
       })
     }
+=======
+    val mapper = rowToDocumentMapper(dataset.schema, writeConfig.extendedBsonTypes)
+    save(dataset.toDF().rdd.map(row => mapper(row)), writeConfig)
+>>>>>>> aa8aab5... Added replace and update support for RDD's
   }
 
   /**

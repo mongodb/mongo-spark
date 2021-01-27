@@ -1,5 +1,9 @@
 # Mongo Spark Connector Changelog
 
+## 2.1.8
+  * [[SPARK-280](https://jira.mongodb.org/browse/SPARK-280)] Support replace and updates from RDD's that include an `_id`.
+    Use `forceInsert` to keep existing behaviour.
+
 ## 2.1.7
   * [[SPARK-265](https://jira.mongodb.org/browse/SPARK-265)] Updated Mongo Java Driver to 3.12.5
   * [[SPARK-271](https://jira.mongodb.org/browse/SPARK-271)] Don't use SPI for the Datasource internally
