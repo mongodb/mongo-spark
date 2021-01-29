@@ -208,6 +208,7 @@ private[spark] object MapFunctions {
       case (notNull(), schema: StructType) => castToStructType(element, schema)
       case (_, StringType) => bsonValueToString(element)
       case (BsonType.STRING, DoubleType) => toDouble(element)
+      case (BsonType.STRING, TimestampType) => new Timestamp(element.asDateTime().getValue)
       case (BsonType.STRING, NullType) => {
         bsonValueToString(element)
       }
