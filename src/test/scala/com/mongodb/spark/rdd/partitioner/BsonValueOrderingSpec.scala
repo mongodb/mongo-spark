@@ -20,7 +20,7 @@ import scala.collection.JavaConverters._
 import scala.util.Random
 import org.bson.types.{Decimal128, ObjectId}
 import org.bson.{BsonDbPointer, _}
-import org.scalatest.{Assertion, FlatSpec, Matchers}
+import org.scalatest.{FlatSpec, Matchers}
 
 class BsonValueOrderingSpec extends FlatSpec with Matchers {
   // scalastyle:off magic.number
