@@ -17,11 +17,7 @@
 package com.mongodb.spark
 
 import com.mongodb.client.MongoCollection
-<<<<<<< HEAD
-import com.mongodb.client.model.{BulkWriteOptions, InsertManyOptions, InsertOneModel, ReplaceOneModel, UpdateOneModel, UpdateOptions}
-=======
 import com.mongodb.client.model.{BulkWriteOptions, InsertOneModel, ReplaceOneModel, ReplaceOptions, UpdateOneModel, UpdateOptions}
->>>>>>> aa8aab5... Added replace and update support for RDD's
 import com.mongodb.spark.DefaultHelper.DefaultsTo
 import com.mongodb.spark.config.{ReadConfig, WriteConfig}
 import com.mongodb.spark.rdd.MongoRDD
@@ -169,43 +165,8 @@ object MongoSpark {
    * @since 1.1.0
    */
   def save[D](dataset: Dataset[D], writeConfig: WriteConfig): Unit = {
-<<<<<<< HEAD
-    val mongoConnector = MongoConnector(writeConfig.asOptions)
-    val dataSet = dataset.toDF()
-    val mapper = rowToDocumentMapper(dataSet.schema, writeConfig.extendedBsonTypes)
-    val documentRdd: RDD[BsonDocument] = dataSet.rdd.map(row => mapper(row))
-    val fieldNames = dataset.schema.fieldNames.toList
-    val queryKeyList = BsonDocument.parse(writeConfig.shardKey.getOrElse("{_id: 1}")).keySet().asScala.toList
-
-    if (writeConfig.forceInsert || !queryKeyList.forall(fieldNames.contains(_))) {
-      MongoSpark.save(documentRdd, writeConfig)
-    } else {
-      documentRdd.foreachPartition(iter => if (iter.nonEmpty) {
-        mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[BsonDocument] =>
-          iter.grouped(writeConfig.maxBatchSize).foreach(batch => {
-            val updateOptions = new UpdateOptions().upsert(true)
-            val requests = batch.map(doc =>
-              if (queryKeyList.forall(doc.containsKey(_))) {
-                val queryDocument = new BsonDocument()
-                queryKeyList.foreach(key => queryDocument.append(key, doc.get(key)))
-                if (writeConfig.replaceDocument) {
-                  new ReplaceOneModel[BsonDocument](queryDocument, doc, updateOptions)
-                } else {
-                  queryDocument.keySet().asScala.foreach(doc.remove(_))
-                  new UpdateOneModel[BsonDocument](queryDocument, new BsonDocument("$set", doc), updateOptions)
-                }
-              } else {
-                new InsertOneModel[BsonDocument](doc)
-              })
-            collection.bulkWrite(requests.toList.asJava, new BulkWriteOptions().ordered(writeConfig.ordered))
-          })
-        })
-      })
-    }
-=======
     val mapper = rowToDocumentMapper(dataset.schema, writeConfig.extendedBsonTypes)
     save(dataset.toDF().rdd.map(row => mapper(row)), writeConfig)
->>>>>>> aa8aab5... Added replace and update support for RDD's
   }
 
   /**
