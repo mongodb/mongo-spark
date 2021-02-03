@@ -18,7 +18,6 @@ import com.typesafe.sbt.GitVersioning
 import scalariform.formatter.preferences.FormattingPreferences
 import com.typesafe.sbt.SbtScalariform._
 import org.scalastyle.sbt.ScalastylePlugin._
-import sbtsparkpackage.SparkPackagePlugin.autoImport._
 import sbt.Keys._
 import sbt._
 import sbtbuildinfo.{BuildInfoKey, BuildInfoPlugin}
@@ -62,19 +61,6 @@ object SparkConnectorBuild extends Build {
 
   val scoverageSettings = Seq()
 
-  // See https://github.com/databricks/sbt-spark-package
-  val sparkPackages = Seq(
-    spName := "mongodb/mongo-spark",
-    sparkVersion := Dependencies.sparkVersion,
-    sparkComponents := Seq("sql"),
-    spAppendScalaVersion := true,
-    spIncludeMaven := true,
-    spIgnoreProvided := true,
-    licenses += "Apache-2.0" -> url("http://opensource.org/licenses/Apache-2.0"),
-    credentials += Credentials(Path.userHome / ".ivy2" / ".spCredentials")
-  )
-
-
   val versionSettings = Versioning.settings(baseVersion)
   val buildInfoSettings = Seq(
     buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion),
@@ -116,7 +102,6 @@ object SparkConnectorBuild extends Build {
     .settings(scoverageSettings)
     .settings(Publish.settings)
     .settings(Publish.assemblySettings)
-    .settings(sparkPackages)
     .settings(checkAlias)
     .enablePlugins(GitVersioning, BuildInfoPlugin)
 
