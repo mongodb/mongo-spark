@@ -70,14 +70,8 @@ To publish the signed jars - first commit and tag all changes to publish.
 $ ./sbt +publishArchives
 ```
 
-To publish to spark packages:
-
-```
-$ ./sbt +spPublish
-```
-See the [sbt-spark-package](https://github.com/databricks/sbt-spark-package) plugin for more information.
-
-Note: If uploading fails run `./sbt +spDist` and manually upload the archives to `https://spark-packages.org/package/mongodb/mongo-spark`
+To publish to spark packages use the form on `https://spark-packages.org/package/mongodb/mongo-spark`.
+No need for a zip file.
 
 ## Maintainers
 
