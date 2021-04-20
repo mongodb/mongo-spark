@@ -1,5 +1,8 @@
 # Mongo Spark Connector Changelog
 
+## 3.1.0
+  * [[SPARK-293](https://jira.mongodb.org/browse/SPARK-293)] Spark 3.1.1 support
+
 ## 3.0.1
   * [[SPARK-280](https://jira.mongodb.org/browse/SPARK-280)] Support replace and updates from RDD's that include an `_id`. 
     Use `forceInsert` to keep existing behaviour.
