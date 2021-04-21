@@ -38,7 +38,7 @@ package com.mongodb.spark.config
  *  - [[readPreferenceTagSetsProperty readPreference.tagSets]], the `ReadPreference` TagSets to use.
  *  - [[readConcernLevelProperty readConcern.level]], the `ReadConcern` level to use.
  *  - [[sampleSizeProperty sampleSize]], the sample size to use when inferring the schema.
- *  - [[samplePoolSizeProperty sampleSize]], the size pool to sample from when inferring the schema.
+ *  - [[samplePoolSizeProperty samplePoolSize]], the size pool to sample from when inferring the schema.
  *  - [[partitionerProperty partitioner]], the name of the partitioner to use to partition the data.
  *  - [[partitionerOptionsProperty partitionerOptions]], the custom options used to configure the partitioner.
  *  - [[localThresholdProperty localThreshold]], the number of milliseconds used when choosing among multiple MongoDB servers to send a request.
@@ -50,9 +50,12 @@ package com.mongodb.spark.config
  *  - [[pipelineIncludeFiltersAndProjectionsProperty sql.pipeline.includeFiltersAndProjections]], include any filters and projections in
  *    the aggregation pipeline
  *  - [[pipelineProperty pipeline]], enables custom aggregation pipelines to applied to the collection before sending to Spark
+ *  - [[collationProperty collation]], the json representation of the collation to use in the aggregation. Created via `Collation.asDocument.toJson`.
+ *  - [[hintProperty hint]], the json representation of the hint to use in the aggregation.
  *  - [[allowDiskUseProperty allowDiskUse]], enables writing to temporary files during aggregation in MongoDB.
  *  - [[batchSizeProperty batchSize]], customize the size of the internal batches within the MongoDB cursor.
  */
+
 trait MongoInputConfig extends MongoCompanionConfig {
 
   override val configPrefix: String = "spark.mongodb.input."
