@@ -210,6 +210,12 @@ private[spark] object MapFunctions {
       case (isBsonNumber(), ShortType) => toShort(element)
       case (isBsonNumber(), ByteType) => toByte(element)
       case (isBsonNumber(), LongType) => toLong(element)
+      case (BsonType.STRING, DoubleType) => toDouble(element)
+      case (BsonType.STRING, FloatType) => toFloat(element)
+      case (BsonType.STRING, IntegerType) => toInt(element)
+      case (BsonType.STRING, ShortType) => toShort(element)
+      case (BsonType.STRING, ByteType) => toByte(element)
+      case (BsonType.STRING, LongType) => toLong(element)
       case (isBsonNumber(), _) if elementType.typeName.startsWith("decimal") => toDecimal(element)
       case (notNull(), schema: StructType) => castToStructType(element, schema)
       case (_, StringType) => bsonValueToString(element)
@@ -274,6 +280,11 @@ private[spark] object MapFunctions {
       case BsonType.INT32      => bsonValue.asInt32().intValue()
       case BsonType.INT64      => bsonValue.asInt64().intValue()
       case BsonType.DOUBLE     => bsonValue.asDouble().intValue()
+      case BsonType.STRING     => Try(bsonValue.asString().getValue.toInt) match {
+        case Success(v) => v
+        case Failure(_) =>
+          throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Int (value: $bsonValue)")
+      }
       case _                   => throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Int")
     }
   }
@@ -297,6 +308,11 @@ private[spark] object MapFunctions {
       case BsonType.INT32      => bsonValue.asInt32().longValue()
       case BsonType.INT64      => bsonValue.asInt64().longValue()
       case BsonType.DOUBLE     => bsonValue.asDouble().longValue()
+      case BsonType.STRING     => Try(bsonValue.asString().getValue.toLong) match {
+        case Success(v) => v
+        case Failure(_) =>
+          throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Long (value: $bsonValue)")
+      }
       case _                   => throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Long")
     }
   }
@@ -307,6 +323,11 @@ private[spark] object MapFunctions {
       case BsonType.INT32      => bsonValue.asInt32().doubleValue()
       case BsonType.INT64      => bsonValue.asInt64().doubleValue()
       case BsonType.DOUBLE     => bsonValue.asDouble().doubleValue()
+      case BsonType.STRING     => Try(bsonValue.asString().getValue.toDouble) match {
+        case Success(v) => v
+        case Failure(_) =>
+          throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Double (value: $bsonValue)")
+      }
       case _                   => throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Double")
     }
   }
@@ -324,6 +345,16 @@ private[spark] object MapFunctions {
       case BsonType.INT32      => BigDecimal(bsonValue.asInt32().intValue())
       case BsonType.INT64      => BigDecimal(bsonValue.asInt64().longValue())
       case BsonType.DOUBLE     => BigDecimal(bsonValue.asDouble().doubleValue())
+      case BsonType.STRING     => Try {
+        bsonValue.asString().getValue match {
+          case doubleValue: String if doubleValue.contains('.') => BigDecimal(doubleValue.toDouble)
+          case longValue: String if !longValue.contains('.')    => BigDecimal(longValue.toLong)
+        }
+      } match {
+        case Success(v) => v
+        case Failure(_) =>
+          throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a Decimal (value: $bsonValue)")
+      }
       case _                   => throw new MongoTypeConversionException(s"Cannot cast ${bsonValue.getBsonType} into a BigDecimal")
     }
   }
