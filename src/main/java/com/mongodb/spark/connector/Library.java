@@ -13,5 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.mongodb.spark.connector;
 
-rootProject.name = "mongo-spark"
+public class Library {
+  public boolean someLibraryMethod() {
+    return true;
+  }
+}
