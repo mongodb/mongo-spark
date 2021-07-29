@@ -13,5 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.mongodb.spark.connector;
 
-rootProject.name = "mongo-spark-connector"
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
+
+class LibraryTest {
+  @Test
+  void someLibraryMethodReturnsTrue() {
+    Library classUnderTest = new Library();
+    assertTrue(classUnderTest.someLibraryMethod(), "someLibraryMethod should return 'true'");
+  }
+}
