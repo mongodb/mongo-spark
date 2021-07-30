@@ -390,7 +390,7 @@ buildvariants:
     tasks:
       - name: "static-checks-task"
 
-  - matrix_name: "Unit-tests"
+  - matrix_name: "unit-tests"
     matrix_spec: { jdk: "*", os: "*" }
     display_name: "Units tests: ${jdk}"
     tags: ["unit-test"]
