@@ -64,7 +64,11 @@ extra.apply {
 val mongoDependencies: Configuration by configurations.creating
 
 dependencies {
-    implementation("org.apache.spark:spark-parent_2.12:${project.extra["sparkVersion"]}")
+    implementation("org.apache.spark:spark-core_2.12:${project.extra["sparkVersion"]}")
+    implementation("org.apache.spark:spark-sql_2.12:${project.extra["sparkVersion"]}")
+    implementation("org.apache.spark:spark-catalyst_2.12:${project.extra["sparkVersion"]}")
+    implementation("org.apache.spark:spark-streaming_2.12:${project.extra["sparkVersion"]}")
+
     implementation("org.mongodb:mongodb-driver-sync:${project.extra["mongodbDriverVersion"]}")
 
     mongoDependencies("org.mongodb:mongodb-driver-sync:${project.extra["mongodbDriverVersion"]}")
