@@ -293,9 +293,12 @@ signing {
 }
 
 tasks.javadoc {
+    val doclet = options as StandardJavadocDocletOptions
     if (JavaVersion.current().isJava9Compatible) {
-        (options as StandardJavadocDocletOptions).addBooleanOption("html5", true)
+        doclet.addBooleanOption("html5", true)
     }
+    doclet.links("http://docs.oracle.com/javase/8/docs/api/")
+    doclet.links("https://spark.apache.org/docs/latest/api/java/")
 }
 
 tasks.register("publishSnapshots") {
