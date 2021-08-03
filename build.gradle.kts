@@ -51,6 +51,7 @@ repositories {
 }
 
 extra.apply {
+    set("annotationsVersion", "22.0.0")
     set("mongodbDriverVersion", "[4.3,4.3.99)")
     set("sparkVersion", "3.1.2")
 
@@ -64,6 +65,8 @@ extra.apply {
 val mongoDependencies: Configuration by configurations.creating
 
 dependencies {
+    compileOnly("org.jetbrains:annotations:${project.extra["annotationsVersion"]}")
+
     implementation("org.apache.spark:spark-core_2.12:${project.extra["sparkVersion"]}")
     implementation("org.apache.spark:spark-sql_2.12:${project.extra["sparkVersion"]}")
     implementation("org.apache.spark:spark-catalyst_2.12:${project.extra["sparkVersion"]}")
@@ -111,7 +114,6 @@ buildConfig {
 // Add intergation tests
 sourceSets.create("integrationTest") {
     java.srcDir("src/integrationTest/java")
-    resources.srcDir("src/integrationTest/resources")
     compileClasspath += sourceSets["main"].output + configurations["testRuntimeClasspath"]
     runtimeClasspath += output + compileClasspath + sourceSets["test"].runtimeClasspath
 }

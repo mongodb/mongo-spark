@@ -12,17 +12,21 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
-package com.mongodb.spark.connector;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+package com.mongodb.spark.sql.connector.mongodb;
 
-import org.junit.jupiter.api.Test;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Inherited;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-class LibraryTest {
-  @Test
-  void someLibraryMethodReturnsTrue() {
-    Library classUnderTest = new Library();
-    assertTrue(classUnderTest.someLibraryMethod(), "someLibraryMethod should return 'true'");
-  }
-}
+import org.junit.jupiter.api.extension.ExtendWith;
+
+@Inherited
+@Target({ElementType.TYPE, ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+@ExtendWith(MongoDBOnlineCondition.class)
+public @interface MongoDBOnline {}

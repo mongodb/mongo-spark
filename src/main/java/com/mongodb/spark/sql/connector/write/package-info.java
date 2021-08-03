@@ -12,11 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
-package com.mongodb.spark.connector;
 
-public class Library {
-  public boolean someLibraryMethod() {
-    return true;
-  }
-}
+/** This package contains the sql connector write support. */
+@ApiStatus.Internal
+package com.mongodb.spark.sql.connector.write;
+
+import org.jetbrains.annotations.ApiStatus;
