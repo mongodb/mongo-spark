@@ -206,7 +206,7 @@ functions:
       params:
         file: mo-expansion.yml
 
-  "cleanup":
+  "stop mongo-orchestration":
     - command: shell.exec
       params:
         script: |
@@ -219,7 +219,12 @@ functions:
             . venv/Scripts/activate
           fi
           mongo-orchestration stop
-          cd -
+
+  "cleanup":
+    - command: shell.exec
+      params:
+        script: |
+          ${PREPARE_SHELL}
           rm -rf $DRIVERS_TOOLS || true
 
   "fix absolute paths":
@@ -304,8 +309,6 @@ pre:
   - func: "make files executable"
 
 post:
-  - func: "upload mo artifacts"
-  - func: "upload test results"
   - func: "cleanup"
 
 tasks:
@@ -316,11 +319,14 @@ tasks:
   - name: "unit-test-task"
     commands:
       - func: "run unit tests"
+      - func: "upload test results"
 
   - name: "integration-test-task"
     commands:
       - func: "bootstrap mongo-orchestration"
       - func: "run integration tests"
+      - func: "upload mo artifacts"
+      - func: "stop mongo-orchestration"
 
   - name: "publish-snapshots-task"
     depends_on:
