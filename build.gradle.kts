@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import java.io.ByteArrayOutputStream
 import java.net.URI
 
@@ -33,7 +32,7 @@ plugins {
     id("com.github.gmazzo.buildconfig") version "3.0.2"
     id("com.github.spotbugs") version "4.7.2"
     id("com.diffplug.spotless") version "5.14.2"
-    id("com.github.johnrengelman.shadow") version "6.1.0"
+    id("com.github.johnrengelman.shadow") version "7.0.0"
 }
 
 group = "org.mongodb.spark"
@@ -62,8 +61,6 @@ extra.apply {
     // Integration test dependencies
 }
 
-val mongoDependencies: Configuration by configurations.creating
-
 dependencies {
     compileOnly("org.jetbrains:annotations:${project.extra["annotationsVersion"]}")
 
@@ -74,11 +71,11 @@ dependencies {
 
     implementation("org.mongodb:mongodb-driver-sync:${project.extra["mongodbDriverVersion"]}")
 
-    mongoDependencies("org.mongodb:mongodb-driver-sync:${project.extra["mongodbDriverVersion"]}")
+    shadow("org.mongodb:mongodb-driver-sync:${project.extra["mongodbDriverVersion"]}")
 
     // Unit Tests
-    testImplementation("org.junit.jupiter:junit-jupiter:${project.extra["junitJupiterVersion"]}")
-    testImplementation("org.junit.platform:junit-platform-runner:${project.extra["junitPlatformVersion"]}")
+    testImplementation(platform("org.junit:junit-bom:5.7.2"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
 
     // Integration Tests
 }
@@ -221,9 +218,8 @@ tasks.named("compileJava") {
 /*
  * ShadowJar
  */
-tasks.register<ShadowJar>("allJar") {
-    archiveClassifier.set("all")
-    from(mongoDependencies, sourceSets.main.get().output)
+tasks.shadowJar {
+    configurations = listOf(project.configurations.shadow.get())
 }
 
 /*
@@ -248,7 +244,6 @@ publishing {
             from(components["java"])
             artifact(tasks["sourcesJar"])
             artifact(tasks["javadocJar"])
-            artifact(tasks["allJar"])
 
             pom {
                 name.set(project.name)
@@ -307,7 +302,7 @@ tasks.register("publishSnapshots") {
     group = "publishing"
     description = "Publishes snapshots to Sonatype"
     if (version.toString().endsWith("-SNAPSHOT")) {
-        dependsOn(tasks.withType<PublishToMavenRepository>())
+        dependsOn("publish")
     }
 }
 
@@ -332,7 +327,7 @@ tasks.register("publishArchives") {
     }
 
     if (gitVersion == version) {
-        dependsOn(tasks.withType<PublishToMavenRepository>())
+        dependsOn("publish")
     }
 }
 
