@@ -18,6 +18,7 @@
 package com.mongodb.spark.sql.connector.schema;
 
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -125,7 +126,8 @@ public class BsonDocumentToRowConverter {
   }
 
   /**
-   * Converts a {@code BsonDocument} into a {@link GenericRowWithSchema} using the supplied {@code
+   * Converts a {@code BsonDocument} into a {@link GenericRowWithSchema}. Uses the {@linkplain
+   * BsonValue#getBsonType BSON types} of values in the {@code bsonDocument} to determine the {@code
    * StructType}
    *
    * @param bsonDocument the bson document to shape into a GenericRowWithSchema.
@@ -269,8 +271,7 @@ public class BsonDocumentToRowConverter {
       return null;
     }
 
-    throw new DataException(
-        format("Unsupported dataType '%s' for '%s'", dataType.typeName(), bsonValue));
+    throw invalidFieldData(fieldName, dataType, bsonValue);
   }
 
   private GenericRowWithSchema convertToRow(
@@ -435,7 +436,7 @@ public class BsonDocumentToRowConverter {
       case DATE_TIME:
         return new BsonInt64(bsonValue.asDateTime().getValue());
       case TIMESTAMP:
-        return new BsonInt64(bsonValue.asTimestamp().getTime() * 1000L); // normalize to millis
+        return new BsonInt64(SECONDS.toMillis(bsonValue.asTimestamp().getTime()));
       case STRING:
         try {
           return new BsonDecimal128(Decimal128.parse(convertToString(bsonValue)));

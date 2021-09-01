@@ -20,6 +20,8 @@ package com.mongodb.spark.sql.connector.exceptions;
 /** A base class for all data exceptions. */
 public class DataException extends RuntimeException {
 
+  private static final long serialVersionUID = -8381520429660266265L;
+
   /**
    * Constructs a new instance.
    *
