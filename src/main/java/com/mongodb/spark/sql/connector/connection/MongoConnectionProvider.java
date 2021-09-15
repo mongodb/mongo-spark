@@ -42,7 +42,8 @@ public class MongoConnectionProvider {
   }
 
   public void doWithClient(final Consumer<MongoClient> consumer) {
-    try (MongoClient client = MongoClients.create()) {
+    String connectionURI = options.getOrDefault("connection.uri", "mongodb://localhost:27017/");
+    try (MongoClient client = MongoClients.create(connectionURI)) {
       consumer.accept(client);
     }
   }
@@ -62,7 +63,8 @@ public class MongoConnectionProvider {
   }
 
   public <T> T withClient(final Function<MongoClient, T> function) {
-    try (MongoClient client = MongoClients.create()) {
+    String connectionURI = options.getOrDefault("connection.uri", "mongodb://localhost:27017/");
+    try (MongoClient client = MongoClients.create(connectionURI)) {
       return function.apply(client);
     }
   }
