@@ -20,10 +20,8 @@ package com.mongodb.spark.sql.connector;
 import static java.lang.String.format;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
-import java.util.Objects;
 
 import org.apache.spark.sql.catalyst.analysis.NamespaceAlreadyExistsException;
 import org.apache.spark.sql.catalyst.analysis.NoSuchNamespaceException;
@@ -40,20 +38,22 @@ import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 import org.jetbrains.annotations.VisibleForTesting;
 
+import org.bson.conversions.Bson;
+
 import com.mongodb.MongoNamespace;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
 
+import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.connection.MongoConnectionProvider;
 
 /** Spark Catalog methods for working with namespaces (databases) and tables (collections). */
 public class MongoCatalog implements TableCatalog, SupportsNamespaces {
-  private static final String SYSTEM_NAMESPACE_PREFIX = "system.";
-
-  private static boolean excludeSystemNamespaces(final String namespace) {
-    return !namespace.startsWith(SYSTEM_NAMESPACE_PREFIX);
-  }
+  private static final Bson NOT_SYSTEM_NAMESPACE =
+      Filters.not(Filters.regex("name", "^system\\..*"));
+  private static final Bson IS_COLLECTION =
+      Filters.and(NOT_SYSTEM_NAMESPACE, Filters.eq("type", "collection"));
 
   private boolean initialized;
   private String catalogName;
@@ -70,7 +70,7 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
    */
   @Override
   public void initialize(final String name, final CaseInsensitiveStringMap options) {
-    assert !initialized : "The MongoCatalog has already been initialized.";
+    Assertions.ensureState(() -> !initialized, "The MongoCatalog has already been initialized.");
     initialized = true;
     catalogName = name;
     catalogOptions = options;
@@ -99,12 +99,7 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   @Override
   public String[][] listNamespaces() {
     assertInitialized();
-    return mongoConnectionProvider.withClient(
-        client ->
-            client.listDatabaseNames().into(new ArrayList<>()).stream()
-                .filter(MongoCatalog::excludeSystemNamespaces)
-                .map(name -> new String[] {name})
-                .toArray(String[][]::new));
+    return filterDatabases(new String[0]);
   }
 
   /**
@@ -156,8 +151,7 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
    */
   @Override
   public boolean namespaceExists(final String[] namespace) {
-    assertInitialized();
-    return Arrays.stream(listNamespaces()).anyMatch(s -> Arrays.equals(namespace, s));
+    return filterDatabases(namespace).length > 0;
   }
 
   /**
@@ -223,19 +217,7 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
    */
   @Override
   public Identifier[] listTables(final String[] namespace) {
-    assertInitialized();
-    assert namespace.length == 1 : "Namespace size must equal 1";
-    return mongoConnectionProvider.withDatabase(
-        namespace[0],
-        db ->
-            db
-                .listCollections()
-                .filter(Filters.eq("type", "collection"))
-                .map(d -> Identifier.of(namespace, d.getString("name")))
-                .into(new ArrayList<>())
-                .stream()
-                .filter(identifier -> excludeSystemNamespaces(identifier.name()))
-                .toArray(Identifier[]::new));
+    return filterCollections(Identifier.of(namespace, ""));
   }
 
   /**
@@ -251,8 +233,10 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   @Override
   public boolean tableExists(final Identifier identifier) {
     assertInitialized();
-    return Arrays.stream(listTables(identifier.namespace()))
-        .anyMatch(i -> Objects.equals(identifier.name(), i.name()));
+    if (identifier.namespace().length != 1) {
+      return false;
+    }
+    return listTables(identifier.namespace()).length > 0;
   }
 
   /**
@@ -356,9 +340,7 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   @Override
   public boolean dropTable(final Identifier identifier) {
     assertInitialized();
-    if (identifier.namespace().length == 1
-        && Arrays.stream(listTables(identifier.namespace()))
-            .anyMatch(i -> Objects.equals(i.name(), identifier.name()))) {
+    if (identifier.namespace().length == 1 && filterCollections(identifier).length != 0) {
       mongoConnectionProvider.doWithCollection(
           identifier.namespace()[0], identifier.name(), MongoCollection::drop);
       return true;
@@ -400,7 +382,48 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   }
 
   private void assertInitialized() {
-    assert initialized : "The MongoCatalog is has not been initialized";
+    Assertions.ensureState(() -> initialized, "The MongoCatalog is has not been initialized");
+  }
+
+  private String[][] filterDatabases(final String[] databaseName) {
+    assertInitialized();
+    if (databaseName.length > 1) {
+      return new String[0][];
+    }
+    Bson filter =
+        databaseName.length == 0
+            ? NOT_SYSTEM_NAMESPACE
+            : Filters.and(Filters.eq("name", databaseName[0]), NOT_SYSTEM_NAMESPACE);
+
+    return mongoConnectionProvider.withClient(
+        client ->
+            client
+                .listDatabases()
+                .filter(filter)
+                .nameOnly(true)
+                .map(d -> new String[] {d.getString("name")})
+                .into(new ArrayList<>())
+                .toArray(new String[0][]));
+  }
+
+  private Identifier[] filterCollections(final Identifier identifier) {
+    assertInitialized();
+    Assertions.ensureArgument(
+        () -> identifier.namespace().length == 1, "Namespace size must equal 1");
+
+    Bson filter =
+        identifier.name().isEmpty()
+            ? IS_COLLECTION
+            : Filters.and(Filters.eq("name", identifier.name()), IS_COLLECTION);
+
+    return mongoConnectionProvider.withDatabase(
+        identifier.namespace()[0],
+        db ->
+            db.listCollections()
+                .filter(filter)
+                .map(d -> Identifier.of(identifier.namespace(), d.getString("name")))
+                .into(new ArrayList<>())
+                .toArray(new Identifier[0]));
   }
 
   @VisibleForTesting
