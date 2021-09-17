@@ -17,6 +17,7 @@
 
 package com.mongodb.spark.sql.connector.schema;
 
+import static com.mongodb.spark.sql.connector.schema.ConverterHelper.getDefaultJsonWriterSettings;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -24,13 +25,9 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -70,11 +67,8 @@ import org.bson.BsonInt64;
 import org.bson.BsonNumber;
 import org.bson.BsonValue;
 import org.bson.RawBsonDocument;
-import org.bson.codecs.BsonValueCodec;
-import org.bson.codecs.Codec;
 import org.bson.codecs.EncoderContext;
 import org.bson.io.BasicOutputBuffer;
-import org.bson.json.JsonMode;
 import org.bson.json.JsonWriterSettings;
 import org.bson.types.Decimal128;
 
@@ -92,28 +86,11 @@ import com.mongodb.spark.sql.connector.exceptions.DataException;
 @NotNull
 public class BsonDocumentToRowConverter {
 
-  private static final Codec<BsonValue> BSON_VALUE_CODEC = new BsonValueCodec();
-  private static final JsonWriterSettings DEFAULT_JSON_WRITER_SETTINGS =
-      JsonWriterSettings.builder()
-          .outputMode(JsonMode.RELAXED)
-          .binaryConverter(
-              (value, writer) ->
-                  writer.writeString(Base64.getEncoder().encodeToString(value.getData())))
-          .dateTimeConverter(
-              (value, writer) -> {
-                ZonedDateTime zonedDateTime = Instant.ofEpochMilli(value).atZone(ZoneOffset.UTC);
-                writer.writeString(DateTimeFormatter.ISO_DATE_TIME.format(zonedDateTime));
-              })
-          .decimal128Converter((value, writer) -> writer.writeString(value.toString()))
-          .objectIdConverter((value, writer) -> writer.writeString(value.toHexString()))
-          .symbolConverter((value, writer) -> writer.writeString(value))
-          .build();
-
   private final JsonWriterSettings jsonWriterSettings;
 
   /** Create a new instance with the default json writer settings */
   public BsonDocumentToRowConverter() {
-    this(DEFAULT_JSON_WRITER_SETTINGS);
+    this(getDefaultJsonWriterSettings());
   }
 
   /**
@@ -494,7 +471,8 @@ public class BsonDocumentToRowConverter {
     } else {
       BasicOutputBuffer buffer = new BasicOutputBuffer();
       try (BsonBinaryWriter writer = new BsonBinaryWriter(buffer)) {
-        BSON_VALUE_CODEC.encode(writer, document, EncoderContext.builder().build());
+        ConverterHelper.getBsonValueCodec()
+            .encode(writer, document, EncoderContext.builder().build());
       }
       return buffer.toByteArray();
     }
