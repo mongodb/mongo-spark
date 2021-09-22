@@ -20,7 +20,6 @@ package com.mongodb.spark.sql.connector;
 import static java.util.Arrays.asList;
 
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -31,9 +30,11 @@ import org.apache.spark.sql.connector.write.LogicalWriteInfo;
 import org.apache.spark.sql.connector.write.WriteBuilder;
 import org.apache.spark.sql.types.StructType;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.VisibleForTesting;
 
 import com.mongodb.MongoNamespace;
 
+import com.mongodb.spark.sql.connector.connection.MongoConnectionProvider;
 import com.mongodb.spark.sql.connector.write.MongoBatchWrite;
 
 /**
@@ -53,22 +54,22 @@ public class MongoTable implements Table, SupportsWrite {
 
   private final MongoNamespace mongoNamespace;
   private final StructType schema;
-  private final Map<String, String> options;
+  private final MongoConnectionProvider mongoConnectionProvider;
 
   /**
    * Constructs a new instance
    *
    * @param mongoNamespace the namespace
    * @param schema the schema or null
-   * @param options the options related to the table
+   * @param mongoConnectionProvider the mongoConnectionProvider related to the table
    */
   public MongoTable(
       final MongoNamespace mongoNamespace,
       @Nullable final StructType schema,
-      final Map<String, String> options) {
+      final MongoConnectionProvider mongoConnectionProvider) {
     this.mongoNamespace = mongoNamespace;
     this.schema = schema;
-    this.options = options;
+    this.mongoConnectionProvider = mongoConnectionProvider;
   }
 
   /**
@@ -117,11 +118,12 @@ public class MongoTable implements Table, SupportsWrite {
         + mongoNamespace
         + ", schema="
         + schema
-        + ", options="
-        + options
+        + ", mongoConnectionProvider="
+        + mongoConnectionProvider
         + '}';
   }
 
+  @VisibleForTesting
   @Override
   public boolean equals(final Object o) {
     if (this == o) {
@@ -133,11 +135,12 @@ public class MongoTable implements Table, SupportsWrite {
     final MongoTable that = (MongoTable) o;
     return Objects.equals(mongoNamespace, that.mongoNamespace)
         && Objects.equals(schema, that.schema)
-        && Objects.equals(options, that.options);
+        && Objects.equals(mongoConnectionProvider, that.mongoConnectionProvider);
   }
 
+  @VisibleForTesting
   @Override
   public int hashCode() {
-    return Objects.hash(mongoNamespace, schema, options);
+    return Objects.hash(mongoNamespace, schema, mongoConnectionProvider);
   }
 }

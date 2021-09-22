@@ -17,8 +17,8 @@
 
 package com.mongodb.spark.sql.connector.exceptions;
 
-/** The error class for all data exceptions. */
-public final class DataException extends MongoSparkException {
+/** A base class for all mongo spark exceptions. */
+public class MongoSparkException extends RuntimeException {
 
   private static final long serialVersionUID = 1L;
 
@@ -27,7 +27,7 @@ public final class DataException extends MongoSparkException {
    *
    * @param message the message
    */
-  public DataException(final String message) {
+  public MongoSparkException(final String message) {
     super(message);
   }
 
@@ -37,16 +37,15 @@ public final class DataException extends MongoSparkException {
    * @param message the message
    * @param cause the cause
    */
-  public DataException(final String message, final Throwable cause) {
+  public MongoSparkException(final String message, final Throwable cause) {
     super(message, cause);
   }
-
   /**
    * Constructs a new instance.
    *
    * @param cause the cause
    */
-  public DataException(final Throwable cause) {
+  public MongoSparkException(final Throwable cause) {
     super(cause);
   }
 }

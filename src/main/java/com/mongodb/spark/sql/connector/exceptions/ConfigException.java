@@ -17,17 +17,35 @@
 
 package com.mongodb.spark.sql.connector.exceptions;
 
-/** The error class for all data exceptions. */
-public final class DataException extends MongoSparkException {
+import org.jetbrains.annotations.Nullable;
+
+/** The error class for all config exceptions. */
+public final class ConfigException extends MongoSparkException {
 
   private static final long serialVersionUID = 1L;
 
   /**
    * Constructs a new instance.
    *
+   * @param name the name of the configuration option
+   * @param value the value of the configuration option
+   * @param message an optional helpful error message
+   */
+  public ConfigException(final String name, final Object value, @Nullable final String message) {
+    this(
+        "Invalid value "
+            + value
+            + " for configuration "
+            + name
+            + (message == null ? "" : ": " + message));
+  }
+
+  /**
+   * Constructs a new instance.
+   *
    * @param message the message
    */
-  public DataException(final String message) {
+  public ConfigException(final String message) {
     super(message);
   }
 
@@ -37,16 +55,15 @@ public final class DataException extends MongoSparkException {
    * @param message the message
    * @param cause the cause
    */
-  public DataException(final String message, final Throwable cause) {
+  public ConfigException(final String message, final Throwable cause) {
     super(message, cause);
   }
-
   /**
    * Constructs a new instance.
    *
    * @param cause the cause
    */
-  public DataException(final Throwable cause) {
+  public ConfigException(final Throwable cause) {
     super(cause);
   }
 }

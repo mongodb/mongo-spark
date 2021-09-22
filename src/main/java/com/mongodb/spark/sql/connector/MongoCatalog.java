@@ -46,6 +46,7 @@ import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
 
 import com.mongodb.spark.sql.connector.assertions.Assertions;
+import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.connection.MongoConnectionProvider;
 
 /** Spark Catalog methods for working with namespaces (databases) and tables (collections). */
@@ -57,7 +58,6 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
 
   private boolean initialized;
   private String catalogName;
-  private Map<String, String> catalogOptions;
   private MongoConnectionProvider mongoConnectionProvider;
 
   /**
@@ -73,8 +73,7 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
     Assertions.ensureState(() -> !initialized, "The MongoCatalog has already been initialized.");
     initialized = true;
     catalogName = name;
-    catalogOptions = options;
-    mongoConnectionProvider = new MongoConnectionProvider(options);
+    mongoConnectionProvider = new MongoConnectionProvider(MongoConfig.createInputConfig(options));
   }
 
   /**
@@ -256,7 +255,9 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
       throw new NoSuchTableException(identifier);
     }
     return new MongoTable(
-        new MongoNamespace(identifier.namespace()[0], identifier.name()), null, catalogOptions);
+        new MongoNamespace(identifier.namespace()[0], identifier.name()),
+        null,
+        mongoConnectionProvider);
   }
 
   /**
@@ -298,7 +299,9 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
     mongoConnectionProvider.doWithDatabase(
         identifier.namespace()[0], db -> db.createCollection(identifier.name()));
     return new MongoTable(
-        new MongoNamespace(identifier.namespace()[0], identifier.name()), schema, properties);
+        new MongoNamespace(identifier.namespace()[0], identifier.name()),
+        schema,
+        mongoConnectionProvider);
   }
 
   /**
@@ -438,7 +441,6 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
       onReset.run();
       initialized = false;
       catalogName = null;
-      catalogOptions = null;
       mongoConnectionProvider = null;
     }
   }
