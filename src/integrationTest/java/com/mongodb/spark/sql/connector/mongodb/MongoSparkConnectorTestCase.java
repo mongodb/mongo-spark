@@ -32,6 +32,8 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 
+import com.mongodb.spark.sql.connector.config.MongoConfig;
+
 @MongoDBOnline()
 public class MongoSparkConnectorTestCase {
   protected static final Logger LOGGER = LoggerFactory.getLogger(MongoSparkConnectorTestCase.class);
@@ -81,7 +83,9 @@ public class MongoSparkConnectorTestCase {
 
   public CaseInsensitiveStringMap getConnectionProviderOptions() {
     Map<String, String> options = new HashMap<>();
-    options.put("connection.uri", MONGODB.getConnectionString().toString());
+    options.put(
+        MongoConfig.MONGO_PREFIX + MongoConfig.MONGO_CONNECTION_STRING_CONFIG,
+        MONGODB.getConnectionString().toString());
     return new CaseInsensitiveStringMap(options);
   }
 

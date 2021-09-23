@@ -147,9 +147,9 @@ public final class MongoConfig implements Serializable {
             });
 
     defaults.forEach(
-        k -> usageSpecificSettings.put(k.substring(MONGO_PREFIX.length() - 1), originals.get(k)));
+        k -> usageSpecificSettings.put(k.substring(MONGO_PREFIX.length()), originals.get(k)));
     overrides.forEach(
-        k -> usageSpecificSettings.put(k.substring(overridePrefix.length() - 1), originals.get(k)));
+        k -> usageSpecificSettings.put(k.substring(overridePrefix.length()), originals.get(k)));
 
     this.values = new CaseInsensitiveStringMap(usageSpecificSettings);
   }
