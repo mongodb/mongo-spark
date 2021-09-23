@@ -275,18 +275,15 @@ public class MongoCatalogTest extends MongoSparkConnectorTestCase {
 
   @Test
   void alterTableTest() {
-    //    assertThrows(
-    //        IllegalStateException.class,
-    //        () -> MONGO_CATALOG.alterTable(TEST_IDENTIFIER, TableChange.setProperty("prop",
-    // "value")),
-    //        NOT_INITIALIZED);
-    //
-    //    MONGO_CATALOG.initialize(TEST_DATABASE_NAME, getConnectionProviderOptions());
-    //    assertThrows(
-    //        NoSuchTableException.class,
-    //        () -> MONGO_CATALOG.alterTable(TEST_IDENTIFIER, TableChange.setProperty("prop",
-    // "value")));
+    assertThrows(
+        IllegalStateException.class,
+        () -> MONGO_CATALOG.alterTable(TEST_IDENTIFIER, TableChange.setProperty("prop", "value")),
+        NOT_INITIALIZED);
+
     MONGO_CATALOG.initialize(TEST_DATABASE_NAME, getConnectionProviderOptions());
+    assertThrows(
+        NoSuchTableException.class,
+        () -> MONGO_CATALOG.alterTable(TEST_IDENTIFIER, TableChange.setProperty("prop", "value")));
 
     createCollection(TEST_IDENTIFIER);
     assertThrows(
