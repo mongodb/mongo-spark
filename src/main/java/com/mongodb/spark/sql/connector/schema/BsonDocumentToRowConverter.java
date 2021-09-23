@@ -60,7 +60,7 @@ import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.types.TimestampType;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.TestOnly;
+import org.jetbrains.annotations.VisibleForTesting;
 
 import org.bson.BsonArray;
 import org.bson.BsonBinaryWriter;
@@ -149,7 +149,7 @@ public class BsonDocumentToRowConverter {
     return convertToRow("", structType, bsonDocument);
   }
 
-  @TestOnly
+  @VisibleForTesting
   DataType getDataType(final BsonValue bsonValue) {
     switch (bsonValue.getBsonType()) {
       case DOCUMENT:
@@ -234,7 +234,7 @@ public class BsonDocumentToRowConverter {
         .orElse(DataTypes.StringType);
   }
 
-  @TestOnly
+  @VisibleForTesting
   Object convertBsonValue(
       final String fieldName, final DataType dataType, final BsonValue bsonValue) {
     if (dataType instanceof StructType) {
@@ -481,7 +481,7 @@ public class BsonDocumentToRowConverter {
         format("Missing field '%s' in: '%s'", fieldPath, value.toJson(jsonWriterSettings)));
   }
 
-  @TestOnly
+  @VisibleForTesting
   static byte[] documentToByteArray(final BsonDocument document) {
     if (document instanceof RawBsonDocument) {
       RawBsonDocument rawBsonDocument = (RawBsonDocument) document;
