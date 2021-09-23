@@ -15,9 +15,13 @@
  */
 package com.mongodb.spark.sql.connector.mongodb;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,6 +77,12 @@ public class MongoSparkConnectorTestCase {
 
   public boolean isGreaterThanFourDotFour() {
     return MONGODB.isGreaterThanFourDotFour();
+  }
+
+  public CaseInsensitiveStringMap getConnectionProviderOptions() {
+    Map<String, String> options = new HashMap<>();
+    options.put("connection.uri", MONGODB.getConnectionString().toString());
+    return new CaseInsensitiveStringMap(options);
   }
 
   public SparkConf getSparkConf() {

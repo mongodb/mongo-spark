@@ -14,9 +14,7 @@
  * limitations under the License.
  *
  */
-
 @ApiStatus.Internal
-@ApiStatus.AvailableSince("3.1.0")
-package com.mongodb.spark.sql.connector;
+package com.mongodb.spark.sql.connector.assertions;
 
 import org.jetbrains.annotations.ApiStatus;
