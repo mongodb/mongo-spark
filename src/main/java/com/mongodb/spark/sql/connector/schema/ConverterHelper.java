@@ -29,9 +29,9 @@ import org.bson.codecs.Codec;
 import org.bson.json.JsonMode;
 import org.bson.json.JsonWriterSettings;
 
-interface ConverterHelper {
-  Codec<BsonValue> BSON_VALUE_CODEC = new BsonValueCodec();
-  JsonWriterSettings DEFAULT_JSON_WRITER_SETTINGS =
+final class ConverterHelper {
+  static final Codec<BsonValue> BSON_VALUE_CODEC = new BsonValueCodec();
+  static final JsonWriterSettings DEFAULT_JSON_WRITER_SETTINGS =
       JsonWriterSettings.builder()
           .outputMode(JsonMode.RELAXED)
           .binaryConverter(
@@ -47,11 +47,5 @@ interface ConverterHelper {
           .symbolConverter((value, writer) -> writer.writeString(value))
           .build();
 
-  static Codec<BsonValue> getBsonValueCodec() {
-    return BSON_VALUE_CODEC;
-  }
-
-  static JsonWriterSettings getDefaultJsonWriterSettings() {
-    return DEFAULT_JSON_WRITER_SETTINGS;
-  }
+  private ConverterHelper() {}
 }

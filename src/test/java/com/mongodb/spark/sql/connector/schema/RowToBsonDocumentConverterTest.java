@@ -204,8 +204,4 @@ public class RowToBsonDocumentConverterTest {
     map.put(key, value);
     return JavaConverters.mapAsScalaMap(map);
   }
-
-  private scala.collection.Map<?, ?> toMap(final Map<?, ?> map) {
-    return JavaConverters.mapAsScalaMap(map);
-  }
 }

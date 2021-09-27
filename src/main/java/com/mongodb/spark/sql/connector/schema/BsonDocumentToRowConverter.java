@@ -17,7 +17,8 @@
 
 package com.mongodb.spark.sql.connector.schema;
 
-import static com.mongodb.spark.sql.connector.schema.ConverterHelper.getDefaultJsonWriterSettings;
+import static com.mongodb.spark.sql.connector.schema.ConverterHelper.BSON_VALUE_CODEC;
+import static com.mongodb.spark.sql.connector.schema.ConverterHelper.DEFAULT_JSON_WRITER_SETTINGS;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -90,7 +91,7 @@ public class BsonDocumentToRowConverter {
 
   /** Create a new instance with the default json writer settings */
   public BsonDocumentToRowConverter() {
-    this(getDefaultJsonWriterSettings());
+    this(DEFAULT_JSON_WRITER_SETTINGS);
   }
 
   /**
@@ -471,8 +472,7 @@ public class BsonDocumentToRowConverter {
     } else {
       BasicOutputBuffer buffer = new BasicOutputBuffer();
       try (BsonBinaryWriter writer = new BsonBinaryWriter(buffer)) {
-        ConverterHelper.getBsonValueCodec()
-            .encode(writer, document, EncoderContext.builder().build());
+        BSON_VALUE_CODEC.encode(writer, document, EncoderContext.builder().build());
       }
       return buffer.toByteArray();
     }
