@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.spark.sql.Row;
+import org.apache.spark.sql.catalyst.expressions.GenericRow;
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
 import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.DataTypes;
@@ -51,6 +52,7 @@ import scala.collection.Seq;
 
 public class RowToBsonDocumentConverterTest {
 
+  private static final RowToBsonDocumentConverter CONVERTER = new RowToBsonDocumentConverter();
   private static final BsonDocument SIMPLE_BSON_DOCUMENT =
       BsonDocument.parse(
           "{"
@@ -100,7 +102,7 @@ public class RowToBsonDocumentConverterTest {
   @Test
   @DisplayName("test simple types")
   void testSimpleTypes() {
-    assertEquals(SIMPLE_BSON_DOCUMENT, RowToBsonDocumentConverter.fromRow(SIMPLE_ROW));
+    assertEquals(SIMPLE_BSON_DOCUMENT, CONVERTER.fromRow(SIMPLE_ROW));
   }
 
   @Test
@@ -113,7 +115,7 @@ public class RowToBsonDocumentConverterTest {
             new StructType().add("decimalType", DataTypes.createDecimalType(), true));
     BsonDocument expected =
         new BsonDocument("decimalType", new BsonDecimal128(new Decimal128(bigDecimal)));
-    assertEquals(expected, RowToBsonDocumentConverter.fromRow(row));
+    assertEquals(expected, CONVERTER.fromRow(row));
 
     row =
         new GenericRowWithSchema(
@@ -123,7 +125,7 @@ public class RowToBsonDocumentConverterTest {
                     "decimalType",
                     DataTypes.createDecimalType(bigDecimal.precision(), bigDecimal.scale()),
                     true));
-    assertEquals(expected, RowToBsonDocumentConverter.fromRow(row));
+    assertEquals(expected, CONVERTER.fromRow(row));
   }
 
   @Test
@@ -136,7 +138,7 @@ public class RowToBsonDocumentConverterTest {
                 .add("listType", DataTypes.createArrayType(SIMPLE_ROW.schema(), true), true));
     BsonDocument expected =
         new BsonDocument("listType", new BsonArray(singletonList(SIMPLE_BSON_DOCUMENT)));
-    assertEquals(expected, RowToBsonDocumentConverter.fromRow(row));
+    assertEquals(expected, CONVERTER.fromRow(row));
   }
 
   @Test
@@ -152,17 +154,20 @@ public class RowToBsonDocumentConverterTest {
                     true));
     BsonDocument expected =
         new BsonDocument("mapType", new BsonDocument("mapType", SIMPLE_BSON_DOCUMENT));
-    assertEquals(expected, RowToBsonDocumentConverter.fromRow(row));
+    assertEquals(expected, CONVERTER.fromRow(row));
   }
 
   @Test
   @DisplayName("test unsupported types")
   void testUnsupportedTypes() {
+    Row schemalessRow = new GenericRow(new Object[] {"a", "b"});
+    assertThrows(DataException.class, () -> CONVERTER.fromRow(schemalessRow));
+
     Row invalidType =
         new GenericRowWithSchema(
             new Object[] {new CalendarInterval(1, 2, 3)},
             new StructType().add("calendarIntervalType", DataTypes.TimestampType, true));
-    assertThrows(DataException.class, () -> RowToBsonDocumentConverter.fromRow(invalidType));
+    assertThrows(DataException.class, () -> CONVERTER.fromRow(invalidType));
 
     Row invalidMap =
         new GenericRowWithSchema(
@@ -172,7 +177,7 @@ public class RowToBsonDocumentConverterTest {
                     "mapType",
                     DataTypes.createMapType(DataTypes.IntegerType, DataTypes.IntegerType),
                     true));
-    assertThrows(DataException.class, () -> RowToBsonDocumentConverter.fromRow(invalidMap));
+    assertThrows(DataException.class, () -> CONVERTER.fromRow(invalidMap));
 
     DataType unknownDataType =
         new DataType() {
@@ -191,7 +196,7 @@ public class RowToBsonDocumentConverterTest {
     Row unknownDataTypeRow =
         new GenericRowWithSchema(
             new Object[] {1}, new StructType().add("unknownDataType", unknownDataType, true));
-    assertThrows(DataException.class, () -> RowToBsonDocumentConverter.fromRow(unknownDataTypeRow));
+    assertThrows(DataException.class, () -> CONVERTER.fromRow(unknownDataTypeRow));
   }
 
   @SafeVarargs

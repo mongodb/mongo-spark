@@ -34,6 +34,7 @@ import org.apache.spark.sql.types.MapType;
 import org.apache.spark.sql.types.StringType;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
+import org.jetbrains.annotations.NotNull;
 
 import org.bson.BsonArray;
 import org.bson.BsonBinary;
@@ -50,14 +51,33 @@ import org.bson.types.Decimal128;
 
 import com.mongodb.spark.sql.connector.exceptions.DataException;
 
-final class RowToBsonDocumentConverter {
+/**
+ * The helper for conversion of GenericRowWithSchema instances to BsonDocuments.
+ *
+ * <p>All Spark types are considered convertible to Bson types.
+ */
+@NotNull
+public final class RowToBsonDocumentConverter {
 
-  static BsonDocument fromRow(final Row row) {
+  /** Construct a new instance */
+  public RowToBsonDocumentConverter() {}
+
+  /**
+   * Converts a {@link Row} to a {@link BsonDocument}
+   *
+   * @param row the row to convert
+   * @throws DataException if the {@code Row} does not have a schema associated with it
+   * @return a BsonDocument representing the data in the row
+   */
+  public BsonDocument fromRow(final Row row) {
+    if (row.schema() == null) {
+      throw new DataException("Cannot convert Row without schema");
+    }
     return toBsonValue(row.schema(), row).asDocument();
   }
 
   @SuppressWarnings("unchecked")
-  static BsonValue toBsonValue(final DataType dataType, final Object data) {
+  private BsonValue toBsonValue(final DataType dataType, final Object data) {
     try {
       if (DataTypes.BinaryType.acceptsType(dataType)) {
         return new BsonBinary((byte[]) data);
@@ -128,6 +148,4 @@ final class RowToBsonDocumentConverter {
     throw new DataException(
         format("Cannot cast %s into a BsonValue. %s has no matching BsonValue.", data, dataType));
   }
-
-  private RowToBsonDocumentConverter() {}
 }

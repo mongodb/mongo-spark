@@ -85,7 +85,7 @@ import com.mongodb.spark.sql.connector.exceptions.DataException;
  * Bson type into the declared {@code DataType}.
  */
 @NotNull
-public class BsonDocumentToRowConverter {
+public final class BsonDocumentToRowConverter {
 
   private final JsonWriterSettings jsonWriterSettings;
 
