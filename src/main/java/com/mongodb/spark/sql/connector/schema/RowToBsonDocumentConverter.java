@@ -50,7 +50,7 @@ import org.bson.types.Decimal128;
 
 import com.mongodb.spark.sql.connector.exceptions.DataException;
 
-interface RowToBsonDocumentConverter {
+final class RowToBsonDocumentConverter {
 
   static BsonDocument fromRow(final Row row) {
     return toBsonValue(row.schema(), row).asDocument();
@@ -128,4 +128,6 @@ interface RowToBsonDocumentConverter {
     throw new DataException(
         format("Cannot cast %s into a BsonValue. %s has no matching BsonValue.", data, dataType));
   }
+
+  private RowToBsonDocumentConverter() {}
 }
