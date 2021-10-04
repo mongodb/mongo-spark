@@ -90,8 +90,6 @@ public final class MongoConfig {
    *
    * <p>Requires the {@link MongoConfig#MONGO_CONNECTION_STRING_CONFIG} for configuring the
    * resulting {@link com.mongodb.client.MongoClient}
-   *
-   * <p>{@value}
    */
   public static final String MONGO_CLIENT_FACTORY_DEFAULT =
       DefaultMongoClientFactory.class.getName();
