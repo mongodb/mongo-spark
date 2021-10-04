@@ -23,10 +23,25 @@ import java.util.List;
 
 import org.jetbrains.annotations.ApiStatus;
 
+import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 
 @ApiStatus.Internal
-interface ClassHelper {
+final class ClassHelper {
+
+  @SuppressWarnings("unchecked")
+  static <T> T createAndConfigInstance(
+      final String configKey,
+      final String className,
+      final Class<T> clazz,
+      final MongoConfig mongoConfig) {
+
+    T instance = createInstance(configKey, className, clazz);
+    Assertions.ensureArgument(
+        () -> instance instanceof Configurable<?>,
+        format("The class '%s' must extend Configurable.class", clazz.getSimpleName()));
+    return ((Configurable<T>) instance).configure(mongoConfig);
+  }
 
   @SuppressWarnings("unchecked")
   static <T> T createInstance(
@@ -56,7 +71,7 @@ interface ClassHelper {
                     .newInstance(initArgs.toArray(new Object[0])));
   }
 
-  static <T> T createInstance(
+  private static <T> T createInstance(
       final String configKey,
       final String className,
       final Class<T> clazz,
@@ -85,13 +100,10 @@ interface ClassHelper {
     }
   }
 
-  static <T extends Configurable> T configureInstance(final T instance, final MongoConfig config) {
-    instance.configure(config);
-    return instance;
-  }
-
   @FunctionalInterface
   interface ClassCreator<T> {
     T init() throws Exception;
   }
+
+  private ClassHelper() {}
 }

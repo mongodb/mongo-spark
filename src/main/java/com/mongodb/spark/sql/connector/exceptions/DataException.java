@@ -17,7 +17,7 @@
 
 package com.mongodb.spark.sql.connector.exceptions;
 
-/** The error class for all data exceptions. */
+/** A class for all data exceptions. */
 public final class DataException extends MongoSparkException {
 
   private static final long serialVersionUID = 1L;

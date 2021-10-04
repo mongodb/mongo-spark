@@ -20,7 +20,7 @@ package com.mongodb.spark.sql.connector.assertions;
 import java.util.function.Supplier;
 
 /** Assertions to validate inputs */
-public interface Assertions {
+public final class Assertions {
 
   /**
    * Ensures the validity of state
@@ -29,7 +29,7 @@ public interface Assertions {
    * @param errorMessage the error message if the supplier fails
    * @throws IllegalStateException if the state check fails
    */
-  static void ensureState(final Supplier<Boolean> stateCheck, final String errorMessage) {
+  public static void ensureState(final Supplier<Boolean> stateCheck, final String errorMessage) {
     if (!stateCheck.get()) {
       throw new IllegalStateException(errorMessage);
     }
@@ -42,9 +42,12 @@ public interface Assertions {
    * @param errorMessage the error message if the supplier fails
    * @throws IllegalArgumentException if the argument check fails
    */
-  static void ensureArgument(final Supplier<Boolean> argumentCheck, final String errorMessage) {
+  public static void ensureArgument(
+      final Supplier<Boolean> argumentCheck, final String errorMessage) {
     if (!argumentCheck.get()) {
       throw new IllegalArgumentException(errorMessage);
     }
   }
+
+  private Assertions() {}
 }

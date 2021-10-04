@@ -17,7 +17,6 @@
 
 package com.mongodb.spark.sql.connector.config;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,10 +25,10 @@ import java.util.Objects;
 
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 import org.jetbrains.annotations.ApiStatus;
-import org.jetbrains.annotations.TestOnly;
 
 import com.mongodb.ConnectionString;
 
+import com.mongodb.spark.sql.connector.annotations.NotThreadSafe;
 import com.mongodb.spark.sql.connector.connection.DefaultMongoClientFactory;
 import com.mongodb.spark.sql.connector.connection.MongoClientFactory;
 
@@ -39,58 +38,67 @@ import com.mongodb.spark.sql.connector.connection.MongoClientFactory;
  * <p>Provides MongoDB specific configuration. Wraps the {@link CaseInsensitiveStringMap} options
  * provided by Spark.
  */
-public final class MongoConfig implements Serializable {
-
-  static final long serialVersionUID = 1L;
+@NotThreadSafe
+public final class MongoConfig {
 
   /**
    * The prefix for all general Spark MongoDB configurations.
    *
    * <p>For example the {@link MongoConfig#MONGO_CONNECTION_STRING_CONFIG} should be defined as:
    * "{@code spark.mongodb.connection.uri}".
+   *
+   * <p>{@value}
    */
   public static final String MONGO_PREFIX = "spark.mongodb.";
 
   /**
-   * The prefix for specific input based configurations.
+   * The prefix for specific input (write) based configurations.
    *
    * <p>Overrides any configurations that just use the {@link MongoConfig#MONGO_PREFIX}. For example
    * to override the {@link MongoConfig#MONGO_CONNECTION_STRING_CONFIG} just for inputting data into
    * MongoDB: "{@code spark.mongodb.input.connection.uri}".
+   *
+   * <p>{@value}
    */
   public static final String MONGO_INPUT_PREFIX = "spark.mongodb.input.";
 
   /**
-   * The prefix for specific output based configurations.
+   * The prefix for specific output (read) based configurations.
    *
    * <p>Overrides any configurations that just use the {@link MongoConfig#MONGO_PREFIX}. For example
    * to override the {@link MongoConfig#MONGO_CONNECTION_STRING_CONFIG} just for outputting data
    * from MongoDB: "{@code spark.mongodb.output.connection.uri}".
+   *
+   * <p>{@value}
    */
   public static final String MONGO_OUTPUT_PREFIX = "spark.mongodb.output.";
 
   /**
-   * The MongoClientFactory configuration
+   * The MongoClientFactory configuration key
    *
    * <p>The default implementation uses the {@link MongoConfig#MONGO_CONNECTION_STRING_CONFIG} as
    * the connection string.
    *
    * <p>Custom implementations are allowed and must implement the {@link
    * com.mongodb.spark.sql.connector.connection.MongoClientFactory} interface.
+   *
+   * <p>{@value}
    */
   public static final String MONGO_CLIENT_FACTORY_CONFIG = "mongoClientFactory";
   /**
-   * The default MongoClientFactory configuration
+   * The default MongoClientFactory configuration value
    *
    * <p>Requires the {@link MongoConfig#MONGO_CONNECTION_STRING_CONFIG} for configuring the
    * resulting {@link com.mongodb.client.MongoClient}
+   *
+   * <p>{@value}
    */
   public static final String MONGO_CLIENT_FACTORY_DEFAULT =
       DefaultMongoClientFactory.class.getName();
 
-  /** The connection string configuration */
+  /** The connection string configuration key {@value} */
   public static final String MONGO_CONNECTION_STRING_CONFIG = "connection.uri";
-  /** The default connection string configuration */
+  /** The default connection string configuration value {@value} */
   public static final String MONGO_CONNECTION_STRING_DEFAULT = "mongodb://localhost:27017/";
 
   /** The current usage mode for the configuration. */
@@ -185,9 +193,8 @@ public final class MongoConfig implements Serializable {
       String mongoClientFactoryName =
           values.getOrDefault(MONGO_CLIENT_FACTORY_CONFIG, MONGO_CLIENT_FACTORY_DEFAULT);
       mongoClientFactory =
-          ClassHelper.createInstance(
-              MONGO_CLIENT_FACTORY_CONFIG, mongoClientFactoryName, MongoClientFactory.class);
-      mongoClientFactory.configure(this);
+          ClassHelper.createAndConfigInstance(
+              MONGO_CLIENT_FACTORY_CONFIG, mongoClientFactoryName, MongoClientFactory.class, this);
     }
     return mongoClientFactory;
   }
@@ -201,11 +208,8 @@ public final class MongoConfig implements Serializable {
   /**
    * Returns the value to which the specified key is mapped
    *
-   * @param key the key whose associated value is to be returned
-   * @return the value to which the specified key is mapped, or {@code defaultValue} if this config
-   *     contains no mapping for the key
-   * @throws NullPointerException if the specified key is null and this map does not permit null
-   *     keys
+   * @param key the key whose associated value is to be returned. The key match is case-insensitive.
+   * @return the value to which the specified key is mapped or null.
    */
   public String get(final String key) {
     return values.get(key);
@@ -215,53 +219,69 @@ public final class MongoConfig implements Serializable {
    * Returns the value to which the specified key is mapped, or {@code defaultValue} if this config
    * contains no mapping for the key.
    *
+   * <p>Note: The key match is case-insensitive.
+   *
    * @param key the key whose associated value is to be returned
    * @param defaultValue the default mapping for the config
    * @return the value to which the specified key is mapped, or {@code defaultValue} if this config
-   *     contains no mapping for the key
+   *     contains no mapping for the key. The key match is case-insensitive.
    * @throws ClassCastException if the key is of an inappropriate type for this map
-   * @throws NullPointerException if the specified key is null and this map does not permit null
-   *     keys
    */
-  public String getOrDefault(final Object key, final String defaultValue) {
+  public String getOrDefault(final String key, final String defaultValue) {
     return values.getOrDefault(key, defaultValue);
   }
 
   /**
+   * Returns the boolean value to which the specified key is mapped, or {@code defaultValue} if
+   * there is no mapping for the key.
+   *
    * @param key the key whose associated value is to be returned
    * @param defaultValue the default mapping for the config
-   * @return the boolean value to which the specified key is mapped, or defaultValue if there is no
-   *     mapping for the key. The key match is case-insensitive.
+   * @return the boolean value to which the specified key is mapped, or {@code defaultValue} if
+   *     there is no mapping for the key. The key match is case-insensitive.
+   * @throws IllegalArgumentException if the specified key cannot be converted into a valid boolean
    */
   public boolean getBoolean(final String key, final boolean defaultValue) {
     return values.getBoolean(key, defaultValue);
   }
 
   /**
+   * Returns the int value to which the specified key is mapped, or {@code defaultValue} if there is
+   * no mapping for the key.
+   *
    * @param key the key whose associated value is to be returned
    * @param defaultValue the default mapping for the config
-   * @return the integer value to which the specified key is mapped, or defaultValue if there is no
-   *     mapping for the key. The key match is case-insensitive.
+   * @return the integer value to which the specified key is mapped, or {@code defaultValue} if
+   *     there is no mapping for the key. The key match is case-insensitive.
+   * @throws NumberFormatException if the specified key cannot be converted into a valid int
    */
   public int getInt(final String key, final int defaultValue) {
     return values.getInt(key, defaultValue);
   }
 
   /**
+   * Returns the long value to which the specified key is mapped, or {@code defaultValue} if there
+   * is no mapping for the key.
+   *
    * @param key the key whose associated value is to be returned
    * @param defaultValue the default mapping for the config
-   * @return the long value to which the specified key is mapped, or defaultValue if there is no
-   *     mapping for the key. The key match is case-insensitive.
+   * @return the long value to which the specified key is mapped, or {@code defaultValue} if there
+   *     is no mapping for the key. The key match is case-insensitive.
+   * @throws NumberFormatException if the specified key cannot be converted into a valid long
    */
   public long getLong(final String key, final long defaultValue) {
     return values.getLong(key, defaultValue);
   }
 
   /**
+   * Returns the double value to which the specified key is mapped, or {@code defaultValue} if there
+   * is no mapping for the key.
+   *
    * @param key the key whose associated value is to be returned
    * @param defaultValue the default mapping for the config
-   * @return the double value to which the specified key is mapped, or defaultValue if there is no
-   *     mapping for the key. The key match is case-insensitive.
+   * @return the double value to which the specified key is mapped, or {@code defaultValue} if there
+   *     is no mapping for the key. The key match is case-insensitive.
+   * @throws NumberFormatException if the specified key cannot be converted into a valid double
    */
   public double getDouble(final String key, final double defaultValue) {
     return values.getDouble(key, defaultValue);
@@ -272,7 +292,6 @@ public final class MongoConfig implements Serializable {
     return "MongoConfig{" + "usageMode=" + usageMode + '}';
   }
 
-  @TestOnly
   @Override
   public boolean equals(final Object o) {
     if (this == o) {

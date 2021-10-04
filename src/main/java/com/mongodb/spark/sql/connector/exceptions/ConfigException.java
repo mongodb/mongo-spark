@@ -19,7 +19,7 @@ package com.mongodb.spark.sql.connector.exceptions;
 
 import org.jetbrains.annotations.Nullable;
 
-/** The error class for all config exceptions. */
+/** A class for all config exceptions */
 public final class ConfigException extends MongoSparkException {
 
   private static final long serialVersionUID = 1L;

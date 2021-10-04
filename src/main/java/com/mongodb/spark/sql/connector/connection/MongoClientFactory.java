@@ -19,15 +19,29 @@ package com.mongodb.spark.sql.connector.connection;
 
 import com.mongodb.client.MongoClient;
 
+import com.mongodb.spark.sql.connector.annotations.ThreadSafe;
 import com.mongodb.spark.sql.connector.config.Configurable;
 
 /**
  * A factory for creating MongoClients
  *
- * <p><strong>Note:</strong> Care should be taken to implement an {@code MongoClientFactory.equals}
- * method to ensure that the resulting {@link MongoClient} can be cached and reused.
+ * <p>Implementations must have a no-args constructor.
+ *
+ * <p>A factory should produce {@code MongoClients} with the same configuration each time {@link
+ * MongoClientFactory#create()} is called.
+ *
+ * <p>The creation of a {@link MongoClient} is expensive (creating the connection pool and
+ * authenticating connections), so {@code MongoClients} are automatically cached, using the {@code
+ * MongoClientFactory} as the key.
+ *
+ * <p>Implementations of the factory can make use of the automatic caching by ensuring the {@code
+ * MongoClientFactory.equals()} returns true if the {@code MongoClientFactory} instances configured
+ * with the same {@link com.mongodb.spark.sql.connector.config.MongoConfig} and if the
+ * implementation creates {@code MongoClients} with the same configuration each time {@link
+ * MongoClientFactory#create()} is called.
  */
-public interface MongoClientFactory extends Configurable {
+@ThreadSafe
+public interface MongoClientFactory extends Configurable<MongoClientFactory> {
 
   /** @return create a new instance of a {@code MongoClient}. */
   MongoClient create();

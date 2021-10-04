@@ -17,7 +17,6 @@
 
 package com.mongodb.spark.sql.connector.connection;
 
-import java.io.Serializable;
 import java.util.Objects;
 
 import org.jetbrains.annotations.ApiStatus;
@@ -29,9 +28,7 @@ import com.mongodb.spark.sql.connector.config.MongoConfig;
 
 /** The default MongoClientFactory implementation. */
 @ApiStatus.Internal
-public final class DefaultMongoClientFactory implements MongoClientFactory, Serializable {
-
-  static final long serialVersionUID = 1L;
+public final class DefaultMongoClientFactory implements MongoClientFactory {
 
   private MongoConfig config;
 
@@ -44,8 +41,9 @@ public final class DefaultMongoClientFactory implements MongoClientFactory, Seri
    * @param config the MongoConfig
    */
   @Override
-  public void configure(final MongoConfig config) {
+  public MongoClientFactory configure(final MongoConfig config) {
     this.config = config;
+    return this;
   }
 
   /** @return create a new instance of a {@code MongoClient}. */

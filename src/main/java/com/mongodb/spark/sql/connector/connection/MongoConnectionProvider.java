@@ -17,13 +17,11 @@
 
 package com.mongodb.spark.sql.connector.connection;
 
-import java.io.Serializable;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.jetbrains.annotations.ApiStatus;
-import org.jetbrains.annotations.TestOnly;
 
 import org.bson.BsonDocument;
 
@@ -31,6 +29,7 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 
+import com.mongodb.spark.sql.connector.annotations.ThreadSafe;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 
 /**
@@ -41,12 +40,9 @@ import com.mongodb.spark.sql.connector.config.MongoConfig;
  * MongoClientCache}.
  */
 @ApiStatus.Internal
-public final class MongoConnectionProvider implements Serializable {
+@ThreadSafe
+public final class MongoConnectionProvider {
 
-  static final long serialVersionUID = 1L;
-  private static final String SYSTEM_MONGO_CACHE_KEEP_ALIVE_MS_PROPERTY =
-      "spark.mongodb.keep_alive_ms";
-  private static MongoClientCache mongoClientCache;
   private final MongoConfig mongoConfig;
 
   /**
@@ -64,12 +60,11 @@ public final class MongoConnectionProvider implements Serializable {
    * @param consumer the consumer of the {@code MongoClient}
    */
   public void doWithClient(final Consumer<MongoClient> consumer) {
-    MongoClient client = getMongoClientCache().acquire(mongoConfig.getMongoClientFactory());
-    try {
-      consumer.accept(client);
-    } finally {
-      getMongoClientCache().release(client);
-    }
+    withClient(
+        client -> {
+          consumer.accept(client);
+          return null;
+        });
   }
 
   /**
@@ -107,11 +102,12 @@ public final class MongoConnectionProvider implements Serializable {
    * @return the result of the function
    */
   public <T> T withClient(final Function<MongoClient, T> function) {
-    MongoClient client = getMongoClientCache().acquire(mongoConfig.getMongoClientFactory());
+    MongoClient client =
+        LazyMongoClientCache.getCache().acquire(mongoConfig.getMongoClientFactory());
     try {
       return function.apply(client);
     } finally {
-      getMongoClientCache().release(client);
+      LazyMongoClientCache.getCache().release(client);
     }
   }
   /**
@@ -145,41 +141,11 @@ public final class MongoConnectionProvider implements Serializable {
             function.apply(mongoDatabase.getCollection(collectionName, BsonDocument.class)));
   }
 
-  /** @return memoize's and returns the {@link MongoClientCache} */
-  private static synchronized MongoClientCache getMongoClientCache() {
-    if (mongoClientCache == null) {
-      int keepAliveMS = 5000;
-      try {
-        keepAliveMS =
-            Integer.parseInt(System.getProperty(SYSTEM_MONGO_CACHE_KEEP_ALIVE_MS_PROPERTY, "5000"));
-      } catch (NumberFormatException e) {
-        // ignore and use default
-      }
-      mongoClientCache = new MongoClientCache(keepAliveMS);
-      Runtime.getRuntime().addShutdownHook(new ShutdownHook());
-    }
-    return mongoClientCache;
-  }
-
-  /** The shutdown hook that shuts down the {@link MongoClientCache} */
-  static class ShutdownHook extends Thread {
-    @Override
-    public void run() {
-      synchronized (MongoConnectionProvider.class) {
-        if (mongoClientCache != null) {
-          mongoClientCache.shutdown();
-          mongoClientCache = null;
-        }
-      }
-    }
-  }
-
   @Override
   public String toString() {
     return "MongoConnectionProvider{" + "mongoConfig=" + mongoConfig + '}';
   }
 
-  @TestOnly
   @Override
   public boolean equals(final Object o) {
     if (this == o) {

@@ -15,22 +15,4 @@
  *
  */
 
-package com.mongodb.spark.sql.connector.config;
-
-/**
- * Represents a configurable class
- *
- * @param <T> the configurable type
- */
-public interface Configurable<T> {
-
-  /**
-   * Configure this class with the {@link MongoConfig}.
-   *
-   * <p>This method is called once after construction of the class
-   *
-   * @param config the current configuration
-   * @return the configured instance.
-   */
-  T configure(MongoConfig config);
-}
+package com.mongodb.spark.sql.connector.annotations;
