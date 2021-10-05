@@ -28,7 +28,7 @@ import org.jetbrains.annotations.ApiStatus;
 
 import com.mongodb.ConnectionString;
 
-import com.mongodb.spark.sql.connector.annotations.NotThreadSafe;
+import com.mongodb.spark.sql.connector.annotations.ThreadSafe;
 import com.mongodb.spark.sql.connector.connection.DefaultMongoClientFactory;
 import com.mongodb.spark.sql.connector.connection.MongoClientFactory;
 
@@ -38,7 +38,7 @@ import com.mongodb.spark.sql.connector.connection.MongoClientFactory;
  * <p>Provides MongoDB specific configuration. Wraps the {@link CaseInsensitiveStringMap} options
  * provided by Spark.
  */
-@NotThreadSafe
+@ThreadSafe
 public final class MongoConfig {
 
   /**

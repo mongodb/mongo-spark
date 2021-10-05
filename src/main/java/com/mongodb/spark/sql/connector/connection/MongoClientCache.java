@@ -109,14 +109,14 @@ final class MongoClientCache {
         .release();
   }
 
-  void shutdown() {
+  synchronized void shutdown() {
     if (isAvailable) {
-      scheduler.shutdown();
+      scheduler.shutdownNow();
       cacheList.forEach(
           item -> {
             try {
               item.mongoClient.close();
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
               LOGGER.info("Error when shutting down client: {}", e.getMessage());
             }
           });
@@ -126,8 +126,7 @@ final class MongoClientCache {
   }
 
   private synchronized void checkClientCache() {
-    long now = System.nanoTime();
-    cacheList.removeIf(cacheItem -> cacheItem.shouldBeRemoved(now));
+    cacheList.removeIf(cacheItem -> cacheItem.shouldBeRemoved(System.nanoTime()));
   }
 
   private void assertIsAvailable() {
@@ -139,7 +138,8 @@ final class MongoClientCache {
     private final MongoClientFactory mongoClientFactory;
     private final long keepAliveNanos;
     private final MongoClient mongoClient;
-    private long releaseTime;
+    private boolean acquired;
+    private long releasedNanos;
     private int referenceCount;
 
     private MongoClientCacheItem(
@@ -147,28 +147,28 @@ final class MongoClientCache {
       this.mongoClientFactory = mongoClientFactory;
       this.mongoClient = mongoClientFactory.create();
       this.keepAliveNanos = keepAliveNanos;
-      this.releaseTime = Long.MAX_VALUE;
+      this.releasedNanos = System.nanoTime();
       this.referenceCount = 0;
     }
 
     private MongoClient acquire() {
       referenceCount += 1;
-      releaseTime = Long.MAX_VALUE;
+      acquired = true;
       return mongoClient;
     }
 
     private void release() {
+      Assertions.ensureState(
+          () -> referenceCount > 0, "MongoClient reference count cannot be below zero");
+      releasedNanos = System.nanoTime();
       referenceCount -= 1;
-      if (referenceCount == 0) {
-        releaseTime = System.nanoTime() + keepAliveNanos;
-      }
     }
 
-    private boolean shouldBeRemoved(final long currentTime) {
-      if (referenceCount == 0 && releaseTime < currentTime) {
+    private boolean shouldBeRemoved(final long currentNanos) {
+      if (acquired && referenceCount == 0 && currentNanos - releasedNanos > keepAliveNanos) {
         try {
           mongoClient.close();
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
           // ignore
         }
         return true;

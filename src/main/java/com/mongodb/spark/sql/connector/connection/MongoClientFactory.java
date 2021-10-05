@@ -36,9 +36,10 @@ import com.mongodb.spark.sql.connector.config.Configurable;
  *
  * <p>Implementations of the factory can make use of the automatic caching by ensuring the {@code
  * MongoClientFactory.equals()} returns true if the {@code MongoClientFactory} instances configured
- * with the same {@link com.mongodb.spark.sql.connector.config.MongoConfig} and if the
- * implementation creates {@code MongoClients} with the same configuration each time {@link
- * MongoClientFactory#create()} is called.
+ * with the same relevant {@link com.mongodb.spark.sql.connector.config.MongoConfig} values and if
+ * the implementation creates {@code MongoClients} with the same configuration each time {@link
+ * MongoClientFactory#create()} is called. Note: Only the {@code MongoConfig} values used to create
+ * the {@code MongoClient} need be compared in the {@code MongoClientFactory.equals()} method.
  */
 @ThreadSafe
 public interface MongoClientFactory extends Configurable<MongoClientFactory> {
