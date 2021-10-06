@@ -186,7 +186,7 @@ public final class MongoConfig {
 
   /** @return the {@link MongoClientFactory} to use. */
   @ApiStatus.Internal
-  public MongoClientFactory getMongoClientFactory() {
+  public synchronized MongoClientFactory getMongoClientFactory() {
     if (mongoClientFactory == null) {
       String mongoClientFactoryName =
           values.getOrDefault(MONGO_CLIENT_FACTORY_CONFIG, MONGO_CLIENT_FACTORY_DEFAULT);

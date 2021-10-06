@@ -103,7 +103,7 @@ final class MongoClientCache {
   synchronized void release(final MongoClient mongoClient) {
     assertIsAvailable();
     cacheList.stream()
-        .filter(c -> Objects.equals(c.mongoClient, mongoClient))
+        .filter(c -> c.mongoClient == mongoClient)
         .findFirst()
         .orElseThrow(() -> new IllegalStateException("MongoClient not in the cache."))
         .release();
