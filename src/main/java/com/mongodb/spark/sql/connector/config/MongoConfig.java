@@ -191,7 +191,7 @@ public final class MongoConfig {
       String mongoClientFactoryName =
           values.getOrDefault(MONGO_CLIENT_FACTORY_CONFIG, MONGO_CLIENT_FACTORY_DEFAULT);
       mongoClientFactory =
-          ClassHelper.createAndConfigInstance(
+          ClassHelper.createInstance(
               MONGO_CLIENT_FACTORY_CONFIG, mongoClientFactoryName, MongoClientFactory.class, this);
     }
     return mongoClientFactory;

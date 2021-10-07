@@ -29,21 +29,15 @@ import com.mongodb.spark.sql.connector.config.MongoConfig;
 /** The default MongoClientFactory implementation. */
 @ApiStatus.Internal
 public final class DefaultMongoClientFactory implements MongoClientFactory {
-
-  private MongoConfig config;
+  private final MongoConfig config;
 
   /**
-   * Configures the MongoClientFactory
-   *
-   * <p>Passes the users configuration to the {@code MongoClientFactory}. Typically, used to
-   * configure the {@link MongoClient}
+   * Create a new instance of MongoClientFactory
    *
    * @param config the MongoConfig
    */
-  @Override
-  public MongoClientFactory configure(final MongoConfig config) {
+  public DefaultMongoClientFactory(final MongoConfig config) {
     this.config = config;
-    return this;
   }
 
   /** @return create a new instance of a {@code MongoClient}. */

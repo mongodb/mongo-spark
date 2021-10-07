@@ -20,12 +20,9 @@ package com.mongodb.spark.sql.connector.connection;
 import com.mongodb.client.MongoClient;
 
 import com.mongodb.spark.sql.connector.annotations.ThreadSafe;
-import com.mongodb.spark.sql.connector.config.Configurable;
 
 /**
  * A factory for creating MongoClients
- *
- * <p>Implementations must have a no-args constructor.
  *
  * <p>A factory should produce {@code MongoClients} with the same configuration each time {@link
  * MongoClientFactory#create()} is called.
@@ -38,11 +35,15 @@ import com.mongodb.spark.sql.connector.config.Configurable;
  * MongoClientFactory.equals()} returns true if the {@code MongoClientFactory} instances configured
  * with the same relevant {@link com.mongodb.spark.sql.connector.config.MongoConfig} values and if
  * the implementation creates {@code MongoClients} with the same configuration each time {@link
- * MongoClientFactory#create()} is called. Note: Only the {@code MongoConfig} values used to create
+ * MongoClientFactory#create()} is called. Note: Only any {@code MongoConfig} values used to create
  * the {@code MongoClient} need be compared in the {@code MongoClientFactory.equals()} method.
+ *
+ * <p>Note: Implementations must have either a no-args public constructor or a public constructor
+ * that takes a single parameter; a {@link com.mongodb.spark.sql.connector.config.MongoConfig}
+ * instance.
  */
 @ThreadSafe
-public interface MongoClientFactory extends Configurable<MongoClientFactory> {
+public interface MongoClientFactory {
 
   /** @return create a new instance of a {@code MongoClient}. */
   MongoClient create();

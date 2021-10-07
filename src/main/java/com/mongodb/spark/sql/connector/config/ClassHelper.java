@@ -19,56 +19,41 @@ package com.mongodb.spark.sql.connector.config;
 
 import static java.lang.String.format;
 
-import java.util.List;
+import java.lang.reflect.Constructor;
+import java.util.Arrays;
+import java.util.Optional;
 
 import org.jetbrains.annotations.ApiStatus;
 
-import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 
 @ApiStatus.Internal
 final class ClassHelper {
 
+  private static final Class<?>[] MONGO_CONFIG_PARAMETER_TYPES = {MongoConfig.class};
+
   @SuppressWarnings("unchecked")
-  static <T> T createAndConfigInstance(
+  static <T> T createInstance(
       final String configKey,
       final String className,
       final Class<T> clazz,
       final MongoConfig mongoConfig) {
-
-    T instance = createInstance(configKey, className, clazz);
-    Assertions.ensureArgument(
-        () -> instance instanceof Configurable<?>,
-        format("The class '%s' must extend Configurable.class", clazz.getSimpleName()));
-    return ((Configurable<T>) instance).configure(mongoConfig);
-  }
-
-  @SuppressWarnings("unchecked")
-  static <T> T createInstance(
-      final String configKey, final String className, final Class<T> clazz) {
     return createInstance(
         configKey,
         className,
         clazz,
-        () -> (T) Class.forName(className).getConstructor().newInstance());
-  }
-
-  @SuppressWarnings("unchecked")
-  static <T> T createInstance(
-      final String configKey,
-      final String className,
-      final Class<T> clazz,
-      final List<Class<?>> constructorArgs,
-      final List<Object> initArgs) {
-    return createInstance(
-        configKey,
-        className,
-        clazz,
-        () ->
-            (T)
-                Class.forName(className)
-                    .getConstructor(constructorArgs.toArray(new Class<?>[0]))
-                    .newInstance(initArgs.toArray(new Object[0])));
+        () -> {
+          Class<?> concreteClass = Class.forName(className);
+          Optional<Constructor<?>> mongoConfigConstructor =
+              Arrays.stream(concreteClass.getConstructors())
+                  .filter(c -> Arrays.equals(c.getParameterTypes(), MONGO_CONFIG_PARAMETER_TYPES))
+                  .findFirst();
+          if (mongoConfigConstructor.isPresent()) {
+            return (T) mongoConfigConstructor.get().newInstance(mongoConfig);
+          } else {
+            return (T) concreteClass.getConstructor().newInstance();
+          }
+        });
   }
 
   private static <T> T createInstance(
@@ -91,7 +76,8 @@ final class ClassHelper {
           configKey,
           className,
           format(
-              "Class could not be initialized, no public default constructor: %s", e.getMessage()));
+              "Class could not be initialized, no public constructor available: %s",
+              e.getMessage()));
     } catch (Exception e) {
       if (e.getCause() instanceof ConfigException) {
         throw (ConfigException) e.getCause();

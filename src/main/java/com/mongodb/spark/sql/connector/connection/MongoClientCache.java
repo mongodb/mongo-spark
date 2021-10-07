@@ -17,9 +17,8 @@
 
 package com.mongodb.spark.sql.connector.connection;
 
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -28,8 +27,19 @@ import org.jetbrains.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.mongodb.client.MongoClient;
+import org.bson.Document;
+import org.bson.conversions.Bson;
 
+import com.mongodb.ClientSessionOptions;
+import com.mongodb.client.ChangeStreamIterable;
+import com.mongodb.client.ClientSession;
+import com.mongodb.client.ListDatabasesIterable;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.MongoIterable;
+import com.mongodb.connection.ClusterDescription;
+
+import com.mongodb.spark.sql.connector.annotations.ThreadSafe;
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 
 /**
@@ -40,9 +50,10 @@ import com.mongodb.spark.sql.connector.assertions.Assertions;
  * Executors can operate on multiple tasks this reduces the cost creating a MongoClient and
  * connections.
  */
+@ThreadSafe
 final class MongoClientCache {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoClientCache.class);
-  private final List<MongoClientCacheItem> cacheList = new ArrayList<>();
+  private final HashMap<MongoClientFactory, CachedMongoClient> cache = new HashMap<>();
   private final long keepAliveNanos;
   private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
   private boolean isAvailable;
@@ -82,16 +93,10 @@ final class MongoClientCache {
    */
   synchronized MongoClient acquire(final MongoClientFactory mongoClientFactory) {
     assertIsAvailable();
-    return cacheList.stream()
-        .filter(c -> Objects.equals(c.mongoClientFactory, mongoClientFactory))
-        .findFirst()
-        .orElseGet(
-            () -> {
-              MongoClientCacheItem mongoClientCacheItem =
-                  new MongoClientCacheItem(mongoClientFactory, keepAliveNanos);
-              cacheList.add(mongoClientCacheItem);
-              return mongoClientCacheItem;
-            })
+    return cache
+        .computeIfAbsent(
+            mongoClientFactory,
+            (factory) -> new CachedMongoClient(factory.create(), keepAliveNanos))
         .acquire();
   }
 
@@ -102,31 +107,24 @@ final class MongoClientCache {
    */
   synchronized void release(final MongoClient mongoClient) {
     assertIsAvailable();
-    cacheList.stream()
-        .filter(c -> c.mongoClient == mongoClient)
-        .findFirst()
-        .orElseThrow(() -> new IllegalStateException("MongoClient not in the cache."))
-        .release();
+    Assertions.ensureArgument(
+        () -> mongoClient instanceof CachedMongoClient,
+        "Unexpected MongoClient Instance. It should be an instance of MongoClientCacheItem");
+    mongoClient.close();
   }
 
   synchronized void shutdown() {
     if (isAvailable) {
       scheduler.shutdownNow();
-      cacheList.forEach(
-          item -> {
-            try {
-              item.mongoClient.close();
-            } catch (RuntimeException e) {
-              LOGGER.info("Error when shutting down client: {}", e.getMessage());
-            }
-          });
-      cacheList.clear();
+      cache.values().forEach(CachedMongoClient::shutdownClose);
+      cache.clear();
       isAvailable = false;
     }
   }
 
   private synchronized void checkClientCache() {
-    cacheList.removeIf(cacheItem -> cacheItem.shouldBeRemoved(System.nanoTime()));
+    long currentNanos = System.nanoTime();
+    cache.entrySet().removeIf(e -> e.getValue().shouldBeRemoved(currentNanos));
   }
 
   private void assertIsAvailable() {
@@ -134,40 +132,139 @@ final class MongoClientCache {
         () -> isAvailable, "The MongoClientCache has been shutdown and is no longer available");
   }
 
-  private static final class MongoClientCacheItem {
-    private final MongoClientFactory mongoClientFactory;
+  private static final class CachedMongoClient implements MongoClient {
+    private final MongoClient wrapped;
     private final long keepAliveNanos;
-    private final MongoClient mongoClient;
-    private boolean acquired;
     private long releasedNanos;
     private int referenceCount;
 
-    private MongoClientCacheItem(
-        final MongoClientFactory mongoClientFactory, final long keepAliveNanos) {
-      this.mongoClientFactory = mongoClientFactory;
-      this.mongoClient = mongoClientFactory.create();
+    private CachedMongoClient(final MongoClient wrapped, final long keepAliveNanos) {
+      this.wrapped = wrapped;
       this.keepAliveNanos = keepAliveNanos;
       this.releasedNanos = System.nanoTime();
       this.referenceCount = 0;
     }
 
-    private MongoClient acquire() {
+    private CachedMongoClient acquire() {
       referenceCount += 1;
-      acquired = true;
-      return mongoClient;
+      return this;
     }
 
-    private void release() {
+    private void shutdownClose() {
+      referenceCount = 0;
+      wrapped.close();
+    }
+
+    @Override
+    public void close() {
       Assertions.ensureState(
           () -> referenceCount > 0, "MongoClient reference count cannot be below zero");
       releasedNanos = System.nanoTime();
       referenceCount -= 1;
     }
 
+    @Override
+    public MongoDatabase getDatabase(final String databaseName) {
+      return wrapped.getDatabase(databaseName);
+    }
+
+    @Override
+    public ClientSession startSession() {
+      return wrapped.startSession();
+    }
+
+    @Override
+    public ClientSession startSession(final ClientSessionOptions options) {
+      return wrapped.startSession(options);
+    }
+
+    @Override
+    public MongoIterable<String> listDatabaseNames() {
+      return wrapped.listDatabaseNames();
+    }
+
+    @Override
+    public MongoIterable<String> listDatabaseNames(final ClientSession clientSession) {
+      return wrapped.listDatabaseNames(clientSession);
+    }
+
+    @Override
+    public ListDatabasesIterable<Document> listDatabases() {
+      return wrapped.listDatabases();
+    }
+
+    @Override
+    public ListDatabasesIterable<Document> listDatabases(final ClientSession clientSession) {
+      return wrapped.listDatabases(clientSession);
+    }
+
+    @Override
+    public <TResult> ListDatabasesIterable<TResult> listDatabases(
+        final Class<TResult> tResultClass) {
+      return wrapped.listDatabases(tResultClass);
+    }
+
+    @Override
+    public <TResult> ListDatabasesIterable<TResult> listDatabases(
+        final ClientSession clientSession, final Class<TResult> tResultClass) {
+      return wrapped.listDatabases(clientSession, tResultClass);
+    }
+
+    @Override
+    public ChangeStreamIterable<Document> watch() {
+      return wrapped.watch();
+    }
+
+    @Override
+    public <TResult> ChangeStreamIterable<TResult> watch(final Class<TResult> tResultClass) {
+      return wrapped.watch(tResultClass);
+    }
+
+    @Override
+    public ChangeStreamIterable<Document> watch(final List<? extends Bson> pipeline) {
+      return wrapped.watch(pipeline);
+    }
+
+    @Override
+    public <TResult> ChangeStreamIterable<TResult> watch(
+        final List<? extends Bson> pipeline, final Class<TResult> tResultClass) {
+      return wrapped.watch(pipeline, tResultClass);
+    }
+
+    @Override
+    public ChangeStreamIterable<Document> watch(final ClientSession clientSession) {
+      return wrapped.watch(clientSession);
+    }
+
+    @Override
+    public <TResult> ChangeStreamIterable<TResult> watch(
+        final ClientSession clientSession, final Class<TResult> tResultClass) {
+      return wrapped.watch(clientSession, tResultClass);
+    }
+
+    @Override
+    public ChangeStreamIterable<Document> watch(
+        final ClientSession clientSession, final List<? extends Bson> pipeline) {
+      return wrapped.watch(clientSession, pipeline);
+    }
+
+    @Override
+    public <TResult> ChangeStreamIterable<TResult> watch(
+        final ClientSession clientSession,
+        final List<? extends Bson> pipeline,
+        final Class<TResult> tResultClass) {
+      return wrapped.watch(clientSession, pipeline, tResultClass);
+    }
+
+    @Override
+    public ClusterDescription getClusterDescription() {
+      return wrapped.getClusterDescription();
+    }
+
     private boolean shouldBeRemoved(final long currentNanos) {
-      if (acquired && referenceCount == 0 && currentNanos - releasedNanos > keepAliveNanos) {
+      if (referenceCount == 0 && currentNanos - releasedNanos > keepAliveNanos) {
         try {
-          mongoClient.close();
+          wrapped.close();
         } catch (RuntimeException e) {
           // ignore
         }
