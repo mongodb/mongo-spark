@@ -48,9 +48,9 @@ public class MongoClientCacheTest {
     // Ensure only a single client was created
     verify(mongoClientFactory, times(1)).create();
 
-    // Ensure release clients eventually closes the client
-    mongoClientCache.release(client1);
-    mongoClientCache.release(client2);
+    // Ensure calling client.close() eventually actually closes the underlying client
+    client1.close();
+    client2.close();
     sleep(200);
     verify(mongoClient, times(1)).close();
   }
@@ -67,9 +67,9 @@ public class MongoClientCacheTest {
     // Ensure only a single client was created
     verify(mongoClientFactory, times(1)).create();
 
-    // Ensure release clients eventually closes the client
-    mongoClientCache.release(client1);
-    mongoClientCache.release(client2);
+    // Ensure calling client.close() eventually actually closes the underlying client
+    client1.close();
+    client2.close();
     sleep(250);
     verify(mongoClient, times(0)).close();
 
@@ -78,8 +78,8 @@ public class MongoClientCacheTest {
     verify(mongoClientFactory, times(1)).create();
     verify(mongoClient, times(0)).close();
 
-    // Ensure release clients eventually closes the client
-    mongoClientCache.release(client3);
+    // Ensure calling client.close() eventually actually closes the underlying client
+    client3.close();
     sleep(1000);
     verify(mongoClient, times(1)).close();
   }
@@ -90,9 +90,8 @@ public class MongoClientCacheTest {
     when(mongoClientFactory.create()).thenReturn(mongoClient);
 
     // Create clients
-    mongoClientCache.acquire(mongoClientFactory);
-    mongoClientCache.acquire(mongoClientFactory);
-    mongoClientCache.acquire(mongoClientFactory);
+    MongoClient client1 = mongoClientCache.acquire(mongoClientFactory);
+    MongoClient client2 = mongoClientCache.acquire(mongoClientFactory);
 
     verify(mongoClientFactory, times(1)).create();
 
@@ -102,7 +101,8 @@ public class MongoClientCacheTest {
 
     // Verify behaviour after shutdown
     assertThrows(IllegalStateException.class, () -> mongoClientCache.acquire(mongoClientFactory));
-    assertThrows(IllegalStateException.class, () -> mongoClientCache.release(mongoClient));
+    assertThrows(IllegalStateException.class, client1::close);
+    assertThrows(IllegalStateException.class, client2::close);
     assertDoesNotThrow(mongoClientCache::shutdown);
   }
 

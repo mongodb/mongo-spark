@@ -25,6 +25,7 @@ import java.util.Objects;
 
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.Nullable;
 
 import com.mongodb.ConnectionString;
 
@@ -220,12 +221,13 @@ public final class MongoConfig {
    * <p>Note: The key match is case-insensitive.
    *
    * @param key the key whose associated value is to be returned
-   * @param defaultValue the default mapping for the config
+   * @param defaultValue the default mapping for the config, which may be null
    * @return the value to which the specified key is mapped, or {@code defaultValue} if this config
-   *     contains no mapping for the key. The key match is case-insensitive.
+   *     contains no mapping for the key or the mapping returns null. The key match is
+   *     case-insensitive.
    * @throws ClassCastException if the key is of an inappropriate type for this map
    */
-  public String getOrDefault(final String key, final String defaultValue) {
+  public String getOrDefault(final String key, @Nullable final String defaultValue) {
     return values.getOrDefault(key, defaultValue);
   }
 

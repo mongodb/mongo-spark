@@ -35,7 +35,7 @@ import com.mongodb.spark.sql.connector.annotations.ThreadSafe;
  * MongoClientFactory.equals()} returns true if the {@code MongoClientFactory} instances configured
  * with the same relevant {@link com.mongodb.spark.sql.connector.config.MongoConfig} values and if
  * the implementation creates {@code MongoClients} with the same configuration each time {@link
- * MongoClientFactory#create()} is called. Note: Only any {@code MongoConfig} values used to create
+ * MongoClientFactory#create()} is called. Note: Only the {@code MongoConfig} values used to create
  * the {@code MongoClient} need be compared in the {@code MongoClientFactory.equals()} method.
  *
  * <p>Note: Implementations must have either a no-args public constructor or a public constructor

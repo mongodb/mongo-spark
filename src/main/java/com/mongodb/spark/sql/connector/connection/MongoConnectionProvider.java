@@ -102,12 +102,9 @@ public final class MongoConnectionProvider {
    * @return the result of the function
    */
   public <T> T withClient(final Function<MongoClient, T> function) {
-    MongoClient client =
-        LazyMongoClientCache.getCache().acquire(mongoConfig.getMongoClientFactory());
-    try {
+    try (MongoClient client =
+        LazyMongoClientCache.getCache().acquire(mongoConfig.getMongoClientFactory())) {
       return function.apply(client);
-    } finally {
-      LazyMongoClientCache.getCache().release(client);
     }
   }
   /**

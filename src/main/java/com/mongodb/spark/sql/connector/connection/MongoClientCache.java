@@ -24,8 +24,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.jetbrains.annotations.VisibleForTesting;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -52,7 +50,6 @@ import com.mongodb.spark.sql.connector.assertions.Assertions;
  */
 @ThreadSafe
 final class MongoClientCache {
-  private static final Logger LOGGER = LoggerFactory.getLogger(MongoClientCache.class);
   private final HashMap<MongoClientFactory, CachedMongoClient> cache = new HashMap<>();
   private final long keepAliveNanos;
   private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
@@ -87,6 +84,9 @@ final class MongoClientCache {
   /**
    * Acquires a new MongoClient
    *
+   * <p>Once the {@link MongoClient} is no longer required, it should be closed by calling {@code
+   * mongoClient.close()}.
+   *
    * @param mongoClientFactory the factory to use for creating the MongoClient
    * @return the MongoClient from the cache or create a new one using the {@code
    *     MongoClientFactory}.
@@ -96,21 +96,8 @@ final class MongoClientCache {
     return cache
         .computeIfAbsent(
             mongoClientFactory,
-            (factory) -> new CachedMongoClient(factory.create(), keepAliveNanos))
+            (factory) -> new CachedMongoClient(this, factory.create(), keepAliveNanos))
         .acquire();
-  }
-
-  /**
-   * Releases the MongoClient
-   *
-   * @param mongoClient to release
-   */
-  synchronized void release(final MongoClient mongoClient) {
-    assertIsAvailable();
-    Assertions.ensureArgument(
-        () -> mongoClient instanceof CachedMongoClient,
-        "Unexpected MongoClient Instance. It should be an instance of MongoClientCacheItem");
-    mongoClient.close();
   }
 
   synchronized void shutdown() {
@@ -133,12 +120,15 @@ final class MongoClientCache {
   }
 
   private static final class CachedMongoClient implements MongoClient {
+    private final MongoClientCache cache;
     private final MongoClient wrapped;
     private final long keepAliveNanos;
     private long releasedNanos;
     private int referenceCount;
 
-    private CachedMongoClient(final MongoClient wrapped, final long keepAliveNanos) {
+    private CachedMongoClient(
+        final MongoClientCache cache, final MongoClient wrapped, final long keepAliveNanos) {
+      this.cache = cache;
       this.wrapped = wrapped;
       this.keepAliveNanos = keepAliveNanos;
       this.releasedNanos = System.nanoTime();
@@ -157,10 +147,15 @@ final class MongoClientCache {
 
     @Override
     public void close() {
-      Assertions.ensureState(
-          () -> referenceCount > 0, "MongoClient reference count cannot be below zero");
-      releasedNanos = System.nanoTime();
-      referenceCount -= 1;
+      synchronized (cache) {
+        Assertions.ensureState(
+            () -> cache.isAvailable,
+            "The MongoClientCache has been shutdown and is no longer available");
+        Assertions.ensureState(
+            () -> referenceCount > 0, "MongoClient reference count cannot be below zero");
+        releasedNanos = System.nanoTime();
+        referenceCount -= 1;
+      }
     }
 
     @Override
