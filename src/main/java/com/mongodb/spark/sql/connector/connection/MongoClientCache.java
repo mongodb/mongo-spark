@@ -148,9 +148,7 @@ final class MongoClientCache {
     @Override
     public void close() {
       synchronized (cache) {
-        Assertions.ensureState(
-            () -> cache.isAvailable,
-            "The MongoClientCache has been shutdown and is no longer available");
+        cache.assertIsAvailable();
         Assertions.ensureState(
             () -> referenceCount > 0, "MongoClient reference count cannot be below zero");
         releasedNanos = System.nanoTime();
