@@ -55,6 +55,8 @@ import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.Filters;
 
+import com.mongodb.spark.sql.connector.config.MongoConfig;
+import com.mongodb.spark.sql.connector.connection.MongoConnectionProvider;
 import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
 
 public class MongoCatalogTest extends MongoSparkConnectorTestCase {
@@ -306,7 +308,8 @@ public class MongoCatalogTest extends MongoSparkConnectorTestCase {
         new MongoTable(
             new MongoNamespace(TEST_DATABASE_NAME, TEST_COLLECTION_NAME),
             null,
-            getConnectionProviderOptions()),
+            new MongoConnectionProvider(
+                MongoConfig.createInputConfig(getConnectionProviderOptions()))),
         MONGO_CATALOG.loadTable(TEST_IDENTIFIER));
   }
 
@@ -358,7 +361,10 @@ public class MongoCatalogTest extends MongoSparkConnectorTestCase {
 
     assertEquals(
         new MongoTable(
-            new MongoNamespace(TEST_DATABASE_NAME, TEST_COLLECTION_NAME), schema, emptyMap()),
+            new MongoNamespace(TEST_DATABASE_NAME, TEST_COLLECTION_NAME),
+            schema,
+            new MongoConnectionProvider(
+                MongoConfig.createInputConfig(getConnectionProviderOptions()))),
         MONGO_CATALOG.createTable(TEST_IDENTIFIER, schema, new Transform[0], emptyMap()));
   }
 

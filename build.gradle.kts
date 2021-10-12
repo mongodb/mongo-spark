@@ -57,6 +57,7 @@ extra.apply {
     // Testing dependencies
     set("junitJupiterVersion", "5.7.2")
     set("junitPlatformVersion", "1.7.2")
+    set("mockitoVersion", "3.12.4")
 
     // Integration test dependencies
 }
@@ -76,6 +77,7 @@ dependencies {
     // Unit Tests
     testImplementation(platform("org.junit:junit-bom:5.7.2"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.mockito:mockito-junit-jupiter:${project.extra["mockitoVersion"]}")
 
     // Integration Tests
 }

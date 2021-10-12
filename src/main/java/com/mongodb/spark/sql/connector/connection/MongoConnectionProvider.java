@@ -17,8 +17,7 @@
 
 package com.mongodb.spark.sql.connector.connection;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -27,31 +26,64 @@ import org.jetbrains.annotations.ApiStatus;
 import org.bson.BsonDocument;
 
 import com.mongodb.client.MongoClient;
-import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 
-/** Temporary code to be rewritten as part of SPARK-308 */
-@ApiStatus.Experimental
-public class MongoConnectionProvider {
-  // CHECKSTYLE:OFF:JavadocMethod
-  private final Map<String, String> options;
+import com.mongodb.spark.sql.connector.annotations.ThreadSafe;
+import com.mongodb.spark.sql.connector.config.MongoConfig;
 
-  public MongoConnectionProvider(final Map<String, String> options) {
-    this.options = new HashMap<>(options);
+/**
+ * The Mongo Connection Provider
+ *
+ * <p>Provides loan methods for using a {@link MongoClient}, {@link MongoDatabase} or {@link
+ * MongoCollection}. The underlying {@code MongoClient} is cached using the {@link
+ * MongoClientCache}.
+ */
+@ApiStatus.Internal
+@ThreadSafe
+public final class MongoConnectionProvider {
+
+  private final MongoConfig mongoConfig;
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param mongoConfig the configuration to use.
+   */
+  public MongoConnectionProvider(final MongoConfig mongoConfig) {
+    this.mongoConfig = mongoConfig;
   }
 
+  /**
+   * Loans a {@link MongoClient} to the user, does not return a result.
+   *
+   * @param consumer the consumer of the {@code MongoClient}
+   */
   public void doWithClient(final Consumer<MongoClient> consumer) {
-    String connectionURI = options.getOrDefault("connection.uri", "mongodb://localhost:27017/");
-    try (MongoClient client = MongoClients.create(connectionURI)) {
-      consumer.accept(client);
-    }
+    withClient(
+        client -> {
+          consumer.accept(client);
+          return null;
+        });
   }
 
+  /**
+   * Loans a {@link MongoDatabase} to the user, does not return a result.
+   *
+   * @param databaseName the database name to use.
+   * @param consumer the consumer of the {@code MongoDatabase}
+   */
   public void doWithDatabase(final String databaseName, final Consumer<MongoDatabase> consumer) {
     doWithClient(client -> consumer.accept(client.getDatabase(databaseName)));
   }
 
+  /**
+   * Loans a {@link MongoCollection} to the user, does not return a result.
+   *
+   * @param databaseName the database name to use.
+   * @param collectionName the database name to use.
+   * @param consumer the consumer of the {@code MongoCollection<BsonDocument>}
+   */
   public void doWithCollection(
       final String databaseName,
       final String collectionName,
@@ -62,17 +94,40 @@ public class MongoConnectionProvider {
             consumer.accept(mongoDatabase.getCollection(collectionName, BsonDocument.class)));
   }
 
+  /**
+   * Loans a {@link MongoClient} to the user.
+   *
+   * @param function the function that is passed the {@code MongoClient}
+   * @param <T> The return type
+   * @return the result of the function
+   */
   public <T> T withClient(final Function<MongoClient, T> function) {
-    String connectionURI = options.getOrDefault("connection.uri", "mongodb://localhost:27017/");
-    try (MongoClient client = MongoClients.create(connectionURI)) {
+    try (MongoClient client =
+        LazyMongoClientCache.getCache().acquire(mongoConfig.getMongoClientFactory())) {
       return function.apply(client);
     }
   }
-
+  /**
+   * Loans a {@link MongoDatabase} to the user.
+   *
+   * @param databaseName the database name to use.
+   * @param function the function that is passed the {@code MongoDatabase}
+   * @param <T> The return type
+   * @return the result of the function
+   */
   public <T> T withDatabase(final String databaseName, final Function<MongoDatabase, T> function) {
     return withClient(client -> function.apply(client.getDatabase(databaseName)));
   }
 
+  /**
+   * Loans a {@link MongoCollection} to the user.
+   *
+   * @param databaseName the database name to use.
+   * @param collectionName the database name to use.
+   * @param function the function that is passed the {@code MongoCollection<BsonDocument>}
+   * @param <T> The return type
+   * @return the result of the function
+   */
   public <T> T withCollection(
       final String databaseName,
       final String collectionName,
@@ -82,5 +137,26 @@ public class MongoConnectionProvider {
         mongoDatabase ->
             function.apply(mongoDatabase.getCollection(collectionName, BsonDocument.class)));
   }
-  // CHECKSTYLE.ON:JavadocMethod
+
+  @Override
+  public String toString() {
+    return "MongoConnectionProvider{" + "mongoConfig=" + mongoConfig + '}';
+  }
+
+  @Override
+  public boolean equals(final Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    final MongoConnectionProvider that = (MongoConnectionProvider) o;
+    return Objects.equals(mongoConfig, that.mongoConfig);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(mongoConfig);
+  }
 }
