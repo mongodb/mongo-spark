@@ -79,21 +79,26 @@ object MongoSpark {
    * Load data from MongoDB
    *
    * @param sparkSession the SparkSession containing the MongoDB connection configuration
+   * @param  pipeline the optional pipeline
    * @tparam D The optional class defining the schema for the data
    * @return a MongoRDD
    */
-  def load[D <: Product: TypeTag](sparkSession: SparkSession): DataFrame = builder().sparkSession(sparkSession).build().toDF[D]()
+  def load[D <: Product: TypeTag](sparkSession: SparkSession, pipeline: Seq[Bson] = Nil): DataFrame = {
+    builder().sparkSession(sparkSession).pipeline(pipeline).build().toDF[D]()
+  }
 
   /**
    * Load data from MongoDB
    *
    * @param sparkSession the SparkSession containing the MongoDB connection configuration
    * @param readConfig the custom readConfig
+   * @param  pipeline the optional pipeline
    * @tparam D The optional class defining the schema for the data
    * @return a MongoRDD
    */
-  def load[D <: Product: TypeTag](sparkSession: SparkSession, readConfig: ReadConfig): DataFrame =
-    builder().sparkSession(sparkSession).readConfig(readConfig).build().toDF[D]()
+  def load[D <: Product: TypeTag](sparkSession: SparkSession, readConfig: ReadConfig, pipeline: Seq[Bson] = Nil): DataFrame = {
+    builder().sparkSession(sparkSession).readConfig(readConfig).pipeline(pipeline).build().toDF[D]()
+  }
 
   /**
    * Save data to MongoDB
