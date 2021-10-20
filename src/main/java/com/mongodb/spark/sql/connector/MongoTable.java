@@ -19,23 +19,22 @@ package com.mongodb.spark.sql.connector;
 
 import static java.util.Arrays.asList;
 
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
 import org.apache.spark.sql.connector.catalog.SupportsWrite;
 import org.apache.spark.sql.connector.catalog.Table;
 import org.apache.spark.sql.connector.catalog.TableCapability;
+import org.apache.spark.sql.connector.expressions.Transform;
 import org.apache.spark.sql.connector.write.LogicalWriteInfo;
 import org.apache.spark.sql.connector.write.WriteBuilder;
 import org.apache.spark.sql.types.StructType;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.VisibleForTesting;
 
-import com.mongodb.MongoNamespace;
-
-import com.mongodb.spark.sql.connector.connection.MongoConnectionProvider;
-import com.mongodb.spark.sql.connector.write.MongoBatchWrite;
+import com.mongodb.spark.sql.connector.config.MongoConfig;
+import com.mongodb.spark.sql.connector.write.MongoWriteBuilder;
 
 /**
  * Represents a MongoDB Collection.
@@ -48,61 +47,76 @@ public class MongoTable implements Table, SupportsWrite {
       new HashSet<>(
           asList(
               TableCapability.BATCH_WRITE,
-              TableCapability.STREAMING_WRITE,
               TableCapability.TRUNCATE,
+              TableCapability.STREAMING_WRITE,
               TableCapability.ACCEPT_ANY_SCHEMA));
-
-  private final MongoNamespace mongoNamespace;
   private final StructType schema;
-  private final MongoConnectionProvider mongoConnectionProvider;
+  private final Transform[] partitioning;
+  private final MongoConfig mongoConfig;
 
   /**
-   * Constructs a new instance
+   * Construct a new instance
    *
-   * @param mongoNamespace the namespace
-   * @param schema the schema or null
-   * @param mongoConnectionProvider the mongoConnectionProvider related to the table
+   * @param mongoConfig The specified table configuration
    */
-  public MongoTable(
-      final MongoNamespace mongoNamespace,
-      @Nullable final StructType schema,
-      final MongoConnectionProvider mongoConnectionProvider) {
-    this.mongoNamespace = mongoNamespace;
-    this.schema = schema;
-    this.mongoConnectionProvider = mongoConnectionProvider;
+  public MongoTable(final MongoConfig mongoConfig) {
+    this(new StructType(), mongoConfig);
   }
 
   /**
-   * Returns a {@link WriteBuilder} which can be used to create {@link MongoBatchWrite}. Spark will
-   * call this method to configure each data source write.
+   * Construct a new instance
+   *
+   * @param schema The specified table schema.
+   * @param mongoConfig The specified table configuration
+   */
+  public MongoTable(final StructType schema, final MongoConfig mongoConfig) {
+    this(schema, new Transform[0], mongoConfig);
+  }
+
+  /**
+   * Construct a new instance
+   *
+   * @param schema The specified table schema.
+   * @param partitioning The specified table partitioning.
+   * @param mongoConfig The specified table configuration
+   */
+  public MongoTable(
+      final StructType schema, final Transform[] partitioning, final MongoConfig mongoConfig) {
+    this.schema = schema;
+    this.partitioning = partitioning;
+    this.mongoConfig = mongoConfig;
+  }
+
+  /**
+   * Returns a {@link MongoWriteBuilder}
    *
    * @param info the logical write info
    */
   @Override
   public WriteBuilder newWriteBuilder(final LogicalWriteInfo info) {
-    return null;
+    return new MongoWriteBuilder(info, mongoConfig.toWriteConfig());
   }
 
-  /**
-   * A name to identify this table. Implementations should provide a meaningful name, like the
-   * database and table name from catalog, or the location of files for this table.
-   */
+  /** The name of this table. */
   @Override
   public String name() {
-    return mongoNamespace.getFullName();
+    return "MongoTable(" + mongoConfig.getNamespace() + ")";
   }
 
-  /**
-   * Returns the schema of this table. If the table is not readable and doesn't have a schema, an
-   * empty schema can be returned here.
-   */
+  /** Returns the schema of this table. */
   @Override
   public StructType schema() {
-    if (schema != null) {
-      return schema;
-    }
-    // TODO - SPARK-298 infer schema
-    return new StructType();
+    return schema;
+  }
+
+  @Override
+  public Transform[] partitioning() {
+    return partitioning;
+  }
+
+  @Override
+  public Map<String, String> properties() {
+    return mongoConfig.getOriginals();
   }
 
   /** Returns the set of capabilities for this table. */
@@ -114,16 +128,15 @@ public class MongoTable implements Table, SupportsWrite {
   @Override
   public String toString() {
     return "MongoTable{"
-        + "mongoNamespace="
-        + mongoNamespace
-        + ", schema="
+        + "schema="
         + schema
-        + ", mongoConnectionProvider="
-        + mongoConnectionProvider
+        + ", partitioning="
+        + Arrays.toString(partitioning)
+        + ", mongoConfig="
+        + mongoConfig
         + '}';
   }
 
-  @VisibleForTesting
   @Override
   public boolean equals(final Object o) {
     if (this == o) {
@@ -133,14 +146,15 @@ public class MongoTable implements Table, SupportsWrite {
       return false;
     }
     final MongoTable that = (MongoTable) o;
-    return Objects.equals(mongoNamespace, that.mongoNamespace)
-        && Objects.equals(schema, that.schema)
-        && Objects.equals(mongoConnectionProvider, that.mongoConnectionProvider);
+    return Objects.equals(schema, that.schema)
+        && Arrays.equals(partitioning, that.partitioning)
+        && Objects.equals(mongoConfig, that.mongoConfig);
   }
 
-  @VisibleForTesting
   @Override
   public int hashCode() {
-    return Objects.hash(mongoNamespace, schema, mongoConnectionProvider);
+    int result = Objects.hash(schema, mongoConfig);
+    result = 31 * result + Arrays.hashCode(partitioning);
+    return result;
   }
 }

@@ -30,7 +30,7 @@ plugins {
     signing
     checkstyle
     id("com.github.gmazzo.buildconfig") version "3.0.2"
-    id("com.github.spotbugs") version "4.7.2"
+    id("com.github.spotbugs") version "4.7.9"
     id("com.diffplug.spotless") version "5.14.2"
     id("com.github.johnrengelman.shadow") version "7.0.0"
 }

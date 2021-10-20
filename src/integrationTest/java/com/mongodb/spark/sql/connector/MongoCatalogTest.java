@@ -32,7 +32,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -50,13 +52,11 @@ import org.apache.spark.sql.types.StructType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import com.mongodb.MongoNamespace;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.Filters;
 
 import com.mongodb.spark.sql.connector.config.MongoConfig;
-import com.mongodb.spark.sql.connector.connection.MongoConnectionProvider;
 import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
 
 public class MongoCatalogTest extends MongoSparkConnectorTestCase {
@@ -74,12 +74,12 @@ public class MongoCatalogTest extends MongoSparkConnectorTestCase {
   void afterEach() {
     MONGO_CATALOG.reset(
         () ->
-            asList(TEST_DATABASE_NAME, TEST_DATABASE_NAME_ALT)
-                .forEach(
-                    db ->
-                        MONGO_CATALOG
-                            .getMongoConnectionProvider()
-                            .doWithDatabase(db, MongoDatabase::drop)));
+            MONGO_CATALOG
+                .getWriteConfig()
+                .doWithClient(
+                    c ->
+                        asList(TEST_DATABASE_NAME, TEST_DATABASE_NAME_ALT)
+                            .forEach(db -> c.getDatabase(db).drop())));
   }
 
   @Test
@@ -304,13 +304,14 @@ public class MongoCatalogTest extends MongoSparkConnectorTestCase {
     assertThrows(NoSuchTableException.class, () -> MONGO_CATALOG.loadTable(TEST_IDENTIFIER));
 
     createCollection(TEST_IDENTIFIER);
+
+    Map<String, String> options =
+        new HashMap<>(getConnectionProviderOptions().asCaseSensitiveMap());
+    options.put(MongoConfig.READ_PREFIX + MongoConfig.DATABASE_NAME_CONFIG, TEST_DATABASE_NAME);
+    options.put(MongoConfig.READ_PREFIX + MongoConfig.COLLECTION_NAME_CONFIG, TEST_COLLECTION_NAME);
+
     assertEquals(
-        new MongoTable(
-            new MongoNamespace(TEST_DATABASE_NAME, TEST_COLLECTION_NAME),
-            null,
-            new MongoConnectionProvider(
-                MongoConfig.createInputConfig(getConnectionProviderOptions()))),
-        MONGO_CATALOG.loadTable(TEST_IDENTIFIER));
+        new MongoTable(MongoConfig.readConfig(options)), MONGO_CATALOG.loadTable(TEST_IDENTIFIER));
   }
 
   @Test
@@ -360,11 +361,7 @@ public class MongoCatalogTest extends MongoSparkConnectorTestCase {
                 TEST_IDENTIFIER, schema, new Transform[0], getConnectionProviderOptions()));
 
     assertEquals(
-        new MongoTable(
-            new MongoNamespace(TEST_DATABASE_NAME, TEST_COLLECTION_NAME),
-            schema,
-            new MongoConnectionProvider(
-                MongoConfig.createInputConfig(getConnectionProviderOptions()))),
+        new MongoTable(schema, MongoConfig.writeConfig(getConnectionProviderOptions())),
         MONGO_CATALOG.createTable(TEST_IDENTIFIER, schema, new Transform[0], emptyMap()));
   }
 
@@ -374,10 +371,10 @@ public class MongoCatalogTest extends MongoSparkConnectorTestCase {
 
   private void createCollections(final String databaseName, final List<String> collectionNames) {
     MONGO_CATALOG
-        .getMongoConnectionProvider()
-        .doWithDatabase(
-            databaseName,
-            db -> {
+        .getWriteConfig()
+        .doWithClient(
+            c -> {
+              MongoDatabase db = c.getDatabase(databaseName);
               for (String collectionName : collectionNames) {
                 db.createCollection(collectionName);
               }
@@ -386,14 +383,14 @@ public class MongoCatalogTest extends MongoSparkConnectorTestCase {
 
   private void createView(final Identifier identifier) {
     MONGO_CATALOG
-        .getMongoConnectionProvider()
-        .doWithDatabase(
-            identifier.namespace()[0],
-            db ->
-                db.createView(
-                    "VIEW",
-                    identifier.name(),
-                    singletonList(Aggregates.match(Filters.eq("a", 1)))));
+        .getWriteConfig()
+        .doWithClient(
+            c ->
+                c.getDatabase(identifier.namespace()[0])
+                    .createView(
+                        "VIEW",
+                        identifier.name(),
+                        singletonList(Aggregates.match(Filters.eq("a", 1)))));
   }
 
   private static Identifier createIdentifier(

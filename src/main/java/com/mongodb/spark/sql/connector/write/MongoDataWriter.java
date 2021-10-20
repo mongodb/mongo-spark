@@ -16,96 +16,186 @@
  */
 package com.mongodb.spark.sql.connector.write;
 
-import java.io.IOException;
+import static java.lang.String.format;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.write.DataWriter;
 import org.apache.spark.sql.connector.write.WriterCommitMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-/**
- * A MongoDataWriter returned by {@link MongoDataWriterFactory#createWriter(int, long)} and is
- * responsible for writing data for an input RDD partition.
- *
- * <p>One Spark task has one exclusive data writer, so there is no thread-safe concern.
- *
- * <p>{@link #write(Object)} is called for each record in the input RDD partition. If one record
- * fails the {@link #write(Object)}, {@link #abort()} is called afterwards and the remaining records
- * will not be processed. If all records are successfully written, {@link #commit()} is called.
- *
- * <p>Once a data writer returns successfully from {@link #commit()} or {@link #abort()}, Spark will
- * call {@link #close()} to let DataWriter doing resource cleanup. After calling {@link #close()},
- * its lifecycle is over and Spark will not use it again.
- *
- * <p>If this data writer succeeds(all records are successfully written and {@link #commit()}
- * succeeds), a {@link WriterCommitMessage} will be sent to the driver side and pass to {@link
- * MongoBatchWrite#commit(WriterCommitMessage[])} with commit messages from other data writers. If
- * this data writer fails(one record fails to write or {@link #commit()} fails), an exception will
- * be sent to the driver side, and Spark may retry this writing task a few times. In each retry,
- * {@link MongoDataWriterFactory#createWriter(int, long)} will receive a different `taskId`. Spark
- * will call {@link MongoBatchWrite#abort(WriterCommitMessage[])} when the configured number of
- * retries is exhausted.
- *
- * <p>Besides the retry mechanism, Spark may launch speculative tasks if the existing writing task
- * takes too long to finish. Different from retried tasks, which are launched one by one after the
- * previous one fails, speculative tasks are running simultaneously. It's possible that one input
- * RDD partition has multiple data writers with different `taskId` running at the same time, and
- * data sources should guarantee that these data writers don't conflict and can work together.
- * Implementations can coordinate with driver during {@link #commit()} to make sure only one of
- * these data writers can commit successfully. Or implementations can allow all of them to commit
- * successfully, and have a way to revert committed data writers without the commit message, because
- * Spark only accepts the commit message that arrives first and ignore others.
- *
- * @param <T> the type of data (Currently the type `T` can only be {@link
- *     org.apache.spark.sql.catalyst.InternalRow})
- */
-public class MongoDataWriter<T> implements DataWriter<T> {
-  /**
-   * Writes one record.
-   *
-   * <p>If this method fails (by throwing an exception), {@link #abort()} will be called and this
-   * data writer is considered to have been failed.
-   *
-   * @param record
-   * @throws IOException if failure happens during disk/network IO like writing files.
-   */
-  @Override
-  public void write(final T record) throws IOException {}
+import org.bson.BsonDocument;
+import org.bson.BsonValue;
+
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.model.BulkWriteOptions;
+import com.mongodb.client.model.InsertOneModel;
+import com.mongodb.client.model.ReplaceOneModel;
+import com.mongodb.client.model.ReplaceOptions;
+import com.mongodb.client.model.UpdateOneModel;
+import com.mongodb.client.model.UpdateOptions;
+import com.mongodb.client.model.WriteModel;
+
+import com.mongodb.spark.sql.connector.config.WriteConfig;
+import com.mongodb.spark.sql.connector.exceptions.DataException;
+import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
+
+/** The MongoDB writer that writes the input RDD partition into MongoDB. */
+class MongoDataWriter implements DataWriter<InternalRow> {
+  private static final Logger LOGGER = LoggerFactory.getLogger(MongoDataWriter.class);
+  private final int partitionId;
+  private final long taskId;
+  private final RowToBsonDocumentConverter rowToBsonDocumentConverter;
+  private final WriteConfig writeConfig;
+  private final long epochId;
+  private final BulkWriteOptions bulkWriteOptions;
+  private final List<WriteModel<BsonDocument>> writeModelList = new ArrayList<>();
+
+  private MongoClient mongoClient;
 
   /**
-   * Commits this writer after all records are written successfully, returns a commit message which
-   * will be sent back to driver side and passed to {@link
-   * MongoBatchWrite#commit(WriterCommitMessage[])}.
+   * Construct a new instance
    *
-   * <p>The written data should only be visible to data source readers after {@link
-   * MongoBatchWrite#commit(WriterCommitMessage[])} succeeds, which means this method should still
-   * "hide" the written data and ask the {@link MongoBatchWrite} at driver side to do the final
-   * commit via {@link WriterCommitMessage}.
-   *
-   * <p>If this method fails (by throwing an exception), {@link #abort()} will be called and this
-   * data writer is considered to have been failed.
-   *
-   * @throws IOException if failure happens during disk/network IO like writing files.
+   * @param partitionId A unique id of the RDD partition that the returned writer will process.
+   * @param taskId The task id returned by {@link org.apache.spark.TaskContext#taskAttemptId()}.
+   * @param writeConfig the MongoDB write configuration
    */
-  @Override
-  public WriterCommitMessage commit() throws IOException {
-    return null;
+  MongoDataWriter(
+      final int partitionId,
+      final long taskId,
+      final RowToBsonDocumentConverter rowToBsonDocumentConverter,
+      final WriteConfig writeConfig,
+      final long epochId) {
+    this.partitionId = partitionId;
+    this.taskId = taskId;
+    this.rowToBsonDocumentConverter = rowToBsonDocumentConverter;
+    this.writeConfig = writeConfig;
+    this.epochId = epochId;
+    this.bulkWriteOptions = new BulkWriteOptions().ordered(writeConfig.isOrdered());
   }
 
   /**
-   * Aborts this writer if it is failed. Implementations should clean up the data for already
-   * written records.
+   * Converts the record into a {@link BsonDocument} and stages the write.
    *
-   * <p>This method will only be called if there is one record failed to write, or {@link #commit()}
-   * failed.
+   * <p>Once {@link WriteConfig#getMaxBatchSize} is hit then the bulk operation takes place.
    *
-   * <p>If this method fails(by throwing an exception), the underlying data source may have garbage
-   * that need to be cleaned by {@link MongoBatchWrite#abort(WriterCommitMessage[])} or manually,
-   * but these garbage should not be visible to data source readers.
-   *
-   * @throws IOException if failure happens during disk/network IO like writing files.
+   * @param record the row to be written
+   * @see WriteConfig#getMaxBatchSize
    */
   @Override
-  public void abort() throws IOException {}
+  public void write(final InternalRow record) {
+    BsonDocument bsonDocument = rowToBsonDocumentConverter.fromRow(record);
+    writeModelList.add(getWriteModel(bsonDocument));
+    if (writeModelList.size() >= writeConfig.getMaxBatchSize()) {
+      writeModels();
+    }
+  }
+
+  /**
+   * Commits this writer after all records are written successfully.
+   *
+   * <p>Ensures any remain writes in the batch are written.
+   *
+   * @return a MongoWriterCommitMessage
+   */
+  @Override
+  public WriterCommitMessage commit() {
+    writeModels();
+    LOGGER.debug("Finished all writes for: PartitionId: {}, TaskId: {}.", partitionId, taskId);
+    return new MongoWriterCommitMessage(partitionId, taskId, epochId);
+  }
+
+  /**
+   * Aborts the write.
+   *
+   * <p>Note: Data is not cleaned up and will require manual cleaning.
+   */
+  @Override
+  public void abort() {
+    LOGGER.debug("Aborting write for: PartitionId: {}, TaskId: {}.", partitionId, taskId);
+    releaseClient();
+    throw new DataException(
+        format(
+            "Write aborted for: PartitionId: %s, TaskId: %s. "
+                + "Manual data clean up may be required.",
+            partitionId, taskId));
+  }
 
   @Override
-  public void close() throws IOException {}
+  public void close() {
+    LOGGER.debug("Closing PartitionId: {}, TaskId: {}.", partitionId, taskId);
+    releaseClient();
+  }
+
+  private WriteModel<BsonDocument> getWriteModel(final BsonDocument bsonDocument) {
+    if (!hasIdFields(bsonDocument)) {
+      return new InsertOneModel<>(bsonDocument);
+    }
+
+    switch (writeConfig.getOperationType()) {
+      case INSERT:
+        return new InsertOneModel<>(bsonDocument);
+      case REPLACE:
+        return new ReplaceOneModel<>(
+            getIdFieldDocument(bsonDocument), bsonDocument, new ReplaceOptions().upsert(true));
+      case UPDATE:
+        BsonDocument idFields = getIdFieldDocument(bsonDocument);
+        idFields.keySet().forEach(bsonDocument::remove);
+        BsonDocument setDocument = new BsonDocument("$set", bsonDocument);
+        return new UpdateOneModel<>(idFields, setDocument, new UpdateOptions().upsert(true));
+      default:
+        throw new DataException("Unsupported operation type: " + writeConfig.getOperationType());
+    }
+  }
+
+  private boolean hasIdFields(final BsonDocument bsonDocument) {
+    return bsonDocument.keySet().containsAll(writeConfig.getIdFields());
+  }
+
+  private BsonDocument getIdFieldDocument(final BsonDocument bsonDocument) {
+    BsonDocument idFields = new BsonDocument();
+    writeConfig
+        .getIdFields()
+        .forEach(
+            k -> {
+              BsonValue v = bsonDocument.get(k);
+              if (v == null) {
+                throw new DataException(
+                    format("Missing id field: '%s' from: %s", k, bsonDocument.toJson()));
+              }
+              idFields.append(k, v);
+            });
+    return idFields;
+  }
+
+  private MongoClient getMongoClient() {
+    if (mongoClient == null) {
+      mongoClient = writeConfig.getMongoClient();
+    }
+    return mongoClient;
+  }
+
+  private void releaseClient() {
+    if (mongoClient != null) {
+      mongoClient.close();
+      mongoClient = null;
+    }
+  }
+
+  private void writeModels() {
+    LOGGER.debug(
+        "Writing batch of {} operations. PartitionId: {}, TaskId: {}.",
+        writeModelList.size(),
+        partitionId,
+        taskId);
+    getMongoClient()
+        .getDatabase(writeConfig.getDatabaseName())
+        .getCollection(writeConfig.getCollectionName(), BsonDocument.class)
+        .withWriteConcern(writeConfig.getWriteConcern())
+        .bulkWrite(writeModelList, bulkWriteOptions);
+    writeModelList.clear();
+  }
 }

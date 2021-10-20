@@ -17,15 +17,20 @@
 
 package com.mongodb.spark.sql.connector.connection;
 
+import org.jetbrains.annotations.ApiStatus;
+
+import com.mongodb.client.MongoClient;
+
 /**
  * A lazily initialized {@link MongoClientCache}.
  *
  * @see <a href="https://docs.oracle.com/javase/specs/jls/se8/html/jls-12.html#jls-12.4.1">Java
  *     class lazy initialization rules</a>
  */
-final class LazyMongoClientCache {
+@ApiStatus.Internal
+public final class LazyMongoClientCache {
 
-  private static MongoClientCache cache;
+  private static final MongoClientCache CLIENT_CACHE;
 
   private static final String SYSTEM_MONGO_CACHE_KEEP_ALIVE_MS_PROPERTY =
       "spark.mongodb.keep_alive_ms";
@@ -39,19 +44,25 @@ final class LazyMongoClientCache {
       // ignore and use default
     }
 
-    cache = new MongoClientCache(keepAliveMS);
+    CLIENT_CACHE = new MongoClientCache(keepAliveMS);
     Runtime.getRuntime().addShutdownHook(new ShutdownHook());
   }
 
   private static class ShutdownHook extends Thread {
     @Override
     public void run() {
-      cache.shutdown();
+      CLIENT_CACHE.shutdown();
     }
   }
 
-  static MongoClientCache getCache() {
-    return cache;
+  /**
+   * Returns a {@link MongoClient} from the cache.
+   *
+   * @param mongoClientFactory the factory that is used to create the {@code MongoClient}
+   * @return the MongoClient
+   */
+  public static MongoClient getMongoClient(final MongoClientFactory mongoClientFactory) {
+    return CLIENT_CACHE.acquire(mongoClientFactory);
   }
 
   private LazyMongoClientCache() {}

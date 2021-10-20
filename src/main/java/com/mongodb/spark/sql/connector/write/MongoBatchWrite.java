@@ -17,108 +17,89 @@
 
 package com.mongodb.spark.sql.connector.write;
 
+import static java.lang.String.format;
+
+import java.util.Arrays;
+import java.util.Objects;
+
 import org.apache.spark.sql.connector.write.BatchWrite;
-import org.apache.spark.sql.connector.write.DataWriter;
 import org.apache.spark.sql.connector.write.DataWriterFactory;
+import org.apache.spark.sql.connector.write.LogicalWriteInfo;
 import org.apache.spark.sql.connector.write.PhysicalWriteInfo;
 import org.apache.spark.sql.connector.write.WriterCommitMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-/**
- * MongoBatchWrite defines how to write the data to data source for batch processing.
- *
- * <p>The writing procedure is:
- *
- * <ol>
- *   <li>Create a writer factory by {@link #createBatchWriterFactory(PhysicalWriteInfo)}, serialize
- *       and send it to all the partitions of the input data(RDD).
- *   <li>For each partition, create the data writer, and write the data of the partition with this
- *       writer. If all the data are written successfully, call {@link DataWriter#commit()}. If
- *       exception happens during the writing, call {@link DataWriter#abort()}.
- *   <li>If all writers are successfully committed, call {@link #commit(WriterCommitMessage[])}. If
- *       some writers are aborted, or the job failed with an unknown reason, call {@link
- *       #abort(WriterCommitMessage[])}.
- * </ol>
- *
- * <p>While Spark will retry failed writing tasks, Spark won't retry failed writing jobs. Users
- * should do it manually in their Spark applications if they want to retry.
- *
- * <p>Please refer to the documentation of commit/abort methods for detailed specifications.
- */
-public class MongoBatchWrite implements BatchWrite {
+import com.mongodb.client.MongoCollection;
+
+import com.mongodb.spark.sql.connector.config.WriteConfig;
+import com.mongodb.spark.sql.connector.exceptions.DataException;
+import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
+
+/** MongoBatchWrite defines how to write the data to MongoDB when batch processing. */
+class MongoBatchWrite implements BatchWrite {
+  private static final Logger LOGGER = LoggerFactory.getLogger(MongoBatchWrite.class);
+  private final LogicalWriteInfo info;
+  private final WriteConfig writeConfig;
+  private final RowToBsonDocumentConverter rowToBsonDocumentConverter;
+  private final boolean truncate;
+
   /**
-   * Creates a writer factory which will be serialized and sent to executors.
+   * Construct a new instance
    *
-   * <p>If this method fails (by throwing an exception), the action will fail and no Spark job will
-   * be submitted.
+   * @param info the logical write information
+   * @param rowToBsonDocumentConverter the row to BsonDocument converter
+   * @param writeConfig the configuration for the write
+   * @param truncate truncate the table
+   */
+  MongoBatchWrite(
+      final LogicalWriteInfo info,
+      final RowToBsonDocumentConverter rowToBsonDocumentConverter,
+      final WriteConfig writeConfig,
+      final boolean truncate) {
+    this.info = info;
+    this.rowToBsonDocumentConverter = rowToBsonDocumentConverter;
+    this.writeConfig = writeConfig;
+    this.truncate = truncate;
+  }
+
+  /**
+   * Creates the MongoDataWriterFactory instance will be serialized and sent to executors.
    *
    * @param info Physical information about the input data that will be written to this table.
    */
   @Override
   public DataWriterFactory createBatchWriterFactory(final PhysicalWriteInfo info) {
-    return null;
+    if (truncate) {
+      writeConfig.doWithCollection(MongoCollection::drop);
+    }
+    return new MongoDataWriterFactory(rowToBsonDocumentConverter, writeConfig);
   }
 
   /**
-   * Returns whether Spark should use the commit coordinator to ensure that at most one task for
-   * each partition commits.
+   * Logs the that the write has been committed
    *
-   * @return true if commit coordinator should be used, false otherwise.
+   * @param messages WriterCommitMessage
    */
   @Override
-  public boolean useCommitCoordinator() {
-    return BatchWrite.super.useCommitCoordinator();
+  public void commit(final WriterCommitMessage[] messages) {
+    LOGGER.debug("Write committed for: {}, with {} task(s).", info.queryId(), messages.length);
   }
 
   /**
-   * Handles a commit message on receiving from a successful data writer.
+   * The write was aborted due to a failure.
    *
-   * <p>If this method fails (by throwing an exception), this writing job is considered to to have
-   * been failed, and {@link #abort(WriterCommitMessage[])} would be called.
+   * <p>There is no automatic clean up, so the database state is undetermined.
    *
-   * @param message
+   * @param messages the WriterCommitMessages
+   * @throws DataException with information regarding the failed write
    */
   @Override
-  public void onDataWriterCommit(final WriterCommitMessage message) {
-    BatchWrite.super.onDataWriterCommit(message);
+  public void abort(final WriterCommitMessage[] messages) {
+    long tasksCompleted = Arrays.stream(messages).filter(Objects::nonNull).count();
+    throw new DataException(
+        format(
+            "Write aborted for: %s. %s/%s tasks completed.",
+            info.queryId(), tasksCompleted, messages.length));
   }
-
-  /**
-   * Commits this writing job with a list of commit messages. The commit messages are collected from
-   * successful data writers and are produced by {@link MongoDataWriter#commit()}.
-   *
-   * <p>If this method fails (by throwing an exception), this writing job is considered to to have
-   * been failed, and {@link #abort(WriterCommitMessage[])} would be called. The state of the
-   * destination is undefined and @{@link #abort(WriterCommitMessage[])} may not be able to deal
-   * with it.
-   *
-   * <p>Note that speculative execution may cause multiple tasks to run for a partition. By default,
-   * Spark uses the commit coordinator to allow at most one task to commit. Implementations can
-   * disable this behavior by overriding {@link #useCommitCoordinator()}. If disabled, multiple
-   * tasks may have committed successfully and one successful commit message per task will be passed
-   * to this commit method. The remaining commit messages are ignored by Spark.
-   *
-   * @param messages
-   */
-  @Override
-  public void commit(final WriterCommitMessage[] messages) {}
-
-  /**
-   * Aborts this writing job because some data writers are failed and keep failing when retry, or
-   * the Spark job fails with some unknown reasons, or {@link
-   * #onDataWriterCommit(WriterCommitMessage)} fails, or {@link #commit(WriterCommitMessage[])}
-   * fails.
-   *
-   * <p>If this method fails (by throwing an exception), the underlying data source may require
-   * manual cleanup.
-   *
-   * <p>Unless the abort is triggered by the failure of commit, the given messages should have some
-   * null slots as there maybe only a few data writers that are committed before the abort happens,
-   * or some data writers were committed but their commit messages haven't reached the driver when
-   * the abort is triggered. So this is just a "best effort" for data sources to clean up the data
-   * left by data writers.
-   *
-   * @param messages
-   */
-  @Override
-  public void abort(final WriterCommitMessage[] messages) {}
 }

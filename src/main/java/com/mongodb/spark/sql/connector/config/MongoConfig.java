@@ -17,191 +17,197 @@
 
 package com.mongodb.spark.sql.connector.config;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import static java.util.stream.Collectors.toList;
+
+import java.io.Serializable;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
-import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 import org.jetbrains.annotations.ApiStatus;
-import org.jetbrains.annotations.Nullable;
 
 import com.mongodb.ConnectionString;
+import com.mongodb.MongoNamespace;
 
-import com.mongodb.spark.sql.connector.annotations.ThreadSafe;
+import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.connection.DefaultMongoClientFactory;
-import com.mongodb.spark.sql.connector.connection.MongoClientFactory;
 
 /**
- * The MongoConfig class
+ * The MongoConfig interface.
  *
- * <p>Provides MongoDB specific configuration. Wraps the {@link CaseInsensitiveStringMap} options
- * provided by Spark.
+ * <p>Provides MongoDB specific configuration.
  */
-@ThreadSafe
-public final class MongoConfig {
+public interface MongoConfig extends Serializable {
+
+  /**
+   * Create a Mongo Configuration that does not yet have a determined read or write use case
+   *
+   * @param options the configuration options
+   * @see
+   *     com.mongodb.spark.sql.connector.MongoTableProvider#getTable(org.apache.spark.sql.types.StructType,
+   *     org.apache.spark.sql.connector.expressions.Transform[], Map)
+   * @return the configuration
+   */
+  @ApiStatus.Internal
+  static MongoConfig createConfig(final Map<String, String> options) {
+    return new UnknownUseCaseMongoConfig(options);
+  }
+
+  /**
+   * Create a Read Configuration
+   *
+   * @param options the configuration options
+   * @return the read configuration
+   */
+  static ReadConfig readConfig(final Map<String, String> options) {
+    return new ReadConfig(options);
+  }
+
+  /**
+   * Create a Write Configuration
+   *
+   * @param options the configuration options
+   * @return the write configuration
+   */
+  static WriteConfig writeConfig(final Map<String, String> options) {
+    return new WriteConfig(options);
+  }
 
   /**
    * The prefix for all general Spark MongoDB configurations.
    *
-   * <p>For example the {@link MongoConfig#MONGO_CONNECTION_STRING_CONFIG} should be defined as:
-   * "{@code spark.mongodb.connection.uri}".
+   * <p>For example the {@link MongoConfig#CONNECTION_STRING_CONFIG} should be defined as: "{@code
+   * spark.mongodb.connection.uri}".
    *
    * <p>{@value}
    */
-  public static final String MONGO_PREFIX = "spark.mongodb.";
+  String PREFIX = "spark.mongodb.";
 
   /**
    * The prefix for specific input (write) based configurations.
    *
-   * <p>Overrides any configurations that just use the {@link MongoConfig#MONGO_PREFIX}. For example
-   * to override the {@link MongoConfig#MONGO_CONNECTION_STRING_CONFIG} just for inputting data into
-   * MongoDB: "{@code spark.mongodb.input.connection.uri}".
+   * <p>Overrides any configurations that just use the {@link MongoConfig#PREFIX}. For example to
+   * override the {@link MongoConfig#CONNECTION_STRING_CONFIG} just for inputting data into MongoDB:
+   * "{@code spark.mongodb.input.connection.uri}".
    *
    * <p>{@value}
    */
-  public static final String MONGO_INPUT_PREFIX = "spark.mongodb.input.";
+  String WRITE_PREFIX = PREFIX + "write.";
 
   /**
    * The prefix for specific output (read) based configurations.
    *
-   * <p>Overrides any configurations that just use the {@link MongoConfig#MONGO_PREFIX}. For example
-   * to override the {@link MongoConfig#MONGO_CONNECTION_STRING_CONFIG} just for outputting data
-   * from MongoDB: "{@code spark.mongodb.output.connection.uri}".
+   * <p>Overrides any configurations that just use the {@link MongoConfig#PREFIX}. For example to
+   * override the {@link MongoConfig#CONNECTION_STRING_CONFIG} just for outputting data from
+   * MongoDB: "{@code spark.mongodb.output.connection.uri}".
    *
    * <p>{@value}
    */
-  public static final String MONGO_OUTPUT_PREFIX = "spark.mongodb.output.";
+  String READ_PREFIX = PREFIX + "read.";
 
   /**
    * The MongoClientFactory configuration key
    *
-   * <p>The default implementation uses the {@link MongoConfig#MONGO_CONNECTION_STRING_CONFIG} as
-   * the connection string.
+   * <p>The default implementation uses the {@link MongoConfig#CONNECTION_STRING_CONFIG} as the
+   * connection string.
    *
    * <p>Custom implementations are allowed and must implement the {@link
    * com.mongodb.spark.sql.connector.connection.MongoClientFactory} interface.
    *
    * <p>{@value}
    */
-  public static final String MONGO_CLIENT_FACTORY_CONFIG = "mongoClientFactory";
+  String CLIENT_FACTORY_CONFIG = "mongoClientFactory";
   /**
    * The default MongoClientFactory configuration value
    *
-   * <p>Requires the {@link MongoConfig#MONGO_CONNECTION_STRING_CONFIG} for configuring the
-   * resulting {@link com.mongodb.client.MongoClient}
+   * <p>Requires the {@link MongoConfig#CONNECTION_STRING_CONFIG} for configuring the resulting
+   * {@link com.mongodb.client.MongoClient}
    */
-  public static final String MONGO_CLIENT_FACTORY_DEFAULT =
-      DefaultMongoClientFactory.class.getName();
-
-  /** The connection string configuration key {@value} */
-  public static final String MONGO_CONNECTION_STRING_CONFIG = "connection.uri";
-  /** The default connection string configuration value {@value} */
-  public static final String MONGO_CONNECTION_STRING_DEFAULT = "mongodb://localhost:27017/";
-
-  /** The current usage mode for the configuration. */
-  private enum UsageMode {
-    INPUT,
-    OUTPUT
-  }
+  String CLIENT_FACTORY_DEFAULT = DefaultMongoClientFactory.class.getName();
 
   /**
-   * Creates a new {@code MongoConfig} for inputting data.
+   * The connection string configuration key
    *
-   * @param options the user provided options
-   * @return the MongoConfig.
+   * <p>{@value}
    */
-  public static MongoConfig createInputConfig(final CaseInsensitiveStringMap options) {
-    return new MongoConfig(options, UsageMode.INPUT);
-  }
+  String CONNECTION_STRING_CONFIG = "connection.uri";
+  /**
+   * The default connection string configuration value
+   *
+   * <p>{@value}
+   */
+  String CONNECTION_STRING_DEFAULT = "mongodb://localhost:27017/";
 
   /**
-   * Creates a new {@code MongoConfig} for outputting data.
+   * The database name config
    *
-   * @param options the user provided options
-   * @return the MongoConfig.
+   * <p>{@value}
    */
-  public static MongoConfig createOutputConfig(final CaseInsensitiveStringMap options) {
-    return new MongoConfig(options, UsageMode.OUTPUT);
-  }
-
-  private final CaseInsensitiveStringMap originals;
-  private final CaseInsensitiveStringMap values;
-  private final UsageMode usageMode;
-  private transient MongoClientFactory mongoClientFactory;
-
-  private MongoConfig(final CaseInsensitiveStringMap originals, final UsageMode usageMode) {
-    this.originals = originals;
-    this.usageMode = usageMode;
-
-    String ignorePrefix = usageMode == UsageMode.INPUT ? MONGO_OUTPUT_PREFIX : MONGO_INPUT_PREFIX;
-    String overridePrefix = usageMode == UsageMode.INPUT ? MONGO_INPUT_PREFIX : MONGO_OUTPUT_PREFIX;
-
-    Map<String, String> usageSpecificSettings = new HashMap<>();
-    List<String> defaults = new ArrayList<>();
-    List<String> overrides = new ArrayList<>();
-
-    originals.keySet().stream()
-        .filter(k -> k.startsWith(MONGO_PREFIX))
-        .forEach(
-            k -> {
-              if (k.startsWith(overridePrefix)) {
-                overrides.add(k);
-              } else if (!k.startsWith(ignorePrefix)) {
-                defaults.add(k);
-              }
-            });
-
-    defaults.forEach(
-        k -> usageSpecificSettings.put(k.substring(MONGO_PREFIX.length()), originals.get(k)));
-    overrides.forEach(
-        k -> usageSpecificSettings.put(k.substring(overridePrefix.length()), originals.get(k)));
-
-    this.values = new CaseInsensitiveStringMap(usageSpecificSettings);
-  }
+  String DATABASE_NAME_CONFIG = "database";
 
   /**
-   * Convert the configuration for use when inputting data
+   * The collection name config
    *
-   * @return the MongoConfig to use.
+   * <p>{@value}
    */
-  public MongoConfig toInputMongoConfig() {
-    if (this.usageMode == UsageMode.INPUT) {
-      return this;
-    }
-    return new MongoConfig(originals, UsageMode.INPUT);
-  }
+  String COLLECTION_NAME_CONFIG = "collection";
+
+  /** @return the options for this MongoConfig instance */
+  Map<String, String> getOptions();
 
   /**
-   * Convert the configuration for use when outputting data
+   * Return a {@link MongoConfig} instance with the extra options applied.
    *
-   * @return the MongoConfig to use.
+   * <p>Existing configurations may be overwritten by the new options.
+   *
+   * @param options the context specific options.
+   * @return a new MongoConfig
    */
-  public MongoConfig toOutputMongoConfig() {
-    if (this.usageMode == UsageMode.OUTPUT) {
-      return this;
-    }
-    return new MongoConfig(originals, UsageMode.OUTPUT);
-  }
+  MongoConfig withOptions(Map<String, String> options);
 
-  /** @return the {@link MongoClientFactory} to use. */
-  @ApiStatus.Internal
-  public synchronized MongoClientFactory getMongoClientFactory() {
-    if (mongoClientFactory == null) {
-      String mongoClientFactoryName =
-          values.getOrDefault(MONGO_CLIENT_FACTORY_CONFIG, MONGO_CLIENT_FACTORY_DEFAULT);
-      mongoClientFactory =
-          ClassHelper.createInstance(
-              MONGO_CLIENT_FACTORY_CONFIG, mongoClientFactoryName, MongoClientFactory.class, this);
-    }
-    return mongoClientFactory;
-  }
+  /** @return the original options for this MongoConfig instance */
+  Map<String, String> getOriginals();
+
+  /** @return the read config */
+  ReadConfig toReadConfig();
+
+  /** @return the write config */
+  WriteConfig toWriteConfig();
+
+  /** @return the namespace related to this config */
+  MongoNamespace getNamespace();
 
   /** @return the connection string */
-  public ConnectionString getConnectionString() {
-    return new ConnectionString(
-        getOrDefault(MONGO_CONNECTION_STRING_CONFIG, MONGO_CONNECTION_STRING_DEFAULT));
+  default ConnectionString getConnectionString() {
+    return new ConnectionString(getOrDefault(CONNECTION_STRING_CONFIG, CONNECTION_STRING_DEFAULT));
+  }
+
+  /** @return the database name to use for this configuration */
+  default String getDatabaseName() {
+    return Assertions.validateState(
+        get(DATABASE_NAME_CONFIG),
+        Objects::nonNull,
+        () -> "Missing configuration for: " + DATABASE_NAME_CONFIG);
+  }
+
+  /** @return the collection name to use for this configuration */
+  default String getCollectionName() {
+    return Assertions.validateState(
+        get(COLLECTION_NAME_CONFIG),
+        Objects::nonNull,
+        () -> "Missing configuration for: " + COLLECTION_NAME_CONFIG);
+  }
+
+  /**
+   * Returns {@code true} if this map contains a mapping for the specified key.
+   *
+   * @param key key whose presence in this map is to be tested
+   * @return {@code true} if this map contains a mapping for the specified key
+   */
+  default boolean containsKey(final String key) {
+    return getOptions().containsKey(key);
   }
 
   /**
@@ -210,8 +216,8 @@ public final class MongoConfig {
    * @param key the key whose associated value is to be returned. The key match is case-insensitive.
    * @return the value to which the specified key is mapped or null.
    */
-  public String get(final String key) {
-    return values.get(key);
+  default String get(final String key) {
+    return getOptions().get(key.toLowerCase(Locale.ROOT));
   }
 
   /**
@@ -221,14 +227,14 @@ public final class MongoConfig {
    * <p>Note: The key match is case-insensitive.
    *
    * @param key the key whose associated value is to be returned
-   * @param defaultValue the default mapping for the config, which may be null
+   * @param defaultValue the default mapping for the config
    * @return the value to which the specified key is mapped, or {@code defaultValue} if this config
    *     contains no mapping for the key or the mapping returns null. The key match is
    *     case-insensitive.
    * @throws ClassCastException if the key is of an inappropriate type for this map
    */
-  public String getOrDefault(final String key, @Nullable final String defaultValue) {
-    return values.getOrDefault(key, defaultValue);
+  default String getOrDefault(final String key, final String defaultValue) {
+    return getOptions().getOrDefault(key.toLowerCase(Locale.ROOT), defaultValue);
   }
 
   /**
@@ -241,8 +247,18 @@ public final class MongoConfig {
    *     there is no mapping for the key. The key match is case-insensitive.
    * @throws IllegalArgumentException if the specified key cannot be converted into a valid boolean
    */
-  public boolean getBoolean(final String key, final boolean defaultValue) {
-    return values.getBoolean(key, defaultValue);
+  default boolean getBoolean(final String key, final boolean defaultValue) {
+    String value = get(key);
+    // We can't use `Boolean.parseBoolean` here, as it returns false for invalid strings.
+    if (value == null) {
+      return defaultValue;
+    } else if (value.equalsIgnoreCase("true")) {
+      return true;
+    } else if (value.equalsIgnoreCase("false")) {
+      return false;
+    } else {
+      throw new IllegalArgumentException(value + " is not a boolean string.");
+    }
   }
 
   /**
@@ -255,8 +271,9 @@ public final class MongoConfig {
    *     there is no mapping for the key. The key match is case-insensitive.
    * @throws NumberFormatException if the specified key cannot be converted into a valid int
    */
-  public int getInt(final String key, final int defaultValue) {
-    return values.getInt(key, defaultValue);
+  default int getInt(final String key, final int defaultValue) {
+    String value = get(key);
+    return value == null ? defaultValue : Integer.parseInt(value);
   }
 
   /**
@@ -269,8 +286,9 @@ public final class MongoConfig {
    *     is no mapping for the key. The key match is case-insensitive.
    * @throws NumberFormatException if the specified key cannot be converted into a valid long
    */
-  public long getLong(final String key, final long defaultValue) {
-    return values.getLong(key, defaultValue);
+  default long getLong(final String key, final long defaultValue) {
+    String value = get(key);
+    return value == null ? defaultValue : Long.parseLong(value);
   }
 
   /**
@@ -283,29 +301,24 @@ public final class MongoConfig {
    *     is no mapping for the key. The key match is case-insensitive.
    * @throws NumberFormatException if the specified key cannot be converted into a valid double
    */
-  public double getDouble(final String key, final double defaultValue) {
-    return values.getDouble(key, defaultValue);
+  default double getDouble(final String key, final double defaultValue) {
+    String value = get(key);
+    return value == null ? defaultValue : Double.parseDouble(value);
   }
 
-  @Override
-  public String toString() {
-    return "MongoConfig{" + "usageMode=" + usageMode + '}';
-  }
-
-  @Override
-  public boolean equals(final Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (o == null || getClass() != o.getClass()) {
-      return false;
-    }
-    final MongoConfig that = (MongoConfig) o;
-    return Objects.equals(originals, that.originals) && usageMode == that.usageMode;
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(originals, usageMode);
+  /**
+   * Returns a list of strings from a comma delimited string to which the specified key is mapped,
+   * or {@code defaultValue} if there is no mapping for the key.
+   *
+   * @param key the key whose associated value is to be returned
+   * @param defaultValue the default mapping for the config
+   * @return a list of strings to which the specified key is mapped, or {@code defaultValue} if
+   *     there is no mapping for the key. The key match is case-insensitive.
+   */
+  default List<String> getList(final String key, final List<String> defaultValue) {
+    String value = get(key);
+    return value == null
+        ? defaultValue
+        : Arrays.stream(value.split(",")).map(String::trim).collect(toList());
   }
 }
