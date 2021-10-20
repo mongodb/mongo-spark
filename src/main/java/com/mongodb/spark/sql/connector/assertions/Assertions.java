@@ -17,6 +17,7 @@
 
 package com.mongodb.spark.sql.connector.assertions;
 
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /** Assertions to validate inputs */
@@ -47,6 +48,24 @@ public final class Assertions {
     if (!argumentCheck.get()) {
       throw new IllegalArgumentException(errorMessage);
     }
+  }
+
+  /**
+   * Checks the validity of a value
+   *
+   * @param value the value to check
+   * @param stateCheck the supplier of the state check
+   * @param errorMessage the error message if the supplier fails
+   * @param <T> the type of the value being checked
+   * @return the value or throw an {@code IllegalStateException} if the value is invalid
+   * @throws IllegalStateException if the state check fails
+   */
+  public static <T> T ensureIsValid(
+      final T value, final Function<T, Boolean> stateCheck, final String errorMessage) {
+    if (!stateCheck.apply(value)) {
+      throw new IllegalStateException(errorMessage);
+    }
+    return value;
   }
 
   private Assertions() {}

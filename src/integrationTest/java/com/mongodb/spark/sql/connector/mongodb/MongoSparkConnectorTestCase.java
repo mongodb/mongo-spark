@@ -26,7 +26,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.bson.Document;
+import org.bson.BsonDocument;
 
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
@@ -57,8 +57,12 @@ public class MongoSparkConnectorTestCase {
     return MONGODB.getCollectionName();
   }
 
-  public MongoCollection<Document> getCollection() {
-    return MONGODB.getCollection();
+  public MongoCollection<BsonDocument> getCollection() {
+    return getCollection(getCollectionName());
+  }
+
+  public MongoCollection<BsonDocument> getCollection(final String collectionName) {
+    return getDatabase().getCollection(collectionName, BsonDocument.class);
   }
 
   public boolean isReplicaSetOrSharded() {
@@ -84,7 +88,7 @@ public class MongoSparkConnectorTestCase {
   public CaseInsensitiveStringMap getConnectionProviderOptions() {
     Map<String, String> options = new HashMap<>();
     options.put(
-        MongoConfig.MONGO_PREFIX + MongoConfig.MONGO_CONNECTION_STRING_CONFIG,
+        MongoConfig.PREFIX + MongoConfig.CONNECTION_STRING_CONFIG,
         MONGODB.getConnectionString().toString());
     return new CaseInsensitiveStringMap(options);
   }

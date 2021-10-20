@@ -17,10 +17,17 @@
 
 package com.mongodb.spark.sql.connector.write;
 
+import org.apache.spark.sql.connector.write.LogicalWriteInfo;
 import org.apache.spark.sql.connector.write.PhysicalWriteInfo;
 import org.apache.spark.sql.connector.write.WriterCommitMessage;
 import org.apache.spark.sql.connector.write.streaming.StreamingDataWriterFactory;
 import org.apache.spark.sql.connector.write.streaming.StreamingWrite;
+import org.slf4j.LoggerFactory;
+
+import com.mongodb.client.MongoCollection;
+
+import com.mongodb.spark.sql.connector.config.WriteConfig;
+import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 /**
  * MongoStreamingWrite defines how to write the data to data source in streaming queries.
@@ -45,6 +52,32 @@ import org.apache.spark.sql.connector.write.streaming.StreamingWrite;
  * <p>Please refer to the documentation of commit/abort methods for detailed specifications.
  */
 public class MongoStreamingWrite implements StreamingWrite {
+
+  private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(MongoStreamingWrite.class);
+  private final LogicalWriteInfo info;
+  private final WriteConfig writeConfig;
+  private final RowToBsonDocumentConverter rowToBsonDocumentConverter;
+  private final boolean truncate;
+
+  /**
+   * Construct a new instance
+   *
+   * @param info the logical write information
+   * @param rowToBsonDocumentConverter the row to BsonDocument converter
+   * @param writeConfig the configuration for the write
+   * @param truncate truncate the table
+   */
+  MongoStreamingWrite(
+      final LogicalWriteInfo info,
+      final RowToBsonDocumentConverter rowToBsonDocumentConverter,
+      final WriteConfig writeConfig,
+      final boolean truncate) {
+    this.info = info;
+    this.rowToBsonDocumentConverter = rowToBsonDocumentConverter;
+    this.writeConfig = writeConfig;
+    this.truncate = truncate;
+  }
+
   /**
    * Creates a writer factory which will be serialized and sent to executors.
    *
@@ -55,7 +88,10 @@ public class MongoStreamingWrite implements StreamingWrite {
    */
   @Override
   public StreamingDataWriterFactory createStreamingWriterFactory(final PhysicalWriteInfo info) {
-    return null;
+    if (truncate) {
+      writeConfig.doWithCollection(MongoCollection::drop);
+    }
+    return new MongoDataWriterFactory(rowToBsonDocumentConverter, writeConfig);
   }
 
   /**

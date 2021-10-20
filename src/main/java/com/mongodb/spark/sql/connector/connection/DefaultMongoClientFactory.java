@@ -29,6 +29,7 @@ import com.mongodb.spark.sql.connector.config.MongoConfig;
 /** The default MongoClientFactory implementation. */
 @ApiStatus.Internal
 public final class DefaultMongoClientFactory implements MongoClientFactory {
+  private static final long serialVersionUID = 1L;
   private final MongoConfig config;
 
   /**

@@ -16,14 +16,76 @@
  */
 package com.mongodb.spark.sql.connector.write;
 
+import java.util.Objects;
+
 import org.apache.spark.sql.connector.write.WriterCommitMessage;
 
 /**
  * A commit message returned by {@link MongoDataWriter#commit()} and will be sent back to the driver
  * side as the input parameter of {@link MongoBatchWrite#commit(WriterCommitMessage[])} or {@link
  * MongoStreamingWrite#commit(long, WriterCommitMessage[])}.
- *
- * <p>Todo data sources should define their own message class and use it when generating messages at
- * executor side and handling the messages at driver side.
  */
-public class MongoWriterCommitMessage implements WriterCommitMessage {}
+class MongoWriterCommitMessage implements WriterCommitMessage {
+
+  private final int partitionId;
+  private final long taskId;
+  private final long epochId;
+
+  /**
+   * Construct a new instance
+   *
+   * @param partitionId A unique id of the RDD partition that the returned writer will process.
+   *     Usually Spark processes many RDD partitions at the same time, implementations should use
+   *     the partition id to distinguish writers for different partitions.
+   * @param taskId The task id returned by {@link org.apache.spark.TaskContext#taskAttemptId()}.
+   */
+  MongoWriterCommitMessage(final int partitionId, final long taskId, final long epochId) {
+    this.partitionId = partitionId;
+    this.taskId = taskId;
+    this.epochId = epochId;
+  }
+
+  /** @return The unique partition id */
+  public int getPartitionId() {
+    return partitionId;
+  }
+
+  /** @return The task id */
+  public long getTaskId() {
+    return taskId;
+  }
+
+  /** @return The epoch id or -1 if not set */
+  public long getEpochId() {
+    return epochId;
+  }
+
+  @Override
+  public String toString() {
+    return "MongoWriterCommitMessage{"
+        + "partitionId="
+        + partitionId
+        + ", taskId="
+        + taskId
+        + ", epochId="
+        + epochId
+        + '}';
+  }
+
+  @Override
+  public boolean equals(final Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    final MongoWriterCommitMessage that = (MongoWriterCommitMessage) o;
+    return partitionId == that.partitionId && taskId == that.taskId;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(partitionId, taskId);
+  }
+}

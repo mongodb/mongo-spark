@@ -17,6 +17,8 @@
 
 package com.mongodb.spark.sql.connector.connection;
 
+import java.io.Serializable;
+
 import com.mongodb.client.MongoClient;
 
 import com.mongodb.spark.sql.connector.annotations.ThreadSafe;
@@ -43,7 +45,7 @@ import com.mongodb.spark.sql.connector.annotations.ThreadSafe;
  * instance.
  */
 @ThreadSafe
-public interface MongoClientFactory {
+public interface MongoClientFactory extends Serializable {
 
   /** @return create a new instance of a {@code MongoClient}. */
   MongoClient create();

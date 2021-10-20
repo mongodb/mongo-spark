@@ -21,6 +21,7 @@ import static java.lang.String.format;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.spark.sql.catalyst.analysis.NamespaceAlreadyExistsException;
@@ -41,13 +42,12 @@ import org.jetbrains.annotations.VisibleForTesting;
 import org.bson.conversions.Bson;
 
 import com.mongodb.MongoNamespace;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
 
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
-import com.mongodb.spark.sql.connector.connection.MongoConnectionProvider;
+import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.config.WriteConfig;
 
 /** Spark Catalog methods for working with namespaces (databases) and tables (collections). */
 public class MongoCatalog implements TableCatalog, SupportsNamespaces {
@@ -57,8 +57,10 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
       Filters.and(NOT_SYSTEM_NAMESPACE, Filters.eq("type", "collection"));
 
   private boolean initialized;
-  private String catalogName;
-  private MongoConnectionProvider mongoConnectionProvider;
+  private String name;
+  private CaseInsensitiveStringMap options;
+  private ReadConfig readConfig;
+  private WriteConfig writeConfig;
 
   /**
    * Called to initialize configuration.
@@ -72,8 +74,8 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   public void initialize(final String name, final CaseInsensitiveStringMap options) {
     Assertions.ensureState(() -> !initialized, "The MongoCatalog has already been initialized.");
     initialized = true;
-    catalogName = name;
-    mongoConnectionProvider = new MongoConnectionProvider(MongoConfig.createInputConfig(options));
+    this.name = name;
+    this.options = options;
   }
 
   /**
@@ -85,7 +87,7 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   @Override
   public String name() {
     assertInitialized();
-    return catalogName;
+    return name;
   }
 
   /**
@@ -199,7 +201,7 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   public boolean dropNamespace(final String[] namespace) {
     assertInitialized();
     if (namespaceExists(namespace)) {
-      mongoConnectionProvider.doWithDatabase(namespace[0], MongoDatabase::drop);
+      MongoConfig.writeConfig(options).doWithClient(c -> c.getDatabase(namespace[0]).drop());
       return true;
     }
     return false;
@@ -254,10 +256,11 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
     if (!tableExists(identifier)) {
       throw new NoSuchTableException(identifier);
     }
-    return new MongoTable(
-        new MongoNamespace(identifier.namespace()[0], identifier.name()),
-        null,
-        mongoConnectionProvider);
+    Map<String, String> properties = new HashMap<>(options);
+    properties.put(
+        MongoConfig.READ_PREFIX + MongoConfig.DATABASE_NAME_CONFIG, identifier.namespace()[0]);
+    properties.put(MongoConfig.READ_PREFIX + MongoConfig.COLLECTION_NAME_CONFIG, identifier.name());
+    return new MongoTable(MongoConfig.readConfig(properties));
   }
 
   /**
@@ -296,12 +299,10 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
               String.join(",", properties.keySet())));
     }
 
-    mongoConnectionProvider.doWithDatabase(
-        identifier.namespace()[0], db -> db.createCollection(identifier.name()));
-    return new MongoTable(
-        new MongoNamespace(identifier.namespace()[0], identifier.name()),
-        schema,
-        mongoConnectionProvider);
+    getWriteConfig()
+        .doWithClient(
+            c -> c.getDatabase(identifier.namespace()[0]).createCollection(identifier.name()));
+    return new MongoTable(schema, getWriteConfig());
   }
 
   /**
@@ -324,6 +325,7 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   @Override
   public Table alterTable(final Identifier identifier, final TableChange... changes)
       throws NoSuchTableException {
+    assertInitialized();
     if (!tableExists(identifier)) {
       throw new NoSuchTableException(identifier);
     }
@@ -344,8 +346,10 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   public boolean dropTable(final Identifier identifier) {
     assertInitialized();
     if (identifier.namespace().length == 1 && filterCollections(identifier).length != 0) {
-      mongoConnectionProvider.doWithCollection(
-          identifier.namespace()[0], identifier.name(), MongoCollection::drop);
+      getWriteConfig()
+          .doWithClient(
+              c ->
+                  c.getDatabase(identifier.namespace()[0]).getCollection(identifier.name()).drop());
       return true;
     }
     return false;
@@ -376,12 +380,13 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
     } else if (tableExists(newIdentifier)) {
       throw new TableAlreadyExistsException(newIdentifier);
     }
-    mongoConnectionProvider.doWithCollection(
-        oldIdentifier.namespace()[0],
-        oldIdentifier.name(),
-        coll ->
-            coll.renameCollection(
-                new MongoNamespace(newIdentifier.namespace()[0], newIdentifier.name())));
+    getWriteConfig()
+        .doWithClient(
+            c ->
+                c.getDatabase(oldIdentifier.namespace()[0])
+                    .getCollection(oldIdentifier.name())
+                    .renameCollection(
+                        new MongoNamespace(newIdentifier.namespace()[0], newIdentifier.name())));
   }
 
   private void assertInitialized() {
@@ -398,15 +403,16 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
             ? NOT_SYSTEM_NAMESPACE
             : Filters.and(Filters.eq("name", databaseName[0]), NOT_SYSTEM_NAMESPACE);
 
-    return mongoConnectionProvider.withClient(
-        client ->
-            client
-                .listDatabases()
-                .filter(filter)
-                .nameOnly(true)
-                .map(d -> new String[] {d.getString("name")})
-                .into(new ArrayList<>())
-                .toArray(new String[0][]));
+    return getReadConfig()
+        .withClient(
+            client ->
+                client
+                    .listDatabases()
+                    .filter(filter)
+                    .nameOnly(true)
+                    .map(d -> new String[] {d.getString("name")})
+                    .into(new ArrayList<>())
+                    .toArray(new String[0][]));
   }
 
   private Identifier[] filterCollections(final Identifier identifier) {
@@ -419,20 +425,33 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
             ? IS_COLLECTION
             : Filters.and(Filters.eq("name", identifier.name()), IS_COLLECTION);
 
-    return mongoConnectionProvider.withDatabase(
-        identifier.namespace()[0],
-        db ->
-            db.listCollections()
-                .filter(filter)
-                .map(d -> Identifier.of(identifier.namespace(), d.getString("name")))
-                .into(new ArrayList<>())
-                .toArray(new Identifier[0]));
+    return getReadConfig()
+        .withClient(
+            c ->
+                c.getDatabase(identifier.namespace()[0])
+                    .listCollections()
+                    .filter(filter)
+                    .map(d -> Identifier.of(identifier.namespace(), d.getString("name")))
+                    .into(new ArrayList<>())
+                    .toArray(new Identifier[0]));
   }
 
   @VisibleForTesting
-  MongoConnectionProvider getMongoConnectionProvider() {
+  WriteConfig getWriteConfig() {
     assertInitialized();
-    return mongoConnectionProvider;
+    if (writeConfig == null) {
+      writeConfig = MongoConfig.writeConfig(options);
+    }
+    return writeConfig;
+  }
+
+  @VisibleForTesting
+  private ReadConfig getReadConfig() {
+    assertInitialized();
+    if (readConfig == null) {
+      readConfig = MongoConfig.readConfig(options);
+    }
+    return readConfig;
   }
 
   @VisibleForTesting
@@ -440,8 +459,8 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
     if (initialized) {
       onReset.run();
       initialized = false;
-      catalogName = null;
-      mongoConnectionProvider = null;
+      name = null;
+      options = null;
     }
   }
 }

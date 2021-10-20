@@ -19,12 +19,15 @@ package com.mongodb.spark.sql.connector.schema;
 
 import static java.lang.String.format;
 
+import java.io.Serializable;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import org.apache.spark.sql.Row;
+import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.types.ArrayType;
 import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.DataTypes;
@@ -35,6 +38,7 @@ import org.apache.spark.sql.types.StringType;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.TestOnly;
 
 import org.bson.BsonArray;
 import org.bson.BsonBinary;
@@ -49,6 +53,7 @@ import org.bson.BsonString;
 import org.bson.BsonValue;
 import org.bson.types.Decimal128;
 
+import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import com.mongodb.spark.sql.connector.exceptions.DataException;
 
 /**
@@ -57,10 +62,45 @@ import com.mongodb.spark.sql.connector.exceptions.DataException;
  * <p>All Spark types are considered convertible to Bson types.
  */
 @NotNull
-public final class RowToBsonDocumentConverter {
+public final class RowToBsonDocumentConverter implements Serializable {
+
+  private static final long serialVersionUID = 1L;
+
+  private final Function<InternalRow, Row> internalRowConverter;
 
   /** Construct a new instance */
-  public RowToBsonDocumentConverter() {}
+  @TestOnly
+  public RowToBsonDocumentConverter() {
+    this(
+        internalRow -> {
+          throw new ConfigException("No InternalRow to Row converter");
+        });
+  }
+
+  /**
+   * Construct a new instance
+   *
+   * @param schema the schema for the row
+   */
+  public RowToBsonDocumentConverter(final StructType schema) {
+    this(new InternalRowToRowFunction(schema));
+  }
+
+  /** Construct a new instance */
+  private RowToBsonDocumentConverter(final Function<InternalRow, Row> internalRowConverter) {
+    this.internalRowConverter = internalRowConverter;
+  }
+
+  /**
+   * Converts a {@link Row} to a {@link BsonDocument}
+   *
+   * @param row the row to convert
+   * @throws DataException if the {@code Row} does not have a schema associated with it
+   * @return a BsonDocument representing the data in the row
+   */
+  public BsonDocument fromRow(final InternalRow row) {
+    return fromRow(internalRowConverter.apply(row));
+  }
 
   /**
    * Converts a {@link Row} to a {@link BsonDocument}

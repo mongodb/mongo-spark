@@ -17,13 +17,18 @@
 
 package com.mongodb.spark.sql.connector.connection;
 
+import org.jetbrains.annotations.ApiStatus;
+
+import com.mongodb.client.MongoClient;
+
 /**
  * A lazily initialized {@link MongoClientCache}.
  *
  * @see <a href="https://docs.oracle.com/javase/specs/jls/se8/html/jls-12.html#jls-12.4.1">Java
  *     class lazy initialization rules</a>
  */
-final class LazyMongoClientCache {
+@ApiStatus.Internal
+public final class LazyMongoClientCache {
 
   private static MongoClientCache cache;
 
@@ -50,8 +55,14 @@ final class LazyMongoClientCache {
     }
   }
 
-  static MongoClientCache getCache() {
-    return cache;
+  /**
+   * Returns a {@link MongoClient} from the cache.
+   *
+   * @param mongoClientFactory the factory that is used to create the {@code MongoClient}
+   * @return the MongoClient
+   */
+  public static MongoClient getMongoClient(final MongoClientFactory mongoClientFactory) {
+    return cache.acquire(mongoClientFactory);
   }
 
   private LazyMongoClientCache() {}

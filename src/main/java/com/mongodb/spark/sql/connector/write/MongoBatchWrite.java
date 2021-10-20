@@ -17,11 +17,24 @@
 
 package com.mongodb.spark.sql.connector.write;
 
+import static java.lang.String.format;
+
+import java.util.Arrays;
+import java.util.Objects;
+
 import org.apache.spark.sql.connector.write.BatchWrite;
 import org.apache.spark.sql.connector.write.DataWriter;
 import org.apache.spark.sql.connector.write.DataWriterFactory;
+import org.apache.spark.sql.connector.write.LogicalWriteInfo;
 import org.apache.spark.sql.connector.write.PhysicalWriteInfo;
 import org.apache.spark.sql.connector.write.WriterCommitMessage;
+import org.slf4j.LoggerFactory;
+
+import com.mongodb.client.MongoCollection;
+
+import com.mongodb.spark.sql.connector.config.WriteConfig;
+import com.mongodb.spark.sql.connector.exceptions.DataException;
+import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 /**
  * MongoBatchWrite defines how to write the data to data source for batch processing.
@@ -44,7 +57,32 @@ import org.apache.spark.sql.connector.write.WriterCommitMessage;
  *
  * <p>Please refer to the documentation of commit/abort methods for detailed specifications.
  */
-public class MongoBatchWrite implements BatchWrite {
+class MongoBatchWrite implements BatchWrite {
+  private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(MongoBatchWrite.class);
+  private final LogicalWriteInfo info;
+  private final WriteConfig writeConfig;
+  private final RowToBsonDocumentConverter rowToBsonDocumentConverter;
+  private final boolean truncate;
+
+  /**
+   * Construct a new instance
+   *
+   * @param info the logical write information
+   * @param rowToBsonDocumentConverter the row to BsonDocument converter
+   * @param writeConfig the configuration for the write
+   * @param truncate truncate the table
+   */
+  MongoBatchWrite(
+      final LogicalWriteInfo info,
+      final RowToBsonDocumentConverter rowToBsonDocumentConverter,
+      final WriteConfig writeConfig,
+      final boolean truncate) {
+    this.info = info;
+    this.rowToBsonDocumentConverter = rowToBsonDocumentConverter;
+    this.writeConfig = writeConfig;
+    this.truncate = truncate;
+  }
+
   /**
    * Creates a writer factory which will be serialized and sent to executors.
    *
@@ -55,52 +93,26 @@ public class MongoBatchWrite implements BatchWrite {
    */
   @Override
   public DataWriterFactory createBatchWriterFactory(final PhysicalWriteInfo info) {
-    return null;
-  }
-
-  /**
-   * Returns whether Spark should use the commit coordinator to ensure that at most one task for
-   * each partition commits.
-   *
-   * @return true if commit coordinator should be used, false otherwise.
-   */
-  @Override
-  public boolean useCommitCoordinator() {
-    return BatchWrite.super.useCommitCoordinator();
-  }
-
-  /**
-   * Handles a commit message on receiving from a successful data writer.
-   *
-   * <p>If this method fails (by throwing an exception), this writing job is considered to to have
-   * been failed, and {@link #abort(WriterCommitMessage[])} would be called.
-   *
-   * @param message
-   */
-  @Override
-  public void onDataWriterCommit(final WriterCommitMessage message) {
-    BatchWrite.super.onDataWriterCommit(message);
+    if (truncate) {
+      writeConfig.doWithCollection(MongoCollection::drop);
+    }
+    return new MongoDataWriterFactory(rowToBsonDocumentConverter, writeConfig);
   }
 
   /**
    * Commits this writing job with a list of commit messages. The commit messages are collected from
    * successful data writers and are produced by {@link MongoDataWriter#commit()}.
    *
-   * <p>If this method fails (by throwing an exception), this writing job is considered to to have
-   * been failed, and {@link #abort(WriterCommitMessage[])} would be called. The state of the
-   * destination is undefined and @{@link #abort(WriterCommitMessage[])} may not be able to deal
-   * with it.
+   * <p>If this method fails (by throwing an exception), this writing job is considered to have been
+   * failed, and {@link #abort(WriterCommitMessage[])} would be called. The state of the destination
+   * is undefined and @{@link #abort(WriterCommitMessage[])} may not be able to deal with it.
    *
-   * <p>Note that speculative execution may cause multiple tasks to run for a partition. By default,
-   * Spark uses the commit coordinator to allow at most one task to commit. Implementations can
-   * disable this behavior by overriding {@link #useCommitCoordinator()}. If disabled, multiple
-   * tasks may have committed successfully and one successful commit message per task will be passed
-   * to this commit method. The remaining commit messages are ignored by Spark.
-   *
-   * @param messages
+   * @param messages WriterCommitMessage
    */
   @Override
-  public void commit(final WriterCommitMessage[] messages) {}
+  public void commit(final WriterCommitMessage[] messages) {
+    LOGGER.info("Write committed for: {}, with {} task(s).", info.queryId(), messages.length);
+  }
 
   /**
    * Aborts this writing job because some data writers are failed and keep failing when retry, or
@@ -117,8 +129,14 @@ public class MongoBatchWrite implements BatchWrite {
    * the abort is triggered. So this is just a "best effort" for data sources to clean up the data
    * left by data writers.
    *
-   * @param messages
+   * @param messages the WriterCommitMessages
    */
   @Override
-  public void abort(final WriterCommitMessage[] messages) {}
+  public void abort(final WriterCommitMessage[] messages) {
+    long tasksCompleted = Arrays.stream(messages).filter(Objects::nonNull).count();
+    throw new DataException(
+        format(
+            "Write aborted for: %s. %s/%s tasks completed.",
+            info.queryId(), tasksCompleted, messages.length));
+  }
 }

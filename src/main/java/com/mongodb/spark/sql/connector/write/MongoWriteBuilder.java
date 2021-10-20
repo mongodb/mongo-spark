@@ -18,8 +18,14 @@
 package com.mongodb.spark.sql.connector.write;
 
 import org.apache.spark.sql.connector.write.BatchWrite;
+import org.apache.spark.sql.connector.write.LogicalWriteInfo;
+import org.apache.spark.sql.connector.write.SupportsTruncate;
 import org.apache.spark.sql.connector.write.WriteBuilder;
 import org.apache.spark.sql.connector.write.streaming.StreamingWrite;
+import org.jetbrains.annotations.ApiStatus;
+
+import com.mongodb.spark.sql.connector.config.WriteConfig;
+import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 /**
  * MongoWriteBuilder builds {@link MongoBatchWrite}. Implementations can mix in some interfaces to
@@ -28,28 +34,53 @@ import org.apache.spark.sql.connector.write.streaming.StreamingWrite;
  * <p>Unless modified by a mixin interface, the {@link MongoBatchWrite} configured by this builder
  * is to append data without affecting existing data.
  */
-public class MongoWriteBuilder implements WriteBuilder {
-  /**
-   * Returns a {@link BatchWrite} to write data to batch source. By default this method throws
-   * exception, data sources must overwrite this method to provide an implementation, if the {@link
-   * org.apache.spark.sql.connector.catalog.Table} that creates this write returns {@link
-   * org.apache.spark.sql.connector.catalog.TableCapability#BATCH_WRITE} support in its {@link
-   * org.apache.spark.sql.connector.catalog.Table#capabilities()}.
-   */
-  @Override
-  public BatchWrite buildForBatch() {
-    return WriteBuilder.super.buildForBatch();
-  }
+@ApiStatus.Internal
+public class MongoWriteBuilder implements WriteBuilder, SupportsTruncate {
+  private final LogicalWriteInfo info;
+  private final RowToBsonDocumentConverter rowToBsonDocumentConverter;
+  private final WriteConfig writeConfig;
+
+  private final boolean truncate;
 
   /**
-   * Returns a {@link StreamingWrite} to write data to streaming source. By default this method
-   * throws exception, data sources must overwrite this method to provide an implementation, if the
-   * {@link org.apache.spark.sql.connector.catalog.Table} that creates this write returns {@link
-   * org.apache.spark.sql.connector.catalog.TableCapability#STREAMING_WRITE} support in its {@link
-   * org.apache.spark.sql.connector.catalog.Table#capabilities()}.
+   * Construct a new instance
+   *
+   * @param info the logical write info
+   * @param writeConfig the configuration for the write
    */
+  public MongoWriteBuilder(final LogicalWriteInfo info, final WriteConfig writeConfig) {
+    this(
+        info,
+        new RowToBsonDocumentConverter(info.schema()),
+        writeConfig.withOptions(info.options()),
+        false);
+  }
+
+  private MongoWriteBuilder(
+      final LogicalWriteInfo info,
+      final RowToBsonDocumentConverter rowToBsonDocumentConverter,
+      final WriteConfig writeConfig,
+      final boolean truncate) {
+    this.info = info;
+    this.rowToBsonDocumentConverter = rowToBsonDocumentConverter;
+    this.writeConfig = writeConfig;
+    this.truncate = truncate;
+  }
+
+  /** Returns a {@link BatchWrite} to write data to batch source. */
+  @Override
+  public BatchWrite buildForBatch() {
+    return new MongoBatchWrite(info, rowToBsonDocumentConverter, writeConfig, truncate);
+  }
+
+  /** Returns a {@link StreamingWrite} to write data to streaming source. */
   @Override
   public StreamingWrite buildForStreaming() {
-    return WriteBuilder.super.buildForStreaming();
+    return new MongoStreamingWrite(info, rowToBsonDocumentConverter, writeConfig, truncate);
+  }
+
+  @Override
+  public WriteBuilder truncate() {
+    return new MongoWriteBuilder(info, rowToBsonDocumentConverter, writeConfig, true);
   }
 }

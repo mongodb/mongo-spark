@@ -15,6 +15,10 @@
  */
 package com.mongodb.spark.sql.connector.mongodb;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.sql.SparkSession;
@@ -34,6 +38,8 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+
+import com.mongodb.spark.sql.connector.config.MongoConfig;
 
 public class MongoSparkConnectorHelper
     implements BeforeAllCallback, BeforeEachCallback, AfterEachCallback, AfterAllCallback {
@@ -101,8 +107,12 @@ public class MongoSparkConnectorHelper
     return collectionName != null ? collectionName : DEFAULT_COLLECTION_NAME;
   }
 
-  public MongoCollection<Document> getCollection() {
-    return getDatabase().getCollection(getCollectionName());
+  public MongoCollection<BsonDocument> getCollection() {
+    return getDatabase().getCollection(getCollectionName(), BsonDocument.class);
+  }
+
+  public MongoCollection<BsonDocument> getAlternativeCollection() {
+    return getDatabase().getCollection(getCollectionName(), BsonDocument.class);
   }
 
   public ConnectionString getConnectionString() {
@@ -171,10 +181,14 @@ public class MongoSparkConnectorHelper
         .setAppName("MongoSparkConnector")
         .set("spark.driver.allowMultipleContexts", "false")
         .set("spark.sql.allowMultipleContexts", "false")
+        .set("spark.sql.streaming.checkpointLocation", getTempDirectory())
+        .set("spark.sql.streaming.forceDeleteTempCheckpointLocation", "true")
         .set("spark.app.id", "MongoSparkConnector")
-        .set("spark.mongodb.output.uri", getConnectionString().getConnectionString())
-        .set("spark.mongodb.output.database", getDatabaseName())
-        .set("spark.mongodb.output.collection", getCollectionName());
+        .set(
+            MongoConfig.WRITE_PREFIX + MongoConfig.CONNECTION_STRING_CONFIG,
+            getConnectionString().getConnectionString())
+        .set(MongoConfig.WRITE_PREFIX + MongoConfig.DATABASE_NAME_CONFIG, getDatabaseName())
+        .set(MongoConfig.WRITE_PREFIX + MongoConfig.COLLECTION_NAME_CONFIG, getCollectionName());
   }
 
   public SparkContext getOrCreateSparkContext(final SparkConf sparkConfig) {
@@ -198,5 +212,15 @@ public class MongoSparkConnectorHelper
       SparkSession.clearDefaultSession();
     }
     sparkContext = null;
+  }
+
+  public String getTempDirectory() {
+    try {
+      File tmpDirectory = Files.createTempDirectory("mongo-spark-connector").toFile();
+      tmpDirectory.deleteOnExit();
+      return tmpDirectory.getAbsolutePath();
+    } catch (IOException e) {
+      throw new UnsupportedOperationException("Could not create a temp directory", e);
+    }
   }
 }

@@ -25,8 +25,8 @@ import org.apache.spark.sql.connector.expressions.Transform;
 import org.apache.spark.sql.sources.DataSourceRegister;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import com.mongodb.spark.sql.connector.config.MongoConfig;
 
 /**
  * The MongoDB collection provider
@@ -42,13 +42,8 @@ import org.slf4j.LoggerFactory;
  */
 public final class MongoTableProvider implements TableProvider, DataSourceRegister {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(MongoTableProvider.class);
-
   /** Construct a new instance */
-  public MongoTableProvider() {
-    LOGGER.error("Todo - MongoTableProvider support");
-    throw new UnsupportedOperationException("MongoTableProvider: Currently unsupported");
-  }
+  public MongoTableProvider() {}
 
   @Override
   public String shortName() {
@@ -63,21 +58,7 @@ public final class MongoTableProvider implements TableProvider, DataSourceRegist
    */
   @Override
   public StructType inferSchema(final CaseInsensitiveStringMap options) {
-    return null;
-  }
-
-  /**
-   * Infer the partitioning of the table identified by the given options.
-   *
-   * <p>By default this method returns empty partitioning, please override it if this source support
-   * partitioning.
-   *
-   * @param options an immutable case-insensitive string-to-string map that can identify a table,
-   *     e.g. file path, Kafka topic name, etc.
-   */
-  @Override
-  public Transform[] inferPartitioning(final CaseInsensitiveStringMap options) {
-    return TableProvider.super.inferPartitioning(options);
+    throw new UnsupportedOperationException("inferSchema is not supported");
   }
 
   /**
@@ -96,7 +77,7 @@ public final class MongoTableProvider implements TableProvider, DataSourceRegist
       final StructType schema,
       final Transform[] partitioning,
       final Map<String, String> properties) {
-    return null;
+    return new MongoTable(schema, partitioning, MongoConfig.createConfig(properties));
   }
 
   /**
@@ -104,13 +85,9 @@ public final class MongoTableProvider implements TableProvider, DataSourceRegist
    * tables. The external table metadata includes: 1. For table reader: user-specified schema from
    * `DataFrameReader`/`DataStreamReader` and schema/partitioning stored in Spark catalog. 2. For
    * table writer: the schema of the input `Dataframe` of `DataframeWriter`/`DataStreamWriter`.
-   *
-   * <p>By default this method returns false, which means the schema and partitioning passed to
-   * `getTable` are from the infer methods. Please override it if this source has expensive
-   * schema/partitioning inference and wants external table metadata to avoid inference.
    */
   @Override
   public boolean supportsExternalMetadata() {
-    return TableProvider.super.supportsExternalMetadata();
+    return true;
   }
 }
