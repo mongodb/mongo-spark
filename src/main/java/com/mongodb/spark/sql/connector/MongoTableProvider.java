@@ -38,7 +38,7 @@ import com.mongodb.spark.sql.connector.config.MongoConfig;
  * <p>The major responsibility of this interface is to return a {@link MongoTable} for read/write.
  *
  * <p>Also registers a shortname for use via the services api: {@code
- * sqlContext.read().format("mongodb").load(); }
+ * spark.read().format("mongodb").load(); }
  */
 public final class MongoTableProvider implements TableProvider, DataSourceRegister {
 
