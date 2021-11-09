@@ -25,13 +25,17 @@ import java.util.Map;
  * <p>Its usecase (read / write) has not yet been determined.
  */
 class UnknownUseCaseMongoConfig extends AbstractMongoConfig {
+  private static final long serialVersionUID = 1L;
 
   UnknownUseCaseMongoConfig(final Map<String, String> originals) {
     super(originals, UsageMode.UNKNOWN);
   }
 
   @Override
-  public MongoConfig withOptions(final Map<String, String> options) {
+  public UnknownUseCaseMongoConfig withOptions(final Map<String, String> options) {
+    if (options.isEmpty()) {
+      return this;
+    }
     return new UnknownUseCaseMongoConfig(withOverrides(options));
   }
 }

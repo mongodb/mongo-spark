@@ -42,40 +42,7 @@ import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.exceptions.DataException;
 import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
-/**
- * A MongoDataWriter returned by {@link MongoDataWriterFactory#createWriter(int, long)} and is
- * responsible for writing data for an input RDD partition.
- *
- * <p>One Spark task has one exclusive data writer, so there is no thread-safe concern.
- *
- * <p>{@link #write(InternalRow)} is called for each record in the input RDD partition. If one
- * record fails the {@link #write(InternalRow)}, {@link #abort()} is called afterwards and the
- * remaining records will not be processed. If all records are successfully written, {@link
- * #commit()} is called.
- *
- * <p>Once a data writer returns successfully from {@link #commit()} or {@link #abort()}, Spark will
- * call {@link #close()} to let DataWriter doing resource cleanup. After calling {@link #close()},
- * its lifecycle is over and Spark will not use it again.
- *
- * <p>If this data writer succeeds(all records are successfully written and {@link #commit()}
- * succeeds), a {@link WriterCommitMessage} will be sent to the driver side and pass to {@link
- * MongoBatchWrite#commit(WriterCommitMessage[])} with commit messages from other data writers. If
- * this data writer fails(one record fails to write or {@link #commit()} fails), an exception will
- * be sent to the driver side, and Spark may retry this writing task a few times. In each retry,
- * {@link MongoDataWriterFactory#createWriter(int, long)} will receive a different `taskId`. Spark
- * will call {@link MongoBatchWrite#abort(WriterCommitMessage[])} when the configured number of
- * retries is exhausted.
- *
- * <p>Besides the retry mechanism, Spark may launch speculative tasks if the existing writing task
- * takes too long to finish. Different from retried tasks, which are launched one by one after the
- * previous one fails, speculative tasks are running simultaneously. It's possible that one input
- * RDD partition has multiple data writers with different `taskId` running at the same time, and
- * data sources should guarantee that these data writers don't conflict and can work together.
- * Implementations can coordinate with driver during {@link #commit()} to make sure only one of
- * these data writers can commit successfully. Or implementations can allow all of them to commit
- * successfully, and have a way to revert committed data writers without the commit message, because
- * Spark only accepts the commit message that arrives first and ignore others.
- */
+/** The MongoDB writer that writes the input RDD partition into MongoDB. */
 class MongoDataWriter implements DataWriter<InternalRow> {
 
   private final int partitionId;
@@ -112,21 +79,46 @@ class MongoDataWriter implements DataWriter<InternalRow> {
   }
 
   /**
-   * Write
+   * Converts the record into a {@link BsonDocument} and stages the write.
    *
-   * <p>Converts a record to a {@link BsonDocument} and adds it to a list for staging a write. Then
-   * checks to see if the bulkWrite should occur.
-   *
-   * <p>If this method fails (by throwing an exception), {@link #abort()} will be called and this
-   * data writer is considered to have been failed.
+   * <p>Once {@link WriteConfig#getMaxBatchSize} is hit then the bulk operation takes place.
    *
    * @param record the row to be written
+   * @see WriteConfig#getMaxBatchSize
    */
   @Override
   public void write(final InternalRow record) throws IOException {
     BsonDocument bsonDocument = rowToBsonDocumentConverter.fromRow(record);
     writeModelList.add(getWriteModel(bsonDocument));
     writeModels(writeConfig.getMaxBatchSize());
+  }
+
+  /**
+   * Commits this writer after all records are written successfully.
+   *
+   * <p>Ensures any remain writes in the batch are written.
+   *
+   * @return a MongoWriterCommitMessage
+   */
+  @Override
+  public WriterCommitMessage commit() {
+    writeModels(1);
+    return new MongoWriterCommitMessage(partitionId, taskId, epochId);
+  }
+
+  /**
+   * Aborts the write.
+   *
+   * <p>Note: Data is not cleaned up and will require manual cleaning.
+   */
+  @Override
+  public void abort() {
+    releaseClient();
+  }
+
+  @Override
+  public void close() {
+    releaseClient();
   }
 
   private WriteModel<BsonDocument> getWriteModel(final BsonDocument bsonDocument) {
@@ -168,46 +160,6 @@ class MongoDataWriter implements DataWriter<InternalRow> {
               idFields.append(k, v);
             });
     return idFields;
-  }
-
-  /**
-   * Commits this writer after all records are written successfully, returns a commit message which
-   * will be sent back to driver side and passed to {@link
-   * MongoBatchWrite#commit(WriterCommitMessage[])}.
-   *
-   * <p>The written data should only be visible to data source readers after {@link
-   * MongoBatchWrite#commit(WriterCommitMessage[])} succeeds, which means this method should still
-   * "hide" the written data and ask the {@link MongoBatchWrite} at driver side to do the final
-   * commit via {@link WriterCommitMessage}.
-   *
-   * <p>If this method fails (by throwing an exception), {@link #abort()} will be called and this
-   * data writer is considered to have been failed.
-   */
-  @Override
-  public WriterCommitMessage commit() {
-    writeModels(1);
-    return new MongoWriterCommitMessage(partitionId, taskId, epochId);
-  }
-
-  /**
-   * Aborts this writer if it is failed. Implementations should clean up the data for already
-   * written records.
-   *
-   * <p>This method will only be called if there is one record failed to write, or {@link #commit()}
-   * failed.
-   *
-   * <p>If this method fails(by throwing an exception), the underlying data source may have garbage
-   * that need to be cleaned by {@link MongoBatchWrite#abort(WriterCommitMessage[])} or manually,
-   * but these garbage should not be visible to data source readers.
-   */
-  @Override
-  public void abort() {
-    releaseClient();
-  }
-
-  @Override
-  public void close() {
-    releaseClient();
   }
 
   private MongoClient getMongoClient() {

@@ -22,7 +22,6 @@ import static java.util.Collections.singletonList;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import com.mongodb.WriteConcern;
@@ -102,7 +101,7 @@ public final class WriteConfig extends AbstractMongoConfig {
    */
   public static final String OPERATION_TYPE_CONFIG = "operationType";
 
-  private static final String OPERATION_TYPE_DEFAULT = OperationType.REPLACE.value;
+  private static final OperationType OPERATION_TYPE_DEFAULT = OperationType.REPLACE;
 
   /**
    * A comma delimited field list used to identify a document
@@ -149,23 +148,15 @@ public final class WriteConfig extends AbstractMongoConfig {
     super(options, UsageMode.WRITE);
     writeConcern = createWriteConcern();
     operationType =
-        OperationType.fromString(getOrDefault(OPERATION_TYPE_CONFIG, OPERATION_TYPE_DEFAULT));
+        OperationType.fromString(getOrDefault(OPERATION_TYPE_CONFIG, OPERATION_TYPE_DEFAULT.value));
   }
 
-  /**
-   * Return a {@link WriteConfig} instance with the extra options.
-   *
-   * <p>Existing configurations may be overwritten by the new options.
-   *
-   * @param overrides the context specific options.
-   * @return the WriteConfig with the overrides
-   */
   @Override
-  public WriteConfig withOptions(final Map<String, String> overrides) {
-    if (overrides.isEmpty()) {
+  public WriteConfig withOptions(final Map<String, String> options) {
+    if (options.isEmpty()) {
       return this;
     }
-    return new WriteConfig(withOverrides(overrides));
+    return new WriteConfig(withOverrides(options));
   }
 
   /** @return the max size of bulk operation batches */
@@ -206,7 +197,7 @@ public final class WriteConfig extends AbstractMongoConfig {
       }
 
       if (containsKey(WRITE_CONCERN_JOURNAL_CONFIG)) {
-        writeConcern = writeConcern.withJournal(getBoolean(WRITE_CONCERN_W_CONFIG, false));
+        writeConcern = writeConcern.withJournal(getBoolean(WRITE_CONCERN_JOURNAL_CONFIG, false));
       }
 
       if (containsKey(WRITE_CONCERN_W_TIMEOUT_MS_CONFIG)) {
@@ -218,21 +209,5 @@ public final class WriteConfig extends AbstractMongoConfig {
       throw new ConfigException("Invalid write concern configuration.", e);
     }
     return writeConcern;
-  }
-
-  @Override
-  public boolean equals(final Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (o == null || getClass() != o.getClass()) {
-      return false;
-    }
-    return super.equals(o);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(super.hashCode());
   }
 }

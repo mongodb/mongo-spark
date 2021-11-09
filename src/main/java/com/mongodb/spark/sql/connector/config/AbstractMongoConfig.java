@@ -22,7 +22,6 @@ import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.stream.Collectors.toMap;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -60,7 +59,9 @@ import scala.Tuple2;
  *
  * <p>Any usage specific configuration will overwrite any default scope configuration.
  */
-abstract class AbstractMongoConfig implements MongoConfig, Serializable {
+abstract class AbstractMongoConfig implements MongoConfig {
+
+  // TODO - improve test coverage SPARK-313 for read and write configurations
 
   /** The current usage mode for the configuration. */
   enum UsageMode {
@@ -81,7 +82,7 @@ abstract class AbstractMongoConfig implements MongoConfig, Serializable {
    * @param usageMode the usage mode (read|write)
    */
   AbstractMongoConfig(final Map<String, String> originals, final UsageMode usageMode) {
-    this.originals = originals;
+    this.originals = unmodifiableMap(originals);
     this.usageMode = usageMode;
 
     Map<String, String> configOptions = new HashMap<>();
@@ -131,18 +132,6 @@ abstract class AbstractMongoConfig implements MongoConfig, Serializable {
   @Override
   public Map<String, String> getOptions() {
     return options;
-  }
-
-  /** @return the {@link MongoClientFactory} for this configuration. */
-  MongoClientFactory getMongoClientFactory() {
-    if (mongoClientFactory == null) {
-      String mongoClientFactoryName =
-          getOptions().getOrDefault(CLIENT_FACTORY_CONFIG, CLIENT_FACTORY_DEFAULT);
-      mongoClientFactory =
-          ClassHelper.createInstance(
-              CLIENT_FACTORY_CONFIG, mongoClientFactoryName, MongoClientFactory.class, this);
-    }
-    return mongoClientFactory;
   }
 
   /**
@@ -202,7 +191,7 @@ abstract class AbstractMongoConfig implements MongoConfig, Serializable {
     return "MongoConfig{" + "options=" + options + ", usageMode=" + usageMode + '}';
   }
 
-  @TestOnly
+  @TestOnly // TODO consider removing and testing known values only
   @Override
   public boolean equals(final Object o) {
     if (this == o) {
@@ -224,6 +213,18 @@ abstract class AbstractMongoConfig implements MongoConfig, Serializable {
     Map<String, String> newOptions = new HashMap<>(originals);
     newOptions.putAll(overrides);
     return newOptions;
+  }
+
+  /** @return the {@link MongoClientFactory} for this configuration. */
+  private MongoClientFactory getMongoClientFactory() {
+    if (mongoClientFactory == null) {
+      String mongoClientFactoryName =
+          getOptions().getOrDefault(CLIENT_FACTORY_CONFIG, CLIENT_FACTORY_DEFAULT);
+      mongoClientFactory =
+          ClassHelper.createInstance(
+              CLIENT_FACTORY_CONFIG, mongoClientFactoryName, MongoClientFactory.class, this);
+    }
+    return mongoClientFactory;
   }
 
   /**

@@ -58,7 +58,7 @@ class MongoSparkConnectorTest extends MongoSparkConnectorTestCase {
   void testSupportedWriteModes() {
     SparkSession spark = getOrCreateSparkSession();
 
-    Dataset<Row> df = spark.read().json("src/integrationTest/resources/json/people.json");
+    Dataset<Row> df = spark.read().json(RESOURCES_JSON);
 
     DataFrameWriter<Row> dfw = df.write().format("mongodb");
 

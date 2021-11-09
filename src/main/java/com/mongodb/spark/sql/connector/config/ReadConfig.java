@@ -37,16 +37,11 @@ public final class ReadConfig extends AbstractMongoConfig {
     super(options, UsageMode.READ);
   }
 
-  /**
-   * Create a new {@link ReadConfig} instance with the extra options.
-   *
-   * <p>Existing configurations may be overwritten by the new options.
-   *
-   * @param overrides the context specific options.
-   * @return a new ReadConfig
-   */
   @Override
-  public ReadConfig withOptions(final Map<String, String> overrides) {
-    return new ReadConfig(withOverrides(overrides));
+  public ReadConfig withOptions(final Map<String, String> options) {
+    if (options.isEmpty()) {
+      return this;
+    }
+    return new ReadConfig(withOverrides(options));
   }
 }

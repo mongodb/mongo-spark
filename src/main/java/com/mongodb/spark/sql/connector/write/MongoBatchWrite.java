@@ -23,11 +23,11 @@ import java.util.Arrays;
 import java.util.Objects;
 
 import org.apache.spark.sql.connector.write.BatchWrite;
-import org.apache.spark.sql.connector.write.DataWriter;
 import org.apache.spark.sql.connector.write.DataWriterFactory;
 import org.apache.spark.sql.connector.write.LogicalWriteInfo;
 import org.apache.spark.sql.connector.write.PhysicalWriteInfo;
 import org.apache.spark.sql.connector.write.WriterCommitMessage;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.mongodb.client.MongoCollection;
@@ -36,29 +36,9 @@ import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.exceptions.DataException;
 import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
-/**
- * MongoBatchWrite defines how to write the data to data source for batch processing.
- *
- * <p>The writing procedure is:
- *
- * <ol>
- *   <li>Create a writer factory by {@link #createBatchWriterFactory(PhysicalWriteInfo)}, serialize
- *       and send it to all the partitions of the input data(RDD).
- *   <li>For each partition, create the data writer, and write the data of the partition with this
- *       writer. If all the data are written successfully, call {@link DataWriter#commit()}. If
- *       exception happens during the writing, call {@link DataWriter#abort()}.
- *   <li>If all writers are successfully committed, call {@link #commit(WriterCommitMessage[])}. If
- *       some writers are aborted, or the job failed with an unknown reason, call {@link
- *       #abort(WriterCommitMessage[])}.
- * </ol>
- *
- * <p>While Spark will retry failed writing tasks, Spark won't retry failed writing jobs. Users
- * should do it manually in their Spark applications if they want to retry.
- *
- * <p>Please refer to the documentation of commit/abort methods for detailed specifications.
- */
+/** MongoBatchWrite defines how to write the data to MongoDB when batch processing. */
 class MongoBatchWrite implements BatchWrite {
-  private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(MongoBatchWrite.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(MongoBatchWrite.class);
   private final LogicalWriteInfo info;
   private final WriteConfig writeConfig;
   private final RowToBsonDocumentConverter rowToBsonDocumentConverter;
@@ -84,10 +64,7 @@ class MongoBatchWrite implements BatchWrite {
   }
 
   /**
-   * Creates a writer factory which will be serialized and sent to executors.
-   *
-   * <p>If this method fails (by throwing an exception), the action will fail and no Spark job will
-   * be submitted.
+   * Creates the MongoDataWriterFactory instance will be serialized and sent to executors.
    *
    * @param info Physical information about the input data that will be written to this table.
    */
@@ -100,12 +77,7 @@ class MongoBatchWrite implements BatchWrite {
   }
 
   /**
-   * Commits this writing job with a list of commit messages. The commit messages are collected from
-   * successful data writers and are produced by {@link MongoDataWriter#commit()}.
-   *
-   * <p>If this method fails (by throwing an exception), this writing job is considered to have been
-   * failed, and {@link #abort(WriterCommitMessage[])} would be called. The state of the destination
-   * is undefined and @{@link #abort(WriterCommitMessage[])} may not be able to deal with it.
+   * Logs the that the write has been committed
    *
    * @param messages WriterCommitMessage
    */
@@ -115,21 +87,12 @@ class MongoBatchWrite implements BatchWrite {
   }
 
   /**
-   * Aborts this writing job because some data writers are failed and keep failing when retry, or
-   * the Spark job fails with some unknown reasons, or {@link
-   * #onDataWriterCommit(WriterCommitMessage)} fails, or {@link #commit(WriterCommitMessage[])}
-   * fails.
+   * The write was aborted due to a failure.
    *
-   * <p>If this method fails (by throwing an exception), the underlying data source may require
-   * manual cleanup.
-   *
-   * <p>Unless the abort is triggered by the failure of commit, the given messages should have some
-   * null slots as there maybe only a few data writers that are committed before the abort happens,
-   * or some data writers were committed but their commit messages haven't reached the driver when
-   * the abort is triggered. So this is just a "best effort" for data sources to clean up the data
-   * left by data writers.
+   * <p>There is no automatic clean up, so the database state is undetermined.
    *
    * @param messages the WriterCommitMessages
+   * @throws DataException with information regarding the failed write
    */
   @Override
   public void abort(final WriterCommitMessage[] messages) {

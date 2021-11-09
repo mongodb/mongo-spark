@@ -20,12 +20,9 @@ import java.util.Objects;
 
 import org.apache.spark.sql.connector.write.WriterCommitMessage;
 
-/**
- * A commit message returned by {@link MongoDataWriter#commit()} and will be sent back to the driver
- * side as the input parameter of {@link MongoBatchWrite#commit(WriterCommitMessage[])} or {@link
- * MongoStreamingWrite#commit(long, WriterCommitMessage[])}.
- */
+/** Represents a successful write to MongoDB */
 class MongoWriterCommitMessage implements WriterCommitMessage {
+  private static final long serialVersionUID = 1L;
 
   private final int partitionId;
   private final long taskId;
@@ -38,26 +35,12 @@ class MongoWriterCommitMessage implements WriterCommitMessage {
    *     Usually Spark processes many RDD partitions at the same time, implementations should use
    *     the partition id to distinguish writers for different partitions.
    * @param taskId The task id returned by {@link org.apache.spark.TaskContext#taskAttemptId()}.
+   * @param epochId the epochId or -1 if not set
    */
   MongoWriterCommitMessage(final int partitionId, final long taskId, final long epochId) {
     this.partitionId = partitionId;
     this.taskId = taskId;
     this.epochId = epochId;
-  }
-
-  /** @return The unique partition id */
-  public int getPartitionId() {
-    return partitionId;
-  }
-
-  /** @return The task id */
-  public long getTaskId() {
-    return taskId;
-  }
-
-  /** @return The epoch id or -1 if not set */
-  public long getEpochId() {
-    return epochId;
   }
 
   @Override
@@ -81,11 +64,11 @@ class MongoWriterCommitMessage implements WriterCommitMessage {
       return false;
     }
     final MongoWriterCommitMessage that = (MongoWriterCommitMessage) o;
-    return partitionId == that.partitionId && taskId == that.taskId;
+    return partitionId == that.partitionId && taskId == that.taskId && epochId == that.epochId;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(partitionId, taskId);
+    return Objects.hash(partitionId, taskId, epochId);
   }
 }

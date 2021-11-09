@@ -37,6 +37,7 @@ import org.apache.spark.sql.connector.catalog.TableChange;
 import org.apache.spark.sql.connector.expressions.Transform;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
+import org.jetbrains.annotations.TestOnly;
 import org.jetbrains.annotations.VisibleForTesting;
 
 import org.bson.conversions.Bson;
@@ -63,27 +64,21 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   private WriteConfig writeConfig;
 
   /**
-   * Called to initialize configuration.
-   *
-   * <p>This method is called once, just after the provider is instantiated.
+   * Initializes the MongoCatalog.
    *
    * @param name the name used to identify and load this catalog
    * @param options a case-insensitive string map of configuration
    */
   @Override
   public void initialize(final String name, final CaseInsensitiveStringMap options) {
-    Assertions.ensureState(() -> !initialized, "The MongoCatalog has already been initialized.");
+    Assertions.ensureState(
+        () -> !initialized, () -> "The MongoCatalog has already been initialized.");
     initialized = true;
     this.name = name;
     this.options = options;
   }
 
-  /**
-   * Called to get this catalog's name.
-   *
-   * <p>This method is only called after {@link #initialize(String, CaseInsensitiveStringMap)} is
-   * called to pass the catalog's name.
-   */
+  /** @return the catalog name */
   @Override
   public String name() {
     assertInitialized();
@@ -91,11 +86,9 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   }
 
   /**
-   * List top-level namespaces (databases) from the catalog.
+   * List namespaces (databases).
    *
-   * <p>MongoDB only has top level namespaces (databases) and does not support nested databases.
-   *
-   * @return an array of multi-part namespace (database) names
+   * @return an array of namespace (database) names
    */
   @Override
   public String[][] listNamespaces() {
@@ -104,14 +97,13 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   }
 
   /**
-   * List namespaces (databases) in a namespace.
+   * List namespaces (databases).
    *
-   * <p>MongoDB only supports top level namespaces (databases) (databases). So will return all
-   * namespaces (databases) if namespace (database) is empty or any empty array if the namespace
-   * (database) exists.
+   * <p>As MongoDB only supports top level databases, this will return all databases if the database
+   * (namespace array) is empty or any empty array if the database exists.
    *
-   * @param namespace (database) a multi-part namespace
-   * @return an array of multi-part namespace (database) names
+   * @param namespace the optional database array
+   * @return an empty array if the database exists
    * @throws NoSuchNamespaceException If the namespace (database) does not exist
    */
   @Override
@@ -126,9 +118,7 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   }
 
   /**
-   * Load metadata properties for a namespace.
-   *
-   * <p>Returns an empty map if the namespace (database) exists.
+   * Currently only returns an empty map if the namespace (database) exists.
    *
    * @param namespace (database) a multi-part namespace
    * @return a string map of properties for the given namespace
@@ -156,7 +146,7 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   }
 
   /**
-   * Create a namespace (database) in the catalog.
+   * Create a database.
    *
    * <p>As databases can be created automatically when creating a collection in MongoDB this method
    * only checks to ensure that the database doesn't already exist.
@@ -176,10 +166,8 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   }
 
   /**
-   * Apply a set of metadata changes to a namespace (database) in the catalog.
-   *
-   * <p>Throws {@code UnsupportedOperationException} as altering a namespace (database) is not
-   * supported.
+   * Altering databases is currently not supported, so {@code alterNamespace} will always throw an
+   * exception.
    *
    * @param namespace (database) a multi-part namespace
    * @param changes a collection of changes to apply to the namespace
@@ -192,7 +180,7 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   }
 
   /**
-   * Drop a namespace (database) from the catalog.
+   * Drop a database.
    *
    * @param namespace (database) a multi-part namespace
    * @return true if the namespace (database) was dropped
@@ -208,10 +196,9 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   }
 
   /**
-   * List the tables (collections) in a namespace (database) from the catalog.
+   * List the collections in a namespace (database).
    *
-   * <p>If the catalog supports views, this must return identifiers for only tables (collections)
-   * and not views.
+   * <p>Note: Will only return collections and not views.
    *
    * @param namespace (database) a multi-part namespace
    * @return an array of Identifiers for tables (collections)
@@ -222,14 +209,10 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   }
 
   /**
-   * Test whether a table (collection) exists using an {@link Identifier identifier} from the
-   * catalog.
+   * Test whether a collection exists.
    *
-   * <p>If the catalog supports views and contains a view for the identifier and not a table, this
-   * must return false.
-   *
-   * @param identifier a table (collection) identifier
-   * @return true if the table (collection) exists, false otherwise
+   * @param identifier a collection identifier
+   * @return true if the collection exists, false otherwise
    */
   @Override
   public boolean tableExists(final Identifier identifier) {
@@ -241,14 +224,11 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   }
 
   /**
-   * Load table (collection) metadata by {@link Identifier identifier} from the catalog.
+   * Load collection.
    *
-   * <p>If the catalog supports views and contains a view for the identifier and not a table, this
-   * must throw {@link NoSuchTableException}.
-   *
-   * @param identifier a table (collection) identifier
+   * @param identifier a collection identifier
    * @return the table's metadata
-   * @throws NoSuchTableException If the table (collection) doesn't exist or is a view
+   * @throws NoSuchTableException If the collection doesn't exist or is a view
    */
   @Override
   public Table loadTable(final Identifier identifier) throws NoSuchTableException {
@@ -264,15 +244,14 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   }
 
   /**
-   * Create a table (collection) in the catalog.
+   * Create a collection.
    *
-   * @param identifier a table (collection) identifier
+   * @param identifier a collection identifier
    * @param schema the schema of the new table, as a struct type
    * @param partitions transforms to use for partitioning data in the table
-   * @param properties a string map of table (collection) properties
+   * @param properties a string map of collection properties
    * @return metadata for the new table
-   * @throws TableAlreadyExistsException If a table (collection) or view already exists for the
-   *     identifier
+   * @throws TableAlreadyExistsException If a collection or view already exists for the identifier
    * @throws UnsupportedOperationException If a requested partition transform is not supported
    */
   @Override
@@ -306,20 +285,13 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   }
 
   /**
-   * Apply a set of {@link TableChange changes} to a table (collection) in the catalog.
+   * Altering collections is currently not supported, so {@code alterTable} will always throw an
+   * exception.
    *
-   * <p>Implementations may reject the requested changes. If any change is rejected, none of the
-   * changes should be applied to the table.
-   *
-   * <p>The requested changes must be applied in the order given.
-   *
-   * <p>If the catalog supports views and contains a view for the identifier and not a table, this
-   * must throw {@link NoSuchTableException}.
-   *
-   * @param identifier a table (collection) identifier
+   * @param identifier a collection identifier
    * @param changes changes to apply to the table
-   * @return updated metadata for the table
-   * @throws NoSuchTableException If the table (collection) doesn't exist or is a view
+   * @return will throw an exception as altering collections is not supported.
+   * @throws NoSuchTableException If the collection doesn't exist or is a view
    * @throws IllegalArgumentException If any change is rejected by the implementation.
    */
   @Override
@@ -333,14 +305,10 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   }
 
   /**
-   * Drop a table (collection) in the catalog.
+   * Drop a collection.
    *
-   * <p>If the catalog supports views and contains a view for the identifier and not a table, this
-   * must not drop the view and must return false.
-   *
-   * @param identifier a table (collection) identifier
-   * @return true if a table (collection) was deleted, false if no table (collection) exists for the
-   *     identifier
+   * @param identifier a collection identifier
+   * @return true if a collection was deleted, false if no collection exists for the identifier
    */
   @Override
   public boolean dropTable(final Identifier identifier) {
@@ -356,21 +324,12 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   }
 
   /**
-   * Renames a table (collection) in the catalog.
+   * Renames a collection.
    *
-   * <p>If the catalog supports views and contains a view for the old identifier and not a table,
-   * this throws {@link NoSuchTableException}. Additionally, if the new identifier is a table
-   * (collection) or a view, this throws {@link TableAlreadyExistsException}.
-   *
-   * <p>If the catalog does not support table (collection) renames between namespaces, it throws
-   * {@link UnsupportedOperationException}.
-   *
-   * @param oldIdentifier the table (collection) identifier of the existing table (collection) to
-   *     rename
-   * @param newIdentifier the new table (collection) identifier of the table
-   * @throws NoSuchTableException If the table (collection) to rename doesn't exist or is a view
-   * @throws TableAlreadyExistsException If the new table (collection) name already exists or is a
-   *     view
+   * @param oldIdentifier the collection identifier of the existing collection to rename
+   * @param newIdentifier the new collection identifier of the table
+   * @throws NoSuchTableException If the collection to rename doesn't exist or is a view
+   * @throws TableAlreadyExistsException If the new collection name already exists or is a view
    */
   @Override
   public void renameTable(final Identifier oldIdentifier, final Identifier newIdentifier)
@@ -390,7 +349,7 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   }
 
   private void assertInitialized() {
-    Assertions.ensureState(() -> initialized, "The MongoCatalog is has not been initialized");
+    Assertions.ensureState(() -> initialized, () -> "The MongoCatalog has not been initialized.");
   }
 
   private String[][] filterDatabases(final String[] databaseName) {
@@ -418,7 +377,7 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   private Identifier[] filterCollections(final Identifier identifier) {
     assertInitialized();
     Assertions.ensureArgument(
-        () -> identifier.namespace().length == 1, "Namespace size must equal 1");
+        () -> identifier.namespace().length == 1, () -> "Namespace size must equal 1");
 
     Bson filter =
         identifier.name().isEmpty()
@@ -436,16 +395,6 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
                     .toArray(new Identifier[0]));
   }
 
-  @VisibleForTesting
-  WriteConfig getWriteConfig() {
-    assertInitialized();
-    if (writeConfig == null) {
-      writeConfig = MongoConfig.writeConfig(options);
-    }
-    return writeConfig;
-  }
-
-  @VisibleForTesting
   private ReadConfig getReadConfig() {
     assertInitialized();
     if (readConfig == null) {
@@ -455,12 +404,24 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   }
 
   @VisibleForTesting
+  WriteConfig getWriteConfig() {
+    assertInitialized();
+    if (writeConfig == null) {
+      writeConfig = MongoConfig.writeConfig(options);
+    }
+    return writeConfig;
+  }
+
+  @TestOnly
+  @VisibleForTesting
   void reset(final Runnable onReset) {
     if (initialized) {
       onReset.run();
       initialized = false;
       name = null;
       options = null;
+      readConfig = null;
+      writeConfig = null;
     }
   }
 }

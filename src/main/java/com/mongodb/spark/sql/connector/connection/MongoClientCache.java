@@ -116,7 +116,8 @@ final class MongoClientCache {
 
   private void assertIsAvailable() {
     Assertions.ensureState(
-        () -> isAvailable, "The MongoClientCache has been shutdown and is no longer available");
+        () -> isAvailable,
+        () -> "The MongoClientCache has been shutdown and is no longer available");
   }
 
   private static final class CachedMongoClient implements MongoClient {
@@ -150,7 +151,7 @@ final class MongoClientCache {
       synchronized (cache) {
         cache.assertIsAvailable();
         Assertions.ensureState(
-            () -> referenceCount > 0, "MongoClient reference count cannot be below zero");
+            () -> referenceCount > 0, () -> "MongoClient reference count cannot be below zero");
         releasedNanos = System.nanoTime();
         referenceCount -= 1;
       }

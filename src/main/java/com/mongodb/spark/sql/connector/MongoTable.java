@@ -33,7 +33,6 @@ import org.apache.spark.sql.connector.write.LogicalWriteInfo;
 import org.apache.spark.sql.connector.write.WriteBuilder;
 import org.apache.spark.sql.types.StructType;
 
-import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.write.MongoWriteBuilder;
 
@@ -89,7 +88,7 @@ public class MongoTable implements Table, SupportsWrite {
   }
 
   /**
-   * Returns a {@link WriteBuilder} that spark will call and configure each data source write.
+   * Returns a {@link MongoWriteBuilder}
    *
    * @param info the logical write info
    */
@@ -98,22 +97,15 @@ public class MongoTable implements Table, SupportsWrite {
     return new MongoWriteBuilder(info, mongoConfig.toWriteConfig());
   }
 
-  /**
-   * A name to identify this table. Implementations should provide a meaningful name, like the
-   * database and table name from catalog, or the location of files for this table.
-   */
+  /** The name of this table. */
   @Override
   public String name() {
     return "MongoTable(" + mongoConfig.getNamespace() + ")";
   }
 
-  /**
-   * Returns the schema of this table. If the table is not readable and doesn't have a schema, an
-   * empty schema can be returned here.
-   */
+  /** Returns the schema of this table. */
   @Override
   public StructType schema() {
-    Assertions.ensureState(() -> Objects.nonNull(schema), "Schema cannot be null");
     return schema;
   }
 

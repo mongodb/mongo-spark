@@ -17,7 +17,7 @@
 
 package com.mongodb.spark.sql.connector.assertions;
 
-import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 /** Assertions to validate inputs */
@@ -27,12 +27,13 @@ public final class Assertions {
    * Ensures the validity of state
    *
    * @param stateCheck the supplier of the state check
-   * @param errorMessage the error message if the supplier fails
+   * @param errorMessageSupplier the supplier of the error message if the predicate
    * @throws IllegalStateException if the state check fails
    */
-  public static void ensureState(final Supplier<Boolean> stateCheck, final String errorMessage) {
+  public static void ensureState(
+      final Supplier<Boolean> stateCheck, final Supplier<String> errorMessageSupplier) {
     if (!stateCheck.get()) {
-      throw new IllegalStateException(errorMessage);
+      throw new IllegalStateException(errorMessageSupplier.get());
     }
   }
 
@@ -40,13 +41,13 @@ public final class Assertions {
    * Ensures the validity of arguments
    *
    * @param argumentCheck the supplier of the argument check
-   * @param errorMessage the error message if the supplier fails
+   * @param errorMessageSupplier the supplier of the error message if the predicate fails
    * @throws IllegalArgumentException if the argument check fails
    */
   public static void ensureArgument(
-      final Supplier<Boolean> argumentCheck, final String errorMessage) {
+      final Supplier<Boolean> argumentCheck, final Supplier<String> errorMessageSupplier) {
     if (!argumentCheck.get()) {
-      throw new IllegalArgumentException(errorMessage);
+      throw new IllegalArgumentException(errorMessageSupplier.get());
     }
   }
 
@@ -54,16 +55,16 @@ public final class Assertions {
    * Checks the validity of a value
    *
    * @param value the value to check
-   * @param stateCheck the supplier of the state check
-   * @param errorMessage the error message if the supplier fails
+   * @param predicate the predicate
+   * @param errorMessageSupplier the supplier of the error message if the predicate fails
    * @param <T> the type of the value being checked
    * @return the value or throw an {@code IllegalStateException} if the value is invalid
    * @throws IllegalStateException if the state check fails
    */
-  public static <T> T ensureIsValid(
-      final T value, final Function<T, Boolean> stateCheck, final String errorMessage) {
-    if (!stateCheck.apply(value)) {
-      throw new IllegalStateException(errorMessage);
+  public static <T> T validateState(
+      final T value, final Predicate<T> predicate, final Supplier<String> errorMessageSupplier) {
+    if (!predicate.test(value)) {
+      throw new IllegalStateException(errorMessageSupplier.get());
     }
     return value;
   }

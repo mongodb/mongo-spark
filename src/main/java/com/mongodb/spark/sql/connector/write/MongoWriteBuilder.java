@@ -56,32 +56,32 @@ public class MongoWriteBuilder implements WriteBuilder, SupportsTruncate {
         false);
   }
 
-  /** Returns a {@link BatchWrite} to write data to batch source. */
+  /** Returns a {@link MongoBatchWrite} to write data to batch source. */
   @Override
   public BatchWrite buildForBatch() {
     return new MongoBatchWrite(info, rowToBsonDocumentConverter, writeConfig, truncate);
   }
 
-  /** Returns a {@link StreamingWrite} to write data to streaming source. */
+  /** Returns a {@link MongoStreamingWrite} to write data to streaming source. */
   @Override
   public StreamingWrite buildForStreaming() {
     return new MongoStreamingWrite(info, rowToBsonDocumentConverter, writeConfig, truncate);
   }
 
+  /** @return a MongoWriteBuilder where truncate is set to true. */
   @Override
   public WriteBuilder truncate() {
     return new MongoWriteBuilder(info, rowToBsonDocumentConverter, writeConfig, true);
   }
 
-    private MongoWriteBuilder(
-            final LogicalWriteInfo info,
-            final RowToBsonDocumentConverter rowToBsonDocumentConverter,
-            final WriteConfig writeConfig,
-            final boolean truncate) {
-        this.info = info;
-        this.rowToBsonDocumentConverter = rowToBsonDocumentConverter;
-        this.writeConfig = writeConfig;
-        this.truncate = truncate;
-    }
-
+  private MongoWriteBuilder(
+      final LogicalWriteInfo info,
+      final RowToBsonDocumentConverter rowToBsonDocumentConverter,
+      final WriteConfig writeConfig,
+      final boolean truncate) {
+    this.info = info;
+    this.rowToBsonDocumentConverter = rowToBsonDocumentConverter;
+    this.writeConfig = writeConfig;
+    this.truncate = truncate;
+  }
 }

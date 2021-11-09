@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.Objects;
 
 import org.jetbrains.annotations.ApiStatus;
-import org.jetbrains.annotations.Nullable;
 
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoNamespace;
@@ -36,7 +35,7 @@ import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.connection.DefaultMongoClientFactory;
 
 /**
- * The MongoConfig interface
+ * The MongoConfig interface.
  *
  * <p>Provides MongoDB specific configuration.
  */
@@ -159,7 +158,7 @@ public interface MongoConfig extends Serializable {
   Map<String, String> getOptions();
 
   /**
-   * Create a new {@link MongoConfig} instance with the extra options.
+   * Return a {@link MongoConfig} instance with the extra options applied.
    *
    * <p>Existing configurations may be overwritten by the new options.
    *
@@ -187,18 +186,18 @@ public interface MongoConfig extends Serializable {
 
   /** @return the database name to use for this configuration */
   default String getDatabaseName() {
-    return Assertions.ensureIsValid(
+    return Assertions.validateState(
         get(DATABASE_NAME_CONFIG),
         Objects::nonNull,
-        "Missing configuration for: " + DATABASE_NAME_CONFIG);
+        () -> "Missing configuration for: " + DATABASE_NAME_CONFIG);
   }
 
   /** @return the collection name to use for this configuration */
   default String getCollectionName() {
-    return Assertions.ensureIsValid(
+    return Assertions.validateState(
         get(COLLECTION_NAME_CONFIG),
         Objects::nonNull,
-        "Missing configuration for: " + COLLECTION_NAME_CONFIG);
+        () -> "Missing configuration for: " + COLLECTION_NAME_CONFIG);
   }
 
   /**
@@ -228,13 +227,13 @@ public interface MongoConfig extends Serializable {
    * <p>Note: The key match is case-insensitive.
    *
    * @param key the key whose associated value is to be returned
-   * @param defaultValue the default mapping for the config, which may be null
+   * @param defaultValue the default mapping for the config
    * @return the value to which the specified key is mapped, or {@code defaultValue} if this config
    *     contains no mapping for the key or the mapping returns null. The key match is
    *     case-insensitive.
    * @throws ClassCastException if the key is of an inappropriate type for this map
    */
-  default String getOrDefault(final String key, @Nullable final String defaultValue) {
+  default String getOrDefault(final String key, final String defaultValue) {
     return getOptions().getOrDefault(key.toLowerCase(Locale.ROOT), defaultValue);
   }
 

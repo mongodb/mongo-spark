@@ -16,8 +16,6 @@
  */
 package com.mongodb.spark.sql.connector.write;
 
-import java.io.Serializable;
-
 import org.apache.spark.TaskContext;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.write.DataWriter;
@@ -27,17 +25,8 @@ import org.apache.spark.sql.connector.write.streaming.StreamingDataWriterFactory
 import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
-/**
- * A factory of {@link MongoDataWriter} returned by {@link
- * MongoBatchWrite#createBatchWriterFactory(org.apache.spark.sql.connector.write.PhysicalWriteInfo)},
- * which is responsible for creating and initializing the actual data writer at executor side.
- *
- * <p>Note that, the writer factory will be serialized and sent to executors, then the data writer
- * will be created on executors and do the actual writing. So this interface must be serializable
- * and {@link MongoDataWriter} doesn't need to be.
- */
-class MongoDataWriterFactory
-    implements DataWriterFactory, StreamingDataWriterFactory, Serializable {
+/** The factory responsible for creating the write operations for the batch or streaming write. */
+class MongoDataWriterFactory implements DataWriterFactory, StreamingDataWriterFactory {
 
   static final long serialVersionUID = 1L;
 
@@ -57,12 +46,7 @@ class MongoDataWriterFactory
   }
 
   /**
-   * Returns a data writer to do the actual writing work. Note that, Spark will reuse the same data
-   * object instance when sending data to the data writer, for better performance. Data writers are
-   * responsible for defensive copies if necessary, e.g. copy the data before buffer it in a list.
-   *
-   * <p>If this method fails (by throwing an exception), the corresponding Spark write task would
-   * fail and get retried until hitting the maximum retry times.
+   * Creates the {@link MongoDataWriter} that performs part of the write.
    *
    * @param partitionId A unique id of the RDD partition that the returned writer will process.
    *     Usually Spark processes many RDD partitions at the same time, implementations should use
@@ -75,12 +59,7 @@ class MongoDataWriterFactory
   }
 
   /**
-   * Returns a data writer to do the actual writing work. Note that, Spark will reuse the same data
-   * object instance when sending data to the data writer, for better performance. Data writers are
-   * responsible for defensive copies if necessary, e.g. copy the data before buffer it in a list.
-   *
-   * <p>If this method fails (by throwing an exception), the corresponding Spark write task would
-   * fail and get retried until hitting the maximum retry times.
+   * Creates the {@link MongoDataWriter} that performs part of the streaming write.
    *
    * @param partitionId A unique id of the RDD partition that the returned writer will process.
    *     Usually Spark processes many RDD partitions at the same time, implementations should use

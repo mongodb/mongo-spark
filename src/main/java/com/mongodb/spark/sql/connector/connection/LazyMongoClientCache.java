@@ -30,7 +30,7 @@ import com.mongodb.client.MongoClient;
 @ApiStatus.Internal
 public final class LazyMongoClientCache {
 
-  private static MongoClientCache cache;
+  private static final MongoClientCache CLIENT_CACHE;
 
   private static final String SYSTEM_MONGO_CACHE_KEEP_ALIVE_MS_PROPERTY =
       "spark.mongodb.keep_alive_ms";
@@ -44,14 +44,14 @@ public final class LazyMongoClientCache {
       // ignore and use default
     }
 
-    cache = new MongoClientCache(keepAliveMS);
+    CLIENT_CACHE = new MongoClientCache(keepAliveMS);
     Runtime.getRuntime().addShutdownHook(new ShutdownHook());
   }
 
   private static class ShutdownHook extends Thread {
     @Override
     public void run() {
-      cache.shutdown();
+      CLIENT_CACHE.shutdown();
     }
   }
 
@@ -62,7 +62,7 @@ public final class LazyMongoClientCache {
    * @return the MongoClient
    */
   public static MongoClient getMongoClient(final MongoClientFactory mongoClientFactory) {
-    return cache.acquire(mongoClientFactory);
+    return CLIENT_CACHE.acquire(mongoClientFactory);
   }
 
   private LazyMongoClientCache() {}
