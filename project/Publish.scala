@@ -81,8 +81,7 @@ object Publish {
     test in assembly := {},
     artifact in (Compile, assembly) := {
       val art = (artifact in (Compile, assembly)).value
-      art // FIXME
-//      art.copy(`classifier` = Some("assembly"))
+      art.withClassifier(Some("assembly"))
     }
   ) ++ addArtifact(artifact in (Compile, assembly), assembly).settings
 
