@@ -16,13 +16,14 @@
 
 package com.mongodb.spark.rdd.partitioner
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.Random
 import org.bson.types.{Decimal128, ObjectId}
 import org.bson.{BsonDbPointer, _}
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-class BsonValueOrderingSpec extends FlatSpec with Matchers {
+class BsonValueOrderingSpec extends AnyFlatSpec with Matchers {
   // scalastyle:off magic.number
 
   private val objectId = new ObjectId("000000000000000000000000")

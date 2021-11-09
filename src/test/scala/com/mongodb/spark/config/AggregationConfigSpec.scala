@@ -19,11 +19,12 @@ package com.mongodb.spark.config
 import com.mongodb.client.model.{Collation, CollationAlternate, CollationCaseFirst, CollationMaxVariable, CollationStrength}
 import org.apache.spark.SparkConf
 import org.bson.BsonDocument
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks.forAll
 import org.scalatest.prop.Tables.Table
-import org.scalatest.{FlatSpec, Matchers}
 
-class AggregationConfigSpec extends FlatSpec with Matchers {
+class AggregationConfigSpec extends AnyFlatSpec with Matchers {
 
   "AggregationConfig" should "have the expected defaults" in {
     AggregationConfig().pipeline shouldBe None

@@ -16,13 +16,12 @@
 
 package com.mongodb.spark.rdd.partitioner
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import org.bson.{BsonDocument, Document}
 import com.mongodb.spark.{MongoConnector, RequiresMongoDB}
+import org.scalatest.prop.TableDrivenPropertyChecks
 
-import org.scalatest.prop.PropertyChecks
-
-class MongoShardedPartitionerSpec extends RequiresMongoDB with PropertyChecks {
+class MongoShardedPartitionerSpec extends RequiresMongoDB with TableDrivenPropertyChecks {
   private val pipeline = Array.empty[BsonDocument]
 
   "MongoShardedPartitioner" should "partition the database as expected" in {

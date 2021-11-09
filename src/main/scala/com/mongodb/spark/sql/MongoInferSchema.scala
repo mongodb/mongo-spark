@@ -32,7 +32,7 @@ import org.apache.spark.sql.catalyst.analysis.TypeCoercion
 import org.apache.spark.sql.types._
 import org.bson._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.reflect.runtime.universe._
 import scala.util.{Failure, Success, Try}
 
@@ -287,7 +287,7 @@ object MongoInferSchema extends Logging {
   private def getDataType(bsonValue: BsonValue, readConfig: ReadConfig): DataType = {
     bsonValue.getBsonType match {
       case BsonType.NULL                  => DataTypes.NullType
-      case BsonType.ARRAY                 => getSchemaFromArray(bsonValue.asArray().asScala, readConfig)
+      case BsonType.ARRAY                 => getSchemaFromArray(bsonValue.asArray().asScala.toSeq, readConfig)
       case BsonType.BINARY                => BsonCompatibility.Binary.getDataType(bsonValue.asBinary())
       case BsonType.BOOLEAN               => DataTypes.BooleanType
       case BsonType.DATE_TIME             => DataTypes.TimestampType

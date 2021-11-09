@@ -18,7 +18,7 @@ package com.mongodb.spark.rdd.partitioner
 
 import java.util
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 import org.bson._
@@ -90,7 +90,7 @@ class MongoSplitVectorPartitioner extends MongoPartitioner {
   private def createPartitions(partitionKey: String, result: BsonDocument, locations: Seq[String], minMaxKey: (BsonValue, BsonValue)): Array[MongoPartition] = {
     result.getDouble("ok").getValue match {
       case 1.0 =>
-        val splitKeys = result.get("splitKeys").asInstanceOf[util.List[BsonDocument]].asScala.map(_.get(partitionKey))
+        val splitKeys = result.get("splitKeys").asInstanceOf[util.List[BsonDocument]].asScala.map(_.get(partitionKey)).toSeq
         val rightHandBoundaries = minMaxKey._1 +: splitKeys :+ minMaxKey._2
         val partitions = PartitionerHelper.createPartitions(partitionKey, rightHandBoundaries, locations, addMinMax = false)
         if (partitions.length == 1) {

@@ -20,9 +20,10 @@ import com.mongodb.ReadConcern
 import org.apache.spark.SparkConf
 import org.scalatest.prop.TableDrivenPropertyChecks.forAll
 import org.scalatest.prop.Tables.Table
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-class ReadConcernConfigSpec extends FlatSpec with Matchers {
+class ReadConcernConfigSpec extends AnyFlatSpec with Matchers {
 
   "ReadConcernConfig" should "have the expected defaults" in {
     ReadConcern.DEFAULT should equal(ReadConcernConfig().readConcern)

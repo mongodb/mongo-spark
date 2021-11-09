@@ -17,7 +17,7 @@
 package com.mongodb.spark.rdd.partitioner
 
 import scala.annotation.tailrec
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import org.bson._
 import com.mongodb.spark.MongoConnector
@@ -89,7 +89,7 @@ object PartitionerHelper {
    * @return the locations
    */
   def locations(connector: MongoConnector): Seq[String] =
-    connector.withMongoClientDo(mongoClient => mongoClient.getClusterDescription.getClusterSettings.getHosts.asScala.map(_.getHost))
+    connector.withMongoClientDo(mongoClient => mongoClient.getClusterDescription.getClusterSettings.getHosts.asScala.map(_.getHost).toSeq)
 
   /**
    * Runs the `collStats` command and returns the results

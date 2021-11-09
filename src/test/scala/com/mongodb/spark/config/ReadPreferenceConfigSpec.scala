@@ -21,9 +21,10 @@ import org.apache.spark.SparkConf
 import org.bson.BsonDocument
 import org.scalatest.prop.TableDrivenPropertyChecks.forAll
 import org.scalatest.prop.Tables.Table
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-class ReadPreferenceConfigSpec extends FlatSpec with Matchers {
+class ReadPreferenceConfigSpec extends AnyFlatSpec with Matchers {
 
   "ReadPreferenceConfig" should "have the expected defaults" in {
     ReadPreference.primary() should equal(ReadPreferenceConfig().readPreference)

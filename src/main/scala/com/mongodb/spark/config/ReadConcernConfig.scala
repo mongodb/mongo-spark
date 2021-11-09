@@ -19,7 +19,7 @@ package com.mongodb.spark.config
 import java.util
 
 import com.mongodb.spark.notNull
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.Map
 import scala.util.Try
 

@@ -20,13 +20,14 @@ import java.util.concurrent.TimeUnit
 
 import org.scalatest.prop.TableDrivenPropertyChecks.forAll
 import org.scalatest.prop.Tables.Table
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import org.apache.spark.SparkConf
 
 import com.mongodb.WriteConcern
 
-class WriteConfigSpec extends FlatSpec with Matchers {
+class WriteConfigSpec extends AnyFlatSpec with Matchers {
 
   "WriteConfig" should "have the expected defaults" in {
     val expectedWriteConfig = WriteConfig("db", "collection", None, true, 512, MongoSharedConfig.DefaultLocalThreshold,

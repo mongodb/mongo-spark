@@ -17,7 +17,7 @@
 package com.mongodb.spark.sql.fieldTypes
 
 import java.util.regex.Pattern
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import org.apache.spark.sql.SparkSession
 

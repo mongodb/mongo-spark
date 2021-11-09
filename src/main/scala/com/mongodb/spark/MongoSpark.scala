@@ -34,7 +34,7 @@ import org.bson.BsonDocumentWrapper.asBsonDocument
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 

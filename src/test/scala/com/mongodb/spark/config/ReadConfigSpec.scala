@@ -18,15 +18,16 @@ package com.mongodb.spark.config
 
 import com.mongodb.client.model.{Collation, CollationAlternate, CollationCaseFirst, CollationMaxVariable, CollationStrength}
 
-import scala.collection.JavaConverters._
-import org.scalatest.{FlatSpec, Matchers}
+import scala.jdk.CollectionConverters._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.apache.spark.SparkConf
 import com.mongodb.spark.rdd.partitioner.{DefaultMongoPartitioner, MongoShardedPartitioner, MongoSplitVectorPartitioner}
 import com.mongodb.{ReadConcern, ReadPreference, Tag, TagSet}
 import org.bson.BsonDocument
 
 // scalastyle:off magic.number
-class ReadConfigSpec extends FlatSpec with Matchers {
+class ReadConfigSpec extends AnyFlatSpec with Matchers {
 
   "ReadConfig" should "have the expected defaults" in {
     val readConfig = ReadConfig("db", "collection")

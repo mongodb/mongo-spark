@@ -22,7 +22,6 @@ import org.bson.Document
 import org.bson.types.ObjectId
 import com.mongodb.spark.config.ReadConfig
 
-
 /**
  * The spark SQL code example see docs/1-sparkSQL.md
  */
@@ -92,8 +91,8 @@ object SparkSQL extends TourHelper {
 
     val schema = DataTypes.createStructType(Array(
       StructFields.objectId("_id", nullable = false),
-      DataTypes.createStructField("a", DataTypes.IntegerType, false))
-    )
+      DataTypes.createStructField("a", DataTypes.IntegerType, false)
+    ))
 
     // Create a dataframe with the helper functions registered
     val df1 = MongoSpark.read(sparkSession).schema(schema).option("registerSQLHelperFunctions", "true").load()

@@ -18,22 +18,19 @@ package com.mongodb.spark.sql
 
 import scala.collection.Map
 import scala.reflect.runtime.universe._
-
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.ScalaReflection
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.DataTypes.{IntegerType, StringType}
 import org.apache.spark.sql.types._
-
 import org.bson.BsonDocument
 import com.mongodb.spark.RequiresMongoDB
 import com.mongodb.spark.exceptions.MongoTypeConversionException
 import com.mongodb.spark.sql.MapFunctions.{documentToRow, rowToDocument}
 import com.mongodb.spark.sql.fieldTypes.ObjectId
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
-
-class MapFunctionsSpec extends RequiresMongoDB with GeneratorDrivenPropertyChecks {
+class MapFunctionsSpec extends RequiresMongoDB with ScalaCheckPropertyChecks {
 
   // scalastyle:off magic.number null
   case class Person(name: String, age: Int)

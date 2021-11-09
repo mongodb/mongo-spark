@@ -42,7 +42,7 @@ private[tour] trait TourHelper {
       .set("spark.mongodb.output.uri", uri)
 
     val session = SparkSession.builder().config(conf).getOrCreate()
-    MongoConnector(session.sparkContext).withDatabaseDo(WriteConfig(session), {db => db.drop()})
+    MongoConnector(session.sparkContext).withDatabaseDo(WriteConfig(session), { db => db.drop() })
     session
   }
 

@@ -19,7 +19,7 @@ package com.mongodb.spark.sql
 import java.util.Date
 
 import scala.annotation.tailrec
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.Random
 import org.apache.spark.sql.types._
 import org.bson.Document
@@ -27,10 +27,10 @@ import org.bson.types.Binary
 import com.mongodb.spark.sql.types.BsonCompatibility
 import org.scalacheck.Gen
 import org.scalactic.anyvals.{PosInt, PosZInt}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
 // scalastyle:off magic.number
-trait MongoDataGenerator extends GeneratorDrivenPropertyChecks {
+trait MongoDataGenerator extends ScalaCheckPropertyChecks {
   val _idField: StructField = DataTypes.createStructField("_id", BsonCompatibility.ObjectId.structType, true)
   val sampleSize: Int = 10
   val sampleRatio: Double = 1.0

@@ -28,7 +28,7 @@ import org.apache.spark.sql.{SQLContext, SparkSession}
 import org.bson.BsonDocument
 import org.bson.conversions.Bson
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.mutable
 import scala.util.Try
 

@@ -1,0 +1,94 @@
+/*
+  * Copyright 2016 MongoDB, Inc.
+  *
+  * Licensed under the Apache License, Version 2.0 (the "License");
+  * you may not use this file except in compliance with the License.
+  * You may obtain a copy of the License at
+  *
+  *   http://www.apache.org/licenses/LICENSE-2.0
+  *
+  * Unless required by applicable law or agreed to in writing, software
+  * distributed under the License is distributed on an "AS IS" BASIS,
+  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+  */
+
+import com.typesafe.sbt.GitVersioning
+import org.scalastyle.sbt.ScalastylePlugin._
+import sbt.Keys._
+import sbt._
+import sbtbuildinfo.{BuildInfoKey, BuildInfoPlugin}
+import sbtbuildinfo.BuildInfoKeys.{buildInfoKeys, buildInfoPackage}
+import Dependencies.{scalaCoreVersion, scalaVersions, coreDependencies, testDependencies}
+import Resolvers._
+
+val baseVersion = "3.2.0"
+
+val buildSettings = Seq(
+  organization := "org.mongodb.spark",
+  organizationHomepage := Some(url("http://www.mongodb.org")),
+  scalaVersion := scalaCoreVersion,
+  crossScalaVersions := scalaVersions,
+  libraryDependencies ++= coreDependencies,
+  resolvers := mongoScalaResolvers,
+  scalacOptions ++= scalacOptionsVersion(scalaVersion.value),
+  javacOptions ++= Seq("-encoding", "UTF-8")
+)
+
+def scalacOptionsVersion(scalaVersion: String): Seq[String] = {
+  val optionalFlags = CrossVersion.partialVersion(scalaVersion) match {
+    case Some((2, 11)) => Seq("-Xlint:-missing-interpolator") // scalastyle:ignore
+    case _ => Seq.empty
+  }
+  Seq("-unchecked", "-deprecation", "-feature", "-Xlint") ++ optionalFlags
+}
+
+/*
+ * Test Settings
+ */
+val testSettings = Seq(
+  testFrameworks += TestFrameworks.ScalaTest,
+  testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v"),
+  parallelExecution in Test := false,
+  libraryDependencies ++= testDependencies
+)
+
+val scoverageSettings = Seq()
+
+val versionSettings = Versioning.settings(baseVersion)
+val buildInfoSettings = Seq(
+  buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion),
+  buildInfoPackage := "com.mongodb.spark.config"
+)
+val scalaStyleSettings = Seq(
+  (scalastyleConfig in Compile) := file("project/scalastyle-config.xml"),
+  (scalastyleConfig in Test) := file("project/scalastyle-config.xml")
+)
+
+// Check style
+val checkAlias = addCommandAlias("check", ";clean;scalastyle;coverage;test;coverageAggregate;coverageReport")
+
+lazy val connector = Project(
+  id = "mongo-spark-connector",
+  base = file(".")
+).settings(buildSettings)
+  .settings(buildInfoSettings)
+  .settings(versionSettings)
+  .settings(testSettings)
+  .settings(scalaStyleSettings)
+  .settings(scoverageSettings)
+  .settings(Publish.settings)
+  .settings(Publish.assemblySettings)
+  .settings(checkAlias)
+  .enablePlugins(GitVersioning, BuildInfoPlugin)
+
+lazy val examples = Project(
+  id = "mongo-spark-connector-examples",
+  base = file("examples")
+).dependsOn(connector)
+  .settings(buildSettings)
+  .settings(testSettings)
+  .settings(scalaStyleSettings)
+  .settings(Publish.noPublishing)
+

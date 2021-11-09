@@ -22,9 +22,10 @@ import com.mongodb.WriteConcern
 import org.apache.spark.SparkConf
 import org.scalatest.prop.TableDrivenPropertyChecks.forAll
 import org.scalatest.prop.Tables.Table
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-class WriteConcernConfigSpec extends FlatSpec with Matchers {
+class WriteConcernConfigSpec extends AnyFlatSpec with Matchers {
 
   "WriteConcernConfig" should "have the expected defaults" in {
     WriteConcern.ACKNOWLEDGED should equal(WriteConcernConfig().writeConcern)

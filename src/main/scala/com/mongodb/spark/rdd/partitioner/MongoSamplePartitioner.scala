@@ -18,7 +18,7 @@ package com.mongodb.spark.rdd.partitioner
 
 import java.util
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 import org.bson.{BsonDocument, BsonInt64}
@@ -101,7 +101,7 @@ class MongoSamplePartitioner extends MongoPartitioner {
                 Aggregates.sample(numberOfSamples),
                 Aggregates.project(Projections.include(partitionKey)),
                 Aggregates.sort(Sorts.ascending(partitionKey))
-              ).asJava).allowDiskUse(true).into(new util.ArrayList[BsonDocument]()).asScala
+              ).asJava).allowDiskUse(true).into(new util.ArrayList[BsonDocument]()).asScala.toSeq
           })
           def collectSplit(i: Int): Boolean = (i % samplesPerPartition == 0) || !matchQuery.isEmpty && i == count - 1
           val rightHandBoundaries = samples.zipWithIndex.collect {

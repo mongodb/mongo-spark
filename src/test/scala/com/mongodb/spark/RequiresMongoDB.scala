@@ -17,23 +17,21 @@
 package com.mongodb.spark
 
 import java.util
-
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.mutable
-
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.{SparkConf, SparkContext}
-
 import org.bson.{BsonDocument, Document}
 import com.mongodb.client.MongoClient
 import com.mongodb.client.{MongoCollection, MongoDatabase}
 import com.mongodb.connection.ClusterType.{REPLICA_SET, SHARDED, STANDALONE}
 import com.mongodb.connection.ServerVersion
 import com.mongodb.spark.config.ReadConfig
-
 import org.scalatest._
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-trait RequiresMongoDB extends FlatSpec with Matchers with BeforeAndAfterAll with BeforeAndAfterEach with LoggingTrait {
+trait RequiresMongoDB extends AnyFlatSpec with Matchers with BeforeAndAfterAll with BeforeAndAfterEach with LoggingTrait {
 
   private val testHelper: TestHelper = TestHelper()
   private var _currentTestName: Option[String] = None

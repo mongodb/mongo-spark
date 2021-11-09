@@ -18,16 +18,15 @@ import sbt._
 
 object Dependencies {
   // Versions
-  val scalaCoreVersion        = "2.12.11"
-  val scalaVersions           = Seq("2.12.11")
-  val mongodbDriverVersion    = "4.0.5"
-  val sparkVersion            = "3.0.0"
-  val slf4jVersion            = "1.7.16"
+  val scalaCoreVersion        = "2.13.7"
+  val scalaVersions           = Seq("2.13.7", "2.12.15")
+  val mongodbDriverVersion    = "4.3.4"
+  val sparkVersion            = "3.2.0"
+  val slf4jVersion            = "1.7.32"
 
-  val scalaTestVersion        = "3.0.5"
-  val scalaCheckVersion       = "1.14.0"
-  val scalaMockVersion        = "3.6.0"
-  val junitVersion            = "4.12"
+  val scalaTestVersion        = "3.2.10"
+  val scalaCheckVersion       = "1.15.4"
+  val junitVersion            = "4.13.2"
   val junitInterfaceVersion   = "0.11"
 
   // Libraries
@@ -39,13 +38,13 @@ object Dependencies {
   // Test
   val scalaTest         = "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
   val scalaCheck        = "org.scalacheck" %% "scalacheck" % scalaCheckVersion % "test"
-  val scalaMock         = "org.scalamock" %% "scalamock-scalatest-support" % scalaMockVersion % "test"
+  val scalaTestPlusCheck = "org.scalatestplus" %% "scalacheck-1-15" % "3.2.10.0" % "test"
   val junit             = "junit" % "junit" % junitVersion % "test"
   val junitInterface    = "com.novocode" % "junit-interface" % junitInterfaceVersion % "test"
   val sparkStreaming    = "org.apache.spark" %% "spark-streaming" % sparkVersion % "test"
 
   // Projects
   val coreDependencies     = Seq(mongodbDriver, sparkCore, sparkSql, slf4j)
-  val testDependencies     = Seq(scalaTest, scalaCheck, scalaMock, junit, junitInterface, sparkStreaming)
+  val testDependencies     = Seq(scalaTest, scalaCheck, scalaTestPlusCheck, junit, junitInterface, sparkStreaming)
 
   }

@@ -23,7 +23,7 @@ import java.util.concurrent.{Executors, ThreadFactory, TimeUnit}
 import com.mongodb.client.MongoClient
 
 import scala.annotation.tailrec
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}

@@ -25,7 +25,7 @@ import org.apache.spark.api.java.function.Function;
 import org.bson.BsonDocument;
 import org.bson.BsonValue;
 
-public final class JavaHalfwayPartitioner implements MongoPartitioner {
+public final class JavaHalfwayPartitioner extends Logging implements MongoPartitioner {
 
     @Override
     public MongoPartition[] partitions(final MongoConnector connector, final ReadConfig readConfig, final BsonDocument[] pipeline) {

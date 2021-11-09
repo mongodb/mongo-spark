@@ -17,7 +17,7 @@
 package com.mongodb.spark.rdd.partitioner
 
 import scala.annotation.tailrec
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import org.bson._
 import com.mongodb.spark.annotation.DeveloperApi
@@ -112,7 +112,7 @@ trait BsonValueOrdering extends Ordering[BsonValue] {
   }
 
   private def compareArrays(x: BsonArray, y: BsonArray): Int = {
-    compareBsonValues(x.getValues.asScala zip y.getValues.asScala) match {
+    compareBsonValues(x.getValues.asScala.toSeq zip y.getValues.asScala.toSeq) match {
       case 0 => x.getValues.size.compareTo(y.getValues.size)
       case v => v
     }

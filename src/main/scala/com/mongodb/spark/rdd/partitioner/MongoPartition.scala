@@ -16,7 +16,7 @@
 
 package com.mongodb.spark.rdd.partitioner
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import org.apache.spark.Partition
 
@@ -56,7 +56,7 @@ object MongoPartition {
    * @return the MongoPartition
    */
   def create(index: Int, queryBounds: BsonDocument, locations: java.util.List[String]): MongoPartition =
-    new MongoPartition(index, queryBounds, locations.asScala)
+    new MongoPartition(index, queryBounds, locations.asScala.toSeq)
 }
 
 /**

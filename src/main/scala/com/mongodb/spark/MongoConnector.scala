@@ -20,7 +20,7 @@ import java.io.{Closeable, Serializable}
 import java.util
 import java.util.concurrent.TimeUnit
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
 import org.apache.spark.api.java.JavaSparkContext

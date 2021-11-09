@@ -17,8 +17,7 @@
 package com.mongodb.spark.sql
 
 import java.sql.{Date, Timestamp}
-
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
@@ -27,6 +26,8 @@ import org.bson._
 import org.bson.types.Decimal128
 import com.mongodb.spark.exceptions.MongoTypeConversionException
 import com.mongodb.spark.sql.types.BsonCompatibility
+
+import scala.collection.mutable
 
 private[spark] object MapFunctions {
 
@@ -101,7 +102,10 @@ private[spark] object MapFunctions {
       case TimestampType => (element: Any) => new BsonDateTime(element.asInstanceOf[Timestamp].getTime)
       case arrayType: ArrayType => {
         val mapper = arrayTypeToBsonValueMapper(arrayType.elementType, arrayType.containsNull, extendedBsonTypes)
-        (element: Any) => mapper(element.asInstanceOf[Seq[_]])
+        (element: Any) => mapper(element match {
+          case s: Seq[_] => s
+          case s: mutable.Seq[_] => s.toSeq
+        })
       }
       case schema: StructType => {
         val mapper = structTypeToBsonValueMapper(schema, extendedBsonTypes)
@@ -198,7 +202,8 @@ private[spark] object MapFunctions {
   private def convertToDataType(element: BsonValue, elementType: DataType): Any = {
     (element.getBsonType, elementType) match {
       case (BsonType.DOCUMENT, mapType: MapType) => element.asDocument().asScala.map(kv => (kv._1, convertToDataType(kv._2, mapType.valueType))).toMap
-      case (BsonType.ARRAY, arrayType: ArrayType) => element.asArray().getValues.asScala.map(convertToDataType(_, arrayType.elementType))
+      case (BsonType.ARRAY, arrayType: ArrayType) =>
+        element.asArray().getValues.asScala.map(convertToDataType(_, arrayType.elementType)).toSeq
       case (BsonType.BINARY, BinaryType) => element.asBinary().getData
       case (BsonType.BOOLEAN, BooleanType) => element.asBoolean().getValue
       case (BsonType.DATE_TIME, DateType) => new Date(element.asDateTime().getValue)

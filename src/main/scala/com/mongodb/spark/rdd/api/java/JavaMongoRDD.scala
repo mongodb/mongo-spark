@@ -17,16 +17,14 @@
 package com.mongodb.spark.rdd.api.java
 
 import java.util
-
-import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
-
 import org.apache.spark.api.java.JavaRDD
 import org.apache.spark.sql.{DataFrame, Dataset}
-
 import org.bson.conversions.Bson
 import com.mongodb.spark.notNull
 import com.mongodb.spark.rdd.MongoRDD
+
+import scala.jdk.CollectionConverters.IterableHasAsScala
 
 /**
  * Java specific version of [[com.mongodb.spark.rdd.MongoRDD]].
@@ -43,7 +41,7 @@ case class JavaMongoRDD[D](override val rdd: MongoRDD[D])(implicit override val 
    */
   def withPipeline[B <: Bson](pipeline: util.List[B]): JavaMongoRDD[D] = {
     notNull("pipeline", pipeline)
-    JavaMongoRDD(rdd.withPipeline(pipeline.asScala))
+    JavaMongoRDD(rdd.withPipeline(pipeline.asScala.toSeq))
   }
 
   /**

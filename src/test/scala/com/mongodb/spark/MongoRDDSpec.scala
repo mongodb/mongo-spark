@@ -26,8 +26,9 @@ import com.mongodb.client.model.{Aggregates, Collation, CollationStrength, Filte
 import com.mongodb.spark.config.{AggregationConfig, ReadConfig}
 import com.mongodb.spark.rdd.MongoRDD
 import com.mongodb.spark.sql.types.BsonCompatibility
+import org.scalatest.matchers.should.Matchers
 
-class MongoRDDSpec extends RequiresMongoDB {
+class MongoRDDSpec extends RequiresMongoDB with Matchers {
   val counters =
     """
       | {counter: 0}

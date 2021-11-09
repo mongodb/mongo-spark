@@ -20,7 +20,7 @@ import com.mongodb.client.MongoCollection
 import com.mongodb.spark.config.WriteConfig
 import com.mongodb.spark.{MongoConnector}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.mutable
 import org.apache.spark.sql._
 import org.bson.Document
@@ -67,8 +67,8 @@ object SparkStructuredStreams extends TourHelper {
 
         override def close(errorOrNull: Throwable): Unit = {
           if (wordCounts.nonEmpty) {
-            mongoConnector.withCollectionDo(writeConfig, {collection: MongoCollection[Document] =>
-              collection.insertMany(wordCounts.map(wc => { new Document(wc.word, wc.count)}).asJava)
+            mongoConnector.withCollectionDo(writeConfig, { collection: MongoCollection[Document] =>
+              collection.insertMany(wordCounts.map(wc => { new Document(wc.word, wc.count) }).asJava)
             })
           }
         }

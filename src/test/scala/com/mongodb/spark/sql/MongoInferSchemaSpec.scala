@@ -18,12 +18,11 @@ package com.mongodb.spark.sql
 
 import com.mongodb.MongoClientSettings
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import org.apache.spark.sql.types.DataTypes.{createArrayType, createStructField, createStructType}
 import org.apache.spark.sql.types.{ArrayType, DataTypes, IntegerType, MapType, StringType, StructField, StructType}
 import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
-import com.mongodb.client.MongoClient
 import com.mongodb.spark._
 import org.scalatest.prop.TableDrivenPropertyChecks
 

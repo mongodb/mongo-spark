@@ -18,7 +18,7 @@ package com.mongodb.spark.rdd.partitioner
 
 import java.util
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import org.bson.{BsonDocument, BsonMaxKey, BsonMinKey}
 import com.mongodb.ServerAddress
 import com.mongodb.client.MongoCollection
@@ -58,7 +58,7 @@ class MongoShardedPartitioner extends MongoPartitioner {
     val chunks: Seq[BsonDocument] = connector.withCollectionDo(
       ReadConfig("config", "chunks"), { collection: MongoCollection[BsonDocument] =>
         collection.find(Filters.eq("ns", ns)).projection(Projections.include("min", "max", "shard")).sort(Sorts.ascending("min"))
-          .into(new util.ArrayList[BsonDocument]).asScala
+          .into(new util.ArrayList[BsonDocument]).asScala.toSeq
       }
     )
 
@@ -118,7 +118,7 @@ class MongoShardedPartitioner extends MongoPartitioner {
   private[partitioner] def mapShards(connector: MongoConnector): Map[String, Seq[String]] = {
     connector.withCollectionDo(
       ReadConfig("config", "shards"), { collection: MongoCollection[BsonDocument] =>
-        Map(collection.find().projection(Projections.include("_id", "host")).into(new util.ArrayList[BsonDocument]).asScala
+        Map(collection.find().projection(Projections.include("_id", "host")).into(new util.ArrayList[BsonDocument]).asScala.toSeq
           .map(shard => (shard.getString("_id").getValue, getHosts(shard.getString("host").getValue))): _*)
       }
     )

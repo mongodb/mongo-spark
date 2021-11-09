@@ -22,7 +22,6 @@ import java.util.concurrent.TimeUnit
 import com.mongodb.ClientSessionOptions
 
 import scala.concurrent.duration.Duration
-import org.scalamock.scalatest.proxy.MockFactory
 import com.mongodb.client.{ChangeStreamIterable, ClientSession, ListDatabasesIterable, MongoClient, MongoDatabase, MongoIterable}
 import com.mongodb.connection.{ClusterDescription, ClusterSettings}
 import com.mongodb.spark.{JavaRequiresMongoDB, MongoClientFactory, RequiresMongoDB}
@@ -30,7 +29,7 @@ import com.mongodb.spark.config.ReadConfig
 import org.bson.Document
 import org.bson.conversions.Bson
 
-class MongoClientCacheSpec extends RequiresMongoDB with MockFactory {
+class MongoClientCacheSpec extends RequiresMongoDB {
 
   import MongoClientCacheSpec._
 

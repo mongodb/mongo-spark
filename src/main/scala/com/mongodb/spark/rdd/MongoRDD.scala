@@ -16,7 +16,7 @@
 
 package com.mongodb.spark.rdd
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 import scala.util.Try
