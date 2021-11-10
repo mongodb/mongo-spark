@@ -32,8 +32,6 @@ class MongoWriterCommitMessage implements WriterCommitMessage {
    * Construct a new instance
    *
    * @param partitionId A unique id of the RDD partition that the returned writer will process.
-   *     Usually Spark processes many RDD partitions at the same time, implementations should use
-   *     the partition id to distinguish writers for different partitions.
    * @param taskId The task id returned by {@link org.apache.spark.TaskContext#taskAttemptId()}.
    * @param epochId the epochId or -1 if not set
    */

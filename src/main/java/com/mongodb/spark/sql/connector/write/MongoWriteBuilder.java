@@ -27,13 +27,7 @@ import org.jetbrains.annotations.ApiStatus;
 import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
-/**
- * MongoWriteBuilder builds {@link MongoBatchWrite}. Implementations can mix in some interfaces to
- * support different ways to write data to data sources.
- *
- * <p>Unless modified by a mixin interface, the {@link MongoBatchWrite} configured by this builder
- * is to append data without affecting existing data.
- */
+/** MongoWriteBuilder handles the creation of batch writer or streaming writers. */
 @ApiStatus.Internal
 public class MongoWriteBuilder implements WriteBuilder, SupportsTruncate {
   private final LogicalWriteInfo info;

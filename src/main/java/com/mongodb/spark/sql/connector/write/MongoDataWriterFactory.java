@@ -49,8 +49,6 @@ class MongoDataWriterFactory implements DataWriterFactory, StreamingDataWriterFa
    * Creates the {@link MongoDataWriter} that performs part of the write.
    *
    * @param partitionId A unique id of the RDD partition that the returned writer will process.
-   *     Usually Spark processes many RDD partitions at the same time, implementations should use
-   *     the partition id to distinguish writers for different partitions.
    * @param taskId The task id returned by {@link org.apache.spark.TaskContext#taskAttemptId()}.
    */
   @Override
@@ -62,10 +60,7 @@ class MongoDataWriterFactory implements DataWriterFactory, StreamingDataWriterFa
    * Creates the {@link MongoDataWriter} that performs part of the streaming write.
    *
    * @param partitionId A unique id of the RDD partition that the returned writer will process.
-   *     Usually Spark processes many RDD partitions at the same time, implementations should use
-   *     the partition id to distinguish writers for different partitions.
-   * @param taskId The task id returned by {@link TaskContext#taskAttemptId()}. Spark may run
-   *     multiple tasks for the same partition (due to speculation or task failures, for example).
+   * @param taskId The task id returned by {@link TaskContext#taskAttemptId()}.
    * @param epochId A monotonically increasing id for streaming queries that are split into discrete
    *     periods of execution.
    */

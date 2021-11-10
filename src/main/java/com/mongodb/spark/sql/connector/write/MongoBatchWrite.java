@@ -83,7 +83,7 @@ class MongoBatchWrite implements BatchWrite {
    */
   @Override
   public void commit(final WriterCommitMessage[] messages) {
-    LOGGER.info("Write committed for: {}, with {} task(s).", info.queryId(), messages.length);
+    LOGGER.debug("Write committed for: {}, with {} task(s).", info.queryId(), messages.length);
   }
 
   /**

@@ -18,13 +18,14 @@ package com.mongodb.spark.sql.connector.write;
 
 import static java.lang.String.format;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.write.DataWriter;
 import org.apache.spark.sql.connector.write.WriterCommitMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.bson.BsonDocument;
 import org.bson.BsonValue;
@@ -44,7 +45,7 @@ import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 /** The MongoDB writer that writes the input RDD partition into MongoDB. */
 class MongoDataWriter implements DataWriter<InternalRow> {
-
+  private static final Logger LOGGER = LoggerFactory.getLogger(MongoDataWriter.class);
   private final int partitionId;
   private final long taskId;
   private final RowToBsonDocumentConverter rowToBsonDocumentConverter;
@@ -59,8 +60,6 @@ class MongoDataWriter implements DataWriter<InternalRow> {
    * Construct a new instance
    *
    * @param partitionId A unique id of the RDD partition that the returned writer will process.
-   *     Usually Spark processes many RDD partitions at the same time, implementations should use
-   *     the partition id to distinguish writers for different partitions.
    * @param taskId The task id returned by {@link org.apache.spark.TaskContext#taskAttemptId()}.
    * @param writeConfig the MongoDB write configuration
    */
@@ -87,10 +86,12 @@ class MongoDataWriter implements DataWriter<InternalRow> {
    * @see WriteConfig#getMaxBatchSize
    */
   @Override
-  public void write(final InternalRow record) throws IOException {
+  public void write(final InternalRow record) {
     BsonDocument bsonDocument = rowToBsonDocumentConverter.fromRow(record);
     writeModelList.add(getWriteModel(bsonDocument));
-    writeModels(writeConfig.getMaxBatchSize());
+    if (writeModelList.size() >= writeConfig.getMaxBatchSize()) {
+      writeModels();
+    }
   }
 
   /**
@@ -102,7 +103,8 @@ class MongoDataWriter implements DataWriter<InternalRow> {
    */
   @Override
   public WriterCommitMessage commit() {
-    writeModels(1);
+    writeModels();
+    LOGGER.debug("Finished all writes for: PartitionId: {}, TaskId: {}.", partitionId, taskId);
     return new MongoWriterCommitMessage(partitionId, taskId, epochId);
   }
 
@@ -113,11 +115,13 @@ class MongoDataWriter implements DataWriter<InternalRow> {
    */
   @Override
   public void abort() {
+    LOGGER.debug("Aborting write for: PartitionId: {}, TaskId: {}.", partitionId, taskId);
     releaseClient();
   }
 
   @Override
   public void close() {
+    LOGGER.debug("Closing PartitionId: {}, TaskId: {}.", partitionId, taskId);
     releaseClient();
   }
 
@@ -176,14 +180,17 @@ class MongoDataWriter implements DataWriter<InternalRow> {
     }
   }
 
-  private void writeModels(final int minQueueSize) {
-    if (writeModelList.size() >= minQueueSize) {
-      getMongoClient()
-          .getDatabase(writeConfig.getDatabaseName())
-          .getCollection(writeConfig.getCollectionName(), BsonDocument.class)
-          .withWriteConcern(writeConfig.getWriteConcern())
-          .bulkWrite(writeModelList, bulkWriteOptions);
-      writeModelList.clear();
-    }
+  private void writeModels() {
+    LOGGER.debug(
+        "Writing batch of {} operations. PartitionId: {}, TaskId: {}.",
+        writeModelList.size(),
+        partitionId,
+        taskId);
+    getMongoClient()
+        .getDatabase(writeConfig.getDatabaseName())
+        .getCollection(writeConfig.getCollectionName(), BsonDocument.class)
+        .withWriteConcern(writeConfig.getWriteConcern())
+        .bulkWrite(writeModelList, bulkWriteOptions);
+    writeModelList.clear();
   }
 }

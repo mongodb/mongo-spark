@@ -27,6 +27,7 @@ import org.apache.spark.sql.connector.write.PhysicalWriteInfo;
 import org.apache.spark.sql.connector.write.WriterCommitMessage;
 import org.apache.spark.sql.connector.write.streaming.StreamingDataWriterFactory;
 import org.apache.spark.sql.connector.write.streaming.StreamingWrite;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.mongodb.client.MongoCollection;
@@ -37,8 +38,7 @@ import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 /** MongoStreamingWrite defines how to write the data to MongoDB when streaming data. */
 public class MongoStreamingWrite implements StreamingWrite {
-
-  private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(MongoStreamingWrite.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(MongoStreamingWrite.class);
   private final LogicalWriteInfo info;
   private final WriteConfig writeConfig;
   private final RowToBsonDocumentConverter rowToBsonDocumentConverter;
@@ -84,7 +84,7 @@ public class MongoStreamingWrite implements StreamingWrite {
    */
   @Override
   public void commit(final long epochId, final WriterCommitMessage[] messages) {
-    LOGGER.info("Write committed for: {}, with {} task(s).", info.queryId(), messages.length);
+    LOGGER.debug("Write committed for: {}, with {} task(s).", info.queryId(), messages.length);
   }
 
   /**
