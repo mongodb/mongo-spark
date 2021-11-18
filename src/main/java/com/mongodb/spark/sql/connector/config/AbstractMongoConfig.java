@@ -72,8 +72,8 @@ abstract class AbstractMongoConfig implements MongoConfig {
 
   private final Map<String, String> originals;
   private final Map<String, String> options;
-  private MongoClientFactory mongoClientFactory;
   private final UsageMode usageMode;
+  private transient MongoClientFactory mongoClientFactory;
 
   /**
    * Constructs the instance
