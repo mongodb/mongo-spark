@@ -117,6 +117,11 @@ class MongoDataWriter implements DataWriter<InternalRow> {
   public void abort() {
     LOGGER.debug("Aborting write for: PartitionId: {}, TaskId: {}.", partitionId, taskId);
     releaseClient();
+    throw new DataException(
+        format(
+            "Write aborted for: PartitionId: %s, TaskId: %s. "
+                + "Manual data clean up may be required.",
+            partitionId, taskId));
   }
 
   @Override
