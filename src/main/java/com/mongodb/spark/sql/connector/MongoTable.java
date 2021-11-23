@@ -25,23 +25,23 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import org.apache.spark.sql.connector.catalog.SupportsRead;
 import org.apache.spark.sql.connector.catalog.SupportsWrite;
 import org.apache.spark.sql.connector.catalog.Table;
 import org.apache.spark.sql.connector.catalog.TableCapability;
 import org.apache.spark.sql.connector.expressions.Transform;
+import org.apache.spark.sql.connector.read.ScanBuilder;
 import org.apache.spark.sql.connector.write.LogicalWriteInfo;
 import org.apache.spark.sql.connector.write.WriteBuilder;
 import org.apache.spark.sql.types.StructType;
+import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 
 import com.mongodb.spark.sql.connector.config.MongoConfig;
+import com.mongodb.spark.sql.connector.read.MongoScanBuilder;
 import com.mongodb.spark.sql.connector.write.MongoWriteBuilder;
 
-/**
- * Represents a MongoDB Collection.
- *
- * <p>Implements {@link SupportsWrite} for writing to a MongoDB collection
- */
-public class MongoTable implements Table, SupportsWrite {
+/** Represents a MongoDB Collection. */
+public class MongoTable implements Table, SupportsWrite, SupportsRead {
 
   private static final Set<TableCapability> TABLE_CAPABILITY_SET =
       new HashSet<>(
@@ -49,7 +49,8 @@ public class MongoTable implements Table, SupportsWrite {
               TableCapability.BATCH_WRITE,
               TableCapability.TRUNCATE,
               TableCapability.STREAMING_WRITE,
-              TableCapability.ACCEPT_ANY_SCHEMA));
+              TableCapability.ACCEPT_ANY_SCHEMA,
+              TableCapability.BATCH_READ));
   private final StructType schema;
   private final Transform[] partitioning;
   private final MongoConfig mongoConfig;
@@ -87,8 +88,14 @@ public class MongoTable implements Table, SupportsWrite {
     this.mongoConfig = mongoConfig;
   }
 
+  /** The name of this table. */
+  @Override
+  public String name() {
+    return "MongoTable(" + mongoConfig.getNamespace() + ")";
+  }
+
   /**
-   * Returns a {@link MongoWriteBuilder}
+   * Returns a {@link MongoWriteBuilder}.
    *
    * @param info the logical write info
    */
@@ -97,10 +104,15 @@ public class MongoTable implements Table, SupportsWrite {
     return new MongoWriteBuilder(info, mongoConfig.toWriteConfig());
   }
 
-  /** The name of this table. */
+  /**
+   * Returns a {@link MongoScanBuilder}.
+   *
+   * @param options the {@link CaseInsensitiveStringMap} with configuration regarding the read
+   */
   @Override
-  public String name() {
-    return "MongoTable(" + mongoConfig.getNamespace() + ")";
+  public ScanBuilder newScanBuilder(final CaseInsensitiveStringMap options) {
+    return new MongoScanBuilder(
+        schema, mongoConfig.toReadConfig().withOptions(options.asCaseSensitiveMap()));
   }
 
   /** Returns the schema of this table. */
