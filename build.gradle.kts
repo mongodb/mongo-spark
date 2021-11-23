@@ -31,7 +31,7 @@ plugins {
     checkstyle
     id("com.github.gmazzo.buildconfig") version "3.0.2"
     id("com.github.spotbugs") version "4.7.9"
-    id("com.diffplug.spotless") version "5.14.2"
+    id("com.diffplug.spotless") version "6.0.0"
     id("com.github.johnrengelman.shadow") version "7.0.0"
 }
 
@@ -198,7 +198,7 @@ spotless {
     }
 
     kotlinGradle {
-        ktlint("0.30.0")
+        ktlint("0.43.0")
         trimTrailingWhitespace()
         indentWithSpaces()
         endWithNewline()
