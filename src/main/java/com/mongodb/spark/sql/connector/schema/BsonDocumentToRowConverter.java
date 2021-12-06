@@ -34,7 +34,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.apache.spark.sql.Row;
@@ -61,6 +60,7 @@ import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.types.TimestampType;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.TestOnly;
 import org.jetbrains.annotations.VisibleForTesting;
 
 import org.bson.BsonArray;
@@ -76,7 +76,6 @@ import org.bson.io.BasicOutputBuffer;
 import org.bson.json.JsonWriterSettings;
 import org.bson.types.Decimal128;
 
-import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import com.mongodb.spark.sql.connector.exceptions.DataException;
 
 /**
@@ -91,48 +90,34 @@ import com.mongodb.spark.sql.connector.exceptions.DataException;
 @NotNull
 public final class BsonDocumentToRowConverter implements Serializable {
   private static final long serialVersionUID = 1L;
-  private final Supplier<JsonWriterSettings> jsonWriterSettingsSupplier;
   private final Function<Row, InternalRow> rowToInternalRowFunction;
   private final StructType schema;
 
   /** Create a new instance with the default json writer settings */
-  @VisibleForTesting
+  @TestOnly
   public BsonDocumentToRowConverter() {
-    this(
-        new StructType(),
-        new ConverterHelper.DefaultJsonWriterSettingsSupplier(),
-        row -> {
-          throw new ConfigException("No Row to InternalRow converter");
-        });
+    this(new StructType());
   }
 
   /**
-   * Create a new instance
+   * Create a new instance with the default json writer settings
    *
    * @param schema the schema for the row
    */
   public BsonDocumentToRowConverter(final StructType schema) {
-    this(
-        schema,
-        new ConverterHelper.DefaultJsonWriterSettingsSupplier(),
-        new RowToInternalRowFunction(schema));
+    this(schema, new RowToInternalRowFunction(schema));
   }
 
   /**
    * Create a new instance
    *
    * @param schema the schema to use
-   * @param jsonWriterSettingsSupplier the {@link JsonWriterSettings} supplier which must be
-   *     serializable
    * @param rowToInternalRowFunction the {@link Row} to {@link InternalRow} function which must be
    *     serializable
    */
-  public BsonDocumentToRowConverter(
-      final StructType schema,
-      final Supplier<JsonWriterSettings> jsonWriterSettingsSupplier,
-      final Function<Row, InternalRow> rowToInternalRowFunction) {
+  private BsonDocumentToRowConverter(
+      final StructType schema, final Function<Row, InternalRow> rowToInternalRowFunction) {
     this.schema = schema;
-    this.jsonWriterSettingsSupplier = jsonWriterSettingsSupplier;
     this.rowToInternalRowFunction = rowToInternalRowFunction;
   }
 
@@ -148,8 +133,9 @@ public final class BsonDocumentToRowConverter implements Serializable {
    * @param bsonDocument the bson document to shape into a GenericRowWithSchema.
    * @return the converted data as a Row
    */
-  public Row toRow(final BsonDocument bsonDocument) {
-    return convertToRow("", schema, bsonDocument, jsonWriterSettingsSupplier.get());
+  @VisibleForTesting
+  Row toRow(final BsonDocument bsonDocument) {
+    return convertToRow("", schema, bsonDocument, ConverterHelper.DEFAULT_JSON_WRITER_SETTINGS);
   }
 
   /**

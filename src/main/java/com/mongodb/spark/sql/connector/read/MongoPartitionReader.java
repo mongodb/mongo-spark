@@ -45,6 +45,7 @@ public class MongoPartitionReader implements PartitionReader<InternalRow> {
   private boolean closed = false;
   private MongoClient mongoClient;
   private MongoCursor<BsonDocument> mongoCursor;
+  private InternalRow currentRow;
 
   /**
    * Construct a new instance
@@ -71,6 +72,7 @@ public class MongoPartitionReader implements PartitionReader<InternalRow> {
   @Override
   public boolean next() {
     Assertions.ensureState(() -> !closed, () -> "Cannot call next() on a closed PartitionReader.");
+    currentRow = null;
     return getCursor().hasNext();
   }
 
@@ -78,7 +80,10 @@ public class MongoPartitionReader implements PartitionReader<InternalRow> {
   @Override
   public InternalRow get() {
     Assertions.ensureState(() -> !closed, () -> "Cannot call get() on a closed PartitionReader.");
-    return bsonDocumentToRowConverter.toInternalRow(getCursor().next());
+    if (currentRow == null) {
+      currentRow = bsonDocumentToRowConverter.toInternalRow(getCursor().next());
+    }
+    return currentRow;
   }
 
   /**
@@ -110,10 +115,16 @@ public class MongoPartitionReader implements PartitionReader<InternalRow> {
   private void releaseCursor() {
     if (mongoCursor != null) {
       LOGGER.debug("Closing cursor for partitionId: {}", partition.getPartitionId());
-      mongoCursor.close();
-      mongoCursor = null;
-      mongoClient.close();
-      mongoClient = null;
+      try {
+        mongoCursor.close();
+      } finally {
+        mongoCursor = null;
+        try {
+          mongoClient.close();
+        } finally {
+          mongoClient = null;
+        }
+      }
     }
   }
 }

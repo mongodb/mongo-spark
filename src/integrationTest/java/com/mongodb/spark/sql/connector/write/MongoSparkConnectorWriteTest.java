@@ -126,11 +126,7 @@ class MongoSparkConnectorWriteTest extends MongoSparkConnectorTestCase {
 
   private void assertCollection(final String collectionName) {
     List<BsonDocument> expected =
-        getOrCreateSparkSession()
-            .read()
-            .json(WRITE_RESOURCES_JSON_PATH)
-            .toJSON()
-            .collectAsList()
+        getOrCreateSparkSession().read().json(WRITE_RESOURCES_JSON_PATH).toJSON().collectAsList()
             .stream()
             .map(BsonDocument::parse)
             .collect(Collectors.toList());

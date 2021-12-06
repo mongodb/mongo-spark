@@ -17,13 +17,11 @@
 
 package com.mongodb.spark.sql.connector.schema;
 
-import java.io.Serializable;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
-import java.util.function.Supplier;
 
 import org.bson.BsonValue;
 import org.bson.codecs.BsonValueCodec;
@@ -48,14 +46,6 @@ final class ConverterHelper {
           .objectIdConverter((value, writer) -> writer.writeString(value.toHexString()))
           .symbolConverter((value, writer) -> writer.writeString(value))
           .build();
-
-  static class DefaultJsonWriterSettingsSupplier
-      implements Supplier<JsonWriterSettings>, Serializable {
-    @Override
-    public JsonWriterSettings get() {
-      return DEFAULT_JSON_WRITER_SETTINGS;
-    }
-  }
 
   private ConverterHelper() {}
 }

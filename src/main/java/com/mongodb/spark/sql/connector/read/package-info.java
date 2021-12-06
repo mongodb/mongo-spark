@@ -15,7 +15,7 @@
  *
  */
 
-/** This package contains the sql connector write support. */
+/** This package contains the sql connector read support. */
 @ApiStatus.Internal
 package com.mongodb.spark.sql.connector.read;
 
