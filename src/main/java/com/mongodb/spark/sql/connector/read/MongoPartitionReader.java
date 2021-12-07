@@ -72,17 +72,17 @@ public class MongoPartitionReader implements PartitionReader<InternalRow> {
   @Override
   public boolean next() {
     Assertions.ensureState(() -> !closed, () -> "Cannot call next() on a closed PartitionReader.");
-    currentRow = null;
-    return getCursor().hasNext();
+    boolean hasNext = getCursor().hasNext();
+    if (hasNext) {
+        currentRow = bsonDocumentToRowConverter.toInternalRow(getCursor().next());
+    }
+    return hasNext;
   }
 
   /** Return the current record. This method should return same value until `next` is called. */
   @Override
   public InternalRow get() {
     Assertions.ensureState(() -> !closed, () -> "Cannot call get() on a closed PartitionReader.");
-    if (currentRow == null) {
-      currentRow = bsonDocumentToRowConverter.toInternalRow(getCursor().next());
-    }
     return currentRow;
   }
 
