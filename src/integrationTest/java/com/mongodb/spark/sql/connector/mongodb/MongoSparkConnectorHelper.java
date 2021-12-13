@@ -185,10 +185,10 @@ public class MongoSparkConnectorHelper
         .set("spark.sql.streaming.forceDeleteTempCheckpointLocation", "true")
         .set("spark.app.id", "MongoSparkConnector")
         .set(
-            MongoConfig.WRITE_PREFIX + MongoConfig.CONNECTION_STRING_CONFIG,
+            MongoConfig.PREFIX + MongoConfig.CONNECTION_STRING_CONFIG,
             getConnectionString().getConnectionString())
-        .set(MongoConfig.WRITE_PREFIX + MongoConfig.DATABASE_NAME_CONFIG, getDatabaseName())
-        .set(MongoConfig.WRITE_PREFIX + MongoConfig.COLLECTION_NAME_CONFIG, getCollectionName());
+        .set(MongoConfig.PREFIX + MongoConfig.DATABASE_NAME_CONFIG, getDatabaseName())
+        .set(MongoConfig.PREFIX + MongoConfig.COLLECTION_NAME_CONFIG, getCollectionName());
   }
 
   public SparkContext getOrCreateSparkContext(final SparkConf sparkConfig) {

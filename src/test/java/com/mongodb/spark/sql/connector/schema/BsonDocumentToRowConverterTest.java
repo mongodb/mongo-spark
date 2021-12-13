@@ -116,7 +116,9 @@ public class BsonDocumentToRowConverterTest {
   private static final BsonDocumentToRowConverter CONVERTER = new BsonDocumentToRowConverter();
 
   private static final BiFunction<DataType, BsonValue, Object> CONVERT =
-      (dataType, bsonValue) -> CONVERTER.convertBsonValue("", dataType, bsonValue);
+      (dataType, bsonValue) ->
+          CONVERTER.convertBsonValue(
+              "", dataType, bsonValue, ConverterHelper.DEFAULT_JSON_WRITER_SETTINGS);
   private static final DataType DECIMAL_TYPE = DataTypes.createDecimalType();
 
   @Test
@@ -658,26 +660,49 @@ public class BsonDocumentToRowConverterTest {
   @Test
   @DisplayName("test fromBsonDocument")
   void testFromBsonDocument() {
-    StructType structType =
+    GenericRowWithSchema subSubDocRow =
+        new GenericRowWithSchema(
+            singletonList("12345.6789").toArray(), new StructType().add("D", DataTypes.StringType));
+    GenericRowWithSchema subDocRow =
+        new GenericRowWithSchema(
+            asList(
+                    BSON_DOCUMENT.getDocument("mySubDoc").getBinary("A").getData(),
+                    new Date(1577863627000L),
+                    subSubDocRow)
+                .toArray(),
+            new StructType()
+                .add("A", DataTypes.BinaryType, true)
+                .add("B", DataTypes.TimestampType)
+                .add("C", subSubDocRow.schema()));
+
+    StructType schema =
         new StructType()
             .add("_id", DataTypes.StringType, true)
             .add("myString", DataTypes.StringType, true)
             .add("myInt", DataTypes.IntegerType, true)
             .add("myDouble", DataTypes.DoubleType, true)
-            .add(
-                "mySubDoc",
-                new StructType()
-                    .add("A", DataTypes.BinaryType, true)
-                    .add("B", DataTypes.TimestampType)
-                    .add("C", new StructType().add("D", DataTypes.StringType)),
-                true)
+            .add("mySubDoc", subDocRow.schema(), true)
             .add("myArray", DataTypes.createArrayType(DataTypes.IntegerType, true), true)
             .add("myBytes", DataTypes.BinaryType, true)
             .add("myDate", DataTypes.TimestampType, true)
             .add("myDecimal", DataTypes.createDecimalType(), true);
+
+    BsonDocumentToRowConverter bsonDocumentToRowConverter = new BsonDocumentToRowConverter(schema);
+    List<Object> values =
+        asList(
+            "5f15aab12435743f9bd126a4",
+            "some foo bla text",
+            42,
+            20.21,
+            subDocRow,
+            asList(1, 2, 3),
+            BSON_DOCUMENT.getBinary("myBytes").getData(),
+            new Date(BSON_DOCUMENT.getDateTime("myDate").getValue()),
+            BSON_DOCUMENT.getDecimal128("myDecimal").decimal128Value().bigDecimalValue());
+
     assertEquals(
-        CONVERTER.fromBsonDocument(BSON_DOCUMENT),
-        CONVERTER.fromBsonDocument(structType, BSON_DOCUMENT));
+        new GenericRowWithSchema(values.toArray(), schema),
+        bsonDocumentToRowConverter.toRow(BSON_DOCUMENT));
   }
 
   @Test

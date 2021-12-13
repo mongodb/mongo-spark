@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  */
-package com.mongodb.spark.sql.connector;
+package com.mongodb.spark.sql.connector.write;
 
 import static java.util.Arrays.asList;
 import static org.apache.spark.sql.types.DataTypes.createStructField;
@@ -45,31 +45,25 @@ import com.mongodb.client.model.Projections;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
 
-class MongoSparkConnectorTest extends MongoSparkConnectorTestCase {
-  private static final String RESOURCES_JSON = "src/integrationTest/resources/json/";
-
-  @Test
-  void testReadAreUnsupported() {
-    SparkSession spark = getOrCreateSparkSession();
-    assertThrows(UnsupportedOperationException.class, () -> spark.read().format("mongodb").load());
-  }
+class MongoSparkConnectorWriteTest extends MongoSparkConnectorTestCase {
+  private static final String WRITE_RESOURCES_JSON_PATH =
+      "src/integrationTest/resources/json/write";
 
   @Test
   void testSupportedWriteModes() {
     SparkSession spark = getOrCreateSparkSession();
 
-    Dataset<Row> df = spark.read().json(RESOURCES_JSON);
-
+    Dataset<Row> df = spark.read().json(WRITE_RESOURCES_JSON_PATH);
     DataFrameWriter<Row> dfw = df.write().format("mongodb");
 
     dfw.mode("Overwrite").save();
-    assertEquals(3, getCollection().countDocuments());
+    assertEquals(10, getCollection().countDocuments());
 
     dfw.mode("Append").save();
-    assertEquals(6, getCollection().countDocuments());
+    assertEquals(20, getCollection().countDocuments());
 
     dfw.mode("Overwrite").save();
-    assertEquals(3, getCollection().countDocuments());
+    assertEquals(10, getCollection().countDocuments());
 
     assertCollection();
   }
@@ -84,21 +78,21 @@ class MongoSparkConnectorTest extends MongoSparkConnectorTestCase {
                 createStructField("age", DataTypes.LongType, true),
                 createStructField("name", DataTypes.StringType, true)));
 
-    Dataset<Row> df = spark.readStream().schema(schema).json(RESOURCES_JSON);
+    Dataset<Row> df = spark.readStream().schema(schema).json(WRITE_RESOURCES_JSON_PATH);
 
     StreamingQuery query = df.writeStream().outputMode("Append").format("mongodb").start();
     query.processAllAvailable();
     query.stop();
 
-    assertEquals(3, getCollection().countDocuments());
+    assertEquals(10, getCollection().countDocuments());
 
-    // assertCollection();
+    assertCollection();
   }
 
   @Test
   void testSupportedWriteModesWithOptions() {
     SparkSession spark = getOrCreateSparkSession();
-    Dataset<Row> df = spark.read().json(RESOURCES_JSON);
+    Dataset<Row> df = spark.read().json(WRITE_RESOURCES_JSON_PATH);
 
     DataFrameWriter<Row> dfw =
         df.write()
@@ -108,17 +102,18 @@ class MongoSparkConnectorTest extends MongoSparkConnectorTestCase {
 
     dfw.save();
     assertEquals(0, getCollection().countDocuments());
-    assertEquals(3, getCollection("coll2").countDocuments());
+    assertEquals(10, getCollection("coll2").countDocuments());
 
     dfw.option(MongoConfig.WRITE_PREFIX + MongoConfig.COLLECTION_NAME_CONFIG, "coll3").save();
-    assertEquals(3, getCollection("coll3").countDocuments());
+    assertEquals(10, getCollection("coll3").countDocuments());
     assertCollection("coll3");
   }
 
   @Test
   void testUnsupportedDatasourceV2WriteModes() {
     SparkSession spark = getOrCreateSparkSession();
-    DataFrameWriter<Row> dfw = spark.read().json(RESOURCES_JSON).write().format("mongodb");
+    DataFrameWriter<Row> dfw =
+        spark.read().json(WRITE_RESOURCES_JSON_PATH).write().format("mongodb");
 
     assertThrows(AnalysisException.class, dfw::save); // Error if exists is the default
     assertThrows(AnalysisException.class, () -> dfw.mode("ErrorIfExists").save());
@@ -131,7 +126,8 @@ class MongoSparkConnectorTest extends MongoSparkConnectorTestCase {
 
   private void assertCollection(final String collectionName) {
     List<BsonDocument> expected =
-        getOrCreateSparkSession().read().json(RESOURCES_JSON).toJSON().collectAsList().stream()
+        getOrCreateSparkSession().read().json(WRITE_RESOURCES_JSON_PATH).toJSON().collectAsList()
+            .stream()
             .map(BsonDocument::parse)
             .collect(Collectors.toList());
 

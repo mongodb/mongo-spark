@@ -18,10 +18,10 @@
 package com.mongodb.spark.sql.connector.schema;
 
 import static com.mongodb.spark.sql.connector.schema.ConverterHelper.BSON_VALUE_CODEC;
-import static com.mongodb.spark.sql.connector.schema.ConverterHelper.DEFAULT_JSON_WRITER_SETTINGS;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -33,9 +33,11 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.spark.sql.Row;
+import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
 import org.apache.spark.sql.types.ArrayType;
 import org.apache.spark.sql.types.BinaryType;
@@ -58,6 +60,7 @@ import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.types.TimestampType;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.TestOnly;
 import org.jetbrains.annotations.VisibleForTesting;
 
 import org.bson.BsonArray;
@@ -85,46 +88,66 @@ import com.mongodb.spark.sql.connector.exceptions.DataException;
  * Bson type into the declared {@code DataType}.
  */
 @NotNull
-public final class BsonDocumentToRowConverter {
-
-  private final JsonWriterSettings jsonWriterSettings;
+public final class BsonDocumentToRowConverter implements Serializable {
+  private static final long serialVersionUID = 1L;
+  private final Function<Row, InternalRow> rowToInternalRowFunction;
+  private final StructType schema;
 
   /** Create a new instance with the default json writer settings */
+  @TestOnly
   public BsonDocumentToRowConverter() {
-    this(DEFAULT_JSON_WRITER_SETTINGS);
+    this(new StructType());
+  }
+
+  /**
+   * Create a new instance with the default json writer settings
+   *
+   * @param schema the schema for the row
+   */
+  public BsonDocumentToRowConverter(final StructType schema) {
+    this(schema, new RowToInternalRowFunction(schema));
   }
 
   /**
    * Create a new instance
    *
-   * @param jsonWriterSettings the {@link JsonWriterSettings} to use
+   * @param schema the schema to use
+   * @param rowToInternalRowFunction the {@link Row} to {@link InternalRow} function which must be
+   *     serializable
    */
-  public BsonDocumentToRowConverter(final JsonWriterSettings jsonWriterSettings) {
-    this.jsonWriterSettings = jsonWriterSettings;
+  private BsonDocumentToRowConverter(
+      final StructType schema, final Function<Row, InternalRow> rowToInternalRowFunction) {
+    this.schema = schema;
+    this.rowToInternalRowFunction = rowToInternalRowFunction;
   }
 
-  /**
-   * Converts a {@code BsonDocument} into a {@link GenericRowWithSchema}. Uses the {@linkplain
-   * BsonValue#getBsonType BSON types} of values in the {@code bsonDocument} to determine the {@code
-   * StructType}
-   *
-   * @param bsonDocument the bson document to shape into a GenericRowWithSchema.
-   * @return the converted data as a Row
-   */
-  public Row fromBsonDocument(final BsonDocument bsonDocument) {
-    return fromBsonDocument((StructType) getDataType(bsonDocument), bsonDocument);
+  /** @return the schema for the converter */
+  public StructType getSchema() {
+    return schema;
   }
 
   /**
    * Converts a {@code BsonDocument} into a {@link GenericRowWithSchema} using the supplied {@code
    * StructType}
    *
-   * @param structType the schema to use
    * @param bsonDocument the bson document to shape into a GenericRowWithSchema.
    * @return the converted data as a Row
    */
-  public Row fromBsonDocument(final StructType structType, final BsonDocument bsonDocument) {
-    return convertToRow("", structType, bsonDocument);
+  @VisibleForTesting
+  Row toRow(final BsonDocument bsonDocument) {
+    return convertToRow("", schema, bsonDocument, ConverterHelper.DEFAULT_JSON_WRITER_SETTINGS);
+  }
+
+  /**
+   * Converts a {@code BsonDocument} into a {@link InternalRow}. Uses the {@linkplain
+   * BsonValue#getBsonType BSON types} of values in the {@code bsonDocument} to determine the {@code
+   * StructType}
+   *
+   * @param bsonDocument the bson document to shape into an InternalRow.
+   * @return the converted data as a Row
+   */
+  public InternalRow toInternalRow(final BsonDocument bsonDocument) {
+    return rowToInternalRowFunction.apply(toRow(bsonDocument));
   }
 
   @VisibleForTesting
@@ -214,37 +237,40 @@ public final class BsonDocumentToRowConverter {
 
   @VisibleForTesting
   Object convertBsonValue(
-      final String fieldName, final DataType dataType, final BsonValue bsonValue) {
+      final String fieldName,
+      final DataType dataType,
+      final BsonValue bsonValue,
+      final JsonWriterSettings jsonWriterSettings) {
     if (dataType instanceof StructType) {
-      return convertToRow(fieldName, (StructType) dataType, bsonValue);
+      return convertToRow(fieldName, (StructType) dataType, bsonValue, jsonWriterSettings);
     } else if (dataType instanceof MapType) {
-      return convertToMap(fieldName, (MapType) dataType, bsonValue);
+      return convertToMap(fieldName, (MapType) dataType, bsonValue, jsonWriterSettings);
     } else if (dataType instanceof ArrayType) {
-      return convertToArray(fieldName, (ArrayType) dataType, bsonValue);
+      return convertToArray(fieldName, (ArrayType) dataType, bsonValue, jsonWriterSettings);
     } else if (dataType instanceof BinaryType) {
       return convertToBinary(fieldName, dataType, bsonValue);
     } else if (dataType instanceof BooleanType) {
       return convertToBoolean(fieldName, dataType, bsonValue);
     } else if (dataType instanceof DateType) {
-      return convertToDate(fieldName, dataType, bsonValue);
+      return convertToDate(fieldName, dataType, bsonValue, jsonWriterSettings);
     } else if (dataType instanceof TimestampType) {
-      return convertToTimestamp(fieldName, dataType, bsonValue);
+      return convertToTimestamp(fieldName, dataType, bsonValue, jsonWriterSettings);
     } else if (dataType instanceof FloatType) {
-      return convertToFloat(fieldName, dataType, bsonValue);
+      return convertToFloat(fieldName, dataType, bsonValue, jsonWriterSettings);
     } else if (dataType instanceof IntegerType) {
-      return convertToInteger(fieldName, dataType, bsonValue);
+      return convertToInteger(fieldName, dataType, bsonValue, jsonWriterSettings);
     } else if (dataType instanceof DoubleType) {
-      return convertToDouble(fieldName, dataType, bsonValue);
+      return convertToDouble(fieldName, dataType, bsonValue, jsonWriterSettings);
     } else if (dataType instanceof ShortType) {
-      return convertToShort(fieldName, dataType, bsonValue);
+      return convertToShort(fieldName, dataType, bsonValue, jsonWriterSettings);
     } else if (dataType instanceof ByteType) {
-      return convertToByte(fieldName, dataType, bsonValue);
+      return convertToByte(fieldName, dataType, bsonValue, jsonWriterSettings);
     } else if (dataType instanceof LongType) {
-      return convertToLong(fieldName, dataType, bsonValue);
+      return convertToLong(fieldName, dataType, bsonValue, jsonWriterSettings);
     } else if (dataType instanceof DecimalType) {
-      return convertToDecimal(fieldName, dataType, bsonValue);
+      return convertToDecimal(fieldName, dataType, bsonValue, jsonWriterSettings);
     } else if (dataType instanceof StringType) {
-      return convertToString(bsonValue);
+      return convertToString(bsonValue, jsonWriterSettings);
     } else if (dataType instanceof NullType) {
       return null;
     }
@@ -253,7 +279,10 @@ public final class BsonDocumentToRowConverter {
   }
 
   private GenericRowWithSchema convertToRow(
-      final String fieldName, final StructType dataType, final BsonValue bsonValue) {
+      final String fieldName,
+      final StructType dataType,
+      final BsonValue bsonValue,
+      final JsonWriterSettings jsonWriterSettings) {
     if (!bsonValue.isDocument()) {
       throw invalidFieldData(fieldName, dataType, bsonValue);
     }
@@ -265,17 +294,24 @@ public final class BsonDocumentToRowConverter {
       if (hasField || field.nullable()) {
         values.add(
             hasField
-                ? convertBsonValue(fullFieldPath, field.dataType(), bsonDocument.get(field.name()))
+                ? convertBsonValue(
+                    fullFieldPath,
+                    field.dataType(),
+                    bsonDocument.get(field.name()),
+                    jsonWriterSettings)
                 : null);
       } else {
-        throw missingFieldException(fullFieldPath, bsonDocument);
+        throw missingFieldException(fullFieldPath, bsonDocument, jsonWriterSettings);
       }
     }
     return new GenericRowWithSchema(values.toArray(), dataType);
   }
 
   private Map<String, ?> convertToMap(
-      final String fieldName, final MapType dataType, final BsonValue bsonValue) {
+      final String fieldName,
+      final MapType dataType,
+      final BsonValue bsonValue,
+      final JsonWriterSettings jsonWriterSettings) {
     if (!bsonValue.isDocument()) {
       throw invalidFieldData(fieldName, dataType, bsonValue);
     }
@@ -289,13 +325,21 @@ public final class BsonDocumentToRowConverter {
         .forEach(
             (k, v) ->
                 map.put(
-                    k, convertBsonValue(createFieldPath(fieldName, k), dataType.valueType(), v)));
+                    k,
+                    convertBsonValue(
+                        createFieldPath(fieldName, k),
+                        dataType.valueType(),
+                        v,
+                        jsonWriterSettings)));
 
     return map;
   }
 
   private List<?> convertToArray(
-      final String fieldName, final ArrayType dataType, final BsonValue bsonValue) {
+      final String fieldName,
+      final ArrayType dataType,
+      final BsonValue bsonValue,
+      final JsonWriterSettings jsonWriterSettings) {
     if (!bsonValue.isArray()) {
       throw invalidFieldData(fieldName, dataType, bsonValue);
     }
@@ -306,7 +350,8 @@ public final class BsonDocumentToRowConverter {
           convertBsonValue(
               createFieldPath(fieldName, String.valueOf(i)),
               dataType.elementType(),
-              bsonArray.get(i)));
+              bsonArray.get(i),
+              jsonWriterSettings));
     }
     return arrayList;
   }
@@ -334,43 +379,71 @@ public final class BsonDocumentToRowConverter {
   }
 
   private Date convertToDate(
-      final String fieldName, final DataType dataType, final BsonValue bsonValue) {
-    return Date.from(convertToInstant(fieldName, dataType, bsonValue).truncatedTo(ChronoUnit.DAYS));
+      final String fieldName,
+      final DataType dataType,
+      final BsonValue bsonValue,
+      final JsonWriterSettings jsonWriterSettings) {
+    return Date.from(
+        convertToInstant(fieldName, dataType, bsonValue, jsonWriterSettings)
+            .truncatedTo(ChronoUnit.DAYS));
   }
 
   private Date convertToTimestamp(
-      final String fieldName, final DataType dataType, final BsonValue bsonValue) {
-    return Date.from(convertToInstant(fieldName, dataType, bsonValue));
+      final String fieldName,
+      final DataType dataType,
+      final BsonValue bsonValue,
+      final JsonWriterSettings jsonWriterSettings) {
+    return Date.from(convertToInstant(fieldName, dataType, bsonValue, jsonWriterSettings));
   }
 
   private float convertToFloat(
-      final String fieldName, final DataType dataType, final BsonValue bsonValue) {
-    return (float) convertToBsonNumber(fieldName, dataType, bsonValue).doubleValue();
+      final String fieldName,
+      final DataType dataType,
+      final BsonValue bsonValue,
+      final JsonWriterSettings jsonWriterSettings) {
+    return (float)
+        convertToBsonNumber(fieldName, dataType, bsonValue, jsonWriterSettings).doubleValue();
   }
 
   private double convertToDouble(
-      final String fieldName, final DataType dataType, final BsonValue bsonValue) {
-    return convertToBsonNumber(fieldName, dataType, bsonValue).doubleValue();
+      final String fieldName,
+      final DataType dataType,
+      final BsonValue bsonValue,
+      final JsonWriterSettings jsonWriterSettings) {
+    return convertToBsonNumber(fieldName, dataType, bsonValue, jsonWriterSettings).doubleValue();
   }
 
   private int convertToInteger(
-      final String fieldName, final DataType dataType, final BsonValue bsonValue) {
-    return convertToBsonNumber(fieldName, dataType, bsonValue).intValue();
+      final String fieldName,
+      final DataType dataType,
+      final BsonValue bsonValue,
+      final JsonWriterSettings jsonWriterSettings) {
+    return convertToBsonNumber(fieldName, dataType, bsonValue, jsonWriterSettings).intValue();
   }
 
   private short convertToShort(
-      final String fieldName, final DataType dataType, final BsonValue bsonValue) {
-    return (short) convertToBsonNumber(fieldName, dataType, bsonValue).intValue();
+      final String fieldName,
+      final DataType dataType,
+      final BsonValue bsonValue,
+      final JsonWriterSettings jsonWriterSettings) {
+    return (short)
+        convertToBsonNumber(fieldName, dataType, bsonValue, jsonWriterSettings).intValue();
   }
 
   private long convertToLong(
-      final String fieldName, final DataType dataType, final BsonValue bsonValue) {
-    return convertToBsonNumber(fieldName, dataType, bsonValue).longValue();
+      final String fieldName,
+      final DataType dataType,
+      final BsonValue bsonValue,
+      final JsonWriterSettings jsonWriterSettings) {
+    return convertToBsonNumber(fieldName, dataType, bsonValue, jsonWriterSettings).longValue();
   }
 
   private BigDecimal convertToDecimal(
-      final String fieldName, final DataType dataType, final BsonValue bsonValue) {
-    BsonNumber bsonNumber = convertToBsonNumber(fieldName, dataType, bsonValue);
+      final String fieldName,
+      final DataType dataType,
+      final BsonValue bsonValue,
+      final JsonWriterSettings jsonWriterSettings) {
+    BsonNumber bsonNumber = convertToBsonNumber(fieldName, dataType, bsonValue, jsonWriterSettings);
     switch (bsonNumber.getBsonType()) {
       case DOUBLE:
         return BigDecimal.valueOf(bsonNumber.doubleValue());
@@ -383,11 +456,16 @@ public final class BsonDocumentToRowConverter {
   }
 
   private byte convertToByte(
-      final String fieldName, final DataType dataType, final BsonValue bsonValue) {
-    return (byte) convertToBsonNumber(fieldName, dataType, bsonValue).longValue();
+      final String fieldName,
+      final DataType dataType,
+      final BsonValue bsonValue,
+      final JsonWriterSettings jsonWriterSettings) {
+    return (byte)
+        convertToBsonNumber(fieldName, dataType, bsonValue, jsonWriterSettings).longValue();
   }
 
-  private String convertToString(final BsonValue bsonValue) {
+  private String convertToString(
+      final BsonValue bsonValue, final JsonWriterSettings jsonWriterSettings) {
     switch (bsonValue.getBsonType()) {
       case STRING:
         return bsonValue.asString().getValue();
@@ -409,7 +487,10 @@ public final class BsonDocumentToRowConverter {
   }
 
   private BsonNumber convertToBsonNumber(
-      final String fieldName, final DataType dataType, final BsonValue bsonValue) {
+      final String fieldName,
+      final DataType dataType,
+      final BsonValue bsonValue,
+      final JsonWriterSettings jsonWriterSettings) {
     switch (bsonValue.getBsonType()) {
       case DATE_TIME:
         return new BsonInt64(bsonValue.asDateTime().getValue());
@@ -417,7 +498,8 @@ public final class BsonDocumentToRowConverter {
         return new BsonInt64(SECONDS.toMillis(bsonValue.asTimestamp().getTime()));
       case STRING:
         try {
-          return new BsonDecimal128(Decimal128.parse(convertToString(bsonValue)));
+          return new BsonDecimal128(
+              Decimal128.parse(convertToString(bsonValue, jsonWriterSettings)));
         } catch (NumberFormatException e) {
           throw invalidFieldData(fieldName, dataType, bsonValue);
         }
@@ -430,8 +512,11 @@ public final class BsonDocumentToRowConverter {
   }
 
   private Instant convertToInstant(
-      final String fieldName, final DataType dataType, final BsonValue bsonValue) {
-    return Instant.ofEpochMilli(convertToLong(fieldName, dataType, bsonValue));
+      final String fieldName,
+      final DataType dataType,
+      final BsonValue bsonValue,
+      final JsonWriterSettings jsonWriterSettings) {
+    return Instant.ofEpochMilli(convertToLong(fieldName, dataType, bsonValue, jsonWriterSettings));
   }
 
   private String createFieldPath(final String currentLevel, final String subLevel) {
@@ -454,7 +539,10 @@ public final class BsonDocumentToRowConverter {
             fieldName, dataType.typeName(), bsonValue, extraMessage));
   }
 
-  private DataException missingFieldException(final String fieldPath, final BsonDocument value) {
+  private DataException missingFieldException(
+      final String fieldPath,
+      final BsonDocument value,
+      final JsonWriterSettings jsonWriterSettings) {
     return new DataException(
         format("Missing field '%s' in: '%s'", fieldPath, value.toJson(jsonWriterSettings)));
   }
