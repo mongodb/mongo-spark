@@ -29,6 +29,38 @@ public final class ReadConfig extends AbstractMongoConfig {
   private static final long serialVersionUID = 1L;
 
   /**
+   * The size of the sample of documents from the collection to use when inferring the schema
+   *
+   * <p>Defaults to: {@value INFER_SCHEMA_SAMPLE_SIZE_DEFAULT}
+   */
+  public static final String INFER_SCHEMA_SAMPLE_SIZE_CONFIG = "sampleSize";
+
+  private static final int INFER_SCHEMA_SAMPLE_SIZE_DEFAULT = 1000;
+
+  /**
+   * Enable Map Types when inferring the schema.
+   *
+   * <p>If enabled large compatible struct types will be inferred to a {@code MapType} instead.
+   *
+   * <p>Defaults to: {@value INFER_SCHEMA_MAP_TYPE_ENABLED_DEFAULT}
+   */
+  public static final String INFER_SCHEMA_MAP_TYPE_ENABLED_CONFIG =
+      "sql.inferSchema.mapTypes.enabled";
+
+  private static final boolean INFER_SCHEMA_MAP_TYPE_ENABLED_DEFAULT = true;
+
+  /**
+   * The minimum size of a {@code StructType} before its inferred to a {@code MapType} instead.
+   *
+   * <p>Defaults to: {@value INFER_SCHEMA_MAP_TYPE_MINIMUM_KEY_SIZE_DEFAULT}. Requires {@code
+   * INFER_SCHEMA_MAP_TYPE_ENABLED_CONFIG}
+   */
+  public static final String INFER_SCHEMA_MAP_TYPE_MINIMUM_KEY_SIZE_CONFIG =
+      "sql.inferSchema.mapTypes.minimum.key.size";
+
+  private static final int INFER_SCHEMA_MAP_TYPE_MINIMUM_KEY_SIZE_DEFAULT = 250;
+
+  /**
    * Construct a new instance
    *
    * @param options the options for configuration
@@ -43,5 +75,22 @@ public final class ReadConfig extends AbstractMongoConfig {
       return this;
     }
     return new ReadConfig(withOverrides(options));
+  }
+
+  /** @return the configured infer sample size */
+  public int getInferSchemaSampleSize() {
+    return getInt(INFER_SCHEMA_SAMPLE_SIZE_CONFIG, INFER_SCHEMA_SAMPLE_SIZE_DEFAULT);
+  }
+
+  /** @return the configured infer sample size */
+  public boolean inferSchemaMapType() {
+    return getBoolean(INFER_SCHEMA_MAP_TYPE_ENABLED_CONFIG, INFER_SCHEMA_MAP_TYPE_ENABLED_DEFAULT);
+  }
+
+  /** @return the configured infer sample size */
+  public int getInferSchemaMapTypeMinimumKeySize() {
+    return getInt(
+        INFER_SCHEMA_MAP_TYPE_MINIMUM_KEY_SIZE_CONFIG,
+        INFER_SCHEMA_MAP_TYPE_MINIMUM_KEY_SIZE_DEFAULT);
   }
 }

@@ -27,6 +27,7 @@ import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 
 import com.mongodb.spark.sql.connector.config.MongoConfig;
+import com.mongodb.spark.sql.connector.schema.InferSchema;
 
 /**
  * The MongoDB collection provider
@@ -58,7 +59,7 @@ public final class MongoTableProvider implements TableProvider, DataSourceRegist
    */
   @Override
   public StructType inferSchema(final CaseInsensitiveStringMap options) {
-    throw new UnsupportedOperationException("inferSchema is not supported");
+    return InferSchema.inferSchema(options);
   }
 
   /**

@@ -18,7 +18,6 @@
 package com.mongodb.spark.sql.connector;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
@@ -33,9 +32,5 @@ public class MongoTableProviderTest {
     assertEquals("mongodb", tableProvider.shortName());
     assertTrue(tableProvider.supportsExternalMetadata());
     assertEquals(0, tableProvider.inferPartitioning(CaseInsensitiveStringMap.empty()).length);
-
-    assertThrows(
-        UnsupportedOperationException.class,
-        () -> tableProvider.inferSchema(CaseInsensitiveStringMap.empty()));
   }
 }
