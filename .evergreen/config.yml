@@ -325,8 +325,8 @@ tasks:
     commands:
       - func: "bootstrap mongo-orchestration"
       - func: "run integration tests"
-      - func: "upload mo artifacts"
       - func: "stop mongo-orchestration"
+      - func: "upload mo artifacts"
 
   - name: "publish-snapshots-task"
     depends_on:
