@@ -28,13 +28,11 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.InternalRow;
@@ -44,7 +42,6 @@ import org.apache.spark.sql.types.BinaryType;
 import org.apache.spark.sql.types.BooleanType;
 import org.apache.spark.sql.types.ByteType;
 import org.apache.spark.sql.types.DataType;
-import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.DateType;
 import org.apache.spark.sql.types.DecimalType;
 import org.apache.spark.sql.types.DoubleType;
@@ -52,7 +49,6 @@ import org.apache.spark.sql.types.FloatType;
 import org.apache.spark.sql.types.IntegerType;
 import org.apache.spark.sql.types.LongType;
 import org.apache.spark.sql.types.MapType;
-import org.apache.spark.sql.types.Metadata;
 import org.apache.spark.sql.types.NullType;
 import org.apache.spark.sql.types.ShortType;
 import org.apache.spark.sql.types.StringType;
@@ -81,8 +77,8 @@ import com.mongodb.spark.sql.connector.exceptions.DataException;
 /**
  * The helper for conversion of BsonDocuments to GenericRowWithSchema instances.
  *
- * <p>All Bson types are considered convertible to Spark types. For any Bson types that don't have a
- * direct conversion to a Spark type then a String type will be used.
+ * <p>All Bson types are considered convertible to Spark types. For any Bson types that doesn't have
+ * a direct conversion to a Spark type then a String type will be used.
  *
  * <p>When a {@link DataType} is provided by Spark, the conversion process will try to convert the
  * Bson type into the declared {@code DataType}.
@@ -148,91 +144,6 @@ public final class BsonDocumentToRowConverter implements Serializable {
    */
   public InternalRow toInternalRow(final BsonDocument bsonDocument) {
     return rowToInternalRowFunction.apply(toRow(bsonDocument));
-  }
-
-  @VisibleForTesting
-  DataType getDataType(final BsonValue bsonValue) {
-    switch (bsonValue.getBsonType()) {
-      case DOCUMENT:
-        List<StructField> fields = new ArrayList<>();
-        bsonValue
-            .asDocument()
-            .forEach(
-                (k, v) -> fields.add(new StructField(k, getDataType(v), true, Metadata.empty())));
-        return DataTypes.createStructType(fields);
-      case ARRAY:
-        List<DataType> dataTypes =
-            bsonValue.asArray().stream()
-                .map(this::getDataType)
-                .distinct()
-                .collect(Collectors.toList());
-        return DataTypes.createArrayType(simplifyDataTypes(dataTypes), true);
-      case SYMBOL:
-      case STRING:
-      case OBJECT_ID:
-        return DataTypes.StringType;
-      case BINARY:
-        return DataTypes.BinaryType;
-      case BOOLEAN:
-        return DataTypes.BooleanType;
-      case TIMESTAMP:
-      case DATE_TIME:
-        return DataTypes.TimestampType;
-      case NULL:
-        return DataTypes.NullType;
-      case DOUBLE:
-        return DataTypes.DoubleType;
-      case INT32:
-        return DataTypes.IntegerType;
-      case INT64:
-        return DataTypes.LongType;
-      case DECIMAL128:
-        BigDecimal bigDecimal = bsonValue.asDecimal128().decimal128Value().bigDecimalValue();
-        return DataTypes.createDecimalType(bigDecimal.precision(), bigDecimal.scale());
-      default:
-        return DataTypes.StringType;
-    }
-  }
-
-  /**
-   * Create the common datatype for an array
-   *
-   * <p>{@code DataTypes.String} is the common (lowest) type for conversion. Arrays containing
-   * {@code StructType}s with the same field names, will also be processed to find the commonest
-   * type for the field.
-   *
-   * @param dataTypes the data types contained by the array
-   * @return the simplified DataType
-   */
-  private DataType simplifyDataTypes(final List<DataType> dataTypes) {
-    return dataTypes.stream()
-        .reduce(
-            (dataType1, dataType2) -> {
-              if (dataType1 instanceof StructType && dataType2 instanceof StructType) {
-                StructType structType1 = (StructType) dataType1;
-                StructType structType2 = (StructType) dataType2;
-                if (Arrays.equals(structType1.fieldNames(), structType2.fieldNames())) {
-                  List<StructField> simplifiedFields = new ArrayList<>();
-                  StructField[] fields1 = structType1.fields();
-                  StructField[] fields2 = structType2.fields();
-                  for (int i = 0; i < fields1.length; i++) {
-                    StructField structField = fields1[i];
-                    if (structField.dataType().acceptsType(fields2[i].dataType())) {
-                      simplifiedFields.add(structField);
-                    } else {
-                      simplifiedFields.add(
-                          DataTypes.createStructField(
-                              structField.name(), DataTypes.StringType, true));
-                    }
-                  }
-                  return DataTypes.createStructType(simplifiedFields);
-                }
-              } else if (dataType1 instanceof ArrayType && dataType2 instanceof ArrayType) {
-                return DataTypes.createArrayType(DataTypes.StringType, true);
-              }
-              return DataTypes.StringType;
-            })
-        .orElse(DataTypes.StringType);
   }
 
   @VisibleForTesting

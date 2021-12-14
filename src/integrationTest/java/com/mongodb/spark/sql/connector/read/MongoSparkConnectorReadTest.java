@@ -37,7 +37,7 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
   private static final String READ_RESOURCES_JSON_PATH = "src/integrationTest/resources/json/read";
 
   @Test
-  void testReadsAreSupported() {
+  void testReadsAreSupportedWithSchemaSupplied() {
     SparkSession spark = getOrCreateSparkSession();
 
     List<BsonDocument> collectionData =
@@ -54,6 +54,18 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
     assertIterableEquals(
         collectionData,
         toBsonDocuments(spark.read().format("mongodb").schema(schema).load().toJSON()));
+  }
+
+  @Test
+  void testReadsAreSupportedWithSchemaInferred() {
+    SparkSession spark = getOrCreateSparkSession();
+
+    List<BsonDocument> collectionData =
+        toBsonDocuments(spark.read().textFile(READ_RESOURCES_JSON_PATH));
+    getCollection().insertMany(collectionData);
+
+    assertIterableEquals(
+        collectionData, toBsonDocuments(spark.read().format("mongodb").load().toJSON()));
   }
 
   private List<BsonDocument> toBsonDocuments(final Dataset<String> dataset) {

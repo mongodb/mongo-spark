@@ -148,7 +148,7 @@ abstract class AbstractMongoConfig implements MongoConfig {
   }
 
   /**
-   * Loans a {@link MongoClient} to the user.
+   * Runs a function against a {@code MongoClient}
    *
    * @param function the function that is passed the {@code MongoClient}
    * @param <T> The return type
@@ -179,11 +179,27 @@ abstract class AbstractMongoConfig implements MongoConfig {
    * @param consumer the consumer of the {@code MongoCollection<BsonDocument>}
    */
   public void doWithCollection(final Consumer<MongoCollection<BsonDocument>> consumer) {
-    doWithClient(
-        c ->
-            consumer.accept(
-                c.getDatabase(getDatabaseName())
-                    .getCollection(getCollectionName(), BsonDocument.class)));
+    withCollection(
+        collection -> {
+          consumer.accept(collection);
+          return null;
+        });
+  }
+
+  /**
+   * Runs a function against a {@code MongoCollection}
+   *
+   * @param function the function that is passed the {@code MongoCollection}
+   * @param <T> The return type
+   * @return the result of the function
+   */
+  public <T> T withCollection(final Function<MongoCollection<BsonDocument>, T> function) {
+    try (MongoClient client = getMongoClient()) {
+      return function.apply(
+          client
+              .getDatabase(getDatabaseName())
+              .getCollection(getCollectionName(), BsonDocument.class));
+    }
   }
 
   @Override
