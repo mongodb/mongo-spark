@@ -75,9 +75,10 @@ dependencies {
     shadow("org.mongodb:mongodb-driver-sync:${project.extra["mongodbDriverVersion"]}")
 
     // Unit Tests
-    testImplementation(platform("org.junit:junit-bom:5.7.2"))
+    testImplementation(platform("org.junit:junit-bom:5.8.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.mockito:mockito-junit-jupiter:${project.extra["mockitoVersion"]}")
+    testImplementation("org.apiguardian:apiguardian-api:1.1.2") // https://github.com/gradle/gradle/issues/18627
 
     // Integration Tests
 }
