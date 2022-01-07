@@ -35,14 +35,17 @@ import org.apache.spark.sql.connector.write.LogicalWriteInfo;
 import org.apache.spark.sql.connector.write.WriteBuilder;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import com.mongodb.spark.connector.Versions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.read.MongoScanBuilder;
 import com.mongodb.spark.sql.connector.write.MongoWriteBuilder;
 
 /** Represents a MongoDB Collection. */
 public class MongoTable implements Table, SupportsWrite, SupportsRead {
-
+  private static final Logger LOGGER = LoggerFactory.getLogger(MongoTable.class);
   private static final Set<TableCapability> TABLE_CAPABILITY_SET =
       new HashSet<>(
           asList(
@@ -83,6 +86,7 @@ public class MongoTable implements Table, SupportsWrite, SupportsRead {
    */
   public MongoTable(
       final StructType schema, final Transform[] partitioning, final MongoConfig mongoConfig) {
+    LOGGER.info("Creating MongoTable: {}-{}", Versions.NAME, Versions.VERSION);
     this.schema = schema;
     this.partitioning = partitioning;
     this.mongoConfig = mongoConfig;
