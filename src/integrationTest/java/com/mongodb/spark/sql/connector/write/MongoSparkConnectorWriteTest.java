@@ -93,8 +93,9 @@ class MongoSparkConnectorWriteTest extends MongoSparkConnectorTestCase {
     assertCollection();
   }
 
+  /** By using a window function, this test implicitly tests committing empty (no-op) commits. */
   @Test
-  void testSupportedStreamingWriteComplete() throws TimeoutException {
+  void testSupportedStreamingWriteWithWindow() throws TimeoutException {
     SparkSession spark = getOrCreateSparkSession();
 
     StructType schema =
