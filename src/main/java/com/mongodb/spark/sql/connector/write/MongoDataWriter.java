@@ -186,16 +186,18 @@ class MongoDataWriter implements DataWriter<InternalRow> {
   }
 
   private void writeModels() {
-    LOGGER.debug(
-        "Writing batch of {} operations. PartitionId: {}, TaskId: {}.",
-        writeModelList.size(),
-        partitionId,
-        taskId);
-    getMongoClient()
-        .getDatabase(writeConfig.getDatabaseName())
-        .getCollection(writeConfig.getCollectionName(), BsonDocument.class)
-        .withWriteConcern(writeConfig.getWriteConcern())
-        .bulkWrite(writeModelList, bulkWriteOptions);
-    writeModelList.clear();
+    if (writeModelList.size() > 0) {
+      LOGGER.debug(
+          "Writing batch of {} operations. PartitionId: {}, TaskId: {}.",
+          writeModelList.size(),
+          partitionId,
+          taskId);
+      getMongoClient()
+          .getDatabase(writeConfig.getDatabaseName())
+          .getCollection(writeConfig.getCollectionName(), BsonDocument.class)
+          .withWriteConcern(writeConfig.getWriteConcern())
+          .bulkWrite(writeModelList, bulkWriteOptions);
+      writeModelList.clear();
+    }
   }
 }

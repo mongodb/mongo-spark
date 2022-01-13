@@ -33,6 +33,7 @@ import org.apache.spark.sql.DataFrameWriter;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.functions;
 import org.apache.spark.sql.streaming.StreamingQuery;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
@@ -47,7 +48,10 @@ import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
 
 class MongoSparkConnectorWriteTest extends MongoSparkConnectorTestCase {
   private static final String WRITE_RESOURCES_JSON_PATH =
-      "src/integrationTest/resources/json/write";
+      "src/integrationTest/resources/data/write/*.json";
+
+  private static final String WRITE_RESOURCES_CSV_PATH =
+      "src/integrationTest/resources/data/write/*.csv";
 
   @Test
   void testSupportedWriteModes() {
@@ -69,7 +73,7 @@ class MongoSparkConnectorWriteTest extends MongoSparkConnectorTestCase {
   }
 
   @Test
-  void testSupportedStreamingWriteModes() throws TimeoutException {
+  void testSupportedStreamingWriteAppend() throws TimeoutException {
     SparkSession spark = getOrCreateSparkSession();
 
     StructType schema =
@@ -87,6 +91,45 @@ class MongoSparkConnectorWriteTest extends MongoSparkConnectorTestCase {
     assertEquals(10, getCollection().countDocuments());
 
     assertCollection();
+  }
+
+  /** By using a window function, this test implicitly tests committing empty (no-op) commits. */
+  @Test
+  void testSupportedStreamingWriteWithWindow() throws TimeoutException {
+    SparkSession spark = getOrCreateSparkSession();
+
+    StructType schema =
+        createStructType(
+            asList(
+                createStructField("Type", DataTypes.StringType, true),
+                createStructField("Date", DataTypes.TimestampType, true),
+                createStructField("Price", DataTypes.DoubleType, true)));
+
+    Dataset<Row> ds =
+        spark
+            .readStream()
+            .format("csv")
+            .option("header", "true")
+            .schema(schema)
+            .load(WRITE_RESOURCES_CSV_PATH);
+
+    Dataset<Row> slidingWindows =
+        ds.withWatermark("Date", "1 minute")
+            .groupBy(ds.col("Type"), functions.window(ds.col("Date"), "7 day"))
+            .avg()
+            .orderBy(ds.col("Type"));
+
+    StreamingQuery query =
+        slidingWindows
+            .writeStream()
+            .outputMode("complete")
+            .format("mongodb")
+            .queryName("7DaySlidingWindow")
+            .start();
+    query.processAllAvailable();
+    query.stop();
+
+    assertEquals(52, getCollection().countDocuments());
   }
 
   @Test

@@ -34,7 +34,8 @@ import org.bson.BsonDocument;
 import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
 
 class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
-  private static final String READ_RESOURCES_JSON_PATH = "src/integrationTest/resources/json/read";
+  private static final String READ_RESOURCES_JSON_PATH =
+      "src/integrationTest/resources/data/read/*.json";
 
   @Test
   void testReadsAreSupportedWithSchemaSupplied() {
