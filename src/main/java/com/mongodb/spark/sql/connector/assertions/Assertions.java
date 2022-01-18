@@ -20,6 +20,8 @@ package com.mongodb.spark.sql.connector.assertions;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
+import com.mongodb.spark.sql.connector.exceptions.ConfigException;
+
 /** Assertions to validate inputs */
 public final class Assertions {
 
@@ -58,15 +60,33 @@ public final class Assertions {
    * @param predicate the predicate
    * @param errorMessageSupplier the supplier of the error message if the predicate fails
    * @param <T> the type of the value being checked
-   * @return the value or throw an {@code IllegalStateException} if the value is invalid
-   * @throws IllegalStateException if the state check fails
+   * @return the value or throw an {@code ConfigException} if the value is invalid
+   * @throws ConfigException if the predicate returns false
    */
-  public static <T> T validateState(
+  public static <T> T validateConfig(
       final T value, final Predicate<T> predicate, final Supplier<String> errorMessageSupplier) {
     if (!predicate.test(value)) {
-      throw new IllegalStateException(errorMessageSupplier.get());
+      throw new ConfigException(errorMessageSupplier.get());
     }
     return value;
+  }
+
+  /**
+   * Checks the validity of a value
+   *
+   * @param valueSupplier the supplier of the value
+   * @param errorMessageSupplier the supplier of the error message if the predicate fails
+   * @param <T> the type of the value being checked
+   * @return the value or throw an {@code ConfigException} if the supplier throws an exception
+   * @throws ConfigException if the supplier throws an exception
+   */
+  public static <T> T validateConfig(
+      final Supplier<T> valueSupplier, final Supplier<String> errorMessageSupplier) {
+    try {
+      return valueSupplier.get();
+    } catch (RuntimeException ex) {
+      throw new ConfigException(errorMessageSupplier.get(), ex);
+    }
   }
 
   private Assertions() {}
