@@ -28,7 +28,6 @@ import org.slf4j.LoggerFactory;
 
 import org.bson.BsonDocument;
 
-import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 
@@ -41,20 +40,16 @@ public class MongoSparkConnectorTestCase {
   @RegisterExtension
   public static final MongoSparkConnectorHelper MONGODB = new MongoSparkConnectorHelper();
 
-  public MongoClient getMongoClient() {
-    return MONGODB.getMongoClient();
-  }
-
   public String getDatabaseName() {
     return MONGODB.getDatabaseName();
   }
 
-  public MongoDatabase getDatabase() {
-    return MONGODB.getDatabase();
-  }
-
   public String getCollectionName() {
     return MONGODB.getCollectionName();
+  }
+
+  public MongoDatabase getDatabase() {
+    return MONGODB.getDatabase();
   }
 
   public MongoCollection<BsonDocument> getCollection() {
@@ -63,26 +58,6 @@ public class MongoSparkConnectorTestCase {
 
   public MongoCollection<BsonDocument> getCollection(final String collectionName) {
     return getDatabase().getCollection(collectionName, BsonDocument.class);
-  }
-
-  public boolean isReplicaSetOrSharded() {
-    return MONGODB.isReplicaSetOrSharded();
-  }
-
-  public boolean isGreaterThanThreeDotSix() {
-    return MONGODB.isGreaterThanThreeDotSix();
-  }
-
-  public boolean isGreaterThanFourDotZero() {
-    return MONGODB.isGreaterThanFourDotZero();
-  }
-
-  public boolean isGreaterThanFourDotTwo() {
-    return MONGODB.isGreaterThanFourDotTwo();
-  }
-
-  public boolean isGreaterThanFourDotFour() {
-    return MONGODB.isGreaterThanFourDotFour();
   }
 
   public CaseInsensitiveStringMap getConnectionProviderOptions() {
@@ -103,10 +78,6 @@ public class MongoSparkConnectorTestCase {
 
   public SparkSession getOrCreateSparkSession(final SparkConf sparkConfig) {
     return SparkSession.builder().sparkContext(getOrCreateSparkContext(sparkConfig)).getOrCreate();
-  }
-
-  public SparkContext getOrCreateSparkContext() {
-    return MONGODB.getOrCreateSparkContext(getSparkConf());
   }
 
   public SparkContext getOrCreateSparkContext(final SparkConf sparkConfig) {

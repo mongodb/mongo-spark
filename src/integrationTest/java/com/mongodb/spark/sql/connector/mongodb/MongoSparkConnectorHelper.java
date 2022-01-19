@@ -31,12 +31,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.bson.BsonDocument;
-import org.bson.Document;
 
 import com.mongodb.ConnectionString;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
-import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 
 import com.mongodb.spark.sql.connector.config.MongoConfig;
@@ -53,7 +51,6 @@ public class MongoSparkConnectorHelper
   private SparkContext sparkContext;
   private ConnectionString connectionString;
   private MongoClient mongoClient;
-  private Integer maxWireVersion;
   private Boolean online;
 
   public MongoSparkConnectorHelper() {}
@@ -107,14 +104,6 @@ public class MongoSparkConnectorHelper
     return collectionName != null ? collectionName : DEFAULT_COLLECTION_NAME;
   }
 
-  public MongoCollection<BsonDocument> getCollection() {
-    return getDatabase().getCollection(getCollectionName(), BsonDocument.class);
-  }
-
-  public MongoCollection<BsonDocument> getAlternativeCollection() {
-    return getDatabase().getCollection(getCollectionName(), BsonDocument.class);
-  }
-
   public ConnectionString getConnectionString() {
     if (connectionString == null) {
       String mongoURIProperty = System.getProperty(URI_SYSTEM_PROPERTY_NAME);
@@ -124,55 +113,6 @@ public class MongoSparkConnectorHelper
       LOGGER.info("Connecting to: '{}'", connectionString);
     }
     return connectionString;
-  }
-
-  public boolean isOnline() {
-    if (online == null) {
-      try {
-        isMaster();
-        online = true;
-      } catch (Exception e) {
-        online = false;
-      }
-    }
-    return online;
-  }
-
-  private Document isMaster() {
-    return getMongoClient().getDatabase("admin").runCommand(BsonDocument.parse("{isMaster: 1}"));
-  }
-
-  public boolean isReplicaSetOrSharded() {
-    Document isMaster = isMaster();
-    return isMaster.containsKey("setName") || isMaster.get("msg", "").equals("isdbgrid");
-  }
-
-  private static final int THREE_DOT_SIX_WIRE_VERSION = 6;
-  private static final int FOUR_DOT_ZERO_WIRE_VERSION = 7;
-  private static final int FOUR_DOT_TWO_WIRE_VERSION = 8;
-  public static final int FOUR_DOT_FOUR_WIRE_VERSION = 9;
-
-  public boolean isGreaterThanThreeDotSix() {
-    return getMaxWireVersion() > THREE_DOT_SIX_WIRE_VERSION;
-  }
-
-  public boolean isGreaterThanFourDotZero() {
-    return getMaxWireVersion() > FOUR_DOT_ZERO_WIRE_VERSION;
-  }
-
-  public boolean isGreaterThanFourDotTwo() {
-    return getMaxWireVersion() > FOUR_DOT_TWO_WIRE_VERSION;
-  }
-
-  public boolean isGreaterThanFourDotFour() {
-    return getMaxWireVersion() > FOUR_DOT_FOUR_WIRE_VERSION;
-  }
-
-  public int getMaxWireVersion() {
-    if (maxWireVersion == null) {
-      maxWireVersion = isMaster().get("maxWireVersion", 0);
-    }
-    return maxWireVersion;
   }
 
   public SparkConf getSparkConf() {
@@ -214,7 +154,19 @@ public class MongoSparkConnectorHelper
     sparkContext = null;
   }
 
-  public String getTempDirectory() {
+  public boolean isOnline() {
+    if (online == null) {
+      try {
+        getMongoClient().getDatabase("admin").runCommand(BsonDocument.parse("{isMaster: 1}"));
+        online = true;
+      } catch (Exception e) {
+        online = false;
+      }
+    }
+    return online;
+  }
+
+  private String getTempDirectory() {
     try {
       File tmpDirectory = Files.createTempDirectory("mongo-spark-connector").toFile();
       tmpDirectory.deleteOnExit();
