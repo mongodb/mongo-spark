@@ -69,7 +69,9 @@ public final class WriteConfig extends AbstractMongoConfig {
   /**
    * The maximum batch size for the batch in the bulk operation.
    *
-   * <p>Defaults to 512
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: {@value MAX_BATCH_SIZE_DEFAULT}
    */
   public static final String MAX_BATCH_SIZE_CONFIG = "maxBatchSize";
 
@@ -78,7 +80,9 @@ public final class WriteConfig extends AbstractMongoConfig {
   /**
    * Use ordered bulk operations
    *
-   * <p>Defaults to true
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: {@value ORDERED_BULK_OPERATION_DEFAULT}
    */
   public static final String ORDERED_BULK_OPERATION_CONFIG = "ordered";
 
@@ -97,7 +101,9 @@ public final class WriteConfig extends AbstractMongoConfig {
    *       new data or inserts the data if no match.
    * </ul>
    *
-   * <p>Defaults to: "replace".
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: "replace"
    */
   public static final String OPERATION_TYPE_CONFIG = "operationType";
 
@@ -106,7 +112,11 @@ public final class WriteConfig extends AbstractMongoConfig {
   /**
    * A comma delimited field list used to identify a document
    *
-   * <p>Defaults to "_id" but for sharded clusters use the shard key.
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: "[_id]".
+   *
+   * <p>Note: For sharded clusters use the shard key.
    */
   public static final String ID_FIELD_CONFIG = "idFieldList";
 
@@ -118,6 +128,8 @@ public final class WriteConfig extends AbstractMongoConfig {
    * <p>Users can use the name of the write concern eg: {@code MAJORITY}, {@code W1} or they can
    * provide the number of MongoDB's required to acknowledge the write before continuing.
    *
+   * <p>Configuration: {@value}
+   *
    * <p>Note: The default write concern is {@code WriteConcern.ACKNOWLEDGED}.
    */
   public static final String WRITE_CONCERN_W_CONFIG = "writeConcern.w";
@@ -125,12 +137,16 @@ public final class WriteConfig extends AbstractMongoConfig {
   /**
    * The optional {@link WriteConcern} journal property.
    *
+   * <p>Configuration: {@value}
+   *
    * <p>Note: Must be a boolean string: {@code true} or {@code false}.
    */
   public static final String WRITE_CONCERN_JOURNAL_CONFIG = "writeConcern.journal";
 
   /**
    * The optional {@link WriteConcern} wTimeout property in milliseconds.
+   *
+   * <p>Configuration: {@value}
    *
    * <p>Note: Must be a valid integer
    */

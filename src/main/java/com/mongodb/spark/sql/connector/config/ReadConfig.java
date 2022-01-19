@@ -31,7 +31,9 @@ public final class ReadConfig extends AbstractMongoConfig {
   /**
    * The size of the sample of documents from the collection to use when inferring the schema
    *
-   * <p>Defaults to: {@value INFER_SCHEMA_SAMPLE_SIZE_DEFAULT}
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: {@value INFER_SCHEMA_SAMPLE_SIZE_DEFAULT}
    */
   public static final String INFER_SCHEMA_SAMPLE_SIZE_CONFIG = "sampleSize";
 
@@ -42,7 +44,9 @@ public final class ReadConfig extends AbstractMongoConfig {
    *
    * <p>If enabled large compatible struct types will be inferred to a {@code MapType} instead.
    *
-   * <p>Defaults to: {@value INFER_SCHEMA_MAP_TYPE_ENABLED_DEFAULT}
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: {@value INFER_SCHEMA_MAP_TYPE_ENABLED_DEFAULT}
    */
   public static final String INFER_SCHEMA_MAP_TYPE_ENABLED_CONFIG =
       "sql.inferSchema.mapTypes.enabled";
@@ -52,7 +56,9 @@ public final class ReadConfig extends AbstractMongoConfig {
   /**
    * The minimum size of a {@code StructType} before its inferred to a {@code MapType} instead.
    *
-   * <p>Defaults to: {@value INFER_SCHEMA_MAP_TYPE_MINIMUM_KEY_SIZE_DEFAULT}. Requires {@code
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: {@value INFER_SCHEMA_MAP_TYPE_MINIMUM_KEY_SIZE_DEFAULT}. Requires {@code
    * INFER_SCHEMA_MAP_TYPE_ENABLED_CONFIG}
    */
   public static final String INFER_SCHEMA_MAP_TYPE_MINIMUM_KEY_SIZE_CONFIG =
