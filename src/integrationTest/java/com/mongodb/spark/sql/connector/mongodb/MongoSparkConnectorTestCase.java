@@ -23,11 +23,10 @@ import org.apache.spark.SparkContext;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import org.bson.BsonDocument;
 
+import com.mongodb.MongoNamespace;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 
@@ -35,7 +34,6 @@ import com.mongodb.spark.sql.connector.config.MongoConfig;
 
 @MongoDBOnline()
 public class MongoSparkConnectorTestCase {
-  protected static final Logger LOGGER = LoggerFactory.getLogger(MongoSparkConnectorTestCase.class);
 
   @RegisterExtension
   public static final MongoSparkConnectorHelper MONGODB = new MongoSparkConnectorHelper();
@@ -60,12 +58,42 @@ public class MongoSparkConnectorTestCase {
     return getDatabase().getCollection(collectionName, BsonDocument.class);
   }
 
+  public boolean isSharded() {
+    return MONGODB.isSharded();
+  }
+
+  public void shardCollection(final MongoNamespace mongoNamespace, final String shardKeyJson) {
+    MONGODB.shardCollection(mongoNamespace, shardKeyJson);
+  }
+
   public CaseInsensitiveStringMap getConnectionProviderOptions() {
     Map<String, String> options = new HashMap<>();
     options.put(
         MongoConfig.PREFIX + MongoConfig.CONNECTION_STRING_CONFIG,
         MONGODB.getConnectionString().toString());
     return new CaseInsensitiveStringMap(options);
+  }
+
+  public MongoConfig getMongoConfig() {
+    Map<String, String> options = new HashMap<>();
+    options.put(
+        MongoConfig.PREFIX + MongoConfig.CONNECTION_STRING_CONFIG,
+        MONGODB.getConnectionString().toString());
+    options.put(MongoConfig.PREFIX + MongoConfig.DATABASE_NAME_CONFIG, getDatabaseName());
+    options.put(MongoConfig.PREFIX + MongoConfig.COLLECTION_NAME_CONFIG, getCollectionName());
+    return MongoConfig.createConfig(options);
+  }
+
+  /**
+   * Creates sample data
+   *
+   * @param numberOfDocuments the total number of documents to create
+   * @param sizeInMB the total size of the documents
+   * @param config the config used for the database and collection
+   */
+  public void loadSampleData(
+      final int numberOfDocuments, final int sizeInMB, final MongoConfig config) {
+    MONGODB.loadSampleData(numberOfDocuments, sizeInMB, config);
   }
 
   public SparkConf getSparkConf() {

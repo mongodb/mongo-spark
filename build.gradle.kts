@@ -60,6 +60,7 @@ extra.apply {
     set("mockitoVersion", "3.12.4")
 
     // Integration test dependencies
+    set("commons-lang3", "3.12.0")
 }
 
 dependencies {
@@ -81,6 +82,7 @@ dependencies {
     testImplementation("org.apiguardian:apiguardian-api:1.1.2") // https://github.com/gradle/gradle/issues/18627
 
     // Integration Tests
+    testImplementation("org.apache.commons:commons-lang3:${project.extra["commons-lang3"]}")
 }
 
 tasks.withType<JavaCompile> {

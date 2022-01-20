@@ -15,10 +15,17 @@
  */
 package com.mongodb.spark.sql.connector.mongodb;
 
+import static java.lang.String.format;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.sql.SparkSession;
@@ -31,11 +38,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.bson.BsonDocument;
+import org.bson.BsonString;
+import org.bson.Document;
 
 import com.mongodb.ConnectionString;
+import com.mongodb.MongoNamespace;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
+import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.UpdateOptions;
+import com.mongodb.client.model.Updates;
+import com.mongodb.connection.ClusterType;
 
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 
@@ -164,6 +179,103 @@ public class MongoSparkConnectorHelper
       }
     }
     return online;
+  }
+
+  /**
+   * Creates sample data
+   *
+   * @param numberOfDocuments the total number of documents to create
+   * @param sizeInMB the total size of the documents
+   * @param config the config used for the database and collection
+   */
+  public void loadSampleData(
+      final int numberOfDocuments, final int sizeInMB, final MongoConfig config) {
+    if (!isOnline()) {
+      return;
+    }
+    int sizeBytes = sizeInMB * 1000 * 1000;
+    int totalDocumentSize = sizeBytes / numberOfDocuments;
+    String sampleString = RandomStringUtils.randomAlphabetic(totalDocumentSize - 63);
+
+    List<BsonDocument> sampleDocuments =
+        IntStream.range(0, numberOfDocuments)
+            .boxed()
+            .map(
+                i -> {
+                  BsonString idString = new BsonString(StringUtils.leftPad(i.toString(), 5, "0"));
+                  BsonString pkString = new BsonString(format("_%s", i + 10000));
+                  BsonString dupsString =
+                      new BsonString(
+                          StringUtils.leftPad(format("%s", i % 2 == 0 ? i : i + 1), 5, "0"));
+                  return new BsonDocument("_id", idString)
+                      .append("pk", pkString)
+                      .append("dups", dupsString)
+                      .append("s", new BsonString(sampleString));
+                })
+            .collect(Collectors.toList());
+    MongoCollection<BsonDocument> coll =
+        getMongoClient()
+            .getDatabase(config.getDatabaseName())
+            .getCollection(config.getCollectionName(), BsonDocument.class);
+    coll.insertMany(sampleDocuments);
+  }
+
+  public boolean isSharded() {
+    return isOnline() && getClusterType() == ClusterType.SHARDED;
+  }
+
+  public ClusterType getClusterType() {
+    return getMongoClient().getClusterDescription().getType();
+  }
+
+  public void shardCollection(final MongoNamespace mongoNamespace, final String shardKeyJson) {
+    if (!isOnline()) {
+      return;
+    }
+    MongoDatabase configDatabase = getMongoClient().getDatabase("config");
+
+    if (configDatabase
+            .getCollection("databases")
+            .find(Filters.eq("_id", mongoNamespace.getDatabaseName()))
+            .first()
+        == null) {
+      LOGGER.info("Enabling sharding");
+      getMongoClient()
+          .getDatabase("admin")
+          .runCommand(
+              BsonDocument.parse(
+                  format("{enableSharding: '%s'}", mongoNamespace.getDatabaseName())));
+    }
+
+    if (configDatabase
+            .getCollection("collections")
+            .find(
+                Filters.and(
+                    Filters.eq("_id", mongoNamespace.getFullName()), Filters.eq("dropped", false)))
+            .first()
+        == null) {
+      LOGGER.info("Sharding: {}", mongoNamespace.getDatabaseName());
+
+      getMongoClient()
+          .getDatabase(mongoNamespace.getDatabaseName())
+          .createCollection(mongoNamespace.getCollectionName());
+
+      getMongoClient()
+          .getDatabase("admin")
+          .runCommand(
+              BsonDocument.parse(
+                  format(
+                      "{shardCollection: '%s', key: %s, unique: true}",
+                      mongoNamespace.getFullName(), shardKeyJson)));
+
+      LOGGER.info("Settings chunkSize to 1MB");
+      configDatabase
+          .getCollection("settings")
+          .updateOne(
+              new Document("_id", "chunksize"),
+              Updates.set("value", 1),
+              new UpdateOptions().upsert(true));
+    }
   }
 
   private String getTempDirectory() {

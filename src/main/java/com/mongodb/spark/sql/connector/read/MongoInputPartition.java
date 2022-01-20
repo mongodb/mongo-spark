@@ -17,8 +17,6 @@
 
 package com.mongodb.spark.sql.connector.read;
 
-import static java.util.Collections.emptyList;
-
 import java.util.List;
 import java.util.Objects;
 
@@ -37,16 +35,6 @@ public class MongoInputPartition implements InputPartition {
   private final int partitionId;
   private final List<BsonDocument> pipeline;
   private final List<String> preferredLocations;
-
-  /**
-   * Construct a new instance
-   *
-   * @param partitionId the id of the partition
-   * @param pipeline the pipeline to partition the collection
-   */
-  public MongoInputPartition(final int partitionId, final List<BsonDocument> pipeline) {
-    this(partitionId, pipeline, emptyList());
-  }
 
   /**
    * Construct a new instance
@@ -102,5 +90,17 @@ public class MongoInputPartition implements InputPartition {
   @Override
   public int hashCode() {
     return Objects.hash(partitionId, pipeline, preferredLocations);
+  }
+
+  @Override
+  public String toString() {
+    return "MongoInputPartition{"
+        + "partitionId="
+        + partitionId
+        + ", pipeline="
+        + pipeline
+        + ", preferredLocations="
+        + preferredLocations
+        + '}';
   }
 }

@@ -216,6 +216,27 @@ public interface MongoConfig extends Serializable {
   }
 
   /**
+   * Return a configuration consisting on options that begin with the namespace prefix.
+   *
+   * <p>The prefix will be removed from the keys in the resulting configuration.
+   *
+   * @param prefix the prefix for the configuration options that should be returned
+   * @return the configuration options that started with the prefix
+   */
+  default MongoConfig subConfiguration(final String prefix) {
+    Assertions.ensureState(
+        () -> prefix.endsWith("."),
+        () -> format("Invalid configuration prefix `%s`, it must end with a '.'", prefix));
+    return MongoConfig.createConfig(
+        getOptions().entrySet().stream()
+            .filter(
+                e ->
+                    e.getKey().toLowerCase(Locale.ROOT).startsWith(prefix.toLowerCase(Locale.ROOT)))
+            .collect(
+                Collectors.toMap(e -> e.getKey().substring(prefix.length()), Map.Entry::getValue)));
+  }
+
+  /**
    * Returns {@code true} if this map contains a mapping for the specified key.
    *
    * @param key key whose presence in this map is to be tested

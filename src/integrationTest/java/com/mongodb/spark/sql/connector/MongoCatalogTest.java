@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -251,6 +252,7 @@ public class MongoCatalogTest extends MongoSparkConnectorTestCase {
 
   @Test
   void renameTableTest() {
+    assumeFalse(isSharded());
     assertThrows(
         IllegalStateException.class,
         () -> MONGO_CATALOG.renameTable(TEST_IDENTIFIER, TEST_IDENTIFIER_ALT),
