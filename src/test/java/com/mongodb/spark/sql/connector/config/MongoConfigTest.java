@@ -19,6 +19,7 @@ package com.mongodb.spark.sql.connector.config;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -31,6 +32,8 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+
+import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 
 public class MongoConfigTest {
 
@@ -145,7 +148,6 @@ public class MongoConfigTest {
     overrides.put(MongoConfig.WRITE_PREFIX + "STRING", "WRITE STRING");
 
     MongoConfig newMongoConfig = MongoConfig.createConfig(overrides);
-    assertEquals("STRING", newMongoConfig.get("StRiNg"));
     assertEquals("READ STRING", newMongoConfig.toReadConfig().get("StRiNg"));
     assertEquals("WRITE STRING", newMongoConfig.toWriteConfig().get("StRiNg"));
   }
@@ -163,71 +165,64 @@ public class MongoConfigTest {
         "mongodb://localhost/writeDB.writeColl");
 
     MongoConfig mongoConfig = MongoConfig.createConfig(options);
-    assertEquals("myDB", mongoConfig.getDatabaseName());
-    assertEquals("myColl", mongoConfig.getCollectionName());
+    ReadConfig readConfig = mongoConfig.toReadConfig();
+    assertEquals("myDB", readConfig.getDatabaseName());
+    assertEquals("myColl", readConfig.getCollectionName());
 
-    mongoConfig = MongoConfig.readConfig(options);
-    assertEquals("myDB", mongoConfig.getDatabaseName());
-    assertEquals("myColl", mongoConfig.getCollectionName());
+    WriteConfig writeConfig = mongoConfig.toWriteConfig();
+    assertEquals("writeDB", writeConfig.getDatabaseName());
+    assertEquals("writeColl", writeConfig.getCollectionName());
 
-    mongoConfig = mongoConfig.toWriteConfig();
-    assertEquals("writeDB", mongoConfig.getDatabaseName());
-    assertEquals("writeColl", mongoConfig.getCollectionName());
-
-    options.put(MongoConfig.READ_PREFIX + MongoConfig.DATABASE_NAME_CONFIG, "overriddenDb");
-    options.put(MongoConfig.READ_PREFIX + MongoConfig.COLLECTION_NAME_CONFIG, "overriddenColl");
-
-    // Explicit beats implicit
-    mongoConfig = mongoConfig.withOptions(options);
-    assertEquals("writeDB", mongoConfig.getDatabaseName());
-    assertEquals("writeColl", mongoConfig.getCollectionName());
+    options.put(MongoConfig.READ_PREFIX + MongoConfig.DATABASE_NAME_CONFIG, "overriddenReadDb");
+    options.put(MongoConfig.READ_PREFIX + MongoConfig.COLLECTION_NAME_CONFIG, "overriddenReadColl");
+    options.put(MongoConfig.WRITE_PREFIX + MongoConfig.DATABASE_NAME_CONFIG, "overriddenWriteDb");
+    options.put(
+        MongoConfig.WRITE_PREFIX + MongoConfig.COLLECTION_NAME_CONFIG, "overriddenWriteColl");
 
     // Explicit beats implicit
-    mongoConfig = mongoConfig.toReadConfig();
-    assertEquals("overriddenDb", mongoConfig.getDatabaseName());
-    assertEquals("overriddenColl", mongoConfig.getCollectionName());
+    readConfig = MongoConfig.readConfig(options);
+    assertEquals("overriddenReadDb", readConfig.getDatabaseName());
+    assertEquals("overriddenReadColl", readConfig.getCollectionName());
 
     // Explicit beats implicit
-    options.put(MongoConfig.WRITE_PREFIX + MongoConfig.DATABASE_NAME_CONFIG, "overriddenDb");
-    options.put(MongoConfig.WRITE_PREFIX + MongoConfig.COLLECTION_NAME_CONFIG, "overriddenColl");
-
-    mongoConfig = MongoConfig.writeConfig(options);
-    assertEquals("overriddenDb", mongoConfig.getDatabaseName());
-    assertEquals("overriddenColl", mongoConfig.getCollectionName());
+    writeConfig = MongoConfig.writeConfig(options);
+    assertEquals("overriddenWriteDb", writeConfig.getDatabaseName());
+    assertEquals("overriddenWriteColl", writeConfig.getCollectionName());
   }
 
   @ParameterizedTest
   @MethodSource("optionsMapConfigs")
   void testMongoConfigOptionsParsingErrors(final MongoConfig mongoConfig) {
-    assertThrows(IllegalArgumentException.class, () -> mongoConfig.getBoolean("string", true));
-    assertThrows(IllegalArgumentException.class, () -> mongoConfig.getBoolean("string", true));
-    assertThrows(NumberFormatException.class, () -> mongoConfig.getInt("string", 1));
-    assertThrows(NumberFormatException.class, () -> mongoConfig.getLong("string", 1L));
-    assertThrows(NumberFormatException.class, () -> mongoConfig.getDouble("string", 1.0));
+    assertThrows(ConfigException.class, () -> mongoConfig.getBoolean("string", true));
+    assertThrows(ConfigException.class, () -> mongoConfig.getBoolean("string", true));
+    assertThrows(ConfigException.class, () -> mongoConfig.getInt("string", 1));
+    assertThrows(ConfigException.class, () -> mongoConfig.getLong("string", 1L));
+    assertThrows(ConfigException.class, () -> mongoConfig.getDouble("string", 1.0));
   }
 
   @Test
   void testConnectionStringErrors() {
     Map<String, String> options = new HashMap<>(OPTIONS_CONFIG_MAP);
     options.put(MongoConfig.PREFIX + MongoConfig.CONNECTION_STRING_CONFIG, "invalid");
-    assertThrows(IllegalArgumentException.class, () -> MongoConfig.createConfig(options));
-    assertThrows(IllegalArgumentException.class, () -> MongoConfig.readConfig(options));
-    assertThrows(IllegalArgumentException.class, () -> MongoConfig.writeConfig(options));
+    assertThrows(ConfigException.class, () -> MongoConfig.readConfig(options));
+    assertThrows(ConfigException.class, () -> MongoConfig.writeConfig(options));
+
+    MongoConfig simpleConfig = assertDoesNotThrow(() -> MongoConfig.createConfig(options));
+    assertThrows(ConfigException.class, simpleConfig::toReadConfig);
+    assertThrows(ConfigException.class, simpleConfig::toWriteConfig);
   }
 
   @ParameterizedTest
   @MethodSource("optionsMapConfigs")
   void testErrorScenarios(final MongoConfig mongoConfig) {
-    assertThrows(IllegalArgumentException.class, () -> mongoConfig.getBoolean("string", true));
-    assertThrows(NumberFormatException.class, () -> mongoConfig.getInt("string", 1));
-    assertThrows(NumberFormatException.class, () -> mongoConfig.getLong("string", 1L));
-    assertThrows(NumberFormatException.class, () -> mongoConfig.getDouble("string", 1.0));
+    assertThrows(ConfigException.class, () -> mongoConfig.getBoolean("string", true));
+    assertThrows(ConfigException.class, () -> mongoConfig.getInt("string", 1));
+    assertThrows(ConfigException.class, () -> mongoConfig.getLong("string", 1L));
+    assertThrows(ConfigException.class, () -> mongoConfig.getDouble("string", 1.0));
   }
 
   private static Stream<MongoConfig> optionsMapConfigs() {
-    return Stream.of(
-        MongoConfig.createConfig(OPTIONS_CONFIG_MAP),
-        MongoConfig.readConfig(OPTIONS_CONFIG_MAP),
-        MongoConfig.writeConfig(OPTIONS_CONFIG_MAP));
+    MongoConfig simpleMongoConfig = MongoConfig.createConfig(OPTIONS_CONFIG_MAP);
+    return Stream.of(simpleMongoConfig.toReadConfig(), simpleMongoConfig.toWriteConfig());
   }
 }

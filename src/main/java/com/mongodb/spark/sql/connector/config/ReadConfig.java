@@ -80,7 +80,7 @@ public final class ReadConfig extends AbstractMongoConfig {
     if (options.isEmpty()) {
       return this;
     }
-    return new ReadConfig(withOverrides(options));
+    return new ReadConfig(withOverrides(READ_PREFIX, options));
   }
 
   /** @return the configured infer sample size */

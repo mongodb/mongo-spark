@@ -17,8 +17,7 @@
 
 package com.mongodb.spark.sql.connector.config;
 
-import static java.util.Arrays.asList;
-import static java.util.Collections.singletonList;
+import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.stream.Collectors.toMap;
 
@@ -29,7 +28,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -44,6 +42,7 @@ import com.mongodb.MongoNamespace;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 
+import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.connection.LazyMongoClientCache;
 import com.mongodb.spark.sql.connector.connection.MongoClientFactory;
 
@@ -66,8 +65,7 @@ abstract class AbstractMongoConfig implements MongoConfig {
   /** The current usage mode for the configuration. */
   enum UsageMode {
     READ,
-    WRITE,
-    UNKNOWN;
+    WRITE
   }
 
   private final Map<String, String> originals;
@@ -103,35 +101,24 @@ abstract class AbstractMongoConfig implements MongoConfig {
   }
 
   @Override
-  public ReadConfig toReadConfig() {
-    if (this.usageMode == UsageMode.READ) {
-      return (ReadConfig) this;
-    }
-    return new ReadConfig(originals);
-  }
-
-  @Override
-  public WriteConfig toWriteConfig() {
-    if (this.usageMode == UsageMode.WRITE) {
-      return (WriteConfig) this;
-    }
-    return new WriteConfig(originals);
-  }
-
-  @Override
-  public MongoNamespace getNamespace() {
-    return new MongoNamespace(getDatabaseName(), getCollectionName());
-  }
-
-  /** @return the connection string */
-  @Override
-  public ConnectionString getConnectionString() {
-    return new ConnectionString(getOrDefault(CONNECTION_STRING_CONFIG, CONNECTION_STRING_DEFAULT));
-  }
-
-  @Override
   public Map<String, String> getOptions() {
     return options;
+  }
+
+  @Override
+  public String getDatabaseName() {
+    return Assertions.validateConfig(
+        get(DATABASE_NAME_CONFIG),
+        Objects::nonNull,
+        () -> "Missing configuration for: " + DATABASE_NAME_CONFIG);
+  }
+
+  @Override
+  public String getCollectionName() {
+    return Assertions.validateConfig(
+        get(COLLECTION_NAME_CONFIG),
+        Objects::nonNull,
+        () -> "Missing configuration for: " + COLLECTION_NAME_CONFIG);
   }
 
   /**
@@ -174,19 +161,6 @@ abstract class AbstractMongoConfig implements MongoConfig {
   }
 
   /**
-   * Loans a {@link MongoCollection} to the user, does not return a result.
-   *
-   * @param consumer the consumer of the {@code MongoCollection<BsonDocument>}
-   */
-  public void doWithCollection(final Consumer<MongoCollection<BsonDocument>> consumer) {
-    withCollection(
-        collection -> {
-          consumer.accept(collection);
-          return null;
-        });
-  }
-
-  /**
    * Runs a function against a {@code MongoCollection}
    *
    * @param function the function that is passed the {@code MongoCollection}
@@ -200,6 +174,19 @@ abstract class AbstractMongoConfig implements MongoConfig {
               .getDatabase(getDatabaseName())
               .getCollection(getCollectionName(), BsonDocument.class));
     }
+  }
+
+  /**
+   * Loans a {@link MongoCollection} to the user, does not return a result.
+   *
+   * @param consumer the consumer of the {@code MongoCollection<BsonDocument>}
+   */
+  public void doWithCollection(final Consumer<MongoCollection<BsonDocument>> consumer) {
+    withCollection(
+        collection -> {
+          consumer.accept(collection);
+          return null;
+        });
   }
 
   @Override
@@ -225,8 +212,16 @@ abstract class AbstractMongoConfig implements MongoConfig {
     return Objects.hash(options, usageMode);
   }
 
-  Map<String, String> withOverrides(final Map<String, String> overrides) {
+  Map<String, String> withOverrides(final String context, final Map<String, String> overrides) {
     Map<String, String> newOptions = new HashMap<>(originals);
+    overrides.forEach(
+        (k, v) -> {
+          if (!k.startsWith(context)) {
+            newOptions.put(context + k, v);
+          } else {
+            newOptions.put(k, v);
+          }
+        });
     newOptions.putAll(overrides);
     return newOptions;
   }
@@ -259,20 +254,16 @@ abstract class AbstractMongoConfig implements MongoConfig {
 
     CaseInsensitiveStringMap caseInsensitiveOptions = new CaseInsensitiveStringMap(options);
 
-    Optional<String> overridePrefix;
-    List<String> ignorePrefixes;
+    String overridePrefix;
+    String ignorePrefix;
     switch (usageMode) {
       case READ:
-        overridePrefix = Optional.of(READ_PREFIX);
-        ignorePrefixes = singletonList(WRITE_PREFIX);
+        overridePrefix = READ_PREFIX;
+        ignorePrefix = WRITE_PREFIX;
         break;
       case WRITE:
-        overridePrefix = Optional.of(WRITE_PREFIX);
-        ignorePrefixes = singletonList(READ_PREFIX);
-        break;
-      case UNKNOWN:
-        overridePrefix = Optional.empty();
-        ignorePrefixes = asList(READ_PREFIX, WRITE_PREFIX);
+        overridePrefix = WRITE_PREFIX;
+        ignorePrefix = READ_PREFIX;
         break;
       default:
         throw new UnsupportedOperationException("Unsupported usage mode");
@@ -285,14 +276,9 @@ abstract class AbstractMongoConfig implements MongoConfig {
         .filter(k -> k.startsWith(PREFIX))
         .forEach(
             k -> {
-              overridePrefix.ifPresent(
-                  prefix -> {
-                    if (k.startsWith(prefix)) {
-                      overrides.add(k);
-                    }
-                  });
-
-              if (ignorePrefixes.stream().noneMatch(k::startsWith)) {
+              if (k.startsWith(overridePrefix)) {
+                overrides.add(k);
+              } else if (!k.startsWith(ignorePrefix)) {
                 defaults.add(k);
               }
             });
@@ -300,19 +286,17 @@ abstract class AbstractMongoConfig implements MongoConfig {
     Map<String, String> usageSpecificOptions = new HashMap<>();
     // Add any globally scoped options
     addConnectionStringDatabaseAndCollection(PREFIX, caseInsensitiveOptions, usageSpecificOptions);
+
     defaults.forEach(
         k -> usageSpecificOptions.put(k.substring(PREFIX.length()), caseInsensitiveOptions.get(k)));
 
     // Add usage specifically scoped options
-    overridePrefix.ifPresent(
-        prefix -> {
-          addConnectionStringDatabaseAndCollection(
-              prefix, caseInsensitiveOptions, usageSpecificOptions);
-          overrides.forEach(
-              k ->
-                  usageSpecificOptions.put(
-                      k.substring(prefix.length()), caseInsensitiveOptions.get(k)));
-        });
+    addConnectionStringDatabaseAndCollection(
+        overridePrefix, caseInsensitiveOptions, usageSpecificOptions);
+    overrides.forEach(
+        k ->
+            usageSpecificOptions.put(
+                k.substring(overridePrefix.length()), caseInsensitiveOptions.get(k)));
     return usageSpecificOptions;
   }
 
@@ -330,8 +314,11 @@ abstract class AbstractMongoConfig implements MongoConfig {
       final CaseInsensitiveStringMap options,
       final Map<String, String> usageSpecificOptions) {
     if (options.containsKey(prefix + MongoConfig.CONNECTION_STRING_CONFIG)) {
+      String rawConnectionString = options.get(prefix + MongoConfig.CONNECTION_STRING_CONFIG);
       ConnectionString connectionString =
-          new ConnectionString(options.get(prefix + MongoConfig.CONNECTION_STRING_CONFIG));
+          Assertions.validateConfig(
+              () -> new ConnectionString(rawConnectionString),
+              () -> format("Invalid connection string: '%s'", rawConnectionString));
       String databaseName = connectionString.getDatabase();
       if (databaseName != null) {
         usageSpecificOptions.put(DATABASE_NAME_CONFIG, databaseName);

@@ -141,13 +141,13 @@ class MongoSparkConnectorWriteTest extends MongoSparkConnectorTestCase {
         df.write()
             .format("mongodb")
             .mode("Overwrite")
-            .option(MongoConfig.PREFIX + MongoConfig.COLLECTION_NAME_CONFIG, "coll2");
+            .option(MongoConfig.COLLECTION_NAME_CONFIG, "coll2");
 
     dfw.save();
     assertEquals(0, getCollection().countDocuments());
     assertEquals(10, getCollection("coll2").countDocuments());
 
-    dfw.option(MongoConfig.WRITE_PREFIX + MongoConfig.COLLECTION_NAME_CONFIG, "coll3").save();
+    dfw.option(MongoConfig.COLLECTION_NAME_CONFIG, "coll3").save();
     assertEquals(10, getCollection("coll3").countDocuments());
     assertCollection("coll3");
   }

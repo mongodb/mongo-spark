@@ -17,6 +17,7 @@
 
 package com.mongodb.spark.sql.connector.config;
 
+import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 
 import java.io.Serializable;
@@ -24,7 +25,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
+import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.ApiStatus;
 
@@ -33,6 +34,7 @@ import com.mongodb.MongoNamespace;
 
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.connection.DefaultMongoClientFactory;
+import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 
 /**
  * The MongoConfig interface.
@@ -42,17 +44,20 @@ import com.mongodb.spark.sql.connector.connection.DefaultMongoClientFactory;
 public interface MongoConfig extends Serializable {
 
   /**
-   * Create a Mongo Configuration that does not yet have a determined read or write use case
+   * Create a Mongo Configuration that does not yet have a fixed use case
+   *
+   * <p>Can be used to create partial configurations or a MongoConfig which will later be turned
+   * into a {@code ReadConfig} or {@code WriteConfig}
    *
    * @param options the configuration options
    * @see
    *     com.mongodb.spark.sql.connector.MongoTableProvider#getTable(org.apache.spark.sql.types.StructType,
    *     org.apache.spark.sql.connector.expressions.Transform[], Map)
-   * @return the configuration
+   * @return a simple configuration
    */
   @ApiStatus.Internal
   static MongoConfig createConfig(final Map<String, String> options) {
-    return new UnknownUseCaseMongoConfig(options);
+    return new SimpleMongoConfig(options, options);
   }
 
   /**
@@ -170,34 +175,44 @@ public interface MongoConfig extends Serializable {
   /** @return the original options for this MongoConfig instance */
   Map<String, String> getOriginals();
 
-  /** @return the read config */
-  ReadConfig toReadConfig();
-
-  /** @return the write config */
-  WriteConfig toWriteConfig();
-
-  /** @return the namespace related to this config */
-  MongoNamespace getNamespace();
-
   /** @return the connection string */
   default ConnectionString getConnectionString() {
     return new ConnectionString(getOrDefault(CONNECTION_STRING_CONFIG, CONNECTION_STRING_DEFAULT));
   }
 
+  /** @return the namespace related to this config */
+  default MongoNamespace getNamespace() {
+    return new MongoNamespace(getDatabaseName(), getCollectionName());
+  }
+
   /** @return the database name to use for this configuration */
   default String getDatabaseName() {
-    return Assertions.validateState(
-        get(DATABASE_NAME_CONFIG),
-        Objects::nonNull,
-        () -> "Missing configuration for: " + DATABASE_NAME_CONFIG);
+    throw new UnsupportedOperationException(
+        "Unspecialised MongoConfig. Use `mongoConfig.toReadConfig()` "
+            + "or `mongoConfig.toWriteConfig()` to specialize");
   }
 
   /** @return the collection name to use for this configuration */
   default String getCollectionName() {
-    return Assertions.validateState(
-        get(COLLECTION_NAME_CONFIG),
-        Objects::nonNull,
-        () -> "Missing configuration for: " + COLLECTION_NAME_CONFIG);
+    throw new UnsupportedOperationException(
+        "Unspecialised MongoConfig. Use `mongoConfig.toReadConfig()` "
+            + "or `mongoConfig.toWriteConfig()` to specialize");
+  }
+
+  /** @return the read config */
+  default ReadConfig toReadConfig() {
+    if (this instanceof ReadConfig) {
+      return (ReadConfig) this;
+    }
+    return readConfig(getOriginals());
+  }
+
+  /** @return the write config */
+  default WriteConfig toWriteConfig() {
+    if (this instanceof WriteConfig) {
+      return (WriteConfig) this;
+    }
+    return writeConfig(getOriginals());
   }
 
   /**
@@ -257,7 +272,7 @@ public interface MongoConfig extends Serializable {
     } else if (value.equalsIgnoreCase("false")) {
       return false;
     } else {
-      throw new IllegalArgumentException(value + " is not a boolean string.");
+      throw new ConfigException(value + " is not a boolean string.");
     }
   }
 
@@ -273,7 +288,11 @@ public interface MongoConfig extends Serializable {
    */
   default int getInt(final String key, final int defaultValue) {
     String value = get(key);
-    return value == null ? defaultValue : Integer.parseInt(value);
+    return value == null
+        ? defaultValue
+        : Assertions.validateConfig(
+            () -> Integer.parseInt(value),
+            () -> format("%s did not contain a valid int, got: %s", key, value));
   }
 
   /**
@@ -288,7 +307,11 @@ public interface MongoConfig extends Serializable {
    */
   default long getLong(final String key, final long defaultValue) {
     String value = get(key);
-    return value == null ? defaultValue : Long.parseLong(value);
+    return value == null
+        ? defaultValue
+        : Assertions.validateConfig(
+            () -> Long.parseLong(value),
+            () -> format("%s did not contain a valid long, got: %s", key, value));
   }
 
   /**
@@ -303,7 +326,11 @@ public interface MongoConfig extends Serializable {
    */
   default double getDouble(final String key, final double defaultValue) {
     String value = get(key);
-    return value == null ? defaultValue : Double.parseDouble(value);
+    return value == null
+        ? defaultValue
+        : Assertions.validateConfig(
+            () -> Double.parseDouble(value),
+            () -> format("%s did not contain a valid double, got: %s", key, value));
   }
 
   /**

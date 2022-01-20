@@ -172,7 +172,7 @@ public final class WriteConfig extends AbstractMongoConfig {
     if (options.isEmpty()) {
       return this;
     }
-    return new WriteConfig(withOverrides(options));
+    return new WriteConfig(withOverrides(WRITE_PREFIX, options));
   }
 
   /** @return the max size of bulk operation batches */
