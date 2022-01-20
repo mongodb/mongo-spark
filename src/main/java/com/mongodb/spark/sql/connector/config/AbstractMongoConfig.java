@@ -105,13 +105,6 @@ abstract class AbstractMongoConfig implements MongoConfig {
     return options;
   }
 
-  /** @return the namespace related to this config */
-  @Override
-  public MongoNamespace getNamespace() {
-    return new MongoNamespace(getDatabaseName(), getCollectionName());
-  }
-
-  /** @return the database name to use for this configuration */
   @Override
   public String getDatabaseName() {
     return Assertions.validateConfig(
@@ -120,7 +113,6 @@ abstract class AbstractMongoConfig implements MongoConfig {
         () -> "Missing configuration for: " + DATABASE_NAME_CONFIG);
   }
 
-  /** @return the collection name to use for this configuration */
   @Override
   public String getCollectionName() {
     return Assertions.validateConfig(

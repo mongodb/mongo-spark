@@ -53,7 +53,7 @@ public interface MongoConfig extends Serializable {
    * @see
    *     com.mongodb.spark.sql.connector.MongoTableProvider#getTable(org.apache.spark.sql.types.StructType,
    *     org.apache.spark.sql.connector.expressions.Transform[], Map)
-   * @return the a simple configuration
+   * @return a simple configuration
    */
   @ApiStatus.Internal
   static MongoConfig createConfig(final Map<String, String> options) {
@@ -292,7 +292,7 @@ public interface MongoConfig extends Serializable {
         ? defaultValue
         : Assertions.validateConfig(
             () -> Integer.parseInt(value),
-            () -> format("%s did not contain a " + "valid int, got: %s", key, value));
+            () -> format("%s did not contain a valid int, got: %s", key, value));
   }
 
   /**
@@ -311,7 +311,7 @@ public interface MongoConfig extends Serializable {
         ? defaultValue
         : Assertions.validateConfig(
             () -> Long.parseLong(value),
-            () -> format("%s did not contain a " + "valid long, got: %s", key, value));
+            () -> format("%s did not contain a valid long, got: %s", key, value));
   }
 
   /**
@@ -330,7 +330,7 @@ public interface MongoConfig extends Serializable {
         ? defaultValue
         : Assertions.validateConfig(
             () -> Double.parseDouble(value),
-            () -> format("%s did not contain a " + "valid double, got: %s", key, value));
+            () -> format("%s did not contain a valid double, got: %s", key, value));
   }
 
   /**
