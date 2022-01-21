@@ -18,6 +18,7 @@
 package com.mongodb.spark.sql.connector;
 
 import static java.lang.String.format;
+import static java.util.Arrays.asList;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -220,7 +221,7 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
     if (identifier.namespace().length != 1) {
       return false;
     }
-    return listTables(identifier.namespace()).length > 0;
+    return asList(listTables(identifier.namespace())).contains(identifier);
   }
 
   /**
