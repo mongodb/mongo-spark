@@ -131,7 +131,7 @@ public final class PartitionerHelper {
           .getDocument("storageStats", new BsonDocument());
     } catch (RuntimeException ex) {
       if (ex instanceof MongoCommandException
-          && (ex.getMessage().endsWith("not found.")
+          && (ex.getMessage().contains("not found.")
               || ((MongoCommandException) ex).getCode() == 26)) {
         LOGGER.info("Could not find collection: {}", readConfig.getCollectionName());
         return new BsonDocument();
