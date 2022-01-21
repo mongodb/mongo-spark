@@ -59,7 +59,7 @@ public final class ReadConfig extends AbstractMongoConfig {
   /**
    * The prefix for specific partitioner based configuration.
    *
-   * <p>Any configuration beginning with this prefix will is available via {@link
+   * <p>Any configuration beginning with this prefix is available via {@link
    * #getPartitionerOptions()}.
    *
    * <p>Configuration: {@value}
@@ -107,7 +107,7 @@ public final class ReadConfig extends AbstractMongoConfig {
   /**
    * Provide a custom aggregation pipeline.
    *
-   * <p>Enables a custom aggregation pipeline to applied to the collection before sending data to
+   * <p>Enables a custom aggregation pipeline to be applied to the collection before sending data to
    * Spark.
    *
    * <p>When configuring this should either be an extended json representation of a list of
@@ -208,12 +208,13 @@ public final class ReadConfig extends AbstractMongoConfig {
     return getBoolean(AGGREGATION_ALLOW_DISK_USE_CONFIG, AGGREGATION_ALLOW_DISK_USE_DEFAULT);
   }
 
-    /**
-     * Handles either a single stage of a pipeline (eg. a single document) or multiple stages (eg. an array of documents).
-     *
-     * @return the aggregation pipeline
-     * @throws ConfigException if the user provided input is invalid
-     */
+  /**
+   * Handles either a single stage of a pipeline (eg. a single document) or multiple stages (eg. an
+   * array of documents).
+   *
+   * @return the aggregation pipeline
+   * @throws ConfigException if the user provided input is invalid
+   */
   private List<BsonDocument> generateAggregationPipeline() {
     String pipelineJson = getOrDefault(AGGREGATION_PIPELINE_CONFIG, AGGREGATION_PIPELINE_DEFAULT);
     if (pipelineJson.isEmpty()) {

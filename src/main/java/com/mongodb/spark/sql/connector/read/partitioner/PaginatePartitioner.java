@@ -45,14 +45,16 @@ import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 @ApiStatus.Internal
 abstract class PaginatePartitioner extends FieldListPartitioner {
 
-    /**
-     * Uses the collection count and the number of documents per partition to create the {@code MongoInputPartition}s.
-     *
-     * @param count the count of documents in the collection after any user provided aggregations are applied.
-     * @param numDocumentsPerPartition the calculated number of documents per partition
-     * @param readConfig the read configuration
-     * @return a list of {@link MongoInputPartition}s.
-     */
+  /**
+   * Uses the collection count and the number of documents per partition to create the {@code
+   * MongoInputPartition}s.
+   *
+   * @param count the count of documents in the collection after any user provided aggregations are
+   *     applied.
+   * @param numDocumentsPerPartition the calculated number of documents per partition
+   * @param readConfig the read configuration
+   * @return a list of {@link MongoInputPartition}s.
+   */
   List<MongoInputPartition> createMongoInputPartitions(
       final long count, final int numDocumentsPerPartition, final ReadConfig readConfig) {
     List<String> partitionFieldList = getPartitionFieldList(readConfig);
@@ -62,17 +64,20 @@ abstract class PaginatePartitioner extends FieldListPartitioner {
         readConfig);
   }
 
-    /**
-     * Creates an ordered list of the upper boundaries for each partition.
-     *
-     * <p>Calculates the number of partitions to be {@code Math.ceil(count / numDocumentsPerPartition)} and each partition requires a query.
-     *
-     * @param partitionFieldList partitionFieldList the fields to be used in partitioning each partition
-     * @param count the count of documents in the collection after any user provided aggregations are applied.
-     * @param numDocumentsPerPartition the calculated number of documents per partition
-     * @param readConfig the read configuration
-     * @return an ordered list of documents representing the upper bounds for each partition.
-     */
+  /**
+   * Creates an ordered list of the upper boundaries for each partition.
+   *
+   * <p>Calculates the number of partitions to be {@code Math.ceil(count /
+   * numDocumentsPerPartition)} and each partition requires a query.
+   *
+   * @param partitionFieldList partitionFieldList the fields to be used in partitioning each
+   *     partition
+   * @param count the count of documents in the collection after any user provided aggregations are
+   *     applied.
+   * @param numDocumentsPerPartition the calculated number of documents per partition
+   * @param readConfig the read configuration
+   * @return an ordered list of documents representing the upper bounds for each partition.
+   */
   private List<BsonDocument> createUpperBounds(
       final List<String> partitionFieldList,
       final long count,
@@ -104,7 +109,8 @@ abstract class PaginatePartitioner extends FieldListPartitioner {
               coll -> {
                 List<Bson> boundaryPipeline = new ArrayList<>();
 
-                // Uses the previous boundary as the $gte match to efficiently skip to the next bounds.
+                // Uses the previous boundary as the $gte match to efficiently skip to the next
+                // bounds.
                 if (!upperBounds.isEmpty()) {
                   BsonDocument previous = upperBounds.get(upperBounds.size() - 1);
                   BsonDocument matchFilter = new BsonDocument();
@@ -119,7 +125,7 @@ abstract class PaginatePartitioner extends FieldListPartitioner {
                 boundaryPipeline.addAll(aggregationPipeline);
                 boundaryPipeline.add(Aggregates.skip(skip));
                 boundaryPipeline.add(Aggregates.limit(1));
-               return coll.aggregate(boundaryPipeline).first();
+                return coll.aggregate(boundaryPipeline).first();
               });
 
       if (boundary == null) {

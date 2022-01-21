@@ -38,7 +38,6 @@ import org.jetbrains.annotations.TestOnly;
 import org.bson.BsonDocument;
 
 import com.mongodb.ConnectionString;
-import com.mongodb.MongoNamespace;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 

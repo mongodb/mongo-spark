@@ -216,11 +216,11 @@ public interface MongoConfig extends Serializable {
   }
 
   /**
-   * Return a configuration consisting on options that begin with the namespace prefix.
+   * Gets all configurations starting with a prefix.
    *
-   * <p>The prefix will be removed from the keys in the resulting configuration.
+   * <p>Note: The prefix will be removed from the keys in the resulting configuration.
    *
-   * @param prefix the prefix for the configuration options that should be returned
+   * @param prefix for the configuration options that should be returned
    * @return the configuration options that started with the prefix
    */
   default MongoConfig subConfiguration(final String prefix) {

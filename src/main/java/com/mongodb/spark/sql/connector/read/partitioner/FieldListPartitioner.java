@@ -51,15 +51,15 @@ abstract class FieldListPartitioner implements Partitioner {
         .getList(PARTITION_FIELD_LIST_CONFIG, PARTITION_FIELD_LIST_DEFAULT);
   }
 
-    /**
-     * Creates MongoInputs from the right hand boundaries provided.
-     *
-     * @param partitionFieldList the fields to be used in partitioning each partition
-     * @param upperBounds an ordered list of the upper boundaries for each partition.
-     *                    The previous partition is used as the lower bounds.
-     * @param readConfig the read configuration
-     * @return a list of {@link MongoInputPartition}s.
-     */
+  /**
+   * Creates MongoInputs from the right hand boundaries provided.
+   *
+   * @param partitionFieldList the fields to be used in partitioning each partition
+   * @param upperBounds an ordered list of the upper boundaries for each partition. The previous
+   *     partition is used as the lower bounds.
+   * @param readConfig the read configuration
+   * @return a list of {@link MongoInputPartition}s.
+   */
   List<MongoInputPartition> createMongoInputPartitions(
       final List<String> partitionFieldList,
       final List<BsonDocument> upperBounds,
@@ -70,8 +70,7 @@ abstract class FieldListPartitioner implements Partitioner {
         .mapToObj(
             i -> {
               BsonDocument previous = i > 0 ? upperBounds.get(i - 1) : null;
-              BsonDocument current =
-                  i >= upperBounds.size() ? null : upperBounds.get(i);
+              BsonDocument current = i >= upperBounds.size() ? null : upperBounds.get(i);
 
               BsonDocument matchFilter = new BsonDocument();
               if (previous != null) {
