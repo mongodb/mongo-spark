@@ -23,8 +23,6 @@ import org.apache.spark.SparkContext;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import org.bson.BsonDocument;
 
@@ -35,7 +33,6 @@ import com.mongodb.spark.sql.connector.config.MongoConfig;
 
 @MongoDBOnline()
 public class MongoSparkConnectorTestCase {
-  protected static final Logger LOGGER = LoggerFactory.getLogger(MongoSparkConnectorTestCase.class);
 
   @RegisterExtension
   public static final MongoSparkConnectorHelper MONGODB = new MongoSparkConnectorHelper();

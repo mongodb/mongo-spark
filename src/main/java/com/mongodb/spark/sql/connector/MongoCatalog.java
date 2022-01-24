@@ -43,6 +43,7 @@ import org.jetbrains.annotations.VisibleForTesting;
 
 import org.bson.conversions.Bson;
 
+import com.mongodb.MongoCommandException;
 import com.mongodb.MongoNamespace;
 import com.mongodb.client.model.Filters;
 
@@ -50,6 +51,7 @@ import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.config.WriteConfig;
+import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 
 /** Spark Catalog methods for working with namespaces (databases) and tables (collections). */
 public class MongoCatalog implements TableCatalog, SupportsNamespaces {
@@ -340,13 +342,18 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
     } else if (tableExists(newIdentifier)) {
       throw new TableAlreadyExistsException(newIdentifier);
     }
-    getWriteConfig()
-        .doWithClient(
-            c ->
-                c.getDatabase(oldIdentifier.namespace()[0])
-                    .getCollection(oldIdentifier.name())
-                    .renameCollection(
-                        new MongoNamespace(newIdentifier.namespace()[0], newIdentifier.name())));
+
+    try {
+      getWriteConfig()
+          .doWithClient(
+              c ->
+                  c.getDatabase(oldIdentifier.namespace()[0])
+                      .getCollection(oldIdentifier.name())
+                      .renameCollection(
+                          new MongoNamespace(newIdentifier.namespace()[0], newIdentifier.name())));
+    } catch (MongoCommandException ex) {
+      throw new MongoSparkException("Unable to rename table due to: " + ex.getErrorMessage(), ex);
+    }
   }
 
   private void assertInitialized() {

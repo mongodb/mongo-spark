@@ -4,19 +4,21 @@ set -o xtrace   # Write all commands first to stderr
 set -o errexit  # Exit the script with error if any of the commands fail
 
 # Supported/used environment variables:
-#       MONGODB_URI             Set the suggested connection MONGODB_URI (including credentials and topology info)
-#       JDK                     Set the version of java to be used.  Java versions can be set from the java toolchain /opt/java "jdk8"
-
+#  JAVA_VERSION            The version of java to use for the tests
+#  MONGODB_URI             Set the suggested connection MONGODB_URI (including credentials and topology info)
+JAVA_VERSION=${JAVA_VERSION:-11}
 MONGODB_URI=${MONGODB_URI:-}
-JDK=${JDK:-jdk}
-export JAVA_HOME="/opt/java/${JDK}"
+
+export JDK8="/opt/java/jdk8"
+export JDK11="/opt/java/jdk11"
+export JAVA_HOME=$JDK11
 
 ############################################
 #            Main Program                  #
 ############################################
 
 
-echo "Running tests with ${JDK} connecting to $MONGODB_URI"
+echo "Running tests connecting to $MONGODB_URI on JDK${JAVA_VERSION}"
 
 ./gradlew -version
-./gradlew -Dorg.mongodb.test.uri=${MONGODB_URI} --stacktrace --info integrationTest
+./gradlew -PjavaVersion=$JAVA_VERSION -Dorg.mongodb.test.uri=${MONGODB_URI} --stacktrace --info integrationTest

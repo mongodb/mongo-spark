@@ -14,7 +14,9 @@ echo ${RING_FILE_GPG_BASE64} | base64 -d > ${PROJECT_DIRECTORY}/secring.gpg
 
 echo "Publishing snapshot with jdk8"
 
-export JAVA_HOME="/opt/java/jdk8"
+export JDK8="/opt/java/jdk8"
+export JDK11="/opt/java/jdk11"
+export JAVA_HOME=$JDK11
 
 export ORG_GRADLE_PROJECT_nexusUsername=${NEXUS_USERNAME}
 export ORG_GRADLE_PROJECT_nexusPassword=${NEXUS_PASSWORD}

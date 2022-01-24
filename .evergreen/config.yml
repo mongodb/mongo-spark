@@ -309,6 +309,8 @@ pre:
   - func: "make files executable"
 
 post:
+  - func: "upload mo artifacts"
+  - func: "upload test results"
   - func: "cleanup"
 
 tasks:
@@ -319,23 +321,22 @@ tasks:
   - name: "unit-test-task"
     commands:
       - func: "run unit tests"
-      - func: "upload test results"
 
   - name: "integration-test-task"
     commands:
       - func: "bootstrap mongo-orchestration"
       - func: "run integration tests"
       - func: "stop mongo-orchestration"
-      - func: "upload mo artifacts"
+      - func: "upload test results"
 
   - name: "publish-snapshots-task"
     depends_on:
-      - variant: ".static-check"
-        name: "static-checks-task"
-      - variant: ".unit-test"
-        name: "unit-test-task"
-      - variant: ".integration-test"
-        name: "integration-test-task"
+      - name: "static-checks-task"
+        variant: ".static-check"
+      - name: "unit-test-task"
+        variant: ".unit-test"
+      - name: "integration-test-task"
+        variant: ".integration-test"
     commands:
       - func: "publish snapshots"
 
@@ -377,6 +378,10 @@ axes:
         display_name: "Replica Set"
         variables:
           TOPOLOGY: "replica_set"
+      - id: "sharded-cluster"
+        display_name: Sharded Cluster
+        variables:
+          TOPOLOGY: "sharded_cluster"
 
   - id: "jdk"
     display_name: "JDK"
@@ -385,6 +390,10 @@ axes:
         display_name: "JDK8"
         variables:
           JDK: "jdk8"
+      - id: "jdk11"
+        display_name: "JDK11"
+        variables:
+          JDK: "jdk11"
 
 buildvariants:
 
@@ -397,7 +406,7 @@ buildvariants:
       - name: "static-checks-task"
 
   - matrix_name: "unit-tests"
-    matrix_spec: { jdk: "*", os: "*" }
+    matrix_spec: { jdk: "*" }
     display_name: "Units tests: ${jdk}"
     tags: ["unit-test"]
     run_on:
@@ -405,10 +414,28 @@ buildvariants:
     tasks:
       - name: "unit-test-task"
 
-  - matrix_name: "integration-tests"
-    matrix_spec: { jdk: "*", version: "*", topology: "*", os: "*" }
-    display_name: "Integration tests: ${jdk} ${version} ${topology} ${os}"
+  - matrix_name: "integration-tests-jdk11-replicaset"
+    matrix_spec: { jdk: "jdk11", version: "*", topology: "replicaset"}
+    display_name: "Integration tests: ${jdk} ${version} ${topology}"
     tags: ["integration-test"]
+    run_on:
+      - "ubuntu1804-test"
+    tasks:
+      - name: "integration-test-task"
+
+  - matrix_name: "integration-tests-jdk11-sharded"
+    matrix_spec: { jdk: "jdk11", version: ["4.2", "5.0", "latest"], topology: "sharded-cluster" }
+    display_name: "Integration tests: ${jdk} ${version} ${topology}"
+    tags: [ "integration-test" ]
+    run_on:
+      - "ubuntu1804-test"
+    tasks:
+      - name: "integration-test-task"
+
+  - matrix_name: "integration-tests-jdk8"
+    matrix_spec: { jdk: "jdk8", version: ["4.0", "5.0", "latest"], topology: "replicaset"}
+    display_name: "Integration tests: ${jdk} ${version} ${topology}"
+    tags: [ "integration-test" ]
     run_on:
       - "ubuntu1804-test"
     tasks:

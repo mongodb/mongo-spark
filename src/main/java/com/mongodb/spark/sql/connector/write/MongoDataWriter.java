@@ -188,8 +188,9 @@ class MongoDataWriter implements DataWriter<InternalRow> {
   private void writeModels() {
     if (writeModelList.size() > 0) {
       LOGGER.debug(
-          "Writing batch of {} operations. PartitionId: {}, TaskId: {}.",
+          "Writing batch of {} operations to: {}. PartitionId: {}, TaskId: {}.",
           writeModelList.size(),
+          writeConfig.getNamespace().getFullName(),
           partitionId,
           taskId);
       getMongoClient()
