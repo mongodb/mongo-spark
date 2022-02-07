@@ -17,9 +17,13 @@
 
 package com.mongodb.spark.sql.connector.read;
 
+import java.util.List;
+
 import org.apache.spark.sql.connector.read.Batch;
 import org.apache.spark.sql.connector.read.Scan;
 import org.apache.spark.sql.types.StructType;
+
+import org.bson.BsonDocument;
 
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 
@@ -27,16 +31,22 @@ import com.mongodb.spark.sql.connector.config.ReadConfig;
 public class MongoScan implements Scan {
 
   private final StructType schema;
+  private final List<BsonDocument> datasetAggregationPipeline;
   private final ReadConfig readConfig;
 
   /**
    * Construct a new instance
    *
    * @param schema the schema for the data
+   * @param datasetAggregationPipeline the dataset filter aggregation pipeline
    * @param readConfig the read configuration
    */
-  public MongoScan(final StructType schema, final ReadConfig readConfig) {
+  public MongoScan(
+      final StructType schema,
+      final List<BsonDocument> datasetAggregationPipeline,
+      final ReadConfig readConfig) {
     this.schema = schema;
+    this.datasetAggregationPipeline = datasetAggregationPipeline;
     this.readConfig = readConfig;
   }
 
@@ -58,6 +68,6 @@ public class MongoScan implements Scan {
   /** Returns the physical representation of this scan for batch query. */
   @Override
   public Batch toBatch() {
-    return new MongoBatch(schema, readConfig);
+    return new MongoBatch(schema, datasetAggregationPipeline, readConfig);
   }
 }

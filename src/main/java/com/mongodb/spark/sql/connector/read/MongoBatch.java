@@ -17,14 +17,17 @@
 
 package com.mongodb.spark.sql.connector.read;
 
-import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
+
+import java.util.List;
 
 import org.apache.spark.sql.connector.read.Batch;
 import org.apache.spark.sql.connector.read.InputPartition;
 import org.apache.spark.sql.connector.read.PartitionReader;
 import org.apache.spark.sql.connector.read.PartitionReaderFactory;
 import org.apache.spark.sql.types.StructType;
+
+import org.bson.BsonDocument;
 
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
@@ -33,24 +36,30 @@ import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 public class MongoBatch implements Batch {
 
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
+  private final List<BsonDocument> datasetAggregationPipeline;
   private final ReadConfig readConfig;
 
   /**
    * Construct a new instance
    *
    * @param schema the schema for the data
+   * @param datasetAggregationPipeline the dataset filter aggregation pipeline
    * @param readConfig the read configuration
    */
-  public MongoBatch(final StructType schema, final ReadConfig readConfig) {
+  public MongoBatch(
+      final StructType schema,
+      final List<BsonDocument> datasetAggregationPipeline,
+      final ReadConfig readConfig) {
     this.bsonDocumentToRowConverter = new BsonDocumentToRowConverter(schema);
+    this.datasetAggregationPipeline = datasetAggregationPipeline;
     this.readConfig = readConfig;
   }
 
   /** Returns a list of partitions that split the collection into parts */
   @Override
   public InputPartition[] planInputPartitions() {
-    // TODO - SPARK-301 add partitioners
-    return singletonList(new MongoInputPartition(1, emptyList())).toArray(new InputPartition[0]);
+    return singletonList(new MongoInputPartition(1, datasetAggregationPipeline))
+        .toArray(new InputPartition[0]);
   }
 
   /** Returns a factory to create a {@link PartitionReader} for each {@link InputPartition}. */
