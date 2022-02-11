@@ -21,6 +21,7 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -210,6 +211,14 @@ public class MongoConfigTest {
     MongoConfig simpleConfig = assertDoesNotThrow(() -> MongoConfig.createConfig(options));
     assertThrows(ConfigException.class, simpleConfig::toReadConfig);
     assertThrows(ConfigException.class, simpleConfig::toWriteConfig);
+  }
+
+  @Test
+  void testMongoConfigStringHidesConnectionString() {
+    MongoConfig mongoConfig = MongoConfig.createConfig(CONFIG_MAP);
+    assertFalse(mongoConfig.toString().contains("mongodb://"));
+    assertFalse(mongoConfig.toReadConfig().toString().contains("mongodb://"));
+    assertFalse(mongoConfig.toWriteConfig().toString().contains("mongodb://"));
   }
 
   @ParameterizedTest

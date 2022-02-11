@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
@@ -188,7 +189,18 @@ abstract class AbstractMongoConfig implements MongoConfig {
 
   @Override
   public String toString() {
-    return "MongoConfig{" + "options=" + options + ", usageMode=" + usageMode + '}';
+    String cleanedOptions =
+        options.entrySet().stream()
+            .map(
+                e -> {
+                  String value = e.getValue();
+                  if (e.getKey().contains(CONNECTION_STRING_CONFIG)) {
+                    value = "<hidden>";
+                  }
+                  return e.getKey() + "=" + value;
+                })
+            .collect(Collectors.joining(", "));
+    return "MongoConfig{options=" + cleanedOptions + ", usageMode=" + usageMode + '}';
   }
 
   @TestOnly

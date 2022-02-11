@@ -19,6 +19,7 @@ package com.mongodb.spark.sql.connector.config;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /** A simple implementation of MongoConfig with no set the use case */
 class SimpleMongoConfig implements MongoConfig {
@@ -57,5 +58,21 @@ class SimpleMongoConfig implements MongoConfig {
   @Override
   public Map<String, String> getOriginals() {
     return originals;
+  }
+
+  @Override
+  public String toString() {
+    String cleanedOptions =
+        options.entrySet().stream()
+            .map(
+                e -> {
+                  String value = e.getValue();
+                  if (e.getKey().contains(CONNECTION_STRING_CONFIG)) {
+                    value = "<hidden>";
+                  }
+                  return e.getKey() + "=" + value;
+                })
+            .collect(Collectors.joining(", "));
+    return "MongoConfig{options=" + cleanedOptions + ", usageMode=NotSet}";
   }
 }
