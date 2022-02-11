@@ -59,8 +59,6 @@ import scala.Tuple2;
  */
 abstract class AbstractMongoConfig implements MongoConfig {
 
-  // TODO - improve test coverage SPARK-313 for read and write configurations
-
   /** The current usage mode for the configuration. */
   enum UsageMode {
     READ,
@@ -193,7 +191,7 @@ abstract class AbstractMongoConfig implements MongoConfig {
     return "MongoConfig{" + "options=" + options + ", usageMode=" + usageMode + '}';
   }
 
-  @TestOnly // TODO consider removing and testing known values only
+  @TestOnly
   @Override
   public boolean equals(final Object o) {
     if (this == o) {
