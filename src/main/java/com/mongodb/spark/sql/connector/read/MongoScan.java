@@ -19,6 +19,7 @@ package com.mongodb.spark.sql.connector.read;
 
 import org.apache.spark.sql.connector.read.Batch;
 import org.apache.spark.sql.connector.read.Scan;
+import org.apache.spark.sql.connector.read.streaming.ContinuousStream;
 import org.apache.spark.sql.types.StructType;
 
 import com.mongodb.spark.sql.connector.config.ReadConfig;
@@ -59,5 +60,11 @@ public class MongoScan implements Scan {
   @Override
   public Batch toBatch() {
     return new MongoBatch(schema, readConfig);
+  }
+
+  /** Returns the physical representation of this scan for streaming query with continuous mode. */
+  @Override
+  public ContinuousStream toContinuousStream(final String checkpointLocation) {
+    return new MongoContinuousStream(schema, readConfig);
   }
 }

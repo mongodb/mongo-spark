@@ -15,6 +15,8 @@
  */
 package com.mongodb.spark.sql.connector.mongodb;
 
+import static org.junit.jupiter.api.Assertions.fail;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -23,16 +25,22 @@ import org.apache.spark.SparkContext;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.opentest4j.AssertionFailedError;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.bson.BsonDocument;
 
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.connection.ClusterType;
 
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 
 @MongoDBOnline()
 public class MongoSparkConnectorTestCase {
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(MongoSparkConnectorTestCase.class);
 
   @RegisterExtension
   public static final MongoSparkConnectorHelper MONGODB = new MongoSparkConnectorHelper();
@@ -57,6 +65,21 @@ public class MongoSparkConnectorTestCase {
     return getDatabase().getCollection(collectionName, BsonDocument.class);
   }
 
+  public boolean supportsChangeStreams() {
+    ClusterType clusterType = MONGODB.getMongoClient().getClusterDescription().getType();
+    int counter = 0;
+    while (clusterType == ClusterType.UNKNOWN && counter < 30) {
+      try {
+        Thread.sleep(1000);
+      } catch (InterruptedException e) {
+        fail("Interrupted when checking change stream support");
+      }
+      clusterType = MONGODB.getMongoClient().getClusterDescription().getType();
+      counter++;
+    }
+    return clusterType == ClusterType.SHARDED || clusterType == ClusterType.REPLICA_SET;
+  }
+
   public CaseInsensitiveStringMap getConnectionProviderOptions() {
     Map<String, String> options = new HashMap<>();
     options.put(
@@ -79,5 +102,33 @@ public class MongoSparkConnectorTestCase {
 
   public SparkContext getOrCreateSparkContext(final SparkConf sparkConfig) {
     return MONGODB.getOrCreateSparkContext(sparkConfig);
+  }
+
+  public void retryAssertion(final Runnable assertion) {
+    retryAssertion(assertion, 5, 2000);
+  }
+
+  public void retryAssertion(final Runnable assertion, final int retries, final long timeoutMs) {
+    int counter = 0;
+    boolean hasError = true;
+    AssertionFailedError exception = null;
+    while (counter < retries && hasError) {
+      try {
+        counter++;
+        assertion.run();
+        hasError = false;
+      } catch (AssertionFailedError e) {
+        LOGGER.debug("Failed assertion on attempt: {}", counter);
+        exception = e;
+        try {
+          Thread.sleep(timeoutMs);
+        } catch (InterruptedException interruptedException) {
+          fail("Interrupted when retrying assertion.");
+        }
+      }
+    }
+    if (hasError && exception != null) {
+      throw exception;
+    }
   }
 }

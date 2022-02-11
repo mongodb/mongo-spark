@@ -37,6 +37,7 @@ public class MongoInputPartition implements InputPartition {
   private final int partitionId;
   private final List<BsonDocument> pipeline;
   private final List<String> preferredLocations;
+  private final ResumeTokenOffset resumeTokenOffset;
 
   /**
    * Construct a new instance
@@ -53,20 +54,48 @@ public class MongoInputPartition implements InputPartition {
    *
    * @param partitionId the id of the partition
    * @param pipeline the pipeline to partition the collection
+   * @param resumeTokenOffset the resume token offset for the partition
+   */
+  public MongoInputPartition(
+      final int partitionId,
+      final List<BsonDocument> pipeline,
+      final ResumeTokenOffset resumeTokenOffset) {
+    this(partitionId, pipeline, emptyList(), resumeTokenOffset);
+  }
+
+  /**
+   * Construct a new instance
+   *
+   * @param partitionId the id of the partition
+   * @param pipeline the pipeline to partition the collection
    * @param preferredLocations the preferred server locations
    */
   public MongoInputPartition(
       final int partitionId,
       final List<BsonDocument> pipeline,
       final List<String> preferredLocations) {
+    this(partitionId, pipeline, preferredLocations, ResumeTokenOffset.INITIAL_RESUME_TOKEN_OFFSET);
+  }
+
+  MongoInputPartition(
+      final int partitionId,
+      final List<BsonDocument> pipeline,
+      final List<String> preferredLocations,
+      final ResumeTokenOffset resumeTokenOffset) {
     this.partitionId = partitionId;
     this.pipeline = pipeline;
     this.preferredLocations = preferredLocations;
+    this.resumeTokenOffset = resumeTokenOffset;
   }
 
   /** @return the partition id */
   public int getPartitionId() {
     return partitionId;
+  }
+
+  /** @return the resume token offset */
+  public ResumeTokenOffset getResumeTokenOffset() {
+    return resumeTokenOffset;
   }
 
   /** @return the aggregation pipeline for the partition */

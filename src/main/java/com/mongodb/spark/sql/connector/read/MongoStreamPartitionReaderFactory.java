@@ -19,49 +19,47 @@ package com.mongodb.spark.sql.connector.read;
 
 import static java.lang.String.format;
 
-import java.io.Serializable;
-
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.read.InputPartition;
-import org.apache.spark.sql.connector.read.PartitionReader;
-import org.apache.spark.sql.connector.read.PartitionReaderFactory;
+import org.apache.spark.sql.connector.read.streaming.ContinuousPartitionReader;
+import org.apache.spark.sql.connector.read.streaming.ContinuousPartitionReaderFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 
-/** A factory used to create {@link MongoPartitionReader} instances. */
-public class MongoPartitionReaderFactory implements PartitionReaderFactory, Serializable {
+/** A factory used to create {@link MongoStreamPartitionReader} instances. */
+public final class MongoStreamPartitionReaderFactory implements ContinuousPartitionReaderFactory {
+  private static final Logger LOGGER =
+      LoggerFactory.getLogger(MongoStreamPartitionReaderFactory.class);
   private static final long serialVersionUID = 1L;
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
   private final ReadConfig readConfig;
 
   /**
-   * Construct a new instance
+   * Construct a new instance for a continuous stream
    *
    * @param bsonDocumentToRowConverter the bson document to internal row converter
    * @param readConfig the read configuration
    */
-  public MongoPartitionReaderFactory(
+  public MongoStreamPartitionReaderFactory(
       final BsonDocumentToRowConverter bsonDocumentToRowConverter, final ReadConfig readConfig) {
     this.bsonDocumentToRowConverter = bsonDocumentToRowConverter;
     this.readConfig = readConfig;
   }
 
-  /**
-   * Returns a row-based partition reader to read data from the given {@link MongoInputPartition}.
-   *
-   * @param partition the input partition information
-   */
   @Override
-  public PartitionReader<InternalRow> createReader(final InputPartition partition) {
+  public ContinuousPartitionReader<InternalRow> createReader(final InputPartition partition) {
     Assertions.ensureState(
         () -> partition instanceof MongoInputPartition,
         () ->
             format(
                 "Unsupported InputPartition type, a MongoInputPartition instance is required. Got: %s",
                 partition.getClass()));
-    return new MongoPartitionReader(
+    LOGGER.debug("Creating MongoStreamPartitionReader for {}", partition);
+    return new MongoStreamPartitionReader(
         (MongoInputPartition) partition, bsonDocumentToRowConverter, readConfig);
   }
 }
