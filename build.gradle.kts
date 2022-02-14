@@ -304,6 +304,9 @@ publishing {
 }
 
 signing {
+    val signingKey: String? by project
+    val signingPassword: String? by project
+    useInMemoryPgpKeys(signingKey, signingPassword)
     sign(publishing.publications["mavenJava"])
 }
 
@@ -346,25 +349,5 @@ tasks.register("publishArchives") {
 
     if (gitVersion == version) {
         dependsOn("publish")
-    }
-}
-
-/*
-For security we allow the signing-related project properties to be passed in as environment variables, which
-Gradle enables if they are prefixed with "ORG_GRADLE_PROJECT_".  But since environment variables can not contain
-the '.' character and the signing-related properties contain '.', here we map signing-related project properties with '_'
-to ones with '.' that are expected by the signing plugin.
-*/
-gradle.taskGraph.whenReady {
-    if (allTasks.any { it is Sign }) {
-        val signing_keyId: String? by project
-        val signing_secretKeyRingFile: String? by project
-        val signing_password: String? by project
-
-        allprojects {
-            signing_keyId?.let { extra["signing.keyId"] = it }
-            signing_secretKeyRingFile?.let { extra["signing.secretKeyRingFile"] = it }
-            signing_password?.let { extra["signing.password"] = it }
-        }
     }
 }
