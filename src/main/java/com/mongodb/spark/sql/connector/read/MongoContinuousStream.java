@@ -34,12 +34,15 @@ import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 
-/** MongoContinuousStream defines how to read a stream of data from MongoDB. */
+/**
+ * MongoContinuousStream defines how to read a stream of data from MongoDB.
+ *
+ * <p>Note: Requires MongoDB 4.2+ To support continuing a change stream after a collection has been dropped.
+ **/
 public class MongoContinuousStream implements ContinuousStream {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoContinuousStream.class);
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
   private final ReadConfig readConfig;
-  private int partitionId = -1;
 
   /**
    * Construct a new instance
@@ -58,9 +61,12 @@ public class MongoContinuousStream implements ContinuousStream {
 
   @Override
   public InputPartition[] planInputPartitions(final Offset start) {
-    this.partitionId += 1;
+    // TODO user pipelines post SPARK-301
     return new InputPartition[] {
-      new MongoInputPartition(this.partitionId, emptyList(), (ResumeTokenOffset) start)
+      new MongoInputPartition(
+          0,
+          emptyList(),
+          new ResumeTokenPartitionOffset(((ResumeTokenOffset) start).getResumeToken()))
     };
   }
 

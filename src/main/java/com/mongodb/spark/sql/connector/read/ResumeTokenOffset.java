@@ -17,8 +17,6 @@
 
 package com.mongodb.spark.sql.connector.read;
 
-import java.io.Serializable;
-
 import org.apache.spark.sql.connector.read.streaming.Offset;
 
 import org.bson.BsonDocument;
@@ -26,8 +24,7 @@ import org.bson.BsonDocument;
 import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 
 /** An offset that contains a resume token from a change stream */
-public final class ResumeTokenOffset extends Offset implements Serializable {
-  private static final long serialVersionUID = 1L;
+public final class ResumeTokenOffset extends Offset {
   static final ResumeTokenOffset INITIAL_RESUME_TOKEN_OFFSET =
       new ResumeTokenOffset(new BsonDocument());
 

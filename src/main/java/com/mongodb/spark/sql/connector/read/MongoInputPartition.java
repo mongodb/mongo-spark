@@ -17,10 +17,12 @@
 
 package com.mongodb.spark.sql.connector.read;
 
+import static com.mongodb.spark.sql.connector.read.ResumeTokenPartitionOffset.INITIAL_RESUME_TOKEN_PARTITION_OFFSET;
 import static java.util.Collections.emptyList;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import org.apache.spark.sql.connector.read.InputPartition;
 
@@ -37,7 +39,7 @@ public class MongoInputPartition implements InputPartition {
   private final int partitionId;
   private final List<BsonDocument> pipeline;
   private final List<String> preferredLocations;
-  private final ResumeTokenOffset resumeTokenOffset;
+  private final ResumeTokenPartitionOffset resumeTokenPartitionOffset;
 
   /**
    * Construct a new instance
@@ -54,13 +56,13 @@ public class MongoInputPartition implements InputPartition {
    *
    * @param partitionId the id of the partition
    * @param pipeline the pipeline to partition the collection
-   * @param resumeTokenOffset the resume token offset for the partition
+   * @param resumeTokenPartitionOffset the resume token offset for the partition
    */
   public MongoInputPartition(
       final int partitionId,
       final List<BsonDocument> pipeline,
-      final ResumeTokenOffset resumeTokenOffset) {
-    this(partitionId, pipeline, emptyList(), resumeTokenOffset);
+      final ResumeTokenPartitionOffset resumeTokenPartitionOffset) {
+    this(partitionId, pipeline, emptyList(), resumeTokenPartitionOffset);
   }
 
   /**
@@ -74,18 +76,18 @@ public class MongoInputPartition implements InputPartition {
       final int partitionId,
       final List<BsonDocument> pipeline,
       final List<String> preferredLocations) {
-    this(partitionId, pipeline, preferredLocations, ResumeTokenOffset.INITIAL_RESUME_TOKEN_OFFSET);
+    this(partitionId, pipeline, preferredLocations, INITIAL_RESUME_TOKEN_PARTITION_OFFSET);
   }
 
   MongoInputPartition(
       final int partitionId,
       final List<BsonDocument> pipeline,
       final List<String> preferredLocations,
-      final ResumeTokenOffset resumeTokenOffset) {
+      final ResumeTokenPartitionOffset resumeTokenPartitionOffset) {
     this.partitionId = partitionId;
     this.pipeline = pipeline;
     this.preferredLocations = preferredLocations;
-    this.resumeTokenOffset = resumeTokenOffset;
+    this.resumeTokenPartitionOffset = resumeTokenPartitionOffset;
   }
 
   /** @return the partition id */
@@ -94,8 +96,8 @@ public class MongoInputPartition implements InputPartition {
   }
 
   /** @return the resume token offset */
-  public ResumeTokenOffset getResumeTokenOffset() {
-    return resumeTokenOffset;
+  public ResumeTokenPartitionOffset getResumeTokenPartitionOffset() {
+    return resumeTokenPartitionOffset;
   }
 
   /** @return the aggregation pipeline for the partition */
@@ -131,5 +133,19 @@ public class MongoInputPartition implements InputPartition {
   @Override
   public int hashCode() {
     return Objects.hash(partitionId, pipeline, preferredLocations);
+  }
+
+  @Override
+  public String toString() {
+    return "MongoInputPartition{"
+        + "partitionId="
+        + partitionId
+        + ", pipeline="
+        + pipeline.stream().map(BsonDocument::toJson).collect(Collectors.joining(",", "[", "]"))
+        + ", preferredLocations="
+        + preferredLocations
+        + ", resumeTokenPartitionOffset="
+        + resumeTokenPartitionOffset
+        + '}';
   }
 }

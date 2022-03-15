@@ -18,7 +18,6 @@
 package com.mongodb.spark.sql.connector.read;
 
 import java.util.Locale;
-import java.util.NoSuchElementException;
 import java.util.function.Function;
 
 import org.apache.spark.sql.catalyst.InternalRow;
@@ -51,8 +50,6 @@ import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 public class MongoStreamPartitionReader implements ContinuousPartitionReader<InternalRow> {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoPartitionReader.class);
   private static final String INVALIDATE = "invalidate";
-  private static final ResumeTokenPartitionOffset EMPTY_RESUME_TOKEN_PARTITION_OFFSET =
-      new ResumeTokenPartitionOffset(new BsonDocument());
   private final MongoInputPartition partition;
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
   private final ReadConfig readConfig;
@@ -80,13 +77,12 @@ public class MongoStreamPartitionReader implements ContinuousPartitionReader<Int
 
     this.readConfig = readConfig;
     this.currentRow = null;
-    this.lastOffset =
-        new ResumeTokenPartitionOffset(partition.getResumeTokenOffset().getResumeToken());
+    this.lastOffset = partition.getResumeTokenPartitionOffset();
 
     LOGGER.debug(
-        "Creating partition reader for: PartitionId: {} with Schema: {}",
-        partition.getPartitionId(),
-        bsonDocumentToRowConverter.getSchema());
+        "Creating partition reader for: Partition: {} with Schema: {}",
+        partition,
+        bsonDocumentToRowConverter);
   }
 
   @Override
@@ -102,7 +98,8 @@ public class MongoStreamPartitionReader implements ContinuousPartitionReader<Int
     Assertions.ensureState(() -> !closed, () -> "Cannot call next() on a closed PartitionReader.");
     return withCursor(
         c -> {
-          try {
+          boolean hasNext = c.hasNext();
+          if (hasNext) {
             BsonDocument next = c.next();
             lastOffset = new ResumeTokenPartitionOffset(c.getResumeToken());
             if (next.getString("operationType", new BsonString(""))
@@ -111,16 +108,11 @@ public class MongoStreamPartitionReader implements ContinuousPartitionReader<Int
                 .equals(INVALIDATE)) {
               LOGGER.info(
                   "Change stream cursor has been invalidated. This happens when a collection is dropped. Closing cursor.");
-              lastOffset = EMPTY_RESUME_TOKEN_PARTITION_OFFSET;
-              releaseCursor();
-              releaseClient();
+              releaseCursorAndClient();
             }
             currentRow = bsonDocumentToRowConverter.toInternalRow(next);
-          } catch (NoSuchElementException e) {
-            LOGGER.warn("No such element! {}", e.getMessage());
-            return false;
           }
-          return true;
+          return hasNext;
         });
   }
 
@@ -129,7 +121,7 @@ public class MongoStreamPartitionReader implements ContinuousPartitionReader<Int
     Assertions.ensureState(() -> !closed, () -> "Cannot call get() on a closed PartitionReader.");
     Assertions.ensureState(
         () -> currentRow != null,
-        () -> "Current row is null, this should not happen if `next()` returns false.");
+        () -> "Current row is null, this should not happen if `next()` returns true.");
     LOGGER.trace("Get called: {}", currentRow);
     return currentRow;
   }
@@ -138,8 +130,7 @@ public class MongoStreamPartitionReader implements ContinuousPartitionReader<Int
   public void close() {
     if (!closed) {
       closed = true;
-      releaseCursor();
-      releaseClient();
+      releaseCursorAndClient();
     }
   }
 
@@ -148,7 +139,6 @@ public class MongoStreamPartitionReader implements ContinuousPartitionReader<Int
       mongoClient = readConfig.getMongoClient();
     }
     if (changeStreamCursor == null) {
-      LOGGER.info("Opened change stream cursor for partitionId: {}", partition.getPartitionId());
       ChangeStreamIterable<Document> changeStreamIterable =
           mongoClient
               .getDatabase(readConfig.getDatabaseName())
@@ -156,11 +146,12 @@ public class MongoStreamPartitionReader implements ContinuousPartitionReader<Int
               .watch(partition.getPipeline());
 
       if (!lastOffset.getResumeToken().isEmpty()) {
-        changeStreamIterable = changeStreamIterable.resumeAfter(lastOffset.getResumeToken());
+        changeStreamIterable = changeStreamIterable.startAfter(lastOffset.getResumeToken());
       }
       changeStreamCursor =
           (MongoChangeStreamCursor<BsonDocument>)
               changeStreamIterable.withDocumentClass(BsonDocument.class).cursor();
+      LOGGER.info("Opened change stream cursor for partition: {}", partition);
     }
     return changeStreamCursor;
   }
@@ -179,10 +170,22 @@ public class MongoStreamPartitionReader implements ContinuousPartitionReader<Int
     }
   }
 
+  private void releaseCursorAndClient() {
+    try {
+      releaseCursor();
+    } catch (RuntimeException e) {
+      // ignore
+    }
+    try {
+      releaseClient();
+    } catch (RuntimeException e) {
+      // ignore
+    }
+  }
+
   private void releaseCursor() {
     if (changeStreamCursor != null) {
-      LOGGER.debug(
-          "Releasing change stream cursor for partitionId: {}", partition.getPartitionId());
+      LOGGER.debug("Releasing change stream cursor for partition: {}", partition);
       try {
         changeStreamCursor.close();
       } finally {
@@ -193,7 +196,7 @@ public class MongoStreamPartitionReader implements ContinuousPartitionReader<Int
 
   private void releaseClient() {
     if (changeStreamCursor != null) {
-      LOGGER.debug("Releasing mongoClient for partitionId: {}", partition.getPartitionId());
+      LOGGER.debug("Releasing mongoClient for partition: {}", partition);
       try {
         mongoClient.close();
       } finally {

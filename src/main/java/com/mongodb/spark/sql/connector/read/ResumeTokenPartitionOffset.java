@@ -29,6 +29,8 @@ import com.mongodb.spark.sql.connector.assertions.Assertions;
 public final class ResumeTokenPartitionOffset implements PartitionOffset {
   private static final long serialVersionUID = 1L;
   private final BsonDocument resumeToken;
+  static final ResumeTokenPartitionOffset INITIAL_RESUME_TOKEN_PARTITION_OFFSET =
+      new ResumeTokenPartitionOffset(new BsonDocument());
 
   /**
    * Construct a new instance
@@ -59,5 +61,10 @@ public final class ResumeTokenPartitionOffset implements PartitionOffset {
   @Override
   public int hashCode() {
     return Objects.hash(getResumeToken());
+  }
+
+  @Override
+  public String toString() {
+    return "ResumeTokenPartitionOffset{" + "resumeToken=" + resumeToken.toJson() + '}';
   }
 }

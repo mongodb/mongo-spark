@@ -62,7 +62,11 @@ public class MongoScan implements Scan {
     return new MongoBatch(schema, readConfig);
   }
 
-  /** Returns the physical representation of this scan for streaming query with continuous mode. */
+  /**
+   * Returns the physical representation of this scan for streaming query with continuous mode.
+   *
+   * <p>Note: Requires MongoDB 4.2+ To support continuing a change stream after a collection has been dropped.
+   **/
   @Override
   public ContinuousStream toContinuousStream(final String checkpointLocation) {
     return new MongoContinuousStream(schema, readConfig);
