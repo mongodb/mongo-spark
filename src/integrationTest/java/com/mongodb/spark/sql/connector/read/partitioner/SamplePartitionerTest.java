@@ -162,7 +162,7 @@ public class SamplePartitionerTest extends PartitionerTestCase {
     ReadConfig multiFieldOneContainsInvalidBounds =
         createReadConfig(PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_LIST_CONFIG, "_id, dups");
 
-    loadSampleData(101, 5, readConfig);
+    loadSampleData(101, 20, readConfig);
 
     assertThrows(ConfigException.class, () -> PARTITIONER.generatePartitions(readConfig));
     assertThrows(
