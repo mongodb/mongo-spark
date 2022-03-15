@@ -157,40 +157,15 @@ public class PaginateIntoPartitionsPartitionerTest extends PartitionerTestCase {
   void testUsingPartitionFieldThatContainsDuplicates() {
     ReadConfig readConfig =
         createReadConfig(PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_LIST_CONFIG, "dups");
-    loadSampleData(50, 1, readConfig);
+    ReadConfig multiFieldOneContainsInvalidBounds =
+        createReadConfig(PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_LIST_CONFIG, "_id, dups");
 
-    List<MongoInputPartition> expectedPartitions =
-        asList(
-            new MongoInputPartition(
-                0,
-                createPartitionPipeline(BsonDocument.parse("{dups: {$lt: '00010'}}"), emptyList()),
-                getPreferredLocations()),
-            new MongoInputPartition(
-                1,
-                createPartitionPipeline(
-                    BsonDocument.parse("{dups: {$gte: '00010', $lt: '00020'}}"), emptyList()),
-                getPreferredLocations()),
-            new MongoInputPartition(
-                2,
-                createPartitionPipeline(
-                    BsonDocument.parse("{dups: {$gte: '00020', $lt: '00030'}}"), emptyList()),
-                getPreferredLocations()),
-            new MongoInputPartition(
-                3,
-                createPartitionPipeline(
-                    BsonDocument.parse("{dups: {$gte: '00030', $lt: '00040'}}"), emptyList()),
-                getPreferredLocations()),
-            new MongoInputPartition(
-                4,
-                createPartitionPipeline(
-                    BsonDocument.parse("{dups: {$gte: '00040', $lt: '00050'}}"), emptyList()),
-                getPreferredLocations()),
-            new MongoInputPartition(
-                5,
-                createPartitionPipeline(BsonDocument.parse("{dups: {$gte: '00050'}}"), emptyList()),
-                getPreferredLocations()));
+    loadSampleData(101, 5, readConfig);
 
-    assertPartitioner(PARTITIONER, expectedPartitions, readConfig);
+    assertThrows(ConfigException.class, () -> PARTITIONER.generatePartitions(readConfig));
+    assertThrows(
+        ConfigException.class,
+        () -> PARTITIONER.generatePartitions(multiFieldOneContainsInvalidBounds));
   }
 
   @Test

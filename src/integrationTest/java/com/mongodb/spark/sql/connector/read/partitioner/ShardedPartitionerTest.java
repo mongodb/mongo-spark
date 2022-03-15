@@ -66,13 +66,10 @@ public class ShardedPartitionerTest extends PartitionerTestCase {
   }
 
   @Test
-  void testPartitionsTheCollectionAsExpectedWithShardKeys() {
+  void testPartitionsTheCollectionAsExpectedWithMultipleShardKeys() {
     assumeTrue(isSharded());
 
-    ReadConfig readConfig =
-        createReadConfig(
-            ReadConfig.PARTITIONER_OPTIONS_PREFIX + ShardedPartitioner.SHARD_KEY_FIELD_LIST_CONFIG,
-            "_id, pk");
+    ReadConfig readConfig = createReadConfig();
     shardCollection(readConfig.getNamespace(), "{_id: 1, pk: 1}");
     loadSampleData(100, 10, readConfig);
 
@@ -117,20 +114,26 @@ public class ShardedPartitionerTest extends PartitionerTestCase {
 
   @Test
   void shouldParseTheHostsListCorrectly() {
-    // Single host
+    // Single host - with and without replicaset name
+    List<String> expected = singletonList("sh0.example.com");
+    assertIterableEquals(expected, PARTITIONER.getHosts("tic/sh0.example.com:27018"));
+    assertIterableEquals(expected, PARTITIONER.getHosts("sh0.example.com:27018"));
+
+    // Multiple hosts - with and without replicaset name
+    expected = asList("sh0.rs1.example.com", "sh0.rs2.example.com", "sh0.rs3.example.com");
     assertIterableEquals(
-        singletonList("sh0.example.com"), PARTITIONER.getHosts("tic/sh0.example.com:27018"));
-    // Multiple hosts
-    assertIterableEquals(
-        asList("sh0.rs1.example.com", "sh0.rs2.example.com", "sh0.rs3.example.com"),
+        expected,
         PARTITIONER.getHosts(
             "tic/sh0.rs1.example.com:27018,sh0.rs2.example.com:27018,sh0.rs3.example.com:27018"));
+    assertIterableEquals(
+        expected,
+        PARTITIONER.getHosts(
+            "sh0.rs1.example.com:27018,sh0.rs2.example.com:27018,sh0.rs3.example.com:27018"));
   }
 
   private void assertPartitioner(final ReadConfig readConfig) {
     List<MongoInputPartition> mongoInputPartitions = PARTITIONER.generatePartitions(readConfig);
-    assertPartitionsAreOrderedAndBounded(
-        mongoInputPartitions, PARTITIONER.getShardKeys(readConfig));
+    assertPartitionsAreOrderedAndBounded(mongoInputPartitions);
 
     List<BsonDocument> aggregationPipeline = readConfig.getAggregationPipeline();
     if (!aggregationPipeline.isEmpty()) {
@@ -150,27 +153,20 @@ public class ShardedPartitionerTest extends PartitionerTestCase {
    * `$lt` and `$gte` ranges.
    */
   private void assertPartitionsAreOrderedAndBounded(
-      final List<MongoInputPartition> mongoInputPartitions, final List<String> shardKeys) {
+      final List<MongoInputPartition> mongoInputPartitions) {
     assertFalse(mongoInputPartitions.isEmpty(), "No partitions were produced");
-    assertMongoPartitionHasBounds(getMatchStage(mongoInputPartitions.get(0)), shardKeys, "$lt");
+    assertMongoPartitionHasBounds(getMatchStage(mongoInputPartitions.get(0)), "$lt");
 
     for (int i = 1; i < mongoInputPartitions.size() - 1; i++) {
       BsonDocument ltMatch = getMatchStage(mongoInputPartitions.get(i));
       BsonDocument gteMatch = getMatchStage(mongoInputPartitions.get(i + 1));
-      assertMongoPartitionBounds(ltMatch, gteMatch, shardKeys);
+      assertMongoPartitionBounds(ltMatch, gteMatch);
     }
 
     if (mongoInputPartitions.size() > 1) {
       assertMongoPartitionHasBounds(
-          getMatchStage(mongoInputPartitions.get(mongoInputPartitions.size() - 1)),
-          shardKeys,
-          "$gte");
+          getMatchStage(mongoInputPartitions.get(mongoInputPartitions.size() - 1)), "$gte");
     }
-  }
-
-  private void assertPartitionsAreOrderedAndBounded(final ReadConfig readConfig) {
-    assertPartitionsAreOrderedAndBounded(
-        PARTITIONER.generatePartitions(readConfig), PARTITIONER.getShardKeys(readConfig));
   }
 
   private BsonDocument getMatchStage(final MongoInputPartition mongoInputPartition) {
@@ -180,40 +176,43 @@ public class ShardedPartitionerTest extends PartitionerTestCase {
   }
 
   private void assertMongoPartitionHasBounds(
-      final BsonDocument matchStage,
-      final List<String> shardKeys,
-      final String queryComparisonOperator) {
-    shardKeys.forEach(
-        shardKey ->
-            assumeTrue(
-                matchStage
-                    .getDocument(shardKey, new BsonDocument())
-                    .containsKey(queryComparisonOperator),
-                format(
-                    "Missing query comparison operator for %s in %s",
-                    shardKey, matchStage.toJson())));
+      final BsonDocument matchStage, final String queryComparisonOperator) {
+    matchStage
+        .keySet()
+        .forEach(
+            shardKey ->
+                assertTrue(
+                    matchStage
+                        .getDocument(shardKey, new BsonDocument())
+                        .containsKey(queryComparisonOperator),
+                    format(
+                        "Missing query comparison operator for %s in %s",
+                        shardKey, matchStage.toJson())));
   }
 
-  private void assertMongoPartitionBounds(
-      final BsonDocument ltMatch, final BsonDocument gteMatch, final List<String> shardKeys) {
-    shardKeys.forEach(
-        shardKey -> {
-          BsonDocument ltMatchForShardKey = ltMatch.getDocument(shardKey, new BsonDocument());
-          BsonDocument gteMatchForShardKey = gteMatch.getDocument(shardKey, new BsonDocument());
+  private void assertMongoPartitionBounds(final BsonDocument ltMatch, final BsonDocument gteMatch) {
+    assertEquals(ltMatch.keySet(), gteMatch.keySet());
 
-          assertTrue(
-              ltMatchForShardKey.containsKey("$lt"),
-              format("Missing $lt match for shardKey '%s': %s", shardKey, ltMatch));
-          assertTrue(
-              gteMatchForShardKey.containsKey("$gte"),
-              format("Missing $gte match for shardKey '%s': %s", shardKey, gteMatch));
-          assertEquals(
-              ltMatchForShardKey.get("$lt"),
-              gteMatchForShardKey.get("$gte"),
-              format(
-                  "Match queries are not bounded correctly: "
-                      + "%s does not have the upper bound of %s",
-                  ltMatch, gteMatch));
-        });
+    ltMatch
+        .keySet()
+        .forEach(
+            shardKey -> {
+              BsonDocument ltMatchForShardKey = ltMatch.getDocument(shardKey, new BsonDocument());
+              BsonDocument gteMatchForShardKey = gteMatch.getDocument(shardKey, new BsonDocument());
+
+              assertTrue(
+                  ltMatchForShardKey.containsKey("$lt"),
+                  format("Missing $lt match for shardKey '%s': %s", shardKey, ltMatch));
+              assertTrue(
+                  gteMatchForShardKey.containsKey("$gte"),
+                  format("Missing $gte match for shardKey '%s': %s", shardKey, gteMatch));
+              assertEquals(
+                  ltMatchForShardKey.get("$lt"),
+                  gteMatchForShardKey.get("$gte"),
+                  format(
+                      "Match queries are not bounded correctly: "
+                          + "%s does not have the upper bound of %s",
+                      ltMatch, gteMatch));
+            });
   }
 }

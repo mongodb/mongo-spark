@@ -33,7 +33,6 @@ import org.bson.BsonValue;
 
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import com.mongodb.spark.sql.connector.read.partitioner.Partitioner;
-import com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper;
 
 /**
  * The Read Configuration
@@ -50,11 +49,17 @@ public final class ReadConfig extends AbstractMongoConfig {
    *
    * <p>Configuration: {@value}
    *
-   * <p>Default: {@code com.mongodb.spark.sql.connector.read.partitioner.SamplePartitioner}
+   * <p>Default: {@value PARTITIONER_DEFAULT}
    */
   public static final String PARTITIONER_CONFIG = "partitioner";
 
-  private static final String PARTITIONER_DEFAULT = PartitionerHelper.DEFAULT_PARTITIONER;
+  /**
+   * The default partitioner if none is set: {@value}
+   *
+   * @see #PARTITIONER_CONFIG
+   */
+  public static final String PARTITIONER_DEFAULT =
+      "com.mongodb.spark.sql.connector.read.partitioner.SamplePartitioner";
 
   /**
    * The prefix for specific partitioner based configuration.
@@ -184,7 +189,7 @@ public final class ReadConfig extends AbstractMongoConfig {
         INFER_SCHEMA_MAP_TYPE_MINIMUM_KEY_SIZE_DEFAULT);
   }
 
-  /** @return the partitioner class name */
+  /** @return the partitioner instance */
   public Partitioner getPartitioner() {
     return ClassHelper.createInstance(
         PARTITIONER_CONFIG,

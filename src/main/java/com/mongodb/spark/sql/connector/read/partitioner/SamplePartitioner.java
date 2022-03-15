@@ -51,12 +51,12 @@ import com.mongodb.spark.sql.connector.read.MongoInputPartition;
  * every {@code samplesPerPartition} as the value to use to calculate the partition boundaries.
  *
  * <ul>
- *   <li>{@value PARTITION_SIZE_MB_CONFIG}: The average size for each partition. Calculated using
- *       the average document size to determine the number of documents per partition. Defaults to:
- *       {@value PARTITION_SIZE_MB_DEFAULT}.
+ *   <li>{@value PARTITION_SIZE_MB_CONFIG}: The average size (MB) for each partition. Note: Uses the
+ *       average document size to determine the number of documents per partition so may not be
+ *       even. Defaults to: {@value PARTITION_SIZE_MB_DEFAULT}.
  *   <li>{@value SAMPLES_PER_PARTITION_CONFIG}: The number of samples to take per partition.
  *       Defaults to: {@value SAMPLES_PER_PARTITION_DEFAULT}. The total number of samples taken is
- *       calculated as: {@code (samples per partition * count) / number of documents per partition}.
+ *       calculated as: {@code samples per partition * (count / number of documents per partition)}.
  * </ul>
  *
  * {@inheritDoc}
@@ -141,8 +141,8 @@ public final class SamplePartitioner extends FieldListPartitioner {
   /**
    * Reduces the partition samples into the right hand boundaries.
    *
-   * <p>Takes every n partitions and uses that as the right hand boundary for the partition. Skips
-   * the initial sample as only requires the right hand boundaries
+   * <p>Takes every samplesPerPartition'th sample and uses it as the right-hand boundary of the
+   * partition. Skips the initial sample as only requires the right hand boundaries
    */
   @NotNull
   private List<BsonDocument> getRightHandBoundaries(

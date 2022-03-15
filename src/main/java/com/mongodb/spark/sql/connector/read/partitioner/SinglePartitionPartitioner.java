@@ -35,7 +35,6 @@ public final class SinglePartitionPartitioner implements Partitioner {
 
   @Override
   public List<MongoInputPartition> generatePartitions(final ReadConfig readConfig) {
-
     return singletonList(
         new MongoInputPartition(
             0,

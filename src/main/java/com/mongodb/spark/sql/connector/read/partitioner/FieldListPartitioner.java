@@ -17,7 +17,9 @@
 
 package com.mongodb.spark.sql.connector.read.partitioner;
 
+import static com.mongodb.spark.sql.connector.read.partitioner.BsonValueComparator.BSON_VALUE_COMPARATOR;
 import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper.getPreferredLocations;
+import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 
 import java.util.List;
@@ -27,8 +29,10 @@ import java.util.stream.IntStream;
 import org.jetbrains.annotations.ApiStatus;
 
 import org.bson.BsonDocument;
+import org.bson.BsonNull;
 
 import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 
 /**
@@ -38,6 +42,10 @@ import com.mongodb.spark.sql.connector.read.MongoInputPartition;
  *   <li>{@value PARTITION_FIELD_LIST_CONFIG}: A comma delimited list of fields to be used for
  *       partitioning. Defaults to: {@value ID_FIELD}.
  * </ul>
+ *
+ * <p>Note: The Partitioner must provide unique partitions without any duplicates or overlapping
+ * values for each field in the field list. The partition field values must also be sorted ascending
+ * so that they are growing in value.
  */
 @ApiStatus.Internal
 abstract class FieldListPartitioner implements Partitioner {
@@ -64,8 +72,8 @@ abstract class FieldListPartitioner implements Partitioner {
       final List<String> partitionFieldList,
       final List<BsonDocument> upperBounds,
       final ReadConfig readConfig) {
-    List<String> preferredLocations = getPreferredLocations(readConfig);
 
+    List<String> preferredLocations = getPreferredLocations(readConfig);
     return IntStream.range(0, upperBounds.size() + 1)
         .mapToObj(
             i -> {
@@ -93,6 +101,26 @@ abstract class FieldListPartitioner implements Partitioner {
                                 .append("$lt", current.get(k)));
                       }
                     });
+              }
+
+              if (previous != null && current != null) {
+                for (String k : partitionFieldList) {
+                  int comparision =
+                      BSON_VALUE_COMPARATOR.compare(
+                          current.get(k, BsonNull.VALUE), previous.get(k, BsonNull.VALUE));
+                  if (comparision < 0) {
+                    throw new ConfigException(
+                        "Invalid partitioner configuration. "
+                            + "The partitions generated should be contingous and the partition values should be ascending in "
+                            + "the partitions to ensure no duplicated data.");
+                  } else if (comparision == 0) {
+                    throw new ConfigException(
+                        format(
+                            "Invalid partitioner configuration. The partitions generated contain duplicates "
+                                + "for the field: `%s`",
+                            k));
+                  }
+                }
               }
 
               return new MongoInputPartition(

@@ -89,11 +89,6 @@ abstract class PaginatePartitioner extends FieldListPartitioner {
 
     List<BsonDocument> upperBounds = new ArrayList<>();
     for (int i = 0; i < numberOfPartitions; i++) {
-      int skip =
-          ((long) numDocumentsPerPartition * i <= count)
-              ? numDocumentsPerPartition
-              : (int) (count - numDocumentsPerPartition * i);
-
       Bson projection =
           partitionFieldList.contains(ID_FIELD)
               ? Projections.include(partitionFieldList)
@@ -123,7 +118,7 @@ abstract class PaginatePartitioner extends FieldListPartitioner {
                   boundaryPipeline.add(Aggregates.match(matchFilter));
                 }
                 boundaryPipeline.addAll(aggregationPipeline);
-                boundaryPipeline.add(Aggregates.skip(skip));
+                boundaryPipeline.add(Aggregates.skip(numDocumentsPerPartition));
                 boundaryPipeline.add(Aggregates.limit(1));
                 return coll.aggregate(boundaryPipeline).first();
               });

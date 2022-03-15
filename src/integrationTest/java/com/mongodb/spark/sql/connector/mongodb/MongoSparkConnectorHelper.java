@@ -38,8 +38,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.bson.BsonDocument;
-import org.bson.BsonString;
 import org.bson.Document;
+import org.bson.RawBsonDocument;
 
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoNamespace;
@@ -60,6 +60,7 @@ public class MongoSparkConnectorHelper
   public static final String URI_SYSTEM_PROPERTY_NAME = "org.mongodb.test.uri";
   public static final String DEFAULT_DATABASE_NAME = "MongoSparkConnectorTest";
   public static final String DEFAULT_COLLECTION_NAME = "coll";
+  private static final String SAMPLE_DATA_TEMPLATE = "{_id: '%s', pk: '%s', dups: '%s', s: '%s'}";
 
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoSparkConnectorHelper.class);
 
@@ -195,22 +196,23 @@ public class MongoSparkConnectorHelper
     }
     int sizeBytes = sizeInMB * 1000 * 1000;
     int totalDocumentSize = sizeBytes / numberOfDocuments;
-    String sampleString = RandomStringUtils.randomAlphabetic(totalDocumentSize - 63);
+    int sampleDataWithEmptySampleStringSize =
+        RawBsonDocument.parse(format(SAMPLE_DATA_TEMPLATE, "00000", "_10000", "00000", ""))
+            .getByteBuffer()
+            .limit();
+    String sampleString =
+        RandomStringUtils.randomAlphabetic(totalDocumentSize - sampleDataWithEmptySampleStringSize);
 
     List<BsonDocument> sampleDocuments =
         IntStream.range(0, numberOfDocuments)
             .boxed()
             .map(
                 i -> {
-                  BsonString idString = new BsonString(StringUtils.leftPad(i.toString(), 5, "0"));
-                  BsonString pkString = new BsonString(format("_%s", i + 10000));
-                  BsonString dupsString =
-                      new BsonString(
-                          StringUtils.leftPad(format("%s", i % 2 == 0 ? i : i + 1), 5, "0"));
-                  return new BsonDocument("_id", idString)
-                      .append("pk", pkString)
-                      .append("dups", dupsString)
-                      .append("s", new BsonString(sampleString));
+                  String idString = StringUtils.leftPad(i.toString(), 5, "0");
+                  String pkString = format("_%s", i + 10000);
+                  String dupsString = StringUtils.leftPad(format("%s", i % 3 == 0 ? 0 : i), 5, "0");
+                  return RawBsonDocument.parse(
+                      format(SAMPLE_DATA_TEMPLATE, idString, pkString, dupsString, sampleString));
                 })
             .collect(Collectors.toList());
     MongoCollection<BsonDocument> coll =

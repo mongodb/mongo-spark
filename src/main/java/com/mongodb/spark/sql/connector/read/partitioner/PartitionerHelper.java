@@ -29,18 +29,18 @@ import org.bson.BsonType;
 import org.bson.BsonValue;
 
 import com.mongodb.MongoCommandException;
-import com.mongodb.client.MongoClient;
 
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 
-/** The Partitioner helper class */
+/** Partitioner helper class, contains various utility methods used by the partitioner instances. */
 public final class PartitionerHelper {
 
   private static final List<BsonDocument> COLL_STATS_AGGREGATION_PIPELINE =
       singletonList(BsonDocument.parse("{'$collStats': {'storageStats': { } } }"));
-  public static final String DEFAULT_PARTITIONER = SamplePartitioner.class.getCanonicalName();
+  private static final BsonDocument PING_COMMAND = BsonDocument.parse("{ping: 1}");
+  public static final String DEFAULT_PARTITIONER = ReadConfig.PARTITIONER_DEFAULT;
   public static final Partitioner SINGLE_PARTITIONER = new SinglePartitionPartitioner();
 
   /**
@@ -146,7 +146,11 @@ public final class PartitionerHelper {
    */
   public static List<String> getPreferredLocations(final ReadConfig readConfig) {
     return readConfig
-        .withClient(MongoClient::getClusterDescription)
+        .withClient(
+            c -> {
+              c.getDatabase(readConfig.getDatabaseName()).runCommand(PING_COMMAND);
+              return c.getClusterDescription();
+            })
         .getServerDescriptions()
         .stream()
         .flatMap(sd -> sd.getHosts().stream())

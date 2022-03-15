@@ -22,10 +22,17 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.mongodb.spark.sql.connector.annotations.ThreadSafe;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 
-/** The Partitioner provides the partitions of a collection */
+/**
+ * The Partitioner provides the logic to partition a collection individual processable partitions.
+ *
+ * <p>The Partitioner must provide unique partitions without any duplicates or overlapping
+ * partitions.
+ */
+@ThreadSafe
 public interface Partitioner {
 
   Logger LOGGER = LoggerFactory.getLogger(Partitioner.class);

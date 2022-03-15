@@ -17,9 +17,9 @@
 
 package com.mongodb.spark.sql.connector.read.partitioner;
 
+import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper.SINGLE_PARTITIONER;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
-import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 
 import java.util.List;
 
@@ -34,8 +34,6 @@ import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 
 public class SinglePartitionerTest extends PartitionerTestCase {
 
-  private static final Partitioner PARTITIONER = new SinglePartitionPartitioner();
-
   private final List<MongoInputPartition> singlePartitionsList;
 
   public SinglePartitionerTest() {
@@ -49,7 +47,7 @@ public class SinglePartitionerTest extends PartitionerTestCase {
     ReadConfig readConfig = createReadConfig();
     readConfig.doWithCollection(MongoCollection::drop);
 
-    assertIterableEquals(singlePartitionsList, PARTITIONER.generatePartitions(readConfig));
+    assertPartitioner(SINGLE_PARTITIONER, singlePartitionsList, readConfig);
   }
 
   @Test
@@ -57,7 +55,7 @@ public class SinglePartitionerTest extends PartitionerTestCase {
     ReadConfig readConfig = createReadConfig();
     loadSampleData(51, 5, readConfig);
 
-    assertIterableEquals(singlePartitionsList, PARTITIONER.generatePartitions(readConfig));
+    assertPartitioner(SINGLE_PARTITIONER, singlePartitionsList, readConfig);
   }
 
   @Test
@@ -66,27 +64,22 @@ public class SinglePartitionerTest extends PartitionerTestCase {
         createReadConfig(
             ReadConfig.PARTITIONER_OPTIONS_PREFIX + SamplePartitioner.PARTITION_FIELD_LIST_CONFIG,
             "pk");
-    assertIterableEquals(singlePartitionsList, PARTITIONER.generatePartitions(readConfig));
+    assertPartitioner(SINGLE_PARTITIONER, singlePartitionsList, readConfig);
   }
 
   @Test
   void testCreatesExpectedPartitionsWithUsersPipeline() {
+    String matchStage = "{'$match': {'_id': {'$gte': '00010', '$lte': '00040'}}}";
     ReadConfig readConfig =
-        createReadConfig(
-            ReadConfig.AGGREGATION_PIPELINE_CONFIG,
-            "[{'$match': {'_id': {'$gte': '00010', '$lte': '00040'}}}]");
-    List<BsonDocument> userSuppliedPipeline =
-        singletonList(
-            BsonDocument.parse("{'$match': {'_id': {'$gte': '00010', " + "'$lte': '00040'}}}"));
+        createReadConfig(ReadConfig.AGGREGATION_PIPELINE_CONFIG, "[" + matchStage + "]");
+    List<BsonDocument> userSuppliedPipeline = singletonList(BsonDocument.parse(matchStage));
     List<MongoInputPartition> expectedPartitions =
         singletonList(new MongoInputPartition(0, userSuppliedPipeline, getPreferredLocations()));
 
     // No data
-    assertIterableEquals(
-        expectedPartitions, PartitionerHelper.SINGLE_PARTITIONER.generatePartitions(readConfig));
+    assertPartitioner(SINGLE_PARTITIONER, expectedPartitions, readConfig);
 
     loadSampleData(50, 1, readConfig);
-    assertIterableEquals(
-        expectedPartitions, PartitionerHelper.SINGLE_PARTITIONER.generatePartitions(readConfig));
+    assertPartitioner(SINGLE_PARTITIONER, expectedPartitions, readConfig);
   }
 }
