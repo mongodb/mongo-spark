@@ -30,6 +30,7 @@ import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 
 import org.bson.BsonDocument;
+import org.bson.conversions.Bson;
 
 import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.Projections;
@@ -62,7 +63,7 @@ import com.mongodb.spark.sql.connector.read.MongoInputPartition;
  * {@inheritDoc}
  */
 @ApiStatus.Internal
-public final class SamplePartitioner extends FieldListPartitioner {
+public final class SamplePartitioner extends FieldPartitioner {
   public static final String PARTITION_SIZE_MB_CONFIG = "partition.size";
   private static final int PARTITION_SIZE_MB_DEFAULT = 64;
 
@@ -75,7 +76,7 @@ public final class SamplePartitioner extends FieldListPartitioner {
   @Override
   public List<MongoInputPartition> generatePartitions(final ReadConfig readConfig) {
     MongoConfig partitionerOptions = readConfig.getPartitionerOptions();
-    List<String> partitionFieldList = getPartitionFieldList(readConfig);
+    String partitionField = getPartitionField(readConfig);
 
     long partitionSizeInBytes =
         Assertions.validateConfig(
@@ -121,7 +122,10 @@ public final class SamplePartitioner extends FieldListPartitioner {
     }
 
     int numberOfSamples = (int) Math.ceil((samplesPerPartition * count) / numDocumentsPerPartition);
-
+    Bson projection =
+        partitionField.contains(ID_FIELD)
+            ? Projections.include(partitionField)
+            : Projections.fields(Projections.include(partitionField), Projections.excludeId());
     List<BsonDocument> samples =
         readConfig.withCollection(
             coll ->
@@ -129,13 +133,13 @@ public final class SamplePartitioner extends FieldListPartitioner {
                         asList(
                             Aggregates.match(matchQuery),
                             Aggregates.sample(numberOfSamples),
-                            Aggregates.project(Projections.include(partitionFieldList)),
-                            Aggregates.sort(Sorts.ascending(partitionFieldList))))
+                            Aggregates.project(projection),
+                            Aggregates.sort(Sorts.ascending(partitionField))))
                     .allowDiskUse(readConfig.getAggregationAllowDiskUse())
                     .into(new ArrayList<>()));
 
     return createMongoInputPartitions(
-        partitionFieldList, getRightHandBoundaries(samples, samplesPerPartition), readConfig);
+        partitionField, getRightHandBoundaries(samples, samplesPerPartition), readConfig);
   }
 
   /**

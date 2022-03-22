@@ -62,8 +62,7 @@ public class SinglePartitionerTest extends PartitionerTestCase {
   void testUsingAlternativePartitionFieldList() {
     ReadConfig readConfig =
         createReadConfig(
-            ReadConfig.PARTITIONER_OPTIONS_PREFIX + SamplePartitioner.PARTITION_FIELD_LIST_CONFIG,
-            "pk");
+            ReadConfig.PARTITIONER_OPTIONS_PREFIX + SamplePartitioner.PARTITION_FIELD_CONFIG, "pk");
     assertPartitioner(SINGLE_PARTITIONER, singlePartitionsList, readConfig);
   }
 

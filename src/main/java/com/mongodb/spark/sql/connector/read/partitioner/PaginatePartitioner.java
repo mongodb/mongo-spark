@@ -36,14 +36,14 @@ import com.mongodb.spark.sql.connector.read.MongoInputPartition;
  * Paginates a collection into partitions.
  *
  * <ul>
- *   <li>{@value PARTITION_FIELD_LIST_CONFIG}: A comma delimited list of fields to be used for
+ *   <li>{@value PARTITION_FIELD_CONFIG}: A comma delimited list of fields to be used for
  *       partitioning. Defaults to: {@value ID_FIELD}.
  * </ul>
  *
  * <p>Note: This method of partitioning costs at least on aggregation query per partition produced.
  */
 @ApiStatus.Internal
-abstract class PaginatePartitioner extends FieldListPartitioner {
+abstract class PaginatePartitioner extends FieldPartitioner {
 
   /**
    * Uses the collection count and the number of documents per partition to create the {@code
@@ -57,10 +57,10 @@ abstract class PaginatePartitioner extends FieldListPartitioner {
    */
   List<MongoInputPartition> createMongoInputPartitions(
       final long count, final int numDocumentsPerPartition, final ReadConfig readConfig) {
-    List<String> partitionFieldList = getPartitionFieldList(readConfig);
+    String partitionField = getPartitionField(readConfig);
     return createMongoInputPartitions(
-        partitionFieldList,
-        createUpperBounds(partitionFieldList, count, numDocumentsPerPartition, readConfig),
+        partitionField,
+        createUpperBounds(partitionField, count, numDocumentsPerPartition, readConfig),
         readConfig);
   }
 
@@ -70,8 +70,7 @@ abstract class PaginatePartitioner extends FieldListPartitioner {
    * <p>Calculates the number of partitions to be {@code Math.ceil(count /
    * numDocumentsPerPartition)} and each partition requires a query.
    *
-   * @param partitionFieldList partitionFieldList the fields to be used in partitioning each
-   *     partition
+   * @param partitionField partitionField the field to be used in partitioning each partition
    * @param count the count of documents in the collection after any user provided aggregations are
    *     applied.
    * @param numDocumentsPerPartition the calculated number of documents per partition
@@ -79,7 +78,7 @@ abstract class PaginatePartitioner extends FieldListPartitioner {
    * @return an ordered list of documents representing the upper bounds for each partition.
    */
   private List<BsonDocument> createUpperBounds(
-      final List<String> partitionFieldList,
+      final String partitionField,
       final long count,
       final int numDocumentsPerPartition,
       final ReadConfig readConfig) {
@@ -90,14 +89,13 @@ abstract class PaginatePartitioner extends FieldListPartitioner {
     List<BsonDocument> upperBounds = new ArrayList<>();
     for (int i = 0; i < numberOfPartitions; i++) {
       Bson projection =
-          partitionFieldList.contains(ID_FIELD)
-              ? Projections.include(partitionFieldList)
-              : Projections.fields(
-                  Projections.include(partitionFieldList), Projections.excludeId());
+          partitionField.contains(ID_FIELD)
+              ? Projections.include(partitionField)
+              : Projections.fields(Projections.include(partitionField), Projections.excludeId());
 
       List<Bson> aggregationPipeline = new ArrayList<>(readConfig.getAggregationPipeline());
       aggregationPipeline.add(Aggregates.project(projection));
-      aggregationPipeline.add(Aggregates.sort(Sorts.ascending(partitionFieldList)));
+      aggregationPipeline.add(Aggregates.sort(Sorts.ascending(partitionField)));
 
       BsonDocument boundary =
           readConfig.withCollection(
@@ -109,12 +107,10 @@ abstract class PaginatePartitioner extends FieldListPartitioner {
                 if (!upperBounds.isEmpty()) {
                   BsonDocument previous = upperBounds.get(upperBounds.size() - 1);
                   BsonDocument matchFilter = new BsonDocument();
-                  partitionFieldList.forEach(
-                      k -> {
-                        if (previous.containsKey(k)) {
-                          matchFilter.put(k, new BsonDocument("$gte", previous.get(k)));
-                        }
-                      });
+                  if (previous.containsKey(partitionField)) {
+                    matchFilter.put(
+                        partitionField, new BsonDocument("$gte", previous.get(partitionField)));
+                  }
                   boundaryPipeline.add(Aggregates.match(matchFilter));
                 }
                 boundaryPipeline.addAll(aggregationPipeline);

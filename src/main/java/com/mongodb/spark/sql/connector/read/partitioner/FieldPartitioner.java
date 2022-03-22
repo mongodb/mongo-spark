@@ -20,7 +20,6 @@ package com.mongodb.spark.sql.connector.read.partitioner;
 import static com.mongodb.spark.sql.connector.read.partitioner.BsonValueComparator.BSON_VALUE_COMPARATOR;
 import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper.getPreferredLocations;
 import static java.lang.String.format;
-import static java.util.Collections.singletonList;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -29,47 +28,45 @@ import java.util.stream.IntStream;
 import org.jetbrains.annotations.ApiStatus;
 
 import org.bson.BsonDocument;
-import org.bson.BsonNull;
 
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 
 /**
- * Partitions collections using one or more fields.
+ * Partitions collections using a single field.
  *
  * <ul>
- *   <li>{@value PARTITION_FIELD_LIST_CONFIG}: A comma delimited list of fields to be used for
- *       partitioning. Defaults to: {@value ID_FIELD}.
+ *   <li>{@value PARTITION_FIELD_CONFIG}: A comma delimited list of fields to be used for
+ *       partitioning. Defaults to: {@value PARTITION_FIELD_DEFAULT}.
  * </ul>
  *
- * <p>Note: The Partitioner must provide unique partitions without any duplicates or overlapping
- * values for each field in the field list. The partition field values must also be sorted ascending
- * so that they are growing in value.
+ * <p>Note: The Partitioner must provide unique partitions without any duplicates. The partition
+ * field values must also be sorted ascending so that they are growing in value.
  */
 @ApiStatus.Internal
-abstract class FieldListPartitioner implements Partitioner {
+abstract class FieldPartitioner implements Partitioner {
   public static final String ID_FIELD = "_id";
-  public static final String PARTITION_FIELD_LIST_CONFIG = "partition.field.list";
-  public static final List<String> PARTITION_FIELD_LIST_DEFAULT = singletonList(ID_FIELD);
+  public static final String PARTITION_FIELD_DEFAULT = ID_FIELD;
+  public static final String PARTITION_FIELD_CONFIG = "partition.field";
 
-  List<String> getPartitionFieldList(final ReadConfig readConfig) {
+  String getPartitionField(final ReadConfig readConfig) {
     return readConfig
         .getPartitionerOptions()
-        .getList(PARTITION_FIELD_LIST_CONFIG, PARTITION_FIELD_LIST_DEFAULT);
+        .getOrDefault(PARTITION_FIELD_CONFIG, PARTITION_FIELD_DEFAULT);
   }
 
   /**
    * Creates MongoInputs from the right hand boundaries provided.
    *
-   * @param partitionFieldList the fields to be used in partitioning each partition
+   * @param partitionField the field used in partitioning of each partition
    * @param upperBounds an ordered list of the upper boundaries for each partition. The previous
    *     partition is used as the lower bounds.
    * @param readConfig the read configuration
    * @return a list of {@link MongoInputPartition}s.
    */
   List<MongoInputPartition> createMongoInputPartitions(
-      final List<String> partitionFieldList,
+      final String partitionField,
       final List<BsonDocument> upperBounds,
       final ReadConfig readConfig) {
 
@@ -82,44 +79,31 @@ abstract class FieldListPartitioner implements Partitioner {
 
               BsonDocument matchFilter = new BsonDocument();
               if (previous != null) {
-                partitionFieldList.forEach(
-                    k -> {
-                      if (previous.containsKey(k)) {
-                        matchFilter.put(k, new BsonDocument("$gte", previous.get(k)));
-                      }
-                    });
+                matchFilter.put(
+                    partitionField, new BsonDocument("$gte", previous.get(partitionField)));
               }
 
               if (current != null) {
-                partitionFieldList.forEach(
-                    k -> {
-                      if (current.containsKey(k)) {
-                        matchFilter.put(
-                            k,
-                            matchFilter
-                                .getDocument(k, new BsonDocument())
-                                .append("$lt", current.get(k)));
-                      }
-                    });
+                matchFilter.put(
+                    partitionField,
+                    matchFilter
+                        .getDocument(partitionField, new BsonDocument())
+                        .append("$lt", current.get(partitionField)));
               }
 
               if (previous != null && current != null) {
-                for (String k : partitionFieldList) {
-                  int comparision =
-                      BSON_VALUE_COMPARATOR.compare(
-                          current.get(k, BsonNull.VALUE), previous.get(k, BsonNull.VALUE));
-                  if (comparision < 0) {
-                    throw new ConfigException(
-                        "Invalid partitioner configuration. "
-                            + "The partitions generated should be contingous and the partition values should be ascending in "
-                            + "the partitions to ensure no duplicated data.");
-                  } else if (comparision == 0) {
-                    throw new ConfigException(
-                        format(
-                            "Invalid partitioner configuration. The partitions generated contain duplicates "
-                                + "for the field: `%s`",
-                            k));
-                  }
+                int comparision = BSON_VALUE_COMPARATOR.compare(current, previous);
+                if (comparision < 0) {
+                  throw new ConfigException(
+                      "Invalid partitioner configuration. "
+                          + "The partitions generated should be contiguous and the partition values should be ascending in "
+                          + "the partitions to ensure no duplicated data.");
+                } else if (comparision == 0) {
+                  throw new ConfigException(
+                      format(
+                          "Invalid partitioner configuration. The partitions generated contain duplicates "
+                              + "`%s`",
+                          current));
                 }
               }
 

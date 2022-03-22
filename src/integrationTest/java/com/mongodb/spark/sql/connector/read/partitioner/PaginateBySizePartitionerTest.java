@@ -18,7 +18,7 @@
 package com.mongodb.spark.sql.connector.read.partitioner;
 
 import static com.mongodb.spark.sql.connector.config.ReadConfig.PARTITIONER_OPTIONS_PREFIX;
-import static com.mongodb.spark.sql.connector.read.partitioner.FieldListPartitioner.PARTITION_FIELD_LIST_CONFIG;
+import static com.mongodb.spark.sql.connector.read.partitioner.FieldPartitioner.PARTITION_FIELD_CONFIG;
 import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper.SINGLE_PARTITIONER;
 import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper.createPartitionPipeline;
 import static com.mongodb.spark.sql.connector.read.partitioner.SamplePartitioner.PARTITION_SIZE_MB_CONFIG;
@@ -116,7 +116,7 @@ public class PaginateBySizePartitionerTest extends PartitionerTestCase {
   @Test
   void testUsingAlternativePartitionField() {
     ReadConfig readConfig =
-        createReadConfig(PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_LIST_CONFIG, "pk");
+        createReadConfig(PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_CONFIG, "pk");
     loadSampleData(51, 5, readConfig);
 
     List<MongoInputPartition> expectedPartitions =
@@ -156,15 +156,10 @@ public class PaginateBySizePartitionerTest extends PartitionerTestCase {
   @Test
   void testUsingPartitionFieldThatContainsDuplicates() {
     ReadConfig readConfig =
-        createReadConfig(PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_LIST_CONFIG, "dups");
-    ReadConfig multiFieldOneContainsInvalidBounds =
-        createReadConfig(PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_LIST_CONFIG, "_id, dups");
+        createReadConfig(PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_CONFIG, "dups");
+    loadSampleData(101, 5, readConfig);
 
-    loadSampleData(61, 5, readConfig);
     assertThrows(ConfigException.class, () -> PARTITIONER.generatePartitions(readConfig));
-    assertThrows(
-        ConfigException.class,
-        () -> PARTITIONER.generatePartitions(multiFieldOneContainsInvalidBounds));
   }
 
   @Test
