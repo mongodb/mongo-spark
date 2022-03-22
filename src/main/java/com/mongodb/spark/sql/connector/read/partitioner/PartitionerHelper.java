@@ -40,7 +40,6 @@ public final class PartitionerHelper {
   private static final List<BsonDocument> COLL_STATS_AGGREGATION_PIPELINE =
       singletonList(BsonDocument.parse("{'$collStats': {'storageStats': { } } }"));
   private static final BsonDocument PING_COMMAND = BsonDocument.parse("{ping: 1}");
-  public static final String DEFAULT_PARTITIONER = ReadConfig.PARTITIONER_DEFAULT;
   public static final Partitioner SINGLE_PARTITIONER = new SinglePartitionPartitioner();
 
   /**
