@@ -45,7 +45,8 @@ import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
  * A partition reader returned by {@link
  * MongoStreamPartitionReaderFactory#createReader(org.apache.spark.sql.connector.read.InputPartition)}.
  *
- * <p>It's responsible for outputting data for a continuous stream using change streams.
+ * <p>Utilizes MongoDBs change stream functionality, the continuous stream will consist of
+ * <a href="https://docs.mongodb.com/manual/reference/change-events/">change events</a>.
  */
 public class MongoStreamPartitionReader implements ContinuousPartitionReader<InternalRow> {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoPartitionReader.class);

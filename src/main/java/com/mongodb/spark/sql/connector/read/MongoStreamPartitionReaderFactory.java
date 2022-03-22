@@ -30,7 +30,11 @@ import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 
-/** A factory used to create {@link MongoStreamPartitionReader} instances. */
+/** A factory used to create {@link MongoStreamPartitionReader} instances.
+ *
+ * <p>Utilizes MongoDBs change stream functionality,  the continuous streams will consist of
+ * <a href="https://docs.mongodb.com/manual/reference/change-events/">change events</a>.
+ **/
 public final class MongoStreamPartitionReaderFactory implements ContinuousPartitionReaderFactory {
   private static final Logger LOGGER =
       LoggerFactory.getLogger(MongoStreamPartitionReaderFactory.class);

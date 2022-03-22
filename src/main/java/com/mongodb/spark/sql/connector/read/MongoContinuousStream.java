@@ -37,6 +37,9 @@ import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 /**
  * MongoContinuousStream defines how to read a stream of data from MongoDB.
  *
+ * <p>Utilizes MongoDBs change stream functionality,  the continuous streams will consist of
+ * <a href="https://docs.mongodb.com/manual/reference/change-events/">change events</a>.
+ *
  * <p>Note: Requires MongoDB 4.2+ To support continuing a change stream after a collection has been dropped.
  **/
 public class MongoContinuousStream implements ContinuousStream {
