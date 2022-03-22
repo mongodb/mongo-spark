@@ -22,7 +22,6 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.mongodb.spark.sql.connector.annotations.ThreadSafe;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 
@@ -32,7 +31,6 @@ import com.mongodb.spark.sql.connector.read.MongoInputPartition;
  * <p>The Partitioner must provide unique partitions without any duplicates or overlapping
  * partitions.
  */
-@ThreadSafe
 public interface Partitioner {
 
   Logger LOGGER = LoggerFactory.getLogger(Partitioner.class);

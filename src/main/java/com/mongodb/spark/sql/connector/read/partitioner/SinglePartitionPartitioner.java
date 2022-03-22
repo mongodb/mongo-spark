@@ -21,6 +21,7 @@ import static java.util.Collections.singletonList;
 
 import java.util.List;
 
+import com.mongodb.spark.sql.connector.annotations.ThreadSafe;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 
@@ -29,6 +30,7 @@ import com.mongodb.spark.sql.connector.read.MongoInputPartition;
  *
  * <p>Creates a single partition and includes any user provided aggregation pipelines.
  */
+@ThreadSafe
 public final class SinglePartitionPartitioner implements Partitioner {
   /** Construct an instance */
   public SinglePartitionPartitioner() {}

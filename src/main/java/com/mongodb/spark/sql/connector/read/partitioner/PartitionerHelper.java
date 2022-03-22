@@ -66,7 +66,6 @@ public final class PartitionerHelper {
 
       return mongoInputPartitions.toArray(new MongoInputPartition[0]);
     } catch (RuntimeException ex) {
-      LOGGER.error("Partitioning failed due to {}", ex.getMessage());
       throw new MongoSparkException("Partitioning failed.", ex);
     }
   }
