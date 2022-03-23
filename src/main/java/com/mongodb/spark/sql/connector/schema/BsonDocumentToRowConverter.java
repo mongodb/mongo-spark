@@ -476,4 +476,9 @@ public final class BsonDocumentToRowConverter implements Serializable {
       return buffer.toByteArray();
     }
   }
+
+  @Override
+  public String toString() {
+    return "BsonDocumentToRowConverter{" + "schema=" + schema + '}';
+  }
 }

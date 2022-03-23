@@ -18,7 +18,6 @@
 package com.mongodb.spark.sql.connector.read;
 
 import org.apache.spark.sql.catalyst.InternalRow;
-import org.apache.spark.sql.connector.read.InputPartition;
 import org.apache.spark.sql.connector.read.PartitionReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,7 +32,8 @@ import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 
 /**
- * A partition reader returned by {@link MongoPartitionReaderFactory#createReader(InputPartition)}.
+ * A partition reader returned by {@link
+ * MongoPartitionReaderFactory#createReader(org.apache.spark.sql.connector.read.InputPartition)}.
  * It's responsible for outputting data for a RDD partition.
  */
 public class MongoPartitionReader implements PartitionReader<InternalRow> {

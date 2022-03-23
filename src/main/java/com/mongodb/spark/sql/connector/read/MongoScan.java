@@ -21,6 +21,7 @@ import java.util.List;
 
 import org.apache.spark.sql.connector.read.Batch;
 import org.apache.spark.sql.connector.read.Scan;
+import org.apache.spark.sql.connector.read.streaming.ContinuousStream;
 import org.apache.spark.sql.types.StructType;
 
 import org.bson.BsonDocument;
@@ -69,5 +70,19 @@ public class MongoScan implements Scan {
   @Override
   public Batch toBatch() {
     return new MongoBatch(schema, datasetAggregationPipeline, readConfig);
+  }
+
+  /**
+   * Returns the physical representation of this scan for streaming query with continuous mode.
+   *
+   * <p>Utilizes MongoDBs change stream functionality, the continuous streams will consist of <a
+   * href="https://docs.mongodb.com/manual/reference/change-events/">change events</a>.
+   *
+   * <p>Note: Requires MongoDB 4.2+ To support continuing a change stream after a collection has
+   * been dropped.
+   */
+  @Override
+  public ContinuousStream toContinuousStream(final String checkpointLocation) {
+    return new MongoContinuousStream(schema, readConfig);
   }
 }
