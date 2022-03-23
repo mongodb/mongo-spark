@@ -38,7 +38,8 @@ import com.mongodb.spark.sql.connector.read.MongoInputPartition;
  * sized chunks:
  *
  * <ul>
- *   <li>{@value PARTITION_FIELD_CONFIG}: The field to be used for partitioning. Defaults to: _id.
+ *   <li>{@value PARTITION_FIELD_CONFIG}: The field to be used for partitioning. Must be a unique
+ *       field. Defaults to: {@value ID_FIELD}.
  *   <li>{@value PARTITION_SIZE_MB_CONFIG}: The average size per partition. Defaults to: {@value
  *       PARTITION_SIZE_MB_DEFAULT}.
  * </ul>

@@ -36,8 +36,8 @@ import com.mongodb.spark.sql.connector.read.MongoInputPartition;
  * Paginates a collection into partitions.
  *
  * <ul>
- *   <li>{@value PARTITION_FIELD_CONFIG}: A comma delimited list of fields to be used for
- *       partitioning. Defaults to: {@value ID_FIELD}.
+ *   <li>{@value PARTITION_FIELD_CONFIG}: The field to be used for partitioning. Must be a unique
+ *       field. Defaults to: {@value ID_FIELD}.
  * </ul>
  *
  * <p>Note: This method of partitioning costs at least on aggregation query per partition produced.
@@ -89,7 +89,7 @@ abstract class PaginatePartitioner extends FieldPartitioner {
     List<BsonDocument> upperBounds = new ArrayList<>();
     for (int i = 0; i < numberOfPartitions; i++) {
       Bson projection =
-          partitionField.contains(ID_FIELD)
+          partitionField.equals(ID_FIELD)
               ? Projections.include(partitionField)
               : Projections.fields(Projections.include(partitionField), Projections.excludeId());
 

@@ -52,6 +52,8 @@ import com.mongodb.spark.sql.connector.read.MongoInputPartition;
  * every {@code samplesPerPartition} as the value to use to calculate the partition boundaries.
  *
  * <ul>
+ *   <li>{@value PARTITION_FIELD_CONFIG}: The field to be used for partitioning. Must be a unique
+ *       field. Defaults to: {@value ID_FIELD}.
  *   <li>{@value PARTITION_SIZE_MB_CONFIG}: The average size (MB) for each partition. Note: Uses the
  *       average document size to determine the number of documents per partition so may not be
  *       even. Defaults to: {@value PARTITION_SIZE_MB_DEFAULT}.
@@ -123,7 +125,7 @@ public final class SamplePartitioner extends FieldPartitioner {
 
     int numberOfSamples = (int) Math.ceil((samplesPerPartition * count) / numDocumentsPerPartition);
     Bson projection =
-        partitionField.contains(ID_FIELD)
+        partitionField.equals(ID_FIELD)
             ? Projections.include(partitionField)
             : Projections.fields(Projections.include(partitionField), Projections.excludeId());
     List<BsonDocument> samples =

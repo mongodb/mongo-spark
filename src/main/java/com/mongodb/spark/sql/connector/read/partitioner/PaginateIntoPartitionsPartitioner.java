@@ -38,8 +38,8 @@ import com.mongodb.spark.sql.connector.read.MongoInputPartition;
  * by the maximum number of allowable partitions.
  *
  * <ul>
- *   <li>{@value PARTITION_FIELD_CONFIG}: A comma delimited list of fields to be used for
- *       partitioning. Defaults to: {@value ID_FIELD}.
+ *   <li>{@value PARTITION_FIELD_CONFIG}: The field to be used for partitioning. Must be a unique
+ *       field. Defaults to: {@value ID_FIELD}.
  *   <li>{@value MAX_NUMBER_OF_PARTITIONS_CONFIG}: The maximum number of partitions this partitioner
  *       will create. Defaults to: {@value MAX_NUMBER_OF_PARTITIONS_DEFAULT}.
  * </ul>

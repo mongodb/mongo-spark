@@ -17,11 +17,12 @@
 
 package com.mongodb.spark.sql.connector.read.partitioner;
 
-import static com.mongodb.spark.sql.connector.read.partitioner.BsonValueComparator.BSON_VALUE_COMPARATOR;
 import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper.getPreferredLocations;
 import static java.lang.String.format;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -37,12 +38,9 @@ import com.mongodb.spark.sql.connector.read.MongoInputPartition;
  * Partitions collections using a single field.
  *
  * <ul>
- *   <li>{@value PARTITION_FIELD_CONFIG}: A comma delimited list of fields to be used for
- *       partitioning. Defaults to: {@value PARTITION_FIELD_DEFAULT}.
+ *   <li>{@value PARTITION_FIELD_CONFIG}: The field to be used for partitioning. Defaults to:
+ *       {@value PARTITION_FIELD_DEFAULT}.
  * </ul>
- *
- * <p>Note: The Partitioner must provide unique partitions without any duplicates. The partition
- * field values must also be sorted ascending so that they are growing in value.
  */
 @ApiStatus.Internal
 abstract class FieldPartitioner implements Partitioner {
@@ -61,7 +59,7 @@ abstract class FieldPartitioner implements Partitioner {
    *
    * @param partitionField the field used in partitioning of each partition
    * @param upperBounds an ordered list of the upper boundaries for each partition. The previous
-   *     partition is used as the lower bounds.
+   *     partition is used as the lower bounds. Must not contain any duplicates.
    * @param readConfig the read configuration
    * @return a list of {@link MongoInputPartition}s.
    */
@@ -69,6 +67,16 @@ abstract class FieldPartitioner implements Partitioner {
       final String partitionField,
       final List<BsonDocument> upperBounds,
       final ReadConfig readConfig) {
+
+    Set<BsonDocument> upperBoundSet = new HashSet<>(upperBounds);
+    if (upperBounds.size() != upperBoundSet.size()) {
+      throw new ConfigException(
+          format(
+              "Invalid partitioner configuration. The partitions generated contain duplicates: `%s`",
+              upperBounds.stream()
+                  .map(BsonDocument::toJson)
+                  .collect(Collectors.joining(",", "[", "]"))));
+    }
 
     List<String> preferredLocations = getPreferredLocations(readConfig);
     return IntStream.range(0, upperBounds.size() + 1)
@@ -89,22 +97,6 @@ abstract class FieldPartitioner implements Partitioner {
                     matchFilter
                         .getDocument(partitionField, new BsonDocument())
                         .append("$lt", current.get(partitionField)));
-              }
-
-              if (previous != null && current != null) {
-                int comparision = BSON_VALUE_COMPARATOR.compare(current, previous);
-                if (comparision < 0) {
-                  throw new ConfigException(
-                      "Invalid partitioner configuration. "
-                          + "The partitions generated should be contiguous and the partition values should be ascending in "
-                          + "the partitions to ensure no duplicated data.");
-                } else if (comparision == 0) {
-                  throw new ConfigException(
-                      format(
-                          "Invalid partitioner configuration. The partitions generated contain duplicates "
-                              + "`%s`",
-                          current));
-                }
               }
 
               return new MongoInputPartition(
