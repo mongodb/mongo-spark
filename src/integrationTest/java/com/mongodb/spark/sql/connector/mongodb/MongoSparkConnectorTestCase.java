@@ -149,7 +149,7 @@ public class MongoSparkConnectorTestCase {
         assertion.run();
         hasError = false;
       } catch (AssertionFailedError e) {
-        LOGGER.debug("Failed assertion on attempt: {}", counter);
+        LOGGER.info("Failed assertion on attempt: {}", counter);
         exception = e;
         try {
           Thread.sleep(timeoutMs);
