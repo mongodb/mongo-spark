@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.ApiStatus;
 
@@ -212,6 +213,27 @@ public interface MongoConfig extends Serializable {
       return (WriteConfig) this;
     }
     return writeConfig(getOriginals());
+  }
+
+  /**
+   * Gets all configurations starting with a prefix.
+   *
+   * <p>Note: The prefix will be removed from the keys in the resulting configuration.
+   *
+   * @param prefix for the configuration options that should be returned
+   * @return the configuration options that started with the prefix
+   */
+  default MongoConfig subConfiguration(final String prefix) {
+    Assertions.ensureState(
+        () -> prefix.endsWith("."),
+        () -> format("Invalid configuration prefix `%s`, it must end with a '.'", prefix));
+    return MongoConfig.createConfig(
+        getOptions().entrySet().stream()
+            .filter(
+                e ->
+                    e.getKey().toLowerCase(Locale.ROOT).startsWith(prefix.toLowerCase(Locale.ROOT)))
+            .collect(
+                Collectors.toMap(e -> e.getKey().substring(prefix.length()), Map.Entry::getValue)));
   }
 
   /**

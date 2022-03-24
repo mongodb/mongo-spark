@@ -146,6 +146,8 @@ public class MongoInputPartition implements InputPartition {
         + preferredLocations
         + ", resumeTokenPartitionOffset="
         + resumeTokenPartitionOffset
+        + ", preferredLocations="
+        + preferredLocations
         + '}';
   }
 }

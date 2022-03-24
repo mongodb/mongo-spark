@@ -17,8 +17,6 @@
 
 package com.mongodb.spark.sql.connector.read;
 
-import static java.util.Collections.singletonList;
-
 import java.util.List;
 
 import org.apache.spark.sql.connector.read.Batch;
@@ -30,6 +28,7 @@ import org.apache.spark.sql.types.StructType;
 import org.bson.BsonDocument;
 
 import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper;
 import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 
 /** MongoBatch defines how to read data from MongoDB. */
@@ -58,8 +57,7 @@ public class MongoBatch implements Batch {
   /** Returns a list of partitions that split the collection into parts */
   @Override
   public InputPartition[] planInputPartitions() {
-    return singletonList(new MongoInputPartition(1, datasetAggregationPipeline))
-        .toArray(new InputPartition[0]);
+    return PartitionerHelper.generatePartitions(readConfig);
   }
 
   /** Returns a factory to create a {@link PartitionReader} for each {@link InputPartition}. */
