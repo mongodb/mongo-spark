@@ -22,6 +22,7 @@ import static java.util.Collections.singletonList;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.bson.BsonDocument;
@@ -125,7 +126,10 @@ public final class PartitionerHelper {
     LOGGER.info("Getting collection stats for: {}", readConfig.getNamespace().getFullName());
     try {
       return readConfig
-          .withCollection(coll -> coll.aggregate(COLL_STATS_AGGREGATION_PIPELINE).first())
+          .withCollection(
+              coll ->
+                  Optional.ofNullable(coll.aggregate(COLL_STATS_AGGREGATION_PIPELINE).first())
+                      .orElseGet(BsonDocument::new))
           .getDocument("storageStats", new BsonDocument());
     } catch (RuntimeException ex) {
       if (ex instanceof MongoCommandException
