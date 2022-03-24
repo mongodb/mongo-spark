@@ -33,20 +33,18 @@ class SimpleMongoConfig implements MongoConfig {
     this.options = options;
   }
 
-  /** @return the options for this MongoConfig instance */
   @Override
   public Map<String, String> getOptions() {
     return options;
   }
 
-  /**
-   * Return a {@link MongoConfig} instance with the extra options applied.
-   *
-   * <p>Existing configurations may be overwritten by the new options.
-   *
-   * @param options the context specific options.
-   * @return a new MongoConfig
-   */
+  @Override
+  public MongoConfig withOption(final String key, final String value) {
+    HashMap<String, String> mergedOptions = new HashMap<>(getOptions());
+    mergedOptions.put(key, value);
+    return new SimpleMongoConfig(originals, mergedOptions);
+  }
+
   @Override
   public MongoConfig withOptions(final Map<String, String> options) {
     HashMap<String, String> mergedOptions = new HashMap<>(getOptions());
@@ -54,7 +52,6 @@ class SimpleMongoConfig implements MongoConfig {
     return new SimpleMongoConfig(originals, mergedOptions);
   }
 
-  /** @return the original options for this MongoConfig instance */
   @Override
   public Map<String, String> getOriginals() {
     return originals;

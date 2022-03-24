@@ -20,6 +20,7 @@ package com.mongodb.spark.sql.connector.config;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -165,6 +166,13 @@ public final class WriteConfig extends AbstractMongoConfig {
     writeConcern = createWriteConcern();
     operationType =
         OperationType.fromString(getOrDefault(OPERATION_TYPE_CONFIG, OPERATION_TYPE_DEFAULT.value));
+  }
+
+  @Override
+  public WriteConfig withOption(final String key, final String value) {
+    Map<String, String> options = new HashMap<>();
+    options.put(key, value);
+    return withOptions(options);
   }
 
   @Override

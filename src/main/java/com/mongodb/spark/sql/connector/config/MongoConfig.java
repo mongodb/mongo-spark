@@ -167,6 +167,17 @@ public interface MongoConfig extends Serializable {
    *
    * <p>Existing configurations may be overwritten by the new options.
    *
+   * @param key the key to add
+   * @param value the value to add
+   * @return a new MongoConfig
+   */
+  MongoConfig withOption(String key, String value);
+
+  /**
+   * Return a {@link MongoConfig} instance with the extra options applied.
+   *
+   * <p>Existing configurations may be overwritten by the new options.
+   *
    * @param options the context specific options.
    * @return a new MongoConfig
    */

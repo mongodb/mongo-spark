@@ -52,6 +52,7 @@ import org.bson.BsonDocument;
 import org.bson.BsonInt32;
 
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Filters;
 
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
@@ -272,6 +273,83 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
                   50,
                   (Long) writeConfig.withCollection(MongoCollection::countDocuments),
                   "Seen 50 documents"));
+
+    } finally {
+      streamingQuery.stop();
+    }
+  }
+
+  @Test
+  void testContinuousStreamWithSchemaAndFilter() throws TimeoutException {
+    assumeTrue(supportsChangeStreams());
+    SparkSession spark = getOrCreateSparkSession();
+
+    Map<String, String> configs = new HashMap<>();
+    Arrays.stream(getSparkConf().getAllWithPrefix(ReadConfig.PREFIX))
+        .forEach(t -> configs.put(t._1(), t._2()));
+    configs.put(ReadConfig.READ_PREFIX + ReadConfig.COLLECTION_NAME_CONFIG, "sourceColl");
+    configs.put(WriteConfig.WRITE_PREFIX + WriteConfig.COLLECTION_NAME_CONFIG, "sinkColl");
+
+    ReadConfig readConfig = MongoConfig.readConfig(configs);
+    WriteConfig writeConfig = MongoConfig.writeConfig(configs);
+
+    StructType schema =
+        createStructType(
+            asList(
+                createStructField("operationType", DataTypes.StringType, false),
+                createStructField("fullDocument", DataTypes.StringType, true)));
+
+    Dataset<Row> streamingMongoDataset =
+        spark
+            .readStream()
+            .format("mongodb")
+            .options(readConfig.getOptions())
+            .schema(schema)
+            .load()
+            .filter(new Column("operationType").equalTo("insert"));
+
+    StreamingQuery streamingQuery =
+        streamingMongoDataset
+            .writeStream()
+            .trigger(Trigger.Continuous("1 seconds"))
+            .format("mongodb")
+            .options(writeConfig.getOptions())
+            .outputMode("append")
+            .start();
+
+    try {
+      retryAssertion(
+          () ->
+              assertFalse(
+                  streamingQuery.status().message().contains("Initializing"),
+                  "Stream is not initialized"));
+
+      readConfig.doWithCollection(
+          coll ->
+              coll.insertMany(
+                  IntStream.range(0, 50)
+                      .mapToObj(i -> new BsonDocument("_id", new BsonInt32(i)))
+                      .collect(Collectors.toList())));
+
+      readConfig.doWithCollection(
+          coll ->
+              coll.deleteMany(
+                  Filters.in(
+                      "_id",
+                      IntStream.range(0, 50)
+                          .filter(i -> i % 2 == 0)
+                          .boxed()
+                          .collect(Collectors.toList()))));
+
+      retryAssertion(
+          () ->
+              assertEquals(
+                  50,
+                  (Long) writeConfig.withCollection(MongoCollection::countDocuments),
+                  "Seen 50 documents"));
+
+      assertEquals(
+          25, (Long) readConfig.withCollection(MongoCollection::countDocuments), "25 documents");
 
     } finally {
       streamingQuery.stop();

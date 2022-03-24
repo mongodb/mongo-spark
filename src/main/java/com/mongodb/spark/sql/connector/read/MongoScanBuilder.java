@@ -21,6 +21,7 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -58,6 +59,7 @@ import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.Filters;
 
 import com.mongodb.spark.sql.connector.assertions.Assertions;
+import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 
 /** A builder for a {@link MongoScan}. */
@@ -92,7 +94,17 @@ public class MongoScanBuilder
   /** @return the {@link MongoScan} for the configured scan */
   @Override
   public Scan build() {
-    return new MongoScan(prunedSchema, datasetAggregationPipeline, readConfig);
+    List<BsonDocument> scanAggregationPipeline = new ArrayList<>();
+    scanAggregationPipeline.addAll(readConfig.getAggregationPipeline());
+    scanAggregationPipeline.addAll(datasetAggregationPipeline);
+
+    ReadConfig scanReadConfig =
+        readConfig.withOption(
+            MongoConfig.READ_PREFIX + ReadConfig.AGGREGATION_PIPELINE_CONFIG,
+            scanAggregationPipeline.stream()
+                .map(BsonDocument::toJson)
+                .collect(Collectors.joining(",", "[", "]")));
+    return new MongoScan(prunedSchema, scanReadConfig);
   }
 
   /**

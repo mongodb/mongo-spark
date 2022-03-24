@@ -22,6 +22,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableList;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -162,6 +163,13 @@ public final class ReadConfig extends AbstractMongoConfig {
   ReadConfig(final Map<String, String> options) {
     super(options, UsageMode.READ);
     aggregationPipeline = generateAggregationPipeline();
+  }
+
+  @Override
+  public ReadConfig withOption(final String key, final String value) {
+    Map<String, String> options = new HashMap<>();
+    options.put(key, value);
+    return withOptions(options);
   }
 
   @Override

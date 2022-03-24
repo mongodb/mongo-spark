@@ -19,7 +19,6 @@ package com.mongodb.spark.sql.connector.read;
 
 import static com.mongodb.spark.sql.connector.read.ResumeTokenOffset.INITIAL_RESUME_TOKEN_OFFSET;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 
 import org.apache.spark.sql.connector.read.InputPartition;
 import org.apache.spark.sql.connector.read.streaming.ContinuousPartitionReaderFactory;
@@ -65,11 +64,10 @@ public class MongoContinuousStream implements ContinuousStream {
 
   @Override
   public InputPartition[] planInputPartitions(final Offset start) {
-    // TODO user pipelines post SPARK-301
     return new InputPartition[] {
       new MongoInputPartition(
           0,
-          emptyList(),
+          readConfig.getAggregationPipeline(),
           new ResumeTokenPartitionOffset(((ResumeTokenOffset) start).getResumeToken()))
     };
   }
