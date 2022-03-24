@@ -15,28 +15,25 @@
  */
 package com.mongodb.spark.sql.connector.mongodb;
 
-import static org.junit.jupiter.api.Assertions.fail;
-
-import java.util.HashMap;
-import java.util.Map;
-
+import com.mongodb.MongoNamespace;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.connection.ClusterType;
+import com.mongodb.spark.sql.connector.config.MongoConfig;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
+import org.bson.BsonDocument;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.opentest4j.AssertionFailedError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.bson.BsonDocument;
+import java.util.HashMap;
+import java.util.Map;
 
-import com.mongodb.MongoNamespace;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
-import com.mongodb.connection.ClusterType;
-
-import com.mongodb.spark.sql.connector.config.MongoConfig;
+import static org.junit.jupiter.api.Assertions.fail;
 
 @MongoDBOnline()
 public class MongoSparkConnectorTestCase {
@@ -70,11 +67,7 @@ public class MongoSparkConnectorTestCase {
     ClusterType clusterType = MONGODB.getMongoClient().getClusterDescription().getType();
     int counter = 0;
     while (clusterType == ClusterType.UNKNOWN && counter < 30) {
-      try {
-        Thread.sleep(1000);
-      } catch (InterruptedException e) {
-        fail("Interrupted when checking change stream support");
-      }
+      sleep(1000, "Interrupted when checking change stream support");
       clusterType = MONGODB.getMongoClient().getClusterDescription().getType();
       counter++;
     }
@@ -136,7 +129,7 @@ public class MongoSparkConnectorTestCase {
   }
 
   public void retryAssertion(final Runnable assertion) {
-    retryAssertion(assertion, 5, 2000);
+    retryAssertion(assertion, 10, 2000);
   }
 
   public void retryAssertion(final Runnable assertion, final int retries, final long timeoutMs) {
@@ -151,15 +144,21 @@ public class MongoSparkConnectorTestCase {
       } catch (AssertionFailedError e) {
         LOGGER.info("Failed assertion on attempt: {}", counter);
         exception = e;
-        try {
-          Thread.sleep(timeoutMs);
-        } catch (InterruptedException interruptedException) {
-          fail("Interrupted when retrying assertion.");
-        }
+        sleep(timeoutMs, "Interrupted when retrying assertion.");
       }
     }
     if (hasError && exception != null) {
       throw exception;
+    }
+  }
+
+  private void sleep(final long timeoutMs, final String message) {
+    try {
+      Thread.sleep(timeoutMs);
+    } catch (InterruptedException interruptedException) {
+      if (message != null) {
+        fail(message);
+      }
     }
   }
 }

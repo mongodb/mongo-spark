@@ -126,7 +126,8 @@ public class MongoSparkConnectorHelper
       String mongoURIString =
           mongoURIProperty == null || mongoURIProperty.isEmpty() ? DEFAULT_URI : mongoURIProperty;
       connectionString = new ConnectionString(mongoURIString);
-      LOGGER.info("Connecting to: '{}'", connectionString);
+      LOGGER.info(
+          "Connecting to: {} : {}", connectionString.getHosts(), connectionString.getCredential());
     }
     return connectionString;
   }

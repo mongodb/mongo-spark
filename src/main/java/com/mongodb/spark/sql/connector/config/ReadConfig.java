@@ -32,6 +32,8 @@ import org.bson.BsonDocument;
 import org.bson.BsonType;
 import org.bson.BsonValue;
 
+import com.mongodb.client.model.changestream.FullDocument;
+
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import com.mongodb.spark.sql.connector.read.partitioner.Partitioner;
 
@@ -153,6 +155,42 @@ public final class ReadConfig extends AbstractMongoConfig {
 
   private static final boolean AGGREGATION_ALLOW_DISK_USE_DEFAULT = true;
 
+  /**
+   * Publish Full Document only when streaming.
+   *
+   * <p>Note: Only publishes the actual changed document rather than the full change stream
+   * document. <strong>Overrides</strong> any configured `{@value
+   * STREAM_LOOKUP_FULL_DOCUMENT_CONFIG}` values. Also filters the change stream events to include
+   * only events with a "fullDocument" field.
+   *
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: {@value STREAM_PUBLISH_FULL_DOCUMENT_ONLY_DEFAULT}.
+   */
+  public static final String STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG =
+      "change.stream.publish.full.document.only";
+
+  private static final boolean STREAM_PUBLISH_FULL_DOCUMENT_ONLY_DEFAULT = false;
+
+  /**
+   * Streaming full document configuration.
+   *
+   * <p>Note: Determines what to return for update operations when using a Change Stream. See: <a
+   * href="https://www.mongodb.com/docs/manual/changeStreams/#lookup-full-document-for-update-operations">
+   * Change streams lookup full document for update operations.</a> for further information.
+   *
+   * <p>Set to "updateLookup" to look up the most current majority-committed version of the updated
+   * document.
+   *
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: "default" - the servers default value in the fullDocument field.
+   */
+  public static final String STREAM_LOOKUP_FULL_DOCUMENT_CONFIG =
+      "change.stream.lookup.full.document";
+
+  private static final String STREAM_LOOKUP_FULL_DOCUMENT_DEFAULT = FullDocument.DEFAULT.getValue();
+
   private final List<BsonDocument> aggregationPipeline;
 
   /**
@@ -219,6 +257,25 @@ public final class ReadConfig extends AbstractMongoConfig {
   /** @return the aggregation allow disk use value */
   public boolean getAggregationAllowDiskUse() {
     return getBoolean(AGGREGATION_ALLOW_DISK_USE_CONFIG, AGGREGATION_ALLOW_DISK_USE_DEFAULT);
+  }
+
+  /** @return true if the stream should publish the full document only. */
+  public boolean streamPublishFullDocumentOnly() {
+    return getBoolean(
+        STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG, STREAM_PUBLISH_FULL_DOCUMENT_ONLY_DEFAULT);
+  }
+
+  /** @return the stream full document configuration or null if not set. */
+  public FullDocument getStreamFullDocument() {
+    if (streamPublishFullDocumentOnly()) {
+      return FullDocument.UPDATE_LOOKUP;
+    }
+    try {
+      return FullDocument.fromString(
+          getOrDefault(STREAM_LOOKUP_FULL_DOCUMENT_CONFIG, STREAM_LOOKUP_FULL_DOCUMENT_DEFAULT));
+    } catch (IllegalArgumentException e) {
+      throw new ConfigException(e);
+    }
   }
 
   /**
