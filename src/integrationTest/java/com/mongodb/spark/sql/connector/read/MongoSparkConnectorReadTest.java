@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -50,9 +51,11 @@ import org.junit.jupiter.api.Test;
 
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
+import org.bson.BsonString;
 
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.Updates;
 
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
@@ -287,8 +290,8 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
     Map<String, String> configs = new HashMap<>();
     Arrays.stream(getSparkConf().getAllWithPrefix(ReadConfig.PREFIX))
         .forEach(t -> configs.put(t._1(), t._2()));
-    configs.put(ReadConfig.READ_PREFIX + ReadConfig.COLLECTION_NAME_CONFIG, "sourceColl");
-    configs.put(WriteConfig.WRITE_PREFIX + WriteConfig.COLLECTION_NAME_CONFIG, "sinkColl");
+    configs.put(ReadConfig.READ_PREFIX + ReadConfig.COLLECTION_NAME_CONFIG, "sourceCollFilter");
+    configs.put(WriteConfig.WRITE_PREFIX + WriteConfig.COLLECTION_NAME_CONFIG, "sinkCollFilter");
 
     ReadConfig readConfig = MongoConfig.readConfig(configs);
     WriteConfig writeConfig = MongoConfig.writeConfig(configs);
@@ -351,6 +354,90 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
       assertEquals(
           25, (Long) readConfig.withCollection(MongoCollection::countDocuments), "25 documents");
 
+    } finally {
+      streamingQuery.stop();
+    }
+  }
+
+  @Test
+  void testContinuousStreamWithSchemaAndPublishFullDocumentOnly() throws TimeoutException {
+    assumeTrue(supportsChangeStreams());
+    SparkSession spark = getOrCreateSparkSession();
+
+    Map<String, String> configs = new HashMap<>();
+    Arrays.stream(getSparkConf().getAllWithPrefix(ReadConfig.PREFIX))
+        .forEach(t -> configs.put(t._1(), t._2()));
+    configs.put(ReadConfig.READ_PREFIX + ReadConfig.COLLECTION_NAME_CONFIG, "sourceCollFullDoc");
+    configs.put(
+        ReadConfig.READ_PREFIX + ReadConfig.STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG, "true");
+    configs.put(WriteConfig.WRITE_PREFIX + WriteConfig.COLLECTION_NAME_CONFIG, "sinkCollFullDoc");
+    configs.put(WriteConfig.WRITE_PREFIX + WriteConfig.OPERATION_TYPE_CONFIG, "Update");
+
+    ReadConfig readConfig = MongoConfig.readConfig(configs);
+    WriteConfig writeConfig = MongoConfig.writeConfig(configs);
+
+    StructType schema =
+        createStructType(
+            asList(
+                createStructField("_id", DataTypes.IntegerType, false),
+                createStructField("a", DataTypes.StringType, false)));
+
+    Dataset<Row> streamingMongoDataset =
+        spark.readStream().format("mongodb").options(readConfig.getOptions()).schema(schema).load();
+
+    StreamingQuery streamingQuery =
+        streamingMongoDataset
+            .writeStream()
+            .trigger(Trigger.Continuous("1 seconds"))
+            .format("mongodb")
+            .options(writeConfig.getOptions())
+            .outputMode("append")
+            .start();
+
+    try {
+      retryAssertion(
+          () ->
+              assertFalse(
+                  streamingQuery.status().message().contains("Initializing"),
+                  "Stream is not initialized"));
+
+      readConfig.doWithCollection(
+          coll ->
+              coll.insertMany(
+                  IntStream.range(0, 50)
+                      .mapToObj(
+                          i ->
+                              new BsonDocument("_id", new BsonInt32(i))
+                                  .append("a", new BsonString("a")))
+                      .collect(Collectors.toList())));
+
+      readConfig.doWithCollection(
+          coll ->
+              coll.updateMany(
+                  Filters.in(
+                      "_id",
+                      IntStream.range(0, 50)
+                          .filter(i -> i % 2 == 0)
+                          .boxed()
+                          .collect(Collectors.toList())),
+                  Updates.set("a", new BsonString("b"))));
+
+      readConfig.doWithCollection(
+          coll ->
+              coll.insertOne(
+                  new BsonDocument("_id", new BsonInt32(100)).append("a", new BsonString("aa"))));
+
+      retryAssertion(
+          () ->
+              assertEquals(
+                  51,
+                  (Long) writeConfig.withCollection(MongoCollection::countDocuments),
+                  "Seen 51 documents"));
+
+      assertIterableEquals(
+          readConfig.withCollection(c -> c.find().into(new ArrayList<>())),
+          writeConfig.withCollection(c -> c.find().into(new ArrayList<>())),
+          "Collections should be the same");
     } finally {
       streamingQuery.stop();
     }

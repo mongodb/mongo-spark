@@ -17,6 +17,8 @@
 
 package com.mongodb.spark.sql.connector.read;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.function.Function;
 
@@ -35,6 +37,9 @@ import com.mongodb.MongoInterruptedException;
 import com.mongodb.client.ChangeStreamIterable;
 import com.mongodb.client.MongoChangeStreamCursor;
 import com.mongodb.client.MongoClient;
+import com.mongodb.client.model.Aggregates;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.changestream.FullDocument;
 
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
@@ -51,6 +56,8 @@ import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 public class MongoStreamPartitionReader implements ContinuousPartitionReader<InternalRow> {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoPartitionReader.class);
   private static final String INVALIDATE = "invalidate";
+  private static final String FULL_DOCUMENT = "fullDocument";
+
   private final MongoInputPartition partition;
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
   private final ReadConfig readConfig;
@@ -111,6 +118,9 @@ public class MongoStreamPartitionReader implements ContinuousPartitionReader<Int
                   "Change stream cursor has been invalidated. This happens when a collection is dropped. Closing cursor.");
               releaseCursorAndClient();
             }
+            if (readConfig.streamPublishFullDocumentOnly()) {
+              next = next.getDocument(FULL_DOCUMENT, new BsonDocument());
+            }
             currentRow = bsonDocumentToRowConverter.toInternalRow(next);
           }
           return hasNext;
@@ -140,15 +150,27 @@ public class MongoStreamPartitionReader implements ContinuousPartitionReader<Int
       mongoClient = readConfig.getMongoClient();
     }
     if (changeStreamCursor == null) {
+      List<BsonDocument> pipeline = new ArrayList<>();
+      if (readConfig.streamPublishFullDocumentOnly()) {
+        pipeline.add(Aggregates.match(Filters.exists(FULL_DOCUMENT)).toBsonDocument());
+      }
+      pipeline.addAll(partition.getPipeline());
+
       ChangeStreamIterable<Document> changeStreamIterable =
           mongoClient
               .getDatabase(readConfig.getDatabaseName())
               .getCollection(readConfig.getCollectionName())
-              .watch(partition.getPipeline());
+              .watch(pipeline);
 
       if (!lastOffset.getResumeToken().isEmpty()) {
         changeStreamIterable = changeStreamIterable.startAfter(lastOffset.getResumeToken());
       }
+
+      FullDocument streamFullDocument = readConfig.getStreamFullDocument();
+      if (streamFullDocument != null) {
+        changeStreamIterable = changeStreamIterable.fullDocument(streamFullDocument);
+      }
+
       changeStreamCursor =
           (MongoChangeStreamCursor<BsonDocument>)
               changeStreamIterable.withDocumentClass(BsonDocument.class).cursor();
