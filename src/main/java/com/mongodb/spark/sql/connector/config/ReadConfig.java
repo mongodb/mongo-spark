@@ -161,33 +161,37 @@ public final class ReadConfig extends AbstractMongoConfig {
    * Publish Full Document only when streaming.
    *
    * <p>Note: Only publishes the actual changed document rather than the full change stream
-   * document. Automatically, sets `{@value STREAM_FULL_DOCUMENT_CONFIG}` so updated documents will
-   * also be included. Also filters the change stream events to include only events with a
-   * "fullDocument" field.
+   * document. <strong>Overrides</strong> any configured `{@value
+   * STREAM_LOOKUP_FULL_DOCUMENT_CONFIG}` values. Also filters the change stream events to include
+   * only events with a "fullDocument" field.
    *
    * <p>Configuration: {@value}
    *
    * <p>Default: {@value STREAM_PUBLISH_FULL_DOCUMENT_ONLY_DEFAULT}.
    */
   public static final String STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG =
-      "stream.publish.full.document.only";
+      "change.stream.publish.full.document.only";
 
   private static final boolean STREAM_PUBLISH_FULL_DOCUMENT_ONLY_DEFAULT = false;
 
   /**
-   * Publish Full Document only when streaming.
+   * Streaming full document configuration.
    *
    * <p>Note: Determines what to return for update operations when using a Change Stream. See: <a
    * href="https://www.mongodb.com/docs/manual/changeStreams/#lookup-full-document-for-update-operations">
    * Change streams lookup full document for update operations.</a> for further information.
    *
+   * <p>Set to "updateLookup" to look up the most current majority-committed version of the updated
+   * document.
+   *
    * <p>Configuration: {@value}
    *
-   * <p>Default: {@value STREAM_FULL_DOCUMENT_DEFAULT}.
+   * <p>Default: {@value STREAM_LOOKUP_FULL_DOCUMENT_DEFAULT}.
    */
-  public static final String STREAM_FULL_DOCUMENT_CONFIG = "stream.full.document";
+  public static final String STREAM_LOOKUP_FULL_DOCUMENT_CONFIG =
+      "change.stream.lookup.full.document";
 
-  private static final String STREAM_FULL_DOCUMENT_DEFAULT = "";
+  private static final String STREAM_LOOKUP_FULL_DOCUMENT_DEFAULT = "";
 
   private final List<BsonDocument> aggregationPipeline;
 
@@ -269,7 +273,8 @@ public final class ReadConfig extends AbstractMongoConfig {
     if (streamPublishFullDocumentOnly()) {
       return FullDocument.UPDATE_LOOKUP;
     }
-    String fullDocument = getOrDefault(STREAM_FULL_DOCUMENT_CONFIG, STREAM_FULL_DOCUMENT_DEFAULT);
+    String fullDocument =
+        getOrDefault(STREAM_LOOKUP_FULL_DOCUMENT_CONFIG, STREAM_LOOKUP_FULL_DOCUMENT_DEFAULT);
     if (fullDocument.isEmpty()) {
       return null;
     }
