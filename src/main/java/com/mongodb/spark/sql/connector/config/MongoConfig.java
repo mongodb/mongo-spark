@@ -57,7 +57,7 @@ public interface MongoConfig extends Serializable {
    */
   @ApiStatus.Internal
   static MongoConfig createConfig(final Map<String, String> options) {
-    return new SimpleMongoConfig(options, options);
+    return new SimpleMongoConfig(options);
   }
 
   /**

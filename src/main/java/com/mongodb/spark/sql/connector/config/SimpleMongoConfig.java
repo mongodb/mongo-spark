@@ -25,11 +25,9 @@ import java.util.stream.Collectors;
 class SimpleMongoConfig implements MongoConfig {
   private static final long serialVersionUID = 1L;
 
-  private final Map<String, String> originals;
   private final Map<String, String> options;
 
-  SimpleMongoConfig(final Map<String, String> originals, final Map<String, String> options) {
-    this.originals = originals;
+  SimpleMongoConfig(final Map<String, String> options) {
     this.options = options;
   }
 
@@ -42,19 +40,19 @@ class SimpleMongoConfig implements MongoConfig {
   public MongoConfig withOption(final String key, final String value) {
     HashMap<String, String> mergedOptions = new HashMap<>(getOptions());
     mergedOptions.put(key, value);
-    return new SimpleMongoConfig(originals, mergedOptions);
+    return new SimpleMongoConfig(mergedOptions);
   }
 
   @Override
   public MongoConfig withOptions(final Map<String, String> options) {
     HashMap<String, String> mergedOptions = new HashMap<>(getOptions());
     mergedOptions.putAll(options);
-    return new SimpleMongoConfig(originals, mergedOptions);
+    return new SimpleMongoConfig(mergedOptions);
   }
 
   @Override
   public Map<String, String> getOriginals() {
-    return originals;
+    return options;
   }
 
   @Override
