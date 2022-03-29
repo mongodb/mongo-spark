@@ -17,9 +17,9 @@
 
 package com.mongodb.spark.sql.connector.read;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.function.Function;
 
 import org.apache.spark.sql.catalyst.InternalRow;
@@ -29,7 +29,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.bson.BsonDocument;
-import org.bson.BsonString;
 import org.bson.Document;
 
 import com.mongodb.MongoException;
@@ -39,7 +38,6 @@ import com.mongodb.client.MongoChangeStreamCursor;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.Filters;
-import com.mongodb.client.model.changestream.FullDocument;
 
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
@@ -55,7 +53,6 @@ import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
  */
 public class MongoStreamPartitionReader implements ContinuousPartitionReader<InternalRow> {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoPartitionReader.class);
-  private static final String INVALIDATE = "invalidate";
   private static final String FULL_DOCUMENT = "fullDocument";
 
   private final MongoInputPartition partition;
@@ -104,27 +101,26 @@ public class MongoStreamPartitionReader implements ContinuousPartitionReader<Int
   @Override
   public boolean next() {
     Assertions.ensureState(() -> !closed, () -> "Cannot call next() on a closed PartitionReader.");
-    return withCursor(
-        c -> {
-          boolean hasNext = c.hasNext();
-          if (hasNext) {
-            BsonDocument next = c.next();
-            lastOffset = new ResumeTokenPartitionOffset(c.getResumeToken());
-            if (next.getString("operationType", new BsonString(""))
-                .getValue()
-                .toLowerCase(Locale.ROOT)
-                .equals(INVALIDATE)) {
-              LOGGER.info(
-                  "Change stream cursor has been invalidated. This happens when a collection is dropped. Closing cursor.");
-              releaseCursorAndClient();
-            }
-            if (readConfig.streamPublishFullDocumentOnly()) {
-              next = next.getDocument(FULL_DOCUMENT, new BsonDocument());
-            }
-            currentRow = bsonDocumentToRowConverter.toInternalRow(next);
-          }
-          return hasNext;
-        });
+
+    /*
+     * Returning false from next() causes an:
+     * `IllegalStateException("Continuous reader reported no elements! Reader should have blocked waiting.")
+     *
+     * So we try to recreate the cursor and then let that block for a result.
+     * To stop an infinite loop a two minute timeout has been added. So if there after two minutes there is no collection / database
+     * to watch this method will return false.
+     */
+    Duration timeout = Duration.ofMinutes(2);
+    long startTime = System.nanoTime();
+
+    while (!timeout.isNegative()) {
+      boolean hasNext = tryNext();
+      if (hasNext) {
+        return true;
+      }
+      timeout = timeout.minusNanos(System.nanoTime() - startTime);
+    }
+    return false;
   }
 
   @Override
@@ -145,6 +141,24 @@ public class MongoStreamPartitionReader implements ContinuousPartitionReader<Int
     }
   }
 
+  private boolean tryNext() {
+    return withCursor(
+        c -> {
+          if (c.hasNext()) {
+            BsonDocument next = c.next();
+            lastOffset = new ResumeTokenPartitionOffset(c.getResumeToken());
+            if (readConfig.streamPublishFullDocumentOnly()) {
+              next = next.getDocument(FULL_DOCUMENT, new BsonDocument());
+            }
+            currentRow = bsonDocumentToRowConverter.toInternalRow(next);
+            return true;
+          }
+          releaseCursorAndClient();
+          currentRow = null;
+          return false;
+        });
+  }
+
   private MongoChangeStreamCursor<BsonDocument> getCursor() {
     if (mongoClient == null) {
       mongoClient = readConfig.getMongoClient();
@@ -160,15 +174,11 @@ public class MongoStreamPartitionReader implements ContinuousPartitionReader<Int
           mongoClient
               .getDatabase(readConfig.getDatabaseName())
               .getCollection(readConfig.getCollectionName())
-              .watch(pipeline);
+              .watch(pipeline)
+              .fullDocument(readConfig.getStreamFullDocument());
 
       if (!lastOffset.getResumeToken().isEmpty()) {
         changeStreamIterable = changeStreamIterable.startAfter(lastOffset.getResumeToken());
-      }
-
-      FullDocument streamFullDocument = readConfig.getStreamFullDocument();
-      if (streamFullDocument != null) {
-        changeStreamIterable = changeStreamIterable.fullDocument(streamFullDocument);
       }
 
       changeStreamCursor =

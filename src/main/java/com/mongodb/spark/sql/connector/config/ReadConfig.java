@@ -27,8 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.jetbrains.annotations.Nullable;
-
 import org.bson.BsonArray;
 import org.bson.BsonDocument;
 import org.bson.BsonType;
@@ -186,12 +184,12 @@ public final class ReadConfig extends AbstractMongoConfig {
    *
    * <p>Configuration: {@value}
    *
-   * <p>Default: {@value STREAM_LOOKUP_FULL_DOCUMENT_DEFAULT}.
+   * <p>Default: "default" - the servers default value in the fullDocument field.
    */
   public static final String STREAM_LOOKUP_FULL_DOCUMENT_CONFIG =
       "change.stream.lookup.full.document";
 
-  private static final String STREAM_LOOKUP_FULL_DOCUMENT_DEFAULT = "";
+  private static final String STREAM_LOOKUP_FULL_DOCUMENT_DEFAULT = FullDocument.DEFAULT.getValue();
 
   private final List<BsonDocument> aggregationPipeline;
 
@@ -268,17 +266,12 @@ public final class ReadConfig extends AbstractMongoConfig {
   }
 
   /** @return the stream full document configuration or null if not set. */
-  @Nullable
   public FullDocument getStreamFullDocument() {
     if (streamPublishFullDocumentOnly()) {
       return FullDocument.UPDATE_LOOKUP;
     }
-    String fullDocument =
-        getOrDefault(STREAM_LOOKUP_FULL_DOCUMENT_CONFIG, STREAM_LOOKUP_FULL_DOCUMENT_DEFAULT);
-    if (fullDocument.isEmpty()) {
-      return null;
-    }
-    return FullDocument.valueOf(fullDocument);
+    return FullDocument.fromString(
+        getOrDefault(STREAM_LOOKUP_FULL_DOCUMENT_CONFIG, STREAM_LOOKUP_FULL_DOCUMENT_DEFAULT));
   }
 
   /**
