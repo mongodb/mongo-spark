@@ -20,6 +20,7 @@ import static java.lang.String.format;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.write.DataWriter;
@@ -131,7 +132,8 @@ class MongoDataWriter implements DataWriter<InternalRow> {
   }
 
   private WriteModel<BsonDocument> getWriteModel(final BsonDocument bsonDocument) {
-    if (!hasIdFields(bsonDocument)) {
+    if (!hasIdFields(bsonDocument)
+        || Objects.equals(bsonDocument.keySet().size(), writeConfig.getIdFields().size())) {
       return new InsertOneModel<>(bsonDocument);
     }
 
