@@ -270,8 +270,12 @@ public final class ReadConfig extends AbstractMongoConfig {
     if (streamPublishFullDocumentOnly()) {
       return FullDocument.UPDATE_LOOKUP;
     }
-    return FullDocument.fromString(
-        getOrDefault(STREAM_LOOKUP_FULL_DOCUMENT_CONFIG, STREAM_LOOKUP_FULL_DOCUMENT_DEFAULT));
+    try {
+      return FullDocument.fromString(
+          getOrDefault(STREAM_LOOKUP_FULL_DOCUMENT_CONFIG, STREAM_LOOKUP_FULL_DOCUMENT_DEFAULT));
+    } catch (IllegalArgumentException e) {
+      throw new ConfigException(e);
+    }
   }
 
   /**

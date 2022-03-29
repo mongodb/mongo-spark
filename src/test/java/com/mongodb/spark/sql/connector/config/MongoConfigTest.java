@@ -34,6 +34,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import com.mongodb.client.model.changestream.FullDocument;
+
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 
 public class MongoConfigTest {
@@ -212,6 +214,22 @@ public class MongoConfigTest {
     MongoConfig simpleConfig = assertDoesNotThrow(() -> MongoConfig.createConfig(options));
     assertThrows(ConfigException.class, simpleConfig::toReadConfig);
     assertThrows(ConfigException.class, simpleConfig::toWriteConfig);
+  }
+
+  @Test
+  void testReadConfigStreamFullDocument() {
+    ReadConfig readConfig = MongoConfig.readConfig(CONFIG_MAP);
+    assertEquals(readConfig.getStreamFullDocument(), FullDocument.DEFAULT);
+
+    readConfig =
+        readConfig.withOption(ReadConfig.STREAM_LOOKUP_FULL_DOCUMENT_CONFIG, "updateLookup");
+    assertEquals(readConfig.getStreamFullDocument(), FullDocument.UPDATE_LOOKUP);
+
+    readConfig = readConfig.withOption(ReadConfig.STREAM_LOOKUP_FULL_DOCUMENT_CONFIG, "INVALID");
+    assertThrows(ConfigException.class, readConfig::getStreamFullDocument);
+
+    readConfig = readConfig.withOption(ReadConfig.STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG, "true");
+    assertEquals(readConfig.getStreamFullDocument(), FullDocument.UPDATE_LOOKUP);
   }
 
   @Test
