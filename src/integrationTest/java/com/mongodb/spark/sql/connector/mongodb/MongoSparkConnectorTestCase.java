@@ -70,11 +70,7 @@ public class MongoSparkConnectorTestCase {
     ClusterType clusterType = MONGODB.getMongoClient().getClusterDescription().getType();
     int counter = 0;
     while (clusterType == ClusterType.UNKNOWN && counter < 30) {
-      try {
-        Thread.sleep(1000);
-      } catch (InterruptedException e) {
-        fail("Interrupted when checking change stream support");
-      }
+      sleep(1000, "Interrupted when checking change stream support");
       clusterType = MONGODB.getMongoClient().getClusterDescription().getType();
       counter++;
     }
@@ -151,15 +147,25 @@ public class MongoSparkConnectorTestCase {
       } catch (AssertionFailedError e) {
         LOGGER.info("Failed assertion on attempt: {}", counter);
         exception = e;
-        try {
-          Thread.sleep(timeoutMs);
-        } catch (InterruptedException interruptedException) {
-          fail("Interrupted when retrying assertion.");
-        }
+        sleep(timeoutMs, "Interrupted when retrying assertion.");
       }
     }
     if (hasError && exception != null) {
       throw exception;
+    }
+  }
+
+  public void sleep(final long timeoutMs) {
+    sleep(timeoutMs, null);
+  }
+
+  private void sleep(final long timeoutMs, final String message) {
+    try {
+      Thread.sleep(timeoutMs);
+    } catch (InterruptedException interruptedException) {
+      if (message != null) {
+        fail(message);
+      }
     }
   }
 }

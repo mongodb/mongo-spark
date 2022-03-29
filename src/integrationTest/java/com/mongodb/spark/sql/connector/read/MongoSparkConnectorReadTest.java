@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.ArrayList;
@@ -33,6 +34,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -225,156 +228,90 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
   }
 
   @Test
-  void testContinuousStreamWithSchema() throws TimeoutException {
+  void testContinuousStream() {
     assumeTrue(supportsChangeStreams());
-    SparkSession spark = getOrCreateSparkSession();
-
-    Map<String, String> configs = new HashMap<>();
-    Arrays.stream(getSparkConf().getAllWithPrefix(ReadConfig.PREFIX))
-        .forEach(t -> configs.put(t._1(), t._2()));
-    configs.put(ReadConfig.READ_PREFIX + ReadConfig.COLLECTION_NAME_CONFIG, "sourceColl");
-    configs.put(WriteConfig.WRITE_PREFIX + WriteConfig.COLLECTION_NAME_CONFIG, "sinkColl");
-
-    ReadConfig readConfig = MongoConfig.readConfig(configs);
-    WriteConfig writeConfig = MongoConfig.writeConfig(configs);
-
-    StructType schema =
-        createStructType(
-            asList(
-                createStructField("operationType", DataTypes.StringType, false),
-                createStructField("fullDocument", DataTypes.StringType, true)));
-
-    Dataset<Row> streamingMongoDataset =
-        spark.readStream().format("mongodb").options(readConfig.getOptions()).schema(schema).load();
-
-    StreamingQuery streamingQuery =
-        streamingMongoDataset
-            .writeStream()
-            .trigger(Trigger.Continuous("1 seconds"))
-            .format("mongodb")
-            .options(writeConfig.getOptions())
-            .outputMode("append")
-            .start();
-
-    try {
-      retryAssertion(
-          () ->
-              assertFalse(
-                  streamingQuery.status().message().contains("Initializing"),
-                  "Stream is not initialized"));
-
-      readConfig.doWithCollection(
-          coll ->
-              coll.insertMany(
-                  IntStream.range(0, 50)
-                      .mapToObj(i -> new BsonDocument("_id", new BsonInt32(i)))
-                      .collect(Collectors.toList())));
-
-      retryAssertion(
-          () ->
-              assertEquals(
-                  50,
-                  (Long) writeConfig.withCollection(MongoCollection::countDocuments),
-                  "Seen 50 documents"));
-
-    } finally {
-      streamingQuery.stop();
-    }
+    testStreamingQuery(
+        coll ->
+            coll.insertMany(
+                IntStream.range(0, 50)
+                    .mapToObj(i -> new BsonDocument("_id", new BsonInt32(i)))
+                    .collect(Collectors.toList())),
+        coll -> assertEquals(50, (Long) coll.countDocuments(), "Seen 50 documents"));
   }
 
   @Test
-  void testContinuousStreamWithSchemaAndFilter() throws TimeoutException {
+  void testContinuousStreamHandlesCollectionDrop() {
     assumeTrue(supportsChangeStreams());
-    SparkSession spark = getOrCreateSparkSession();
 
-    Map<String, String> configs = new HashMap<>();
-    Arrays.stream(getSparkConf().getAllWithPrefix(ReadConfig.PREFIX))
-        .forEach(t -> configs.put(t._1(), t._2()));
-    configs.put(ReadConfig.READ_PREFIX + ReadConfig.COLLECTION_NAME_CONFIG, "sourceCollFilter");
-    configs.put(WriteConfig.WRITE_PREFIX + WriteConfig.COLLECTION_NAME_CONFIG, "sinkCollFilter");
-
-    ReadConfig readConfig = MongoConfig.readConfig(configs);
-    WriteConfig writeConfig = MongoConfig.writeConfig(configs);
-
-    StructType schema =
-        createStructType(
-            asList(
-                createStructField("operationType", DataTypes.StringType, false),
-                createStructField("fullDocument", DataTypes.StringType, true)));
-
-    Dataset<Row> streamingMongoDataset =
-        spark
-            .readStream()
-            .format("mongodb")
-            .options(readConfig.getOptions())
-            .schema(schema)
-            .load()
-            .filter(new Column("operationType").equalTo("insert"));
-
-    StreamingQuery streamingQuery =
-        streamingMongoDataset
-            .writeStream()
-            .trigger(Trigger.Continuous("1 seconds"))
-            .format("mongodb")
-            .options(writeConfig.getOptions())
-            .outputMode("append")
-            .start();
-
-    try {
-      retryAssertion(
-          () ->
-              assertFalse(
-                  streamingQuery.status().message().contains("Initializing"),
-                  "Stream is not initialized"));
-
-      readConfig.doWithCollection(
-          coll ->
-              coll.insertMany(
-                  IntStream.range(0, 50)
-                      .mapToObj(i -> new BsonDocument("_id", new BsonInt32(i)))
-                      .collect(Collectors.toList())));
-
-      readConfig.doWithCollection(
-          coll ->
-              coll.deleteMany(
-                  Filters.in(
-                      "_id",
-                      IntStream.range(0, 50)
-                          .filter(i -> i % 2 == 0)
-                          .boxed()
-                          .collect(Collectors.toList()))));
-
-      retryAssertion(
-          () ->
-              assertEquals(
-                  50,
-                  (Long) writeConfig.withCollection(MongoCollection::countDocuments),
-                  "Seen 50 documents"));
-
-      assertEquals(
-          25, (Long) readConfig.withCollection(MongoCollection::countDocuments), "25 documents");
-
-    } finally {
-      streamingQuery.stop();
-    }
+    testStreamingQuery(
+        coll -> {
+          coll.insertMany(
+              IntStream.range(0, 47)
+                  .mapToObj(i -> new BsonDocument("_id", new BsonInt32(i)))
+                  .collect(Collectors.toList()));
+          coll.drop();
+          coll.insertOne(new BsonDocument("_id", new BsonInt32(101)));
+        },
+        coll -> assertEquals(50, (Long) coll.countDocuments(), "Seen 50 documents"),
+        coll ->
+            assertEquals(
+                48,
+                (Long) coll.countDocuments(Filters.eq("operationType", "insert")),
+                "Seen 48 insert documents"),
+        coll ->
+            assertEquals(
+                1,
+                (Long) coll.countDocuments(Filters.eq("operationType", "drop")),
+                "Seen 1 drop document"),
+        coll ->
+            assertEquals(
+                1,
+                (Long) coll.countDocuments(Filters.eq("operationType", "invalidate")),
+                "Seen 1 invalidate document"));
   }
 
   @Test
-  void testContinuousStreamWithSchemaAndPublishFullDocumentOnly() throws TimeoutException {
+  void testContinuousStreamWithFilter() {
     assumeTrue(supportsChangeStreams());
-    SparkSession spark = getOrCreateSparkSession();
 
-    Map<String, String> configs = new HashMap<>();
-    Arrays.stream(getSparkConf().getAllWithPrefix(ReadConfig.PREFIX))
-        .forEach(t -> configs.put(t._1(), t._2()));
-    configs.put(ReadConfig.READ_PREFIX + ReadConfig.COLLECTION_NAME_CONFIG, "sourceCollFullDoc");
-    configs.put(
-        ReadConfig.READ_PREFIX + ReadConfig.STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG, "true");
-    configs.put(WriteConfig.WRITE_PREFIX + WriteConfig.COLLECTION_NAME_CONFIG, "sinkCollFullDoc");
-    configs.put(WriteConfig.WRITE_PREFIX + WriteConfig.OPERATION_TYPE_CONFIG, "Update");
+    MongoConfig mongoConfig =
+        createMongoConfig()
+            .withOption(
+                ReadConfig.READ_PREFIX + ReadConfig.STREAM_LOOKUP_FULL_DOCUMENT_CONFIG,
+                "updateLookup");
 
-    ReadConfig readConfig = MongoConfig.readConfig(configs);
-    WriteConfig writeConfig = MongoConfig.writeConfig(configs);
+    Column filterColumn = new Column("operationType").equalTo("insert");
+    testStreamingQuery(
+        mongoConfig,
+        filterColumn,
+        coll -> {
+          coll.insertMany(
+              IntStream.range(0, 50)
+                  .mapToObj(i -> new BsonDocument("_id", new BsonInt32(i)))
+                  .collect(Collectors.toList()));
+          coll.deleteMany(
+              Filters.in(
+                  "_id",
+                  IntStream.range(0, 50)
+                      .filter(i -> i % 2 == 0)
+                      .boxed()
+                      .collect(Collectors.toList())));
+        },
+        coll -> assertEquals(50, (Long) coll.countDocuments(), "Seen 50 documents"));
+  }
+
+  @Test
+  void testContinuousStreamWithPublishFullDocumentOnly() {
+    assumeTrue(supportsChangeStreams());
+    MongoConfig mongoConfig =
+        createMongoConfig()
+            .withOption(
+                ReadConfig.READ_PREFIX + ReadConfig.STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG,
+                "true")
+            .withOption(
+                ReadConfig.READ_PREFIX + ReadConfig.STREAM_LOOKUP_FULL_DOCUMENT_CONFIG,
+                "overwritten / ignored")
+            .withOption(WriteConfig.WRITE_PREFIX + WriteConfig.OPERATION_TYPE_CONFIG, "Update");
 
     StructType schema =
         createStructType(
@@ -382,65 +319,67 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
                 createStructField("_id", DataTypes.IntegerType, false),
                 createStructField("a", DataTypes.StringType, false)));
 
-    Dataset<Row> streamingMongoDataset =
-        spark.readStream().format("mongodb").options(readConfig.getOptions()).schema(schema).load();
-
-    StreamingQuery streamingQuery =
-        streamingMongoDataset
-            .writeStream()
-            .trigger(Trigger.Continuous("1 seconds"))
-            .format("mongodb")
-            .options(writeConfig.getOptions())
-            .outputMode("append")
-            .start();
-
-    try {
-      retryAssertion(
-          () ->
-              assertFalse(
-                  streamingQuery.status().message().contains("Initializing"),
-                  "Stream is not initialized"));
-
-      readConfig.doWithCollection(
-          coll ->
-              coll.insertMany(
+    testStreamingQuery(
+        mongoConfig,
+        schema,
+        coll -> {
+          coll.insertMany(
+              IntStream.range(0, 50)
+                  .mapToObj(
+                      i ->
+                          new BsonDocument("_id", new BsonInt32(i))
+                              .append("a", new BsonString("a")))
+                  .collect(Collectors.toList()));
+          coll.updateMany(
+              Filters.in(
+                  "_id",
                   IntStream.range(0, 50)
-                      .mapToObj(
-                          i ->
-                              new BsonDocument("_id", new BsonInt32(i))
-                                  .append("a", new BsonString("a")))
-                      .collect(Collectors.toList())));
+                      .filter(i -> i % 2 == 0)
+                      .boxed()
+                      .collect(Collectors.toList())),
+              Updates.set("a", new BsonString("b")));
+        },
+        coll -> {
+          assertEquals(50, (Long) coll.countDocuments(), "Seen 50 documents");
+          assertEquals(25, (Long) coll.countDocuments(Filters.eq("a", "b")), "Seen 25 documents");
+        });
+  }
 
-      readConfig.doWithCollection(
-          coll ->
-              coll.updateMany(
-                  Filters.in(
-                      "_id",
-                      IntStream.range(0, 50)
-                          .filter(i -> i % 2 == 0)
-                          .boxed()
-                          .collect(Collectors.toList())),
-                  Updates.set("a", new BsonString("b"))));
+  @Test
+  void testContinuousStreamPublishFullDocumentOnlyHandlesCollectionDrop() {
+    assumeTrue(supportsChangeStreams());
+    MongoConfig mongoConfig =
+        createMongoConfig()
+            .withOption(
+                ReadConfig.READ_PREFIX + ReadConfig.STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG,
+                "true")
+            .withOption(WriteConfig.WRITE_PREFIX + WriteConfig.OPERATION_TYPE_CONFIG, "Update");
 
-      readConfig.doWithCollection(
-          coll ->
-              coll.insertOne(
-                  new BsonDocument("_id", new BsonInt32(100)).append("a", new BsonString("aa"))));
+    StructType schema =
+        createStructType(singletonList(createStructField("_id", DataTypes.IntegerType, false)));
 
-      retryAssertion(
-          () ->
-              assertEquals(
-                  51,
-                  (Long) writeConfig.withCollection(MongoCollection::countDocuments),
-                  "Seen 51 documents"));
+    testStreamingQuery(
+        mongoConfig,
+        schema,
+        coll -> {
+          coll.insertMany(
+              IntStream.range(0, 25)
+                  .mapToObj(i -> new BsonDocument("_id", new BsonInt32(i)))
+                  .collect(Collectors.toList()));
 
-      assertIterableEquals(
-          readConfig.withCollection(c -> c.find().into(new ArrayList<>())),
-          writeConfig.withCollection(c -> c.find().into(new ArrayList<>())),
-          "Collections should be the same");
-    } finally {
-      streamingQuery.stop();
-    }
+          coll.drop();
+          coll.insertMany(
+              IntStream.range(25, 50)
+                  .mapToObj(i -> new BsonDocument("_id", new BsonInt32(i)))
+                  .collect(Collectors.toList()));
+        },
+        coll -> assertEquals(25, (Long) coll.countDocuments(), "Seen 25 documents"),
+        coll ->
+            assertIterableEquals(
+                IntStream.range(0, 25)
+                    .mapToObj(i -> new BsonDocument("_id", new BsonInt32(i)))
+                    .collect(Collectors.toList()),
+                coll.find().into(new ArrayList<>())));
   }
 
   @Test
@@ -483,5 +422,114 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
 
   private List<BsonDocument> toBsonDocuments(final Dataset<String> dataset) {
     return dataset.toJavaRDD().map(BsonDocument::parse).collect();
+  }
+
+  private static final StructType DEFAULT_SCHEMA =
+      createStructType(
+          asList(
+              createStructField("operationType", DataTypes.StringType, false),
+              createStructField("fullDocument", DataTypes.StringType, true)));
+
+  @SafeVarargs
+  private final void testStreamingQuery(
+      final Consumer<MongoCollection<BsonDocument>> setup,
+      final Consumer<MongoCollection<BsonDocument>>... assertions) {
+    testStreamingQuery(createMongoConfig(), DEFAULT_SCHEMA, setup, assertions);
+  }
+
+  @SafeVarargs
+  private final void testStreamingQuery(
+      final MongoConfig mongoConfig,
+      final StructType schema,
+      final Consumer<MongoCollection<BsonDocument>> setup,
+      final Consumer<MongoCollection<BsonDocument>>... assertions) {
+    testStreamingQuery(mongoConfig, schema, null, setup, assertions);
+  }
+
+  @SafeVarargs
+  private final void testStreamingQuery(
+      final MongoConfig mongoConfig,
+      final Column condition,
+      final Consumer<MongoCollection<BsonDocument>> setup,
+      final Consumer<MongoCollection<BsonDocument>>... assertions) {
+    testStreamingQuery(mongoConfig, DEFAULT_SCHEMA, condition, setup, assertions);
+  }
+
+  @SafeVarargs
+  private final void testStreamingQuery(
+      final MongoConfig mongoConfig,
+      final StructType schema,
+      final Column condition,
+      final Consumer<MongoCollection<BsonDocument>> setup,
+      final Consumer<MongoCollection<BsonDocument>>... assertions) {
+    StreamingQuery streamingQuery = createStreamingQuery(mongoConfig, schema, condition);
+    try {
+      retryAssertion(
+          () ->
+              assertFalse(
+                  streamingQuery.status().message().contains("Initializing"),
+                  "Stream is not initialized"));
+      mongoConfig.toReadConfig().doWithCollection(setup);
+
+      retryAssertion(
+          () -> {
+            WriteConfig writeConfig = mongoConfig.toWriteConfig();
+            for (Consumer<MongoCollection<BsonDocument>> assertion : assertions) {
+              writeConfig.doWithCollection(assertion);
+            }
+          });
+    } finally {
+      try {
+        streamingQuery.stop();
+      } catch (TimeoutException e) {
+        fail(e);
+      }
+    }
+  }
+
+  private StreamingQuery createStreamingQuery(
+      final MongoConfig mongoConfig, final StructType schema, final Column condition) {
+    Dataset<Row> ds =
+        getOrCreateSparkSession()
+            .readStream()
+            .format("mongodb")
+            .options(mongoConfig.toReadConfig().getOptions())
+            .schema(schema)
+            .load();
+
+    if (condition != null) {
+      ds = ds.filter(condition);
+    }
+
+    try {
+      return ds.writeStream()
+          .format("mongodb")
+          .options(mongoConfig.toWriteConfig().getOptions())
+          .trigger(Trigger.Continuous("1 seconds"))
+          .outputMode("append")
+          .start();
+    } catch (TimeoutException e) {
+      return fail(e);
+    }
+  }
+
+  private final AtomicInteger testCounter = new AtomicInteger();
+
+  private MongoConfig createMongoConfig() {
+    int suffix = testCounter.getAndIncrement();
+    Map<String, String> overrides = new HashMap<>();
+    overrides.put(
+        ReadConfig.READ_PREFIX + ReadConfig.COLLECTION_NAME_CONFIG, "sourceColl" + suffix);
+    overrides.put(
+        WriteConfig.WRITE_PREFIX + WriteConfig.COLLECTION_NAME_CONFIG, "sinkColl" + suffix);
+    return createMongoConfig(overrides);
+  }
+
+  private MongoConfig createMongoConfig(final Map<String, String> overrides) {
+    Map<String, String> options = new HashMap<>();
+    Arrays.stream(getSparkConf().getAllWithPrefix(MongoConfig.PREFIX))
+        .forEach(t -> options.put(MongoConfig.PREFIX + t._1(), t._2()));
+    options.putAll(overrides);
+    return MongoConfig.createConfig(options);
   }
 }
