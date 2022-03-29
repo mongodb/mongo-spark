@@ -17,7 +17,6 @@
 
 package com.mongodb.spark.sql.connector.read;
 
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
@@ -106,21 +105,13 @@ public class MongoStreamPartitionReader implements ContinuousPartitionReader<Int
      * Returning false from next() causes an:
      * `IllegalStateException("Continuous reader reported no elements! Reader should have blocked waiting.")
      *
-     * So we try to recreate the cursor and then let that block for a result.
-     * To stop an infinite loop a two minute timeout has been added. So if there after two minutes there is no collection / database
-     * to watch this method will return false.
+     * So we block until a result is available or the stream is cancelled
      */
-    Duration timeout = Duration.ofMinutes(2);
-    long startTime = System.nanoTime();
-
-    while (!timeout.isNegative()) {
-      boolean hasNext = tryNext();
-      if (hasNext) {
-        return true;
+      boolean hasNext = false;
+      while (!hasNext) {
+          hasNext = tryNext();
       }
-      timeout = timeout.minusNanos(System.nanoTime() - startTime);
-    }
-    return false;
+      return true;
   }
 
   @Override
