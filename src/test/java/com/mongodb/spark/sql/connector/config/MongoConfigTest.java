@@ -130,7 +130,8 @@ public class MongoConfigTest {
     Map<String, String> combinedOptions = new HashMap<>(OPTIONS_CONFIG_MAP);
     combinedOptions.putAll(newOptions);
 
-    MongoConfig newConfig = mongoConfig.withOptions(combinedOptions);
+    MongoConfig newConfig = mongoConfig.withOption("a", "a").withOptions(combinedOptions);
+    assertEquals("a", newConfig.get("a"));
     assertEquals("new string", newConfig.get("string"));
     assertEquals("another new string", newConfig.toWriteConfig().get("string"));
   }
