@@ -22,6 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.Test;
 
+import org.bson.BsonDocument;
+
 import com.mongodb.client.MongoCollection;
 
 import com.mongodb.spark.sql.connector.config.ReadConfig;
@@ -35,8 +37,11 @@ public class PartitionerHelperTest extends MongoSparkConnectorTestCase {
     readConfig.doWithCollection(MongoCollection::drop);
     assertDoesNotThrow(() -> PartitionerHelper.storageStats(readConfig));
 
-    readConfig.doWithClient(
-        client -> client.getDatabase(getDatabaseName()).createCollection(getCollectionName()));
+    readConfig.doWithCollection(
+        coll -> {
+          coll.insertOne(new BsonDocument());
+          coll.deleteOne(new BsonDocument());
+        });
     assertEquals(0, PartitionerHelper.storageStats(readConfig).getNumber("size").intValue());
   }
 }
