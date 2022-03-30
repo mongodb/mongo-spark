@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 
@@ -41,15 +42,10 @@ import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 public class ShardedPartitionerTest extends PartitionerTestCase {
   private static final ShardedPartitioner PARTITIONER = new ShardedPartitioner();
 
-  @Override
-  List<String> defaultReadConfigOptions() {
-    return asList(ReadConfig.PREFIX + ReadConfig.COLLECTION_NAME_CONFIG, "sharded.collection");
-  }
-
   @Test
   void testNonShardedCollection() {
     assumeTrue(isSharded());
-    ReadConfig readConfig = createReadConfig();
+    ReadConfig readConfig = createReadConfig("withNonShardedCollection");
     readConfig.withCollection(coll -> coll.insertOne(new BsonDocument()));
     List<MongoInputPartition> partitions = PARTITIONER.generatePartitions(readConfig);
     assertIterableEquals(SINGLE_PARTITIONER.generatePartitions(readConfig), partitions);
@@ -58,7 +54,7 @@ public class ShardedPartitionerTest extends PartitionerTestCase {
   @Test
   void testPartitionsTheCollectionAsExpected() {
     assumeTrue(isSharded());
-    ReadConfig readConfig = createReadConfig();
+    ReadConfig readConfig = createReadConfig("partitionsAsExpected");
     shardCollection(readConfig.getNamespace(), "{_id: 1}");
     loadSampleData(100, 10, readConfig);
 
@@ -69,7 +65,7 @@ public class ShardedPartitionerTest extends PartitionerTestCase {
   void testPartitionsTheCollectionAsExpectedWithMultipleShardKeys() {
     assumeTrue(isSharded());
 
-    ReadConfig readConfig = createReadConfig();
+    ReadConfig readConfig = createReadConfig("partitionsWithMultipleShardKeys");
     shardCollection(readConfig.getNamespace(), "{_id: 1, pk: 1}");
     loadSampleData(100, 10, readConfig);
 
@@ -80,9 +76,10 @@ public class ShardedPartitionerTest extends PartitionerTestCase {
   void testCreatesExpectedPartitionsWithUsersPipeline() {
     assumeTrue(isSharded());
     ReadConfig readConfig =
-        createReadConfig(
-            ReadConfig.AGGREGATION_PIPELINE_CONFIG,
-            "{'$match': {'_id': {'$gte': '00010', " + "'$lte': '00040'}}}");
+        createReadConfig("partitionsWithUsersPipeline")
+            .withOption(
+                ReadConfig.AGGREGATION_PIPELINE_CONFIG,
+                "{'$match': {'_id': {'$gte': '00010', '$lte': '00040'}}}");
 
     shardCollection(readConfig.getNamespace(), "{_id: 1}");
     loadSampleData(100, 10, readConfig);
@@ -132,6 +129,7 @@ public class ShardedPartitionerTest extends PartitionerTestCase {
   }
 
   private void assertPartitioner(final ReadConfig readConfig) {
+
     List<MongoInputPartition> mongoInputPartitions = PARTITIONER.generatePartitions(readConfig);
     assertPartitionsAreOrderedAndBounded(mongoInputPartitions);
 
@@ -139,7 +137,14 @@ public class ShardedPartitionerTest extends PartitionerTestCase {
     if (!aggregationPipeline.isEmpty()) {
       mongoInputPartitions.forEach(
           mongoInputPartition ->
-              assertTrue(mongoInputPartition.getPipeline().containsAll(aggregationPipeline)));
+              assertTrue(
+                  mongoInputPartition.getPipeline().containsAll(aggregationPipeline),
+                  () ->
+                      format(
+                          "Pipeline missing aggregation pipeline: %s",
+                          mongoInputPartition.getPipeline().stream()
+                              .map(BsonDocument::toJson)
+                              .collect(Collectors.joining(",", "[", "]")))));
     }
 
     assertPartitionerCoversAllData(PARTITIONER, readConfig);
@@ -155,15 +160,15 @@ public class ShardedPartitionerTest extends PartitionerTestCase {
   private void assertPartitionsAreOrderedAndBounded(
       final List<MongoInputPartition> mongoInputPartitions) {
     assertFalse(mongoInputPartitions.isEmpty(), "No partitions were produced");
-    assertMongoPartitionHasBounds(getMatchStage(mongoInputPartitions.get(0)), "$lt");
-
-    for (int i = 1; i < mongoInputPartitions.size() - 1; i++) {
-      BsonDocument ltMatch = getMatchStage(mongoInputPartitions.get(i));
-      BsonDocument gteMatch = getMatchStage(mongoInputPartitions.get(i + 1));
-      assertMongoPartitionBounds(ltMatch, gteMatch);
-    }
-
     if (mongoInputPartitions.size() > 1) {
+      assertMongoPartitionHasBounds(getMatchStage(mongoInputPartitions.get(0)), "$lt");
+
+      for (int i = 1; i < mongoInputPartitions.size() - 1; i++) {
+        BsonDocument ltMatch = getMatchStage(mongoInputPartitions.get(i));
+        BsonDocument gteMatch = getMatchStage(mongoInputPartitions.get(i + 1));
+        assertMongoPartitionBounds(ltMatch, gteMatch);
+      }
+
       assertMongoPartitionHasBounds(
           getMatchStage(mongoInputPartitions.get(mongoInputPartitions.size() - 1)), "$gte");
     }
@@ -186,8 +191,8 @@ public class ShardedPartitionerTest extends PartitionerTestCase {
                         .getDocument(shardKey, new BsonDocument())
                         .containsKey(queryComparisonOperator),
                     format(
-                        "Missing query comparison operator for %s in %s",
-                        shardKey, matchStage.toJson())));
+                        "Missing query comparison operator (%s) for %s in %s",
+                        queryComparisonOperator, shardKey, matchStage.toJson())));
   }
 
   private void assertMongoPartitionBounds(final BsonDocument ltMatch, final BsonDocument gteMatch) {
@@ -214,5 +219,10 @@ public class ShardedPartitionerTest extends PartitionerTestCase {
                           + "%s does not have the upper bound of %s",
                       ltMatch, gteMatch));
             });
+  }
+
+  private ReadConfig createReadConfig(final String collectionName) {
+    return createReadConfig()
+        .withOption(ReadConfig.READ_PREFIX + ReadConfig.COLLECTION_NAME_CONFIG, collectionName);
   }
 }
