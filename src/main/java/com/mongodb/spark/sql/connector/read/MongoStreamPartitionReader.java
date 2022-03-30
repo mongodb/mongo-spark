@@ -107,11 +107,11 @@ public class MongoStreamPartitionReader implements ContinuousPartitionReader<Int
      *
      * So we block until a result is available or the stream is cancelled
      */
-      boolean hasNext = false;
-      while (!hasNext) {
-          hasNext = tryNext();
-      }
-      return true;
+    boolean hasNext = false;
+    while (!hasNext) {
+      hasNext = tryNext();
+    }
+    return true;
   }
 
   @Override
