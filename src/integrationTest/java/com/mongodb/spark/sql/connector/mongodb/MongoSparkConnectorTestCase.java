@@ -132,7 +132,7 @@ public class MongoSparkConnectorTestCase {
   }
 
   public void retryAssertion(final Runnable assertion) {
-    retryAssertion(assertion, 30, 2000);
+    retryAssertion(assertion, 60, 2000);
   }
 
   public void retryAssertion(final Runnable assertion, final int retries, final long timeoutMs) {
