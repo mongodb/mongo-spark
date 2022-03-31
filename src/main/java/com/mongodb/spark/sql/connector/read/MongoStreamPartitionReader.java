@@ -136,15 +136,19 @@ public class MongoStreamPartitionReader implements ContinuousPartitionReader<Int
   private boolean tryNext() {
     return withCursor(
         c -> {
-          if (c.hasNext()) {
-            BsonDocument next = c.next();
-            lastOffset = new ResumeTokenPartitionOffset(c.getResumeToken());
-            if (readConfig.streamPublishFullDocumentOnly()) {
-              next = next.getDocument(FULL_DOCUMENT, new BsonDocument());
+            try {
+                if (c.hasNext()) {
+                    BsonDocument next = c.next();
+                    lastOffset = new ResumeTokenPartitionOffset(c.getResumeToken());
+                    if (readConfig.streamPublishFullDocumentOnly()) {
+                        next = next.getDocument(FULL_DOCUMENT, new BsonDocument());
+                    }
+                    currentRow = bsonDocumentToRowConverter.toInternalRow(next);
+                    return true;
+                }
+            } catch (MongoException e) {
+                LOGGER.info("Trying to get more data from the change stream failed, releasing cursor.", e);
             }
-            currentRow = bsonDocumentToRowConverter.toInternalRow(next);
-            return true;
-          }
           releaseCursorAndClient();
           currentRow = null;
           return false;
@@ -173,10 +177,14 @@ public class MongoStreamPartitionReader implements ContinuousPartitionReader<Int
         changeStreamIterable = changeStreamIterable.startAfter(lastOffset.getResumeToken());
       }
 
-      changeStreamCursor =
-          (MongoChangeStreamCursor<BsonDocument>)
-              changeStreamIterable.withDocumentClass(BsonDocument.class).cursor();
-      LOGGER.debug("Opened change stream cursor for partition: {}", partition);
+      try {
+        changeStreamCursor =
+            (MongoChangeStreamCursor<BsonDocument>)
+                changeStreamIterable.withDocumentClass(BsonDocument.class).cursor();
+        LOGGER.debug("Opened change stream cursor for partition: {}", partition);
+      } catch (RuntimeException e) {
+        throw new MongoSparkException("Could not create the change stream cursor.", e);
+      }
     }
     return changeStreamCursor;
   }
