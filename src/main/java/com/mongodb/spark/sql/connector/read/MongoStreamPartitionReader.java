@@ -136,19 +136,20 @@ public class MongoStreamPartitionReader implements ContinuousPartitionReader<Int
   private boolean tryNext() {
     return withCursor(
         c -> {
-            try {
-                if (c.hasNext()) {
-                    BsonDocument next = c.next();
-                    lastOffset = new ResumeTokenPartitionOffset(c.getResumeToken());
-                    if (readConfig.streamPublishFullDocumentOnly()) {
-                        next = next.getDocument(FULL_DOCUMENT, new BsonDocument());
-                    }
-                    currentRow = bsonDocumentToRowConverter.toInternalRow(next);
-                    return true;
-                }
-            } catch (MongoException e) {
-                LOGGER.info("Trying to get more data from the change stream failed, releasing cursor.", e);
+          try {
+            if (c.hasNext()) {
+              BsonDocument next = c.next();
+              lastOffset = new ResumeTokenPartitionOffset(c.getResumeToken());
+              if (readConfig.streamPublishFullDocumentOnly()) {
+                next = next.getDocument(FULL_DOCUMENT, new BsonDocument());
+              }
+              currentRow = bsonDocumentToRowConverter.toInternalRow(next);
+              return true;
             }
+          } catch (MongoException e) {
+            LOGGER.info(
+                "Trying to get more data from the change stream failed, releasing cursor.", e);
+          }
           releaseCursorAndClient();
           currentRow = null;
           return false;
