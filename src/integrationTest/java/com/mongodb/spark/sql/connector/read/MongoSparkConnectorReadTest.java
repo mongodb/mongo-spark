@@ -253,6 +253,7 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
   @Test
   void testContinuousStreamHandlesCollectionDrop() {
     assumeTrue(supportsChangeStreams());
+    assumeTrue(isAtLeastFourDotTwo());
 
     MongoConfig mongoConfig = createMongoConfig("withDrop");
     withStreamingQuery(
@@ -299,6 +300,7 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
   @Test
   void testContinuousStreamWithFilter() {
     assumeTrue(supportsChangeStreams());
+    assumeTrue(isAtLeastFourDotTwo());
 
     MongoConfig mongoConfig =
         createMongoConfig("withFilter")
@@ -329,6 +331,7 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
   @Test
   void testContinuousStreamWithPublishFullDocumentOnly() {
     assumeTrue(supportsChangeStreams());
+    assumeTrue(isAtLeastFourDotTwo());
     MongoConfig mongoConfig =
         createMongoConfig("fullDocOnly")
             .withOption(
@@ -375,6 +378,7 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
   @Test
   void testContinuousStreamPublishFullDocumentOnlyHandlesCollectionDrop() {
     assumeTrue(supportsChangeStreams());
+    assumeTrue(isAtLeastFourDotTwo());
     MongoConfig mongoConfig =
         createMongoConfig("fullDocOnlyWithDrop")
             .withOption(

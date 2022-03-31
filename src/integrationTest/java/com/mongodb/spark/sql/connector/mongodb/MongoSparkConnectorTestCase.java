@@ -34,6 +34,7 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.connection.ClusterType;
+import com.mongodb.connection.ServerDescription;
 
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 
@@ -75,6 +76,17 @@ public class MongoSparkConnectorTestCase {
       counter++;
     }
     return clusterType == ClusterType.SHARDED || clusterType == ClusterType.REPLICA_SET;
+  }
+
+  public boolean isAtLeastFourDotTwo() {
+    return getMaxWireVersion() >= 8;
+  }
+
+  private int getMaxWireVersion() {
+    return HELPER.getMongoClient().getClusterDescription().getServerDescriptions().stream()
+        .map(ServerDescription::getMaxWireVersion)
+        .max(Integer::compare)
+        .orElse(0);
   }
 
   public boolean isSharded() {
