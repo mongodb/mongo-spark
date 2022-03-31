@@ -33,7 +33,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -231,6 +230,7 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
   void testContinuousStream() {
     assumeTrue(supportsChangeStreams());
     testStreamingQuery(
+        createMongoConfig("continuousStream"),
         coll ->
             coll.insertMany(
                 IntStream.range(0, 25)
@@ -243,7 +243,7 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
   void testContinuousStreamHandlesCollectionDrop() {
     assumeTrue(supportsChangeStreams());
 
-    MongoConfig mongoConfig = createMongoConfig();
+    MongoConfig mongoConfig = createMongoConfig("withDrop");
     withStreamingQuery(
         () -> createStreamingQuery(mongoConfig, DEFAULT_SCHEMA, null),
         (streamingQuery) -> {
@@ -290,7 +290,7 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
     assumeTrue(supportsChangeStreams());
 
     MongoConfig mongoConfig =
-        createMongoConfig()
+        createMongoConfig("withFilter")
             .withOption(
                 ReadConfig.READ_PREFIX + ReadConfig.STREAM_LOOKUP_FULL_DOCUMENT_CONFIG,
                 "updateLookup");
@@ -319,7 +319,7 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
   void testContinuousStreamWithPublishFullDocumentOnly() {
     assumeTrue(supportsChangeStreams());
     MongoConfig mongoConfig =
-        createMongoConfig()
+        createMongoConfig("fullDocOnly")
             .withOption(
                 ReadConfig.READ_PREFIX + ReadConfig.STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG,
                 "true")
@@ -365,14 +365,17 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
   void testContinuousStreamPublishFullDocumentOnlyHandlesCollectionDrop() {
     assumeTrue(supportsChangeStreams());
     MongoConfig mongoConfig =
-        createMongoConfig()
+        createMongoConfig("fullDocOnlyWithDrop")
             .withOption(
                 ReadConfig.READ_PREFIX + ReadConfig.STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG,
                 "true")
             .withOption(WriteConfig.WRITE_PREFIX + WriteConfig.OPERATION_TYPE_CONFIG, "Update");
 
     StructType schema =
-        createStructType(singletonList(createStructField("_id", DataTypes.IntegerType, false)));
+        createStructType(
+            asList(
+                createStructField("_id", DataTypes.IntegerType, false),
+                createStructField("a", DataTypes.StringType, false)));
 
     withStreamingQuery(
         () -> createStreamingQuery(mongoConfig, schema, null),
@@ -390,7 +393,10 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
               coll ->
                   coll.insertMany(
                       IntStream.range(0, 25)
-                          .mapToObj(i -> new BsonDocument("_id", new BsonInt32(i)))
+                          .mapToObj(
+                              i ->
+                                  new BsonDocument("_id", new BsonInt32(i))
+                                      .append("a", new BsonString("a")))
                           .collect(Collectors.toList())));
 
           retryAssertion(
@@ -459,9 +465,10 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
 
   @SafeVarargs
   private final void testStreamingQuery(
+      final MongoConfig mongoConfig,
       final Consumer<MongoCollection<BsonDocument>> setup,
       final Consumer<MongoCollection<BsonDocument>>... assertions) {
-    testStreamingQuery(createMongoConfig(), DEFAULT_SCHEMA, setup, assertions);
+    testStreamingQuery(mongoConfig, DEFAULT_SCHEMA, setup, assertions);
   }
 
   @SafeVarargs
@@ -535,29 +542,6 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
     }
   }
 
-  @SafeVarargs
-  private final void withStreamingQuery(
-      final MongoConfig mongoConfig,
-      final StreamingQuery streamingQuery,
-      final Consumer<MongoCollection<BsonDocument>> setup,
-      final Consumer<MongoCollection<BsonDocument>>... assertions) {
-
-    retryAssertion(
-        () ->
-            assertFalse(
-                streamingQuery.status().message().contains("Initializing"),
-                "Stream is not initialized"));
-    mongoConfig.toReadConfig().doWithCollection(setup);
-
-    retryAssertion(
-        () -> {
-          WriteConfig writeConfig = mongoConfig.toWriteConfig();
-          for (Consumer<MongoCollection<BsonDocument>> assertion : assertions) {
-            writeConfig.doWithCollection(assertion);
-          }
-        });
-  }
-
   private StreamingQuery createStreamingQuery(
       final MongoConfig mongoConfig, final StructType schema, final Column condition) {
     Dataset<Row> ds =
@@ -584,10 +568,8 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
     }
   }
 
-  private final AtomicInteger testCounter = new AtomicInteger(0);
+  private MongoConfig createMongoConfig(final String suffix) {
 
-  private MongoConfig createMongoConfig() {
-    int suffix = testCounter.getAndIncrement();
     Map<String, String> overrides = new HashMap<>();
     overrides.put(
         ReadConfig.READ_PREFIX + ReadConfig.COLLECTION_NAME_CONFIG, "sourceColl" + suffix);
