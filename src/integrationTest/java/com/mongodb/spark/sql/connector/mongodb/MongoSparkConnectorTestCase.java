@@ -15,25 +15,27 @@
  */
 package com.mongodb.spark.sql.connector.mongodb;
 
-import com.mongodb.MongoNamespace;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
-import com.mongodb.connection.ClusterType;
-import com.mongodb.spark.sql.connector.config.MongoConfig;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
-import org.bson.BsonDocument;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.opentest4j.AssertionFailedError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.Map;
+import org.bson.BsonDocument;
 
-import static org.junit.jupiter.api.Assertions.fail;
+import com.mongodb.MongoNamespace;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.connection.ClusterType;
+
+import com.mongodb.spark.sql.connector.config.MongoConfig;
 
 @MongoDBOnline()
 public class MongoSparkConnectorTestCase {
@@ -41,18 +43,18 @@ public class MongoSparkConnectorTestCase {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoSparkConnectorTestCase.class);
 
   @RegisterExtension
-  public static final MongoSparkConnectorHelper MONGODB = new MongoSparkConnectorHelper();
+  public static final MongoSparkConnectorHelper HELPER = new MongoSparkConnectorHelper();
 
   public String getDatabaseName() {
-    return MONGODB.getDatabaseName();
+    return HELPER.getDatabaseName();
   }
 
   public String getCollectionName() {
-    return MONGODB.getCollectionName();
+    return HELPER.getCollectionName();
   }
 
   public MongoDatabase getDatabase() {
-    return MONGODB.getDatabase();
+    return HELPER.getDatabase();
   }
 
   public MongoCollection<BsonDocument> getCollection() {
@@ -64,29 +66,30 @@ public class MongoSparkConnectorTestCase {
   }
 
   public boolean supportsChangeStreams() {
-    ClusterType clusterType = MONGODB.getMongoClient().getClusterDescription().getType();
+    MongoClient mongoClient = HELPER.getMongoClient();
+    ClusterType clusterType = mongoClient.getClusterDescription().getType();
     int counter = 0;
     while (clusterType == ClusterType.UNKNOWN && counter < 30) {
-      sleep(1000, "Interrupted when checking change stream support");
-      clusterType = MONGODB.getMongoClient().getClusterDescription().getType();
+      HELPER.sleep(1000, "Interrupted when checking change stream support");
+      clusterType = mongoClient.getClusterDescription().getType();
       counter++;
     }
     return clusterType == ClusterType.SHARDED || clusterType == ClusterType.REPLICA_SET;
   }
 
   public boolean isSharded() {
-    return MONGODB.isSharded();
+    return HELPER.isSharded();
   }
 
   public void shardCollection(final MongoNamespace mongoNamespace, final String shardKeyJson) {
-    MONGODB.shardCollection(mongoNamespace, shardKeyJson);
+    HELPER.shardCollection(mongoNamespace, shardKeyJson);
   }
 
   public CaseInsensitiveStringMap getConnectionProviderOptions() {
     Map<String, String> options = new HashMap<>();
     options.put(
         MongoConfig.PREFIX + MongoConfig.CONNECTION_STRING_CONFIG,
-        MONGODB.getConnectionString().toString());
+        HELPER.getConnectionString().toString());
     return new CaseInsensitiveStringMap(options);
   }
 
@@ -94,7 +97,7 @@ public class MongoSparkConnectorTestCase {
     Map<String, String> options = new HashMap<>();
     options.put(
         MongoConfig.PREFIX + MongoConfig.CONNECTION_STRING_CONFIG,
-        MONGODB.getConnectionString().toString());
+        HELPER.getConnectionString().toString());
     options.put(MongoConfig.PREFIX + MongoConfig.DATABASE_NAME_CONFIG, getDatabaseName());
     options.put(MongoConfig.PREFIX + MongoConfig.COLLECTION_NAME_CONFIG, getCollectionName());
     return MongoConfig.createConfig(options);
@@ -109,11 +112,11 @@ public class MongoSparkConnectorTestCase {
    */
   public void loadSampleData(
       final int numberOfDocuments, final int sizeInMB, final MongoConfig config) {
-    MONGODB.loadSampleData(numberOfDocuments, sizeInMB, config);
+    HELPER.loadSampleData(numberOfDocuments, sizeInMB, config);
   }
 
   public SparkConf getSparkConf() {
-    return MONGODB.getSparkConf();
+    return HELPER.getSparkConf();
   }
 
   public SparkSession getOrCreateSparkSession() {
@@ -125,7 +128,7 @@ public class MongoSparkConnectorTestCase {
   }
 
   public SparkContext getOrCreateSparkContext(final SparkConf sparkConfig) {
-    return MONGODB.getOrCreateSparkContext(sparkConfig);
+    return HELPER.getOrCreateSparkContext(sparkConfig);
   }
 
   public void retryAssertion(final Runnable assertion) {
@@ -144,21 +147,11 @@ public class MongoSparkConnectorTestCase {
       } catch (AssertionFailedError e) {
         LOGGER.info("Failed assertion on attempt: {}", counter);
         exception = e;
-        sleep(timeoutMs, "Interrupted when retrying assertion.");
+        HELPER.sleep(timeoutMs, "Interrupted when retrying assertion.");
       }
     }
     if (hasError && exception != null) {
       throw exception;
-    }
-  }
-
-  private void sleep(final long timeoutMs, final String message) {
-    try {
-      Thread.sleep(timeoutMs);
-    } catch (InterruptedException interruptedException) {
-      if (message != null) {
-        fail(message);
-      }
     }
   }
 }

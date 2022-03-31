@@ -16,6 +16,7 @@
 package com.mongodb.spark.sql.connector.mongodb;
 
 import static java.lang.String.format;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.File;
 import java.io.IOException;
@@ -248,6 +249,14 @@ public class MongoSparkConnectorHelper
           .runCommand(
               BsonDocument.parse(
                   format("{enableSharding: '%s'}", mongoNamespace.getDatabaseName())));
+
+      LOGGER.info("Settings chunkSize to 1MB");
+      configDatabase
+          .getCollection("settings")
+          .updateOne(
+              new Document("_id", "chunksize"),
+              Updates.set("value", 1),
+              new UpdateOptions().upsert(true));
     }
 
     if (configDatabase
@@ -257,7 +266,7 @@ public class MongoSparkConnectorHelper
                     Filters.eq("_id", mongoNamespace.getFullName()), Filters.eq("dropped", false)))
             .first()
         == null) {
-      LOGGER.info("Sharding: {}", mongoNamespace.getDatabaseName());
+      LOGGER.info("Sharding: {}", mongoNamespace.getFullName());
 
       getMongoClient()
           .getDatabase(mongoNamespace.getDatabaseName())
@@ -271,13 +280,21 @@ public class MongoSparkConnectorHelper
                       "{shardCollection: '%s', key: %s, unique: true}",
                       mongoNamespace.getFullName(), shardKeyJson)));
 
-      LOGGER.info("Settings chunkSize to 1MB");
-      configDatabase
-          .getCollection("settings")
-          .updateOne(
-              new Document("_id", "chunksize"),
-              Updates.set("value", 1),
-              new UpdateOptions().upsert(true));
+      sleep(1000);
+    }
+  }
+
+  public void sleep(final long timeoutMs) {
+    sleep(timeoutMs, null);
+  }
+
+  public void sleep(final long timeoutMs, final String message) {
+    try {
+      Thread.sleep(timeoutMs);
+    } catch (InterruptedException interruptedException) {
+      if (message != null) {
+        fail(message);
+      }
     }
   }
 
