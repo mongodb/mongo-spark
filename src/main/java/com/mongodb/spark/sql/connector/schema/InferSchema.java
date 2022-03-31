@@ -72,7 +72,9 @@ public final class InferSchema {
    * @return the schema
    */
   public static StructType inferSchema(final CaseInsensitiveStringMap options) {
-    ReadConfig readConfig = MongoConfig.readConfig(options.asCaseSensitiveMap());
+    ReadConfig readConfig =
+        MongoConfig.readConfig(options.asCaseSensitiveMap())
+            .withOptions(options.asCaseSensitiveMap());
     return inferSchema(
         readConfig.withCollection(
             coll ->

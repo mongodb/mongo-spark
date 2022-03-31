@@ -426,8 +426,7 @@ public class InferSchemaTest {
 
     ReadConfig readConfig =
         READ_CONFIG.withOptions(
-            singletonMap(
-                ReadConfig.PREFIX + ReadConfig.INFER_SCHEMA_MAP_TYPE_MINIMUM_KEY_SIZE_CONFIG, "5"));
+            singletonMap(ReadConfig.INFER_SCHEMA_MAP_TYPE_MINIMUM_KEY_SIZE_CONFIG, "5"));
 
     assertAll(
         "simple map fields",
@@ -576,10 +575,8 @@ public class InferSchemaTest {
         readConfig.withOptions(
             new HashMap<String, String>() {
               {
-                put(ReadConfig.PREFIX + ReadConfig.INFER_SCHEMA_MAP_TYPE_ENABLED_CONFIG, "false");
-                put(
-                    ReadConfig.PREFIX + ReadConfig.INFER_SCHEMA_MAP_TYPE_MINIMUM_KEY_SIZE_CONFIG,
-                    "1");
+                put(ReadConfig.INFER_SCHEMA_MAP_TYPE_ENABLED_CONFIG, "false");
+                put(ReadConfig.INFER_SCHEMA_MAP_TYPE_MINIMUM_KEY_SIZE_CONFIG, "1");
               }
             });
 

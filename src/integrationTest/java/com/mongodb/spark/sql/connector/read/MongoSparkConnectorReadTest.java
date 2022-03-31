@@ -93,12 +93,23 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
   void testReadsAreSupportedWithSchemaInferred() {
     SparkSession spark = getOrCreateSparkSession();
 
+    String collectionName = "inferredTest";
     List<BsonDocument> collectionData =
         toBsonDocuments(spark.read().textFile(READ_RESOURCES_JSON_PATH));
-    getCollection().insertMany(collectionData);
+    getDatabase()
+        .getCollection(collectionName)
+        .withDocumentClass(BsonDocument.class)
+        .insertMany(collectionData);
 
     assertIterableEquals(
-        collectionData, toBsonDocuments(spark.read().format("mongodb").load().toJSON()));
+        collectionData,
+        toBsonDocuments(
+            spark
+                .read()
+                .format("mongodb")
+                .option(ReadConfig.COLLECTION_NAME_CONFIG, collectionName)
+                .load()
+                .toJSON()));
   }
 
   @Test
