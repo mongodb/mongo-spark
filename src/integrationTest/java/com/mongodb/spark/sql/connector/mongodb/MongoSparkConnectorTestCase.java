@@ -78,8 +78,8 @@ public class MongoSparkConnectorTestCase {
     return clusterType == ClusterType.SHARDED || clusterType == ClusterType.REPLICA_SET;
   }
 
-  public boolean isAtLeastFourDotTwo() {
-    return getMaxWireVersion() >= 8;
+  public boolean isAtLeastFourDotFour() {
+    return getMaxWireVersion() >= 9;
   }
 
   private int getMaxWireVersion() {
