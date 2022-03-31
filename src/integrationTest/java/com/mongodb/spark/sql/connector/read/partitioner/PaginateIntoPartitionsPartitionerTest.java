@@ -51,14 +51,16 @@ public class PaginateIntoPartitionsPartitionerTest extends PartitionerTestCase {
 
   @Test
   void testNonExistentCollection() {
-    List<MongoInputPartition> partitions = PARTITIONER.generatePartitions(createReadConfig());
-    assertIterableEquals(SINGLE_PARTITIONER.generatePartitions(createReadConfig()), partitions);
+    ReadConfig readConfig = createReadConfig("noExist");
+    List<MongoInputPartition> partitions = PARTITIONER.generatePartitions(readConfig);
+    assertIterableEquals(SINGLE_PARTITIONER.generatePartitions(readConfig), partitions);
   }
 
   @Test
   void testSingleResultData() {
     ReadConfig readConfig =
         createReadConfig(
+            "single",
             PARTITIONER_OPTIONS_PREFIX
                 + PaginateIntoPartitionsPartitioner.MAX_NUMBER_OF_PARTITIONS_CONFIG,
             "1");
@@ -71,6 +73,7 @@ public class PaginateIntoPartitionsPartitionerTest extends PartitionerTestCase {
     // Drop and add more data but include a user pipeline that limits the results
     readConfig =
         createReadConfig(
+            "single",
             PARTITIONER_OPTIONS_PREFIX
                 + PaginateIntoPartitionsPartitioner.MAX_NUMBER_OF_PARTITIONS_CONFIG,
             "1",
@@ -86,7 +89,7 @@ public class PaginateIntoPartitionsPartitionerTest extends PartitionerTestCase {
 
   @Test
   void testCreatesExpectedPartitions() {
-    ReadConfig readConfig = createReadConfig();
+    ReadConfig readConfig = createReadConfig("expected");
     loadSampleData(50, 1, readConfig);
 
     List<MongoInputPartition> expectedPartitions =
@@ -121,7 +124,7 @@ public class PaginateIntoPartitionsPartitionerTest extends PartitionerTestCase {
   @Test
   void testUsingAlternativePartitionField() {
     ReadConfig readConfig =
-        createReadConfig(PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_CONFIG, "pk");
+        createReadConfig("alt", PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_CONFIG, "pk");
     loadSampleData(50, 1, readConfig);
 
     List<MongoInputPartition> expectedPartitions =
@@ -156,7 +159,7 @@ public class PaginateIntoPartitionsPartitionerTest extends PartitionerTestCase {
   @Test
   void testUsingPartitionFieldThatContainsDuplicates() {
     ReadConfig readConfig =
-        createReadConfig(PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_CONFIG, "dups");
+        createReadConfig("dups", PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_CONFIG, "dups");
     loadSampleData(101, 1, readConfig);
 
     assertThrows(ConfigException.class, () -> PARTITIONER.generatePartitions(readConfig));
@@ -166,6 +169,7 @@ public class PaginateIntoPartitionsPartitionerTest extends PartitionerTestCase {
   void testCreatesExpectedPartitionsWithUsersPipeline() {
     ReadConfig readConfig =
         createReadConfig(
+            "withPipeline",
             ReadConfig.AGGREGATION_PIPELINE_CONFIG,
             "{'$match': {'_id': {'$gte': '00010', '$lt': '00060'}}}");
     List<BsonDocument> userSuppliedPipeline = readConfig.getAggregationPipeline();
@@ -212,7 +216,7 @@ public class PaginateIntoPartitionsPartitionerTest extends PartitionerTestCase {
 
   @Test
   void testCreatesUnevenPartitions() {
-    ReadConfig readConfig = createReadConfig();
+    ReadConfig readConfig = createReadConfig("uneven");
     loadSampleData(57, 1, readConfig);
 
     List<MongoInputPartition> expectedPartitions =
@@ -246,7 +250,7 @@ public class PaginateIntoPartitionsPartitionerTest extends PartitionerTestCase {
 
   @Test
   void shouldValidateReadConfigs() {
-    loadSampleData(10, 1, createReadConfig());
+    loadSampleData(10, 1, createReadConfig("validate"));
 
     assertAll(
         () ->
@@ -255,7 +259,9 @@ public class PaginateIntoPartitionsPartitionerTest extends PartitionerTestCase {
                 () ->
                     PARTITIONER.generatePartitions(
                         createReadConfig(
-                            PARTITIONER_OPTIONS_PREFIX + MAX_NUMBER_OF_PARTITIONS_CONFIG, "-1")),
+                            "validate",
+                            PARTITIONER_OPTIONS_PREFIX + MAX_NUMBER_OF_PARTITIONS_CONFIG,
+                            "-1")),
                 MAX_NUMBER_OF_PARTITIONS_CONFIG + " is negative"),
         () ->
             assertThrows(
@@ -263,7 +269,9 @@ public class PaginateIntoPartitionsPartitionerTest extends PartitionerTestCase {
                 () ->
                     PARTITIONER.generatePartitions(
                         createReadConfig(
-                            PARTITIONER_OPTIONS_PREFIX + MAX_NUMBER_OF_PARTITIONS_CONFIG, "0")),
+                            "validate",
+                            PARTITIONER_OPTIONS_PREFIX + MAX_NUMBER_OF_PARTITIONS_CONFIG,
+                            "0")),
                 MAX_NUMBER_OF_PARTITIONS_CONFIG + " is zero"));
   }
 }

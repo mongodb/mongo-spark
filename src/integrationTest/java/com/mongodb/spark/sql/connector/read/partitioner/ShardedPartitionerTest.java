@@ -90,23 +90,23 @@ public class ShardedPartitionerTest extends PartitionerTestCase {
   @Test
   void canSupportEmptyOrDeletedCollections() {
     assumeTrue(isSharded());
-
+    ReadConfig readConfig = createReadConfig("empty");
     // No collection
     assertIterableEquals(
-        SINGLE_PARTITIONER.generatePartitions(createReadConfig()),
-        PARTITIONER.generatePartitions(createReadConfig()));
+        SINGLE_PARTITIONER.generatePartitions(readConfig),
+        PARTITIONER.generatePartitions(readConfig));
 
     // No chunk data
-    shardCollection(createReadConfig().getNamespace(), "{_id: 1}");
+    shardCollection(readConfig.getNamespace(), "{_id: 1}");
     assertIterableEquals(
-        SINGLE_PARTITIONER.generatePartitions(createReadConfig()),
-        PARTITIONER.generatePartitions(createReadConfig()));
+        SINGLE_PARTITIONER.generatePartitions(readConfig),
+        PARTITIONER.generatePartitions(readConfig));
 
     // Dropped collection
-    createReadConfig().doWithCollection(MongoCollection::drop);
+    readConfig.doWithCollection(MongoCollection::drop);
     assertIterableEquals(
-        SINGLE_PARTITIONER.generatePartitions(createReadConfig()),
-        PARTITIONER.generatePartitions(createReadConfig()));
+        SINGLE_PARTITIONER.generatePartitions(readConfig),
+        PARTITIONER.generatePartitions(readConfig));
   }
 
   @Test
@@ -219,10 +219,5 @@ public class ShardedPartitionerTest extends PartitionerTestCase {
                           + "%s does not have the upper bound of %s",
                       ltMatch, gteMatch));
             });
-  }
-
-  private ReadConfig createReadConfig(final String collectionName) {
-    return createReadConfig()
-        .withOption(ReadConfig.READ_PREFIX + ReadConfig.COLLECTION_NAME_CONFIG, collectionName);
   }
 }

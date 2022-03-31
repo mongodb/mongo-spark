@@ -44,7 +44,7 @@ public class SinglePartitionerTest extends PartitionerTestCase {
 
   @Test
   void testNonExistentCollection() {
-    ReadConfig readConfig = createReadConfig();
+    ReadConfig readConfig = createReadConfig("nonExist");
     readConfig.doWithCollection(MongoCollection::drop);
 
     assertPartitioner(SINGLE_PARTITIONER, singlePartitionsList, readConfig);
@@ -52,7 +52,7 @@ public class SinglePartitionerTest extends PartitionerTestCase {
 
   @Test
   void testCreatesExpectedPartitions() {
-    ReadConfig readConfig = createReadConfig();
+    ReadConfig readConfig = createReadConfig("expected");
     loadSampleData(51, 5, readConfig);
 
     assertPartitioner(SINGLE_PARTITIONER, singlePartitionsList, readConfig);
@@ -62,7 +62,9 @@ public class SinglePartitionerTest extends PartitionerTestCase {
   void testUsingAlternativePartitionFieldList() {
     ReadConfig readConfig =
         createReadConfig(
-            ReadConfig.PARTITIONER_OPTIONS_PREFIX + SamplePartitioner.PARTITION_FIELD_CONFIG, "pk");
+            "alt",
+            ReadConfig.PARTITIONER_OPTIONS_PREFIX + SamplePartitioner.PARTITION_FIELD_CONFIG,
+            "pk");
     assertPartitioner(SINGLE_PARTITIONER, singlePartitionsList, readConfig);
   }
 
@@ -70,7 +72,8 @@ public class SinglePartitionerTest extends PartitionerTestCase {
   void testCreatesExpectedPartitionsWithUsersPipeline() {
     String matchStage = "{'$match': {'_id': {'$gte': '00010', '$lte': '00040'}}}";
     ReadConfig readConfig =
-        createReadConfig(ReadConfig.AGGREGATION_PIPELINE_CONFIG, "[" + matchStage + "]");
+        createReadConfig(
+            "pipeline", ReadConfig.AGGREGATION_PIPELINE_CONFIG, "[" + matchStage + "]");
     List<BsonDocument> userSuppliedPipeline = singletonList(BsonDocument.parse(matchStage));
     List<MongoInputPartition> expectedPartitions =
         singletonList(new MongoInputPartition(0, userSuppliedPipeline, getPreferredLocations()));

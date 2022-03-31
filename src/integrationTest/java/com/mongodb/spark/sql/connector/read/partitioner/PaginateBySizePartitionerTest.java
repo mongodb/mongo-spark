@@ -53,13 +53,14 @@ public class PaginateBySizePartitionerTest extends PartitionerTestCase {
 
   @Test
   void testNonExistentCollection() {
-    List<MongoInputPartition> partitions = PARTITIONER.generatePartitions(createReadConfig());
-    assertIterableEquals(SINGLE_PARTITIONER.generatePartitions(createReadConfig()), partitions);
+    ReadConfig readConfig = createReadConfig("noColl");
+    List<MongoInputPartition> partitions = PARTITIONER.generatePartitions(readConfig);
+    assertIterableEquals(SINGLE_PARTITIONER.generatePartitions(readConfig), partitions);
   }
 
   @Test
   void testSingleResultData() {
-    ReadConfig readConfig = createReadConfig();
+    ReadConfig readConfig = createReadConfig("singleResult");
     loadSampleData(1, 1, readConfig);
 
     assertIterableEquals(
@@ -71,7 +72,7 @@ public class PaginateBySizePartitionerTest extends PartitionerTestCase {
     loadSampleData(10, 1, readConfig);
 
     readConfig =
-        createReadConfig(
+        readConfig.withOption(
             ReadConfig.PREFIX + ReadConfig.AGGREGATION_PIPELINE_CONFIG,
             "{'$match': {'_id': {'$gte': '00010'}}}");
     assertIterableEquals(
@@ -81,7 +82,7 @@ public class PaginateBySizePartitionerTest extends PartitionerTestCase {
 
   @Test
   void testCreatesExpectedPartitions() {
-    ReadConfig readConfig = createReadConfig();
+    ReadConfig readConfig = createReadConfig("expectedPart");
     loadSampleData(50, 5, readConfig);
 
     List<MongoInputPartition> expectedPartitions =
@@ -116,7 +117,8 @@ public class PaginateBySizePartitionerTest extends PartitionerTestCase {
   @Test
   void testUsingAlternativePartitionField() {
     ReadConfig readConfig =
-        createReadConfig(PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_CONFIG, "pk");
+        createReadConfig(
+            "altPartitionFiled", PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_CONFIG, "pk");
     loadSampleData(51, 5, readConfig);
 
     List<MongoInputPartition> expectedPartitions =
@@ -156,7 +158,7 @@ public class PaginateBySizePartitionerTest extends PartitionerTestCase {
   @Test
   void testUsingPartitionFieldThatContainsDuplicates() {
     ReadConfig readConfig =
-        createReadConfig(PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_CONFIG, "dups");
+        createReadConfig("dups", PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_CONFIG, "dups");
     loadSampleData(101, 5, readConfig);
 
     assertThrows(ConfigException.class, () -> PARTITIONER.generatePartitions(readConfig));
@@ -166,6 +168,7 @@ public class PaginateBySizePartitionerTest extends PartitionerTestCase {
   void testCreatesExpectedPartitionsWithUsersPipeline() {
     ReadConfig readConfig =
         createReadConfig(
+            "pipeline",
             ReadConfig.AGGREGATION_PIPELINE_CONFIG,
             "{'$match': {'_id': {'$gte': '00010', '$lt': '00060'}}}");
     List<BsonDocument> userSuppliedPipeline =
@@ -214,7 +217,7 @@ public class PaginateBySizePartitionerTest extends PartitionerTestCase {
 
   @Test
   void testCreatesUnevenPartitions() {
-    ReadConfig readConfig = createReadConfig();
+    ReadConfig readConfig = createReadConfig("uneven");
     loadSampleData(55, 5, readConfig);
 
     List<MongoInputPartition> expectedPartitions =
@@ -248,7 +251,7 @@ public class PaginateBySizePartitionerTest extends PartitionerTestCase {
 
   @Test
   void shouldValidateReadConfigs() {
-    loadSampleData(50, 2, createReadConfig());
+    loadSampleData(50, 2, createReadConfig("validate"));
     assertAll(
         () ->
             assertThrows(
@@ -256,7 +259,9 @@ public class PaginateBySizePartitionerTest extends PartitionerTestCase {
                 () ->
                     PARTITIONER.generatePartitions(
                         createReadConfig(
-                            PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG, "-1")),
+                            "validate",
+                            PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG,
+                            "-1")),
                 PARTITION_SIZE_MB_CONFIG + " is negative"),
         () ->
             assertThrows(
@@ -264,7 +269,9 @@ public class PaginateBySizePartitionerTest extends PartitionerTestCase {
                 () ->
                     PARTITIONER.generatePartitions(
                         createReadConfig(
-                            PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG, "0")),
+                            "validate",
+                            PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG,
+                            "0")),
                 PARTITION_SIZE_MB_CONFIG + " is zero"));
   }
 }

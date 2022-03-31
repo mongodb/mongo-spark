@@ -55,28 +55,31 @@ public class SamplePartitionerTest extends PartitionerTestCase {
 
   @Test
   void testNonExistentCollection() {
-    List<MongoInputPartition> partitions = PARTITIONER.generatePartitions(createReadConfig());
-    assertIterableEquals(SINGLE_PARTITIONER.generatePartitions(createReadConfig()), partitions);
+    ReadConfig readConfig = createReadConfig("nonExist");
+    List<MongoInputPartition> partitions = PARTITIONER.generatePartitions(readConfig);
+    assertIterableEquals(SINGLE_PARTITIONER.generatePartitions(readConfig), partitions);
   }
 
   @Test
   void testFewerRecordsThanData() {
     ReadConfig readConfig =
-        createReadConfig(ReadConfig.PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG, "4");
+        createReadConfig(
+            "few", ReadConfig.PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG, "4");
     loadSampleData(10, 2, readConfig);
 
     List<MongoInputPartition> partitions = PARTITIONER.generatePartitions(readConfig);
     assertIterableEquals(SINGLE_PARTITIONER.generatePartitions(readConfig), partitions);
 
     readConfig =
-        createReadConfig(ReadConfig.PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG, "2");
+        createReadConfig(
+            "few", ReadConfig.PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG, "2");
     partitions = PARTITIONER.generatePartitions(readConfig);
     assertIterableEquals(SINGLE_PARTITIONER.generatePartitions(readConfig), partitions);
   }
 
   @Test
   void testCreatesExpectedPartitions() {
-    ReadConfig readConfig = createReadConfig();
+    ReadConfig readConfig = createReadConfig("expected");
     loadSampleData(51, 5, readConfig);
 
     List<MongoInputPartition> expectedPartitions =
@@ -117,7 +120,9 @@ public class SamplePartitionerTest extends PartitionerTestCase {
   void testUsingAlternativePartitionField() {
     ReadConfig readConfig =
         createReadConfig(
-            ReadConfig.PARTITIONER_OPTIONS_PREFIX + SamplePartitioner.PARTITION_FIELD_CONFIG, "pk");
+            "alt",
+            ReadConfig.PARTITIONER_OPTIONS_PREFIX + SamplePartitioner.PARTITION_FIELD_CONFIG,
+            "pk");
     loadSampleData(51, 5, readConfig);
 
     List<MongoInputPartition> expectedPartitions =
@@ -157,7 +162,7 @@ public class SamplePartitionerTest extends PartitionerTestCase {
   @Test
   void testUsingPartitionFieldThatContainsDuplicates() {
     ReadConfig readConfig =
-        createReadConfig(PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_CONFIG, "dups");
+        createReadConfig("dups", PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_CONFIG, "dups");
     loadSampleData(101, 20, readConfig);
 
     assertThrows(ConfigException.class, () -> PARTITIONER.generatePartitions(readConfig));
@@ -167,6 +172,7 @@ public class SamplePartitionerTest extends PartitionerTestCase {
   void testCreatesExpectedPartitionsWithUsersPipeline() {
     ReadConfig readConfig =
         createReadConfig(
+            "pipeline",
             ReadConfig.AGGREGATION_PIPELINE_CONFIG,
             "{'$match': {'_id': {'$gte': '00010', '$lte': '00040'}}}");
     List<BsonDocument> userSuppliedPipeline =
@@ -209,7 +215,7 @@ public class SamplePartitionerTest extends PartitionerTestCase {
 
   @Test
   void shouldValidateReadConfigs() {
-    loadSampleData(50, 2, createReadConfig());
+    loadSampleData(50, 2, createReadConfig("validate"));
 
     assertAll(
         () ->
@@ -218,7 +224,9 @@ public class SamplePartitionerTest extends PartitionerTestCase {
                 () ->
                     PARTITIONER.generatePartitions(
                         createReadConfig(
-                            PARTITIONER_OPTIONS_PREFIX + SAMPLES_PER_PARTITION_CONFIG, "-1")),
+                            "validate",
+                            PARTITIONER_OPTIONS_PREFIX + SAMPLES_PER_PARTITION_CONFIG,
+                            "-1")),
                 SAMPLES_PER_PARTITION_CONFIG + " is negative"),
         () ->
             assertThrows(
@@ -226,7 +234,9 @@ public class SamplePartitionerTest extends PartitionerTestCase {
                 () ->
                     PARTITIONER.generatePartitions(
                         createReadConfig(
-                            PARTITIONER_OPTIONS_PREFIX + SAMPLES_PER_PARTITION_CONFIG, "0")),
+                            "validate",
+                            PARTITIONER_OPTIONS_PREFIX + SAMPLES_PER_PARTITION_CONFIG,
+                            "0")),
                 SAMPLES_PER_PARTITION_CONFIG + " is zero"),
         () ->
             assertThrows(
@@ -234,7 +244,9 @@ public class SamplePartitionerTest extends PartitionerTestCase {
                 () ->
                     PARTITIONER.generatePartitions(
                         createReadConfig(
-                            PARTITIONER_OPTIONS_PREFIX + SAMPLES_PER_PARTITION_CONFIG, "1")),
+                            "validate",
+                            PARTITIONER_OPTIONS_PREFIX + SAMPLES_PER_PARTITION_CONFIG,
+                            "1")),
                 SAMPLES_PER_PARTITION_CONFIG + " is one"),
         () ->
             assertThrows(
@@ -242,7 +254,9 @@ public class SamplePartitionerTest extends PartitionerTestCase {
                 () ->
                     PARTITIONER.generatePartitions(
                         createReadConfig(
-                            PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG, "-1")),
+                            "validate",
+                            PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG,
+                            "-1")),
                 PARTITION_SIZE_MB_CONFIG + " is negative"),
         () ->
             assertThrows(
@@ -250,7 +264,9 @@ public class SamplePartitionerTest extends PartitionerTestCase {
                 () ->
                     PARTITIONER.generatePartitions(
                         createReadConfig(
-                            PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG, "0")),
+                            "validate",
+                            PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG,
+                            "0")),
                 PARTITION_SIZE_MB_CONFIG + " is zero"));
   }
 }

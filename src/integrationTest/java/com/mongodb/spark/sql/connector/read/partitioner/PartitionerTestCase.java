@@ -67,19 +67,17 @@ abstract class PartitionerTestCase extends MongoSparkConnectorTestCase {
    *
    * <p>Uses the varargs as key value pairs
    */
-  ReadConfig createReadConfig(final String... values) {
+  ReadConfig createReadConfig(final String collectionName, final String... values) {
     Map<String, String> readConfigOptions = new HashMap<>();
-    ArrayList<String> options = new ArrayList<>();
-    options.addAll(defaultReadConfigOptions());
+    ArrayList<String> options = new ArrayList<>(defaultReadConfigOptions());
+    options.add(ReadConfig.COLLECTION_NAME_CONFIG);
+    options.add(collectionName);
     options.addAll(asList(values));
-    if (options.size() > 0) {
-      assert (options.size() % 2 == 0);
-      for (int i = 0; i < options.size(); i = i + 2) {
-        readConfigOptions.put(ReadConfig.READ_PREFIX + options.get(i), options.get(i + 1));
-      }
-      return readConfig.withOptions(readConfigOptions);
+    assert (options.size() % 2 == 0);
+    for (int i = 0; i < options.size(); i = i + 2) {
+      readConfigOptions.put(ReadConfig.READ_PREFIX + options.get(i), options.get(i + 1));
     }
-    return readConfig;
+    return readConfig.withOptions(readConfigOptions);
   }
 
   /**
