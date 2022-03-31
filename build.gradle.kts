@@ -36,7 +36,7 @@ plugins {
 }
 
 group = "org.mongodb.spark"
-version = "3.2.0-SNAPSHOT"
+version = "10.0.0-SNAPSHOT"
 description = "The official MongoDB Apache Spark Connect Connector."
 
 java {
@@ -333,6 +333,7 @@ tasks.register("publishArchives") {
     group = "publishing"
     description = "Publishes a release and uploads to Sonatype / Maven Central"
 
+    val majorVersion: Int = version.toString().split(".").first().toInt()
     doFirst {
         if (gitVersion != version) {
             val cause = """
@@ -349,7 +350,9 @@ tasks.register("publishArchives") {
         }
     }
 
-    if (gitVersion == version) {
+    if (gitVersion == version && majorVersion >= 10) {
         dependsOn("publish")
+    } else {
+        println("Not releasing as is a pre 10.0 version: $version")
     }
 }
