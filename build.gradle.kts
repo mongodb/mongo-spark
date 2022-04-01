@@ -333,7 +333,6 @@ tasks.register("publishArchives") {
     group = "publishing"
     description = "Publishes a release and uploads to Sonatype / Maven Central"
 
-    val majorVersion: Int = version.toString().split(".").first().toInt()
     doFirst {
         if (gitVersion != version) {
             val cause = """
@@ -350,9 +349,7 @@ tasks.register("publishArchives") {
         }
     }
 
-    if (gitVersion == version && majorVersion >= 10) {
+    if (gitVersion == version) {
         dependsOn("publish")
-    } else {
-        println("Not releasing as is a pre 10.0 version: $version")
     }
 }
