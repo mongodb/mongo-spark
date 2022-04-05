@@ -106,15 +106,25 @@ object MongoSpark {
    */
   def save[D: ClassTag](rdd: RDD[D]): Unit = save(rdd, WriteConfig(rdd.sparkContext))
 
-  /**
+/**
    * Save data to MongoDB
    *
    * @param rdd the RDD data to save to MongoDB
    * @param writeConfig the writeConfig
    * @tparam D the type of the data in the RDD
    */
-  def save[D: ClassTag](rdd: RDD[D], writeConfig: WriteConfig): Unit = {
-    val mongoConnector = MongoConnector(writeConfig.asOptions)
+  def save[D: ClassTag](rdd: RDD[D], writeConfig: WriteConfig): Unit = 
+    save(rdd, writeConfig, MongoConnector(writeConfig.asOptions))
+
+  /**
+   * Save data to MongoDB
+   *
+   * @param rdd the RDD data to save to MongoDB
+   * @param writeConfig the writeConfig
+   * @param mongoConnector the mongoConnector
+   * @tparam D the type of the data in the RDD
+   */
+  def save[D: ClassTag](rdd: RDD[D], writeConfig: WriteConfig, mongoConnector: MongoConnector): Unit = {
     val queryKeyList = BsonDocument.parse(writeConfig.shardKey.getOrElse("{_id: 1}")).keySet().asScala.toList
 
     rdd.foreachPartition(iter => if (iter.nonEmpty) {
