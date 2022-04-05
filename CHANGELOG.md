@@ -2,6 +2,7 @@
 
 ## 2.2.10
   * [[SPARK-321](https://jira.mongodb.org/browse/SPARK-321)] Support modern sharded configurations.
+  * [[SPARK-324](https://jira.mongodb.org/browse/SPARK-324)] Added new save API
 
 ## 2.2.9
   * [[SPARK-280](https://jira.mongodb.org/browse/SPARK-280)] Support replace and updates from RDD's that include an `_id`.
