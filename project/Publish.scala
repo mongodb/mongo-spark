@@ -99,9 +99,16 @@ object Publish {
     pomIncludeRepository := { _ => false },
     pomExtra :=
       <url>http://github.com/mongo-spark</url>
+      <licenses>
+        <license>
+          <name>Apache-2.0</name>
+          <url>http://opensource.org/licenses/Apache-2.0</url>
+          <distribution>repo</distribution>
+        </license>
+      </licenses>
       <scm>
-        <url>git@github.com:mongodb/mongo-spark.git</url>
-        <connection>scm:git:git@github.com:mongodb/mongo-spark.git</connection>
+        <url>https://github.com/mongodb/mongo-spark</url>
+        <connection>scm:git:https://github.com/mongodb/mongo-spark.git</connection>
       </scm>
       <developers>
         <developer>
