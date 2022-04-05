@@ -17,9 +17,8 @@
 package com.mongodb.spark.rdd.partitioner
 
 import java.util
-
 import scala.collection.JavaConverters._
-import org.bson.{BsonDocument, BsonMaxKey, BsonMinKey}
+import org.bson.{BsonBoolean, BsonDocument, BsonMaxKey, BsonMinKey}
 import com.mongodb.ServerAddress
 import com.mongodb.client.MongoCollection
 import com.mongodb.client.model.{Filters, Projections, Sorts}
@@ -42,42 +41,72 @@ import scala.util.{Failure, Success, Try}
 class MongoShardedPartitioner extends MongoPartitioner {
 
   private val DefaultShardKey = "_id"
+  private val ID_FIELD = "_id"
+  private val NAMESPACE_FIELD = "ns"
+  private val UUID_FIELD = "uuid"
+  private val DROPPED_FIELD = "dropped"
 
   /**
    * The shardKey property
    *
    * The shardKey value can be the name of a single key eg: `_id` or for compound keys the extended json form eg: `{a: 1, b: 1}`
    */
-  val shardKeyProperty = "shardKey".toLowerCase()
+  val shardKeyProperty: String = "shardKey".toLowerCase()
 
   override def partitions(connector: MongoConnector, readConfig: ReadConfig, pipeline: Array[BsonDocument]): Array[MongoPartition] = {
     val ns: String = s"${readConfig.databaseName}.${readConfig.collectionName}"
     logDebug(s"Getting split bounds for a sharded collection: $ns")
     val partitionerOptions = readConfig.partitionerOptions.map(kv => (kv._1.toLowerCase, kv._2))
     val shardKey = partitionerOptions.getOrElse(shardKeyProperty, DefaultShardKey)
-    val chunks: Seq[BsonDocument] = connector.withCollectionDo(
-      ReadConfig("config", "chunks"), { collection: MongoCollection[BsonDocument] =>
-        collection.find(Filters.eq("ns", ns)).projection(Projections.include("min", "max", "shard")).sort(Sorts.ascending("min"))
-          .into(new util.ArrayList[BsonDocument]).asScala
+
+    val configCollectionMetadata = connector.withCollectionDo(
+      ReadConfig("config", "collections"), { collection: MongoCollection[BsonDocument] =>
+        collection.find(Filters.eq(ID_FIELD, ns))
+          .projection(Projections.include(ID_FIELD, UUID_FIELD, DROPPED_FIELD))
+          .first()
       }
     )
 
-    chunks.isEmpty match {
-      case true =>
+    if (Option.apply(configCollectionMetadata).isEmpty || configCollectionMetadata.getBoolean(DROPPED_FIELD, BsonBoolean.FALSE).getValue) {
+      logWarning(
+        s"""Collection '$ns' does not appear to be sharded, continuing with a single partition.
+           |To split the collections into multiple partitions connect to the MongoDB node directly""".stripMargin.replaceAll("\n", " ")
+      )
+      MongoSinglePartitioner.partitions(connector, readConfig)
+    } else {
+
+      // Depending on MongoDB version the chunks collection will either use the collection namespace
+      // or the metadata uuid as the identifier for the chunks data.
+      val chunksMatchPredicate = Filters.or(
+        new BsonDocument(NAMESPACE_FIELD, configCollectionMetadata.get(ID_FIELD)),
+        new BsonDocument(UUID_FIELD, configCollectionMetadata.get(UUID_FIELD))
+      )
+
+      val chunks: Seq[BsonDocument] = connector.withCollectionDo(
+        ReadConfig("config", "chunks"), { collection: MongoCollection[BsonDocument] =>
+          collection.find(chunksMatchPredicate)
+            .projection(Projections.include("min", "max", "shard"))
+            .sort(Sorts.ascending("min"))
+            .into(new util.ArrayList[BsonDocument]).asScala
+        }
+      )
+
+      if (chunks.isEmpty) {
         logWarning(
           s"""Collection '$ns' does not appear to be sharded, continuing with a single partition.
-             |To split the collections into multiple partitions connect to the MongoDB node directly""".stripMargin.replaceAll("\n", " ")
+To split the collections into multiple partitions connect to the MongoDB node directly""".stripMargin.replaceAll("\n", " ")
         )
         MongoSinglePartitioner.partitions(connector, readConfig)
-      case false =>
+      } else {
         generatePartitions(chunks, shardKey, mapShards(connector))
+      }
     }
   }
 
   private[partitioner] def generatePartitions(chunks: Seq[BsonDocument], shardKey: String, shardsMap: Map[String, Seq[String]]): Array[MongoPartition] = {
     Try(BsonDocument.parse(shardKey)) match {
       case Success(shardKeyDocument) => generateCompoundKeyPartitions(chunks, shardKeyDocument, shardsMap)
-      case Failure(e)                => generateSingleKeyPartitions(chunks, shardKey, shardsMap)
+      case Failure(_)                => generateSingleKeyPartitions(chunks, shardKey, shardsMap)
     }
   }
 
