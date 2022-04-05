@@ -318,7 +318,7 @@ object MongoInferSchema extends Logging {
     val arrayTypes: Seq[BsonType] = bsonArray.map(_.getBsonType).distinct
     arrayTypes.length match {
       case 0 => SkipFieldType
-      case 1 if Seq(BsonType.ARRAY, BsonType.DOCUMENT).contains(arrayTypes.head) => getCompatibleArraySchema(bsonArray, readConfig)
+      case 1 if Seq(BsonType.ARRAY, BsonType.DOCUMENT, BsonType.DECIMAL128).contains(arrayTypes.head) => getCompatibleArraySchema(bsonArray, readConfig)
       case 1 => DataTypes.createArrayType(getDataType(bsonArray.head, readConfig), true)
       case _ => getCompatibleArraySchema(bsonArray, readConfig)
     }
