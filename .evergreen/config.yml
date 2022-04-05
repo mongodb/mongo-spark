@@ -323,7 +323,7 @@ tasks:
       commands:
         - func: "bootstrap mongo-orchestration"
           vars:
-            VERSION: "4.0"
+            VERSION: "5.0"
             TOPOLOGY: "server"
         - func: "run coverage"
         - func: "upload build"
@@ -347,26 +347,26 @@ axes:
   - id: "version"
     display_name: "MongoDB Version"
     values:
-      - id: "latest"
-          display_name: "latest"
-          variables:
-            VERSION: "latest"
-      - id: "5.0"
-          display_name: "5.0"
-          variables:
-            VERSION: "5.0"
+      - id: "3.6"
+        display_name: "3.6"
+        variables:
+          VERSION: "3.6"
+      - id: "4.2"
+        display_name: "4.2"
+        variables:
+          VERSION: "4.2"
       - id: "4.4"
         display_name: "4.4"
         variables:
           VERSION: "4.4"
-      - id: "4.0"
-        display_name: "4.0"
+      - id: "5.0"
+        display_name: "5.0"
         variables:
-           VERSION: "4.0"
-      - id: "3.6"
-        display_name: "3.6"
+          VERSION: "5.0"
+      - id: "latest"
+        display_name: "latest"
         variables:
-           VERSION: "3.6"
+          VERSION: "latest"
   - id: "os"
     display_name: "OS"
     values:
