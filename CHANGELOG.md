@@ -1,5 +1,8 @@
 # Mongo Spark Connector Changelog
 
+## 3.0.2
+* [[SPARK-321](https://jira.mongodb.org/browse/SPARK-321)] Support modern sharded configurations.
+
 ## 3.0.1
   * [[SPARK-280](https://jira.mongodb.org/browse/SPARK-280)] Support replace and updates from RDD's that include an `_id`. 
     Use `forceInsert` to keep existing behaviour.
