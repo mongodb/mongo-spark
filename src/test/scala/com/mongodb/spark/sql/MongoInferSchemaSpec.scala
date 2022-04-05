@@ -23,6 +23,7 @@ import org.bson.conversions.Bson
 import org.bson.{BsonDocument, Document}
 import com.mongodb.MongoClient
 import com.mongodb.spark._
+import org.bson.types.Decimal128
 import org.scalatest.prop.TableDrivenPropertyChecks
 
 class MongoInferSchemaSpec extends RequiresMongoDB with MongoDataGenerator with TableDrivenPropertyChecks {
@@ -117,6 +118,19 @@ class MongoInferSchemaSpec extends RequiresMongoDB with MongoDataGenerator with 
     sc.parallelize(Seq(new Document("a", -1), new Document("a", 1.0), new Document("a", Long.MaxValue))).saveToMongoDB()
     MongoInferSchema(sc) should equal(createStructType(Array(_idField, doubleField)))
   }
+
+  // scalastyle:off magic.number
+  it should "handle decimal precision within arrays" in withSparkContext() { sc =>
+    val decimalField: StructField = createStructField("a", DataTypes.createArrayType(DataTypes.createDecimalType(4, 3)), true)
+
+    // Contains a mixed precisions and scales
+    sc.parallelize(Seq(
+      new Document("a", List(Decimal128.parse("1.4"), Decimal128.parse("2.41"), Decimal128.parse("2.411")).asJava)
+    )).saveToMongoDB()
+    MongoInferSchema(sc) should equal(createStructType(Array(_idField, decimalField)))
+    database.drop()
+  }
+  // scalastyle:on magic.number
 
   it should "be able to infer the schema from arrays with mixed keys" in withSparkContext() { sc =>
     val elements = createStructType(Seq("b", "c", "d", "e").map(createStructField(_, DataTypes.IntegerType, true)).toArray)
@@ -263,6 +277,7 @@ class MongoInferSchemaSpec extends RequiresMongoDB with MongoDataGenerator with 
     MongoInferSchema(rdd) should equal(expectedSchema)
   }
 
+  // scalastyle:off magic.number
   it should "not detect a top level document as a map" in withSparkContext() { sc =>
     if (!serverAtLeast(3, 4)) cancel("MongoDB < 3.4")
     val validKeyCount = 10
@@ -281,6 +296,7 @@ class MongoInferSchemaSpec extends RequiresMongoDB with MongoDataGenerator with 
     schema shouldNot be(a[MapType])
     schema.fields.length should equal(validKeyCount)
   }
+  // scalastyle:on magic.number
 
   it should "not detect fields with a MapType when detection is disabled" in withSparkContext() { sc =>
     val keyCount = 250
