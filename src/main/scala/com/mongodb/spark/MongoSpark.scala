@@ -106,14 +106,14 @@ object MongoSpark {
    */
   def save[D: ClassTag](rdd: RDD[D]): Unit = save(rdd, WriteConfig(rdd.sparkContext))
 
-/**
+  /**
    * Save data to MongoDB
    *
    * @param rdd the RDD data to save to MongoDB
    * @param writeConfig the writeConfig
    * @tparam D the type of the data in the RDD
    */
-  def save[D: ClassTag](rdd: RDD[D], writeConfig: WriteConfig): Unit = 
+  def save[D: ClassTag](rdd: RDD[D], writeConfig: WriteConfig): Unit =
     save(rdd, writeConfig, MongoConnector(writeConfig.asOptions))
 
   /**
