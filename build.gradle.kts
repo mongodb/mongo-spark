@@ -52,7 +52,7 @@ repositories {
 extra.apply {
     set("annotationsVersion", "22.0.0")
     set("mongodbDriverVersion", "[4.5.0,4.5.99)")
-    set("sparkVersion", "3.1.2")
+    set("sparkVersion", "3.2.0")
 
     // Testing dependencies
     set("junitJupiterVersion", "5.7.2")
