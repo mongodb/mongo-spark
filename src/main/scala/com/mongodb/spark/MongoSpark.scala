@@ -174,9 +174,22 @@ object MongoSpark {
    * @tparam D
    * @since 1.1.0
    */
-  def save[D](dataset: Dataset[D], writeConfig: WriteConfig): Unit = {
+  def save[D](dataset: Dataset[D], writeConfig: WriteConfig): Unit = save(dataset, writeConfig, MongoConnector(writeConfig.asOptions))
+
+  /**
+   * Save data to MongoDB
+   *
+   * '''Note:''' If the dataFrame contains an `_id` field the data will upserted and replace any existing documents in the collection.
+   *
+   * @param dataset the dataset to save to MongoDB
+   * @param writeConfig the writeConfig
+   * @param mongoConnector the mongoConnector
+   * @tparam D
+   * @since 2.1.9
+   */
+  def save[D](dataset: Dataset[D], writeConfig: WriteConfig, mongoConnector: MongoConnector): Unit = {
     val mapper = rowToDocumentMapper(dataset.schema, writeConfig.extendedBsonTypes)
-    save(dataset.toDF().rdd.map(row => mapper(row)), writeConfig)
+    save(dataset.toDF().rdd.map(row => mapper(row)), writeConfig, mongoConnector)
   }
 
   /**
@@ -460,7 +473,20 @@ object MongoSpark {
    * @return the javaRDD
    */
   def save(javaRDD: JavaRDD[Document], writeConfig: WriteConfig): Unit =
-    save(javaRDD, writeConfig, classOf[Document])
+    save(javaRDD, writeConfig, MongoConnector(writeConfig.asOptions))
+
+  /**
+   * Save data to MongoDB
+   *
+   * Uses the `SparkConf` for the database information
+   *
+   * @param javaRDD        the RDD data to save to MongoDB
+   * @param writeConfig the [[com.mongodb.spark.config.WriteConfig]]
+   * @param mongoConnector the mongoConnector
+   * @return the javaRDD
+   */
+  def save(javaRDD: JavaRDD[Document], writeConfig: WriteConfig, mongoConnector: MongoConnector): Unit =
+    save(javaRDD, writeConfig, mongoConnector, classOf[Document])
 
   /**
    * Save data to MongoDB
@@ -474,11 +500,27 @@ object MongoSpark {
    * @tparam D the type of the data in the RDD
    * @return the javaRDD
    */
-  def save[D](javaRDD: JavaRDD[D], writeConfig: WriteConfig, clazz: Class[D]): Unit = {
+  def save[D](javaRDD: JavaRDD[D], writeConfig: WriteConfig, clazz: Class[D]): Unit = 
+    save(javaRDD, writeConfig, MongoConnector(writeConfig.asOptions), clazz)
+
+  /**
+   * Save data to MongoDB
+   *
+   * Uses the `writeConfig` for the database information
+   * Requires a codec for the data type
+   *
+   * @param javaRDD        the RDD data to save to MongoDB
+   * @param writeConfig the [[com.mongodb.spark.config.WriteConfig]]
+   * @param mongoConnector the mongoConnector
+   * @param clazz          the class of the data contained in the RDD
+   * @tparam D the type of the data in the RDD
+   * @return the javaRDD
+   */
+  def save[D](javaRDD: JavaRDD[D], writeConfig: WriteConfig, mongoConnector: MongoConnector, clazz: Class[D]): Unit = {
     notNull("javaRDD", javaRDD)
     notNull("writeConfig", writeConfig)
     implicit def ct: ClassTag[D] = ClassTag(clazz)
-    save[D](javaRDD.rdd, writeConfig)
+    save[D](javaRDD.rdd, writeConfig, mongoConnector)
   }
 
   // Deprecated APIs
