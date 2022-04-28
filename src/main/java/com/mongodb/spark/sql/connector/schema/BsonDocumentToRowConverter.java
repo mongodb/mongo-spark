@@ -25,10 +25,8 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
+import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -130,7 +128,7 @@ public final class BsonDocumentToRowConverter implements Serializable {
    * @return the converted data as a Row
    */
   @VisibleForTesting
-  Row toRow(final BsonDocument bsonDocument) {
+  GenericRowWithSchema toRow(final BsonDocument bsonDocument) {
     return convertToRow("", schema, bsonDocument, ConverterHelper.DEFAULT_JSON_WRITER_SETTINGS);
   }
 
@@ -163,7 +161,7 @@ public final class BsonDocumentToRowConverter implements Serializable {
     } else if (dataType instanceof BooleanType) {
       return convertToBoolean(fieldName, dataType, bsonValue);
     } else if (dataType instanceof DateType) {
-      return convertToDate(fieldName, dataType, bsonValue, jsonWriterSettings);
+      return convertToTimestamp(fieldName, dataType, bsonValue, jsonWriterSettings);
     } else if (dataType instanceof TimestampType) {
       return convertToTimestamp(fieldName, dataType, bsonValue, jsonWriterSettings);
     } else if (dataType instanceof FloatType) {
@@ -246,7 +244,7 @@ public final class BsonDocumentToRowConverter implements Serializable {
     return map;
   }
 
-  private List<?> convertToArray(
+  private Object[] convertToArray(
       final String fieldName,
       final ArrayType dataType,
       final BsonValue bsonValue,
@@ -264,7 +262,7 @@ public final class BsonDocumentToRowConverter implements Serializable {
               bsonArray.get(i),
               jsonWriterSettings));
     }
-    return arrayList;
+    return arrayList.toArray();
   }
 
   private byte[] convertToBinary(
@@ -289,22 +287,12 @@ public final class BsonDocumentToRowConverter implements Serializable {
     return bsonValue.asBoolean().getValue();
   }
 
-  private Date convertToDate(
+  private Timestamp convertToTimestamp(
       final String fieldName,
       final DataType dataType,
       final BsonValue bsonValue,
       final JsonWriterSettings jsonWriterSettings) {
-    return Date.from(
-        convertToInstant(fieldName, dataType, bsonValue, jsonWriterSettings)
-            .truncatedTo(ChronoUnit.DAYS));
-  }
-
-  private Date convertToTimestamp(
-      final String fieldName,
-      final DataType dataType,
-      final BsonValue bsonValue,
-      final JsonWriterSettings jsonWriterSettings) {
-    return Date.from(convertToInstant(fieldName, dataType, bsonValue, jsonWriterSettings));
+    return new Timestamp(convertToLong(fieldName, dataType, bsonValue, jsonWriterSettings));
   }
 
   private float convertToFloat(
@@ -420,14 +408,6 @@ public final class BsonDocumentToRowConverter implements Serializable {
         }
         throw invalidFieldData(fieldName, dataType, bsonValue);
     }
-  }
-
-  private Instant convertToInstant(
-      final String fieldName,
-      final DataType dataType,
-      final BsonValue bsonValue,
-      final JsonWriterSettings jsonWriterSettings) {
-    return Instant.ofEpochMilli(convertToLong(fieldName, dataType, bsonValue, jsonWriterSettings));
   }
 
   private String createFieldPath(final String currentLevel, final String subLevel) {

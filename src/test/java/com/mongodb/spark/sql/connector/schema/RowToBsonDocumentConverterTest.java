@@ -23,9 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
-import java.sql.Date;
-import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -50,54 +47,9 @@ import com.mongodb.spark.sql.connector.exceptions.DataException;
 import scala.collection.JavaConverters;
 import scala.collection.Seq;
 
-public class RowToBsonDocumentConverterTest {
+public class RowToBsonDocumentConverterTest extends SchemaTest {
 
   private static final RowToBsonDocumentConverter CONVERTER = new RowToBsonDocumentConverter();
-  private static final BsonDocument SIMPLE_BSON_DOCUMENT =
-      BsonDocument.parse(
-          "{"
-              + "'binaryType': {'$binary': {'base64': 'YWJj', 'subType': '00'}}, "
-              + "'booleanType': true, "
-              + "'byteType': 1, "
-              + "'dateType': {'$date': '1970-01-01T01:00:00Z'}, "
-              + "'doubleType': 2.0, "
-              + "'floatType': 3.0, "
-              + "'integerType': 5, "
-              + "'longType': {'$numberLong': '6'}, "
-              + "'shortType': 7, "
-              + "'stringType': 'string', "
-              + "'timestampType': {'$date': '1970-01-01T05:00:00Z'}"
-              + "}");
-
-  private static final Row SIMPLE_ROW =
-      new GenericRowWithSchema(
-          asList(
-                  "abc".getBytes(StandardCharsets.UTF_8),
-                  true,
-                  (byte) 1,
-                  new Date(3600000L),
-                  2.0,
-                  3.0f,
-                  5,
-                  6L,
-                  null,
-                  (short) 7,
-                  "string",
-                  new Timestamp(18000000L))
-              .toArray(),
-          new StructType()
-              .add("binaryType", DataTypes.BinaryType, true)
-              .add("booleanType", DataTypes.BooleanType, true)
-              .add("byteType", DataTypes.ByteType, true)
-              .add("dateType", DataTypes.DateType, true)
-              .add("doubleType", DataTypes.DoubleType, true)
-              .add("floatType", DataTypes.FloatType, true)
-              .add("integerType", DataTypes.IntegerType, true)
-              .add("longType", DataTypes.LongType, true)
-              .add("nullType", DataTypes.NullType, true)
-              .add("shortType", DataTypes.ShortType, true)
-              .add("stringType", DataTypes.StringType, true)
-              .add("timestampType", DataTypes.TimestampType, true));
 
   @Test
   @DisplayName("test simple types")

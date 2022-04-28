@@ -18,7 +18,6 @@
 package com.mongodb.spark.sql.connector.schema;
 
 import static java.util.Arrays.asList;
-import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
@@ -38,84 +37,11 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import org.bson.BsonArray;
 import org.bson.BsonDocument;
-import org.bson.RawBsonDocument;
 
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 
-public class InferSchemaTest {
-
-  private static final String BSON_DOCUMENT_JSON =
-      "{"
-          + "\"arrayEmpty\": [], "
-          + "\"arraySimple\": [{\"$numberInt\": \"1\"}, {\"$numberInt\": \"2\"}, {\"$numberInt\": \"3\"}], "
-          + "\"arrayComplex\": [{\"a\": {\"$numberInt\": \"1\"}}, {\"a\": {\"$numberInt\": \"2\"}}], "
-          + "\"arrayMixedTypes\": [{\"$numberInt\": \"1\"}, {\"$numberInt\": \"2\"}, true,"
-          + " [{\"$numberInt\": \"1\"}, {\"$numberInt\": \"2\"}, {\"$numberInt\": \"3\"}],"
-          + " {\"a\": {\"$numberInt\": \"2\"}}], "
-          + "\"arrayComplexMixedTypes\": [{\"a\": {\"$numberInt\": \"1\"}}, {\"a\": \"a\"}], "
-          + "\"binary\": {\"$binary\": {\"base64\": \"S2Fma2Egcm9ja3Mh\", \"subType\": \"00\"}}, "
-          + "\"boolean\": true, "
-          + "\"code\": {\"$code\": \"int i = 0;\"}, "
-          + "\"codeWithScope\": {\"$code\": \"int x = y\", \"$scope\": {\"y\": {\"$numberInt\": \"1\"}}}, "
-          + "\"dateTime\": {\"$date\": {\"$numberLong\": \"1577836801000\"}}, "
-          + "\"decimal128\": {\"$numberDecimal\": \"1.0\"}, "
-          + "\"documentEmpty\": {}, "
-          + "\"document\": {\"a\": {\"$numberInt\": \"1\"}}, "
-          + "\"double\": {\"$numberDouble\": \"62.0\"}, "
-          + "\"int32\": {\"$numberInt\": \"42\"}, "
-          + "\"int64\": {\"$numberLong\": \"52\"}, "
-          + "\"maxKey\": {\"$maxKey\": 1}, "
-          + "\"minKey\": {\"$minKey\": 1}, "
-          + "\"null\": null, "
-          + "\"objectId\": {\"$oid\": \"5f3d1bbde0ca4d2829c91e1d\"}, "
-          + "\"regex\": {\"$regularExpression\": {\"pattern\": \"^test.*regex.*xyz$\", \"options\": \"i\"}}, "
-          + "\"string\": \"the fox ...\", "
-          + "\"symbol\": {\"$symbol\": \"ruby stuff\"}, "
-          + "\"timestamp\": {\"$timestamp\": {\"t\": 305419896, \"i\": 5}}, "
-          + "\"undefined\": {\"$undefined\": true}"
-          + "}";
-
-  private static final BsonDocument BSON_DOCUMENT = RawBsonDocument.parse(BSON_DOCUMENT_JSON);
-  private static final StructType BSON_DOCUMENT_SCHEMA =
-      new StructType()
-          .add("arrayEmpty", DataTypes.createArrayType(DataTypes.StringType, true))
-          .add("arraySimple", DataTypes.createArrayType(DataTypes.IntegerType, true))
-          .add(
-              "arrayComplex",
-              DataTypes.createArrayType(
-                  DataTypes.createStructType(
-                      singletonList(
-                          DataTypes.createStructField("a", DataTypes.IntegerType, true)))))
-          .add("arrayMixedTypes", DataTypes.createArrayType(DataTypes.StringType, true))
-          .add(
-              "arrayComplexMixedTypes",
-              DataTypes.createArrayType(
-                  DataTypes.createStructType(
-                      singletonList(DataTypes.createStructField("a", DataTypes.StringType, true)))))
-          .add("binary", DataTypes.BinaryType)
-          .add("boolean", DataTypes.BooleanType)
-          .add("code", DataTypes.StringType)
-          .add("codeWithScope", DataTypes.StringType)
-          .add("dateTime", DataTypes.TimestampType)
-          .add("decimal128", DataTypes.createDecimalType(2, 1))
-          .add("documentEmpty", DataTypes.createStructType(emptyList()))
-          .add(
-              "document",
-              DataTypes.createStructType(
-                  singletonList(DataTypes.createStructField("a", DataTypes.IntegerType, true))))
-          .add("double", DataTypes.DoubleType)
-          .add("int32", DataTypes.IntegerType)
-          .add("int64", DataTypes.LongType)
-          .add("maxKey", DataTypes.StringType)
-          .add("minKey", DataTypes.StringType)
-          .add("null", DataTypes.NullType)
-          .add("objectId", DataTypes.StringType)
-          .add("regex", DataTypes.StringType)
-          .add("string", DataTypes.StringType)
-          .add("symbol", DataTypes.StringType)
-          .add("timestamp", DataTypes.TimestampType)
-          .add("undefined", DataTypes.StringType);
+public class InferSchemaTest extends SchemaTest {
 
   private static final ReadConfig READ_CONFIG = MongoConfig.readConfig(emptyMap());
 
@@ -124,7 +50,7 @@ public class InferSchemaTest {
   void testIndividualFieldSchema(final String fieldName) {
     assertEquals(
         getDataType(fieldName),
-        InferSchema.getDataType(BSON_DOCUMENT.get(fieldName), READ_CONFIG),
+        InferSchema.getDataType(BSON_DOCUMENT_ALL_TYPES.get(fieldName), READ_CONFIG),
         fieldName + " failed");
   }
 
@@ -135,7 +61,7 @@ public class InferSchemaTest {
         DataTypes.createStructType(
             singletonList(DataTypes.createStructField("field", getDataType(fieldName), true))),
         InferSchema.getDataType(
-            new BsonDocument("field", BSON_DOCUMENT.get(fieldName)), READ_CONFIG),
+            new BsonDocument("field", BSON_DOCUMENT_ALL_TYPES.get(fieldName)), READ_CONFIG),
         fieldName + " failed");
   }
 
@@ -145,13 +71,15 @@ public class InferSchemaTest {
     assertEquals(
         DataTypes.createArrayType(getDataType(fieldName), true),
         InferSchema.getDataType(
-            new BsonArray(singletonList(BSON_DOCUMENT.get(fieldName))), READ_CONFIG),
+            new BsonArray(singletonList(BSON_DOCUMENT_ALL_TYPES.get(fieldName))), READ_CONFIG),
         fieldName + " failed");
   }
 
   @Test
   void testSingleFullDocument() {
-    assertEquals(BSON_DOCUMENT_SCHEMA, InferSchema.getDataType(BSON_DOCUMENT, READ_CONFIG));
+    assertEquals(
+        BSON_DOCUMENT_ALL_TYPES_SCHEMA,
+        InferSchema.getDataType(BSON_DOCUMENT_ALL_TYPES, READ_CONFIG));
   }
 
   @Test
@@ -589,10 +517,11 @@ public class InferSchemaTest {
   }
 
   static Stream<String> documentFieldNames() {
-    return BSON_DOCUMENT.keySet().stream();
+    return BSON_DOCUMENT_ALL_TYPES.keySet().stream();
   }
 
   private DataType getDataType(final String fieldName) {
-    return BSON_DOCUMENT_SCHEMA.fields()[BSON_DOCUMENT_SCHEMA.fieldIndex(fieldName)].dataType();
+    return BSON_DOCUMENT_ALL_TYPES_SCHEMA
+        .fields()[BSON_DOCUMENT_ALL_TYPES_SCHEMA.fieldIndex(fieldName)].dataType();
   }
 }

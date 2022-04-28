@@ -64,10 +64,85 @@ import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
+import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
   private static final String READ_RESOURCES_JSON_PATH =
       "src/integrationTest/resources/data/read/*.json";
+
+  private static final String BSON_DOCUMENT_JSON =
+      "{"
+          + "\"_id\": 1, "
+          + "\"arrayEmpty\": [], "
+          + "\"arraySimple\": [{\"$numberInt\": \"1\"}, {\"$numberInt\": \"2\"}, {\"$numberInt\": \"3\"}], "
+          + "\"arrayComplex\": [{\"a\": {\"$numberInt\": \"1\"}}, {\"a\": {\"$numberInt\": \"2\"}}], "
+          + "\"arrayMixedTypes\": [{\"$numberInt\": \"1\"}, {\"$numberInt\": \"2\"}, true,"
+          + " [{\"$numberInt\": \"1\"}, {\"$numberInt\": \"2\"}, {\"$numberInt\": \"3\"}],"
+          + " {\"a\": {\"$numberInt\": \"2\"}}], "
+          + "\"arrayComplexMixedTypes\": [{\"a\": {\"$numberInt\": \"1\"}}, {\"a\": \"a\"}], "
+          + "\"binary\": {\"$binary\": {\"base64\": \"S2Fma2Egcm9ja3Mh\", \"subType\": \"00\"}}, "
+          + "\"boolean\": true, "
+          + "\"code\": {\"$code\": \"int i = 0;\"}, "
+          + "\"codeWithScope\": {\"$code\": \"int x = y\", \"$scope\": {\"y\": {\"$numberInt\": \"1\"}}}, "
+          + "\"dateTime\": {\"$date\": {\"$numberLong\": \"1577836801000\"}}, "
+          + "\"decimal128\": {\"$numberDecimal\": \"1.0\"}, "
+          + "\"documentEmpty\": {}, "
+          + "\"document\": {\"a\": {\"$numberInt\": \"1\"}}, "
+          + "\"double\": {\"$numberDouble\": \"62.0\"}, "
+          + "\"int32\": {\"$numberInt\": \"42\"}, "
+          + "\"int64\": {\"$numberLong\": \"52\"}, "
+          + "\"maxKey\": {\"$maxKey\": 1}, "
+          + "\"minKey\": {\"$minKey\": 1}, "
+          + "\"null\": null, "
+          + "\"objectId\": {\"$oid\": \"5f3d1bbde0ca4d2829c91e1d\"}, "
+          + "\"regex\": {\"$regularExpression\": {\"pattern\": \"^test.*regex.*xyz$\", \"options\": \"i\"}}, "
+          + "\"string\": \"the fox ...\", "
+          + "\"symbol\": {\"$symbol\": \"ruby stuff\"}, "
+          + "\"timestamp\": {\"$timestamp\": {\"t\": 305419896, \"i\": 5}}, "
+          + "\"undefined\": {\"$undefined\": true}"
+          + "}";
+
+  private static final String EXPECTED_BSON_DOCUMENT_JSON =
+      "{"
+          + "\"_id\": 1, "
+          + "\"arrayEmpty\": [], "
+          + "\"arraySimple\": [1, 2, 3], "
+          + "\"arrayComplex\": [{\"a\": 1}, {\"a\": 2}], "
+          + "\"arrayMixedTypes\": [\"1\", \"2\", \"true\", \"[1, 2, 3]\", \"{\\\"a\\\": 2}\"], "
+          + "\"arrayComplexMixedTypes\": [{\"a\": \"1\"}, {\"a\": \"a\"}], "
+          + "\"binary\": {\"$binary\": {\"base64\": \"S2Fma2Egcm9ja3Mh\", \"subType\": \"00\"}}, "
+          + "\"boolean\": true, "
+          + "\"code\": \"{\\\"$code\\\": \\\"int i = 0;\\\"}\", "
+          + "\"codeWithScope\": \"{\\\"$code\\\": \\\"int x = y\\\", \\\"$scope\\\": {\\\"y\\\": 1}}\", "
+          + "\"dateTime\": {\"$date\": {\"$numberLong\": \"1577836801000\"}}, "
+          + "\"decimal128\": {\"$numberDecimal\": \"1.0\"}, "
+          + "\"documentEmpty\": {}, "
+          + "\"document\": {\"a\": {\"$numberInt\": \"1\"}}, "
+          + "\"double\": {\"$numberDouble\": \"62.0\"}, "
+          + "\"int32\": {\"$numberInt\": \"42\"}, "
+          + "\"int64\": {\"$numberLong\": \"52\"}, "
+          + "\"maxKey\": \"{\\\"$maxKey\\\": 1}\", "
+          + "\"minKey\": \"{\\\"$minKey\\\": 1}\", "
+          + "\"objectId\": \"5f3d1bbde0ca4d2829c91e1d\", "
+          + "\"regex\": \"{\\\"$regularExpression\\\": {\\\"pattern\\\": \\\"^test.*regex.*xyz$\\\", \\\"options\\\": \\\"i\\\"}}\", "
+          + "\"string\": \"the fox ...\", "
+          + "\"symbol\": \"ruby stuff\", "
+          + "\"timestamp\": {\"$date\": \"1979-09-05T22:51:36Z\"}, "
+          + "\"undefined\": \"{\\\"$undefined\\\": true}\""
+          + "}";
+
+  @Test
+  void testHandlesAllBsonTypes() {
+    BsonDocument allTypesDocument = BsonDocument.parse(BSON_DOCUMENT_JSON);
+    getCollection().insertOne(allTypesDocument);
+
+    SparkSession spark = getOrCreateSparkSession();
+    Row actual = spark.read().format("mongodb").load().first();
+
+    assertEquals(
+        BsonDocument.parse(EXPECTED_BSON_DOCUMENT_JSON),
+        new RowToBsonDocumentConverter(actual.schema()).fromRow(actual));
+  }
 
   @Test
   void testReadsAreSupportedWithSchemaSupplied() {
