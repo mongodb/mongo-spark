@@ -20,7 +20,7 @@ package com.mongodb.spark.sql.connector.schema;
 import static java.lang.String.format;
 
 import java.io.Serializable;
-import java.sql.Date;
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
@@ -124,7 +124,7 @@ public final class RowToBsonDocumentConverter implements Serializable {
       } else if (DataTypes.BooleanType.acceptsType(dataType)) {
         return new BsonBoolean((Boolean) data);
       } else if (DataTypes.DateType.acceptsType(dataType)) {
-        return new BsonDateTime(((Date) data).getTime());
+        return new BsonDateTime(((Timestamp) data).getTime());
       } else if (DataTypes.DoubleType.acceptsType(dataType)) {
         return new BsonDouble(((Number) data).doubleValue());
       } else if (DataTypes.FloatType.acceptsType(dataType)) {
@@ -142,7 +142,11 @@ public final class RowToBsonDocumentConverter implements Serializable {
       } else if (DataTypes.TimestampType.acceptsType(dataType)) {
         return new BsonDateTime(((Timestamp) data).getTime());
       } else if (dataType instanceof DecimalType) {
-        return new BsonDecimal128(new Decimal128(((Decimal) data).toBigDecimal().bigDecimal()));
+        BigDecimal bigDecimal =
+            data instanceof BigDecimal
+                ? (BigDecimal) data
+                : ((Decimal) data).toBigDecimal().bigDecimal();
+        return new BsonDecimal128(new Decimal128(bigDecimal));
       } else if (dataType instanceof ArrayType) {
         DataType elementType = ((ArrayType) dataType).elementType();
         BsonArray bsonArray = new BsonArray();

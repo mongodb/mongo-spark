@@ -23,18 +23,18 @@ import static java.util.Collections.singletonList;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.util.Date;
+import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
@@ -55,64 +55,12 @@ import org.bson.BsonInt64;
 import org.bson.BsonString;
 import org.bson.BsonTimestamp;
 import org.bson.BsonValue;
-import org.bson.RawBsonDocument;
 import org.bson.types.Decimal128;
 
 import com.mongodb.spark.sql.connector.exceptions.DataException;
 
-public class BsonDocumentToRowConverterTest {
+public class BsonDocumentToRowConverterTest extends SchemaTest {
 
-  private static final String SUB_DOCUMENT_JSON =
-      "{\"A\": {\"$binary\": {\"base64\": \"S2Fma2Egcm9ja3Mh\", \"subType\": \"00\"}},"
-          + " \"B\": {\"$date\": {\"$numberLong\": \"1577863627000\"}},"
-          + " \"C\": {\"D\": \"12345.6789\"}}";
-  private static final String DOCUMENT_JSON =
-      "{\"_id\": {\"$oid\": \"5f15aab12435743f9bd126a4\"},"
-          + " \"myString\": \"some foo bla text\","
-          + " \"myInt\": {\"$numberInt\": \"42\"},"
-          + " \"myDouble\": {\"$numberDouble\": \"20.21\"},"
-          + " \"mySubDoc\": "
-          + SUB_DOCUMENT_JSON
-          + ","
-          + " \"myArray\": [{\"$numberInt\": \"1\"}, {\"$numberInt\": \"2\"}, {\"$numberInt\": \"3\"}],"
-          + " \"myBytes\": {\"$binary\": {\"base64\": \"S2Fma2Egcm9ja3Mh\", \"subType\": \"00\"}},"
-          + " \"myDate\": {\"$date\": {\"$numberLong\": \"1234567890\"}},"
-          + " \"myDecimal\": {\"$numberDecimal\": \"12345.6789\"}"
-          + "}";
-
-  private static final String BSON_DOCUMENT_ALL_TYPES_JSON =
-      "{"
-          + "\"arrayEmpty\": [], "
-          + "\"arraySimple\": [{\"$numberInt\": \"1\"}, {\"$numberInt\": \"2\"}, {\"$numberInt\": \"3\"}], "
-          + "\"arrayComplex\": [{\"a\": {\"$numberInt\": \"1\"}}, {\"a\": {\"$numberInt\": \"2\"}}], "
-          + "\"arrayMixedTypes\": [{\"$numberInt\": \"1\"}, {\"$numberInt\": \"2\"}, true,"
-          + " [{\"$numberInt\": \"1\"}, {\"$numberInt\": \"2\"}, {\"$numberInt\": \"3\"}],"
-          + " {\"a\": {\"$numberInt\": \"2\"}}], "
-          + "\"arrayComplexMixedTypes\": [{\"a\": {\"$numberInt\": \"1\"}}, {\"a\": \"a\"}], "
-          + "\"binary\": {\"$binary\": {\"base64\": \"S2Fma2Egcm9ja3Mh\", \"subType\": \"00\"}}, "
-          + "\"boolean\": true, "
-          + "\"code\": {\"$code\": \"int i = 0;\"}, "
-          + "\"codeWithScope\": {\"$code\": \"int x = y\", \"$scope\": {\"y\": {\"$numberInt\": \"1\"}}}, "
-          + "\"dateTime\": {\"$date\": {\"$numberLong\": \"1577836801000\"}}, "
-          + "\"decimal128\": {\"$numberDecimal\": \"1.0\"}, "
-          + "\"document\": {\"a\": {\"$numberInt\": \"1\"}}, "
-          + "\"double\": {\"$numberDouble\": \"62.0\"}, "
-          + "\"int32\": {\"$numberInt\": \"42\"}, "
-          + "\"int64\": {\"$numberLong\": \"52\"}, "
-          + "\"maxKey\": {\"$maxKey\": 1}, "
-          + "\"minKey\": {\"$minKey\": 1}, "
-          + "\"null\": null, "
-          + "\"objectId\": {\"$oid\": \"5f3d1bbde0ca4d2829c91e1d\"}, "
-          + "\"regex\": {\"$regularExpression\": {\"pattern\": \"^test.*regex.*xyz$\", \"options\": \"i\"}}, "
-          + "\"string\": \"the fox ...\", "
-          + "\"symbol\": {\"$symbol\": \"ruby stuff\"}, "
-          + "\"timestamp\": {\"$timestamp\": {\"t\": 305419896, \"i\": 5}}, "
-          + "\"undefined\": {\"$undefined\": true}"
-          + "}";
-
-  private static final BsonDocument BSON_DOCUMENT_ALL_TYPES =
-      RawBsonDocument.parse(BSON_DOCUMENT_ALL_TYPES_JSON);
-  private static final BsonDocument BSON_DOCUMENT = RawBsonDocument.parse(DOCUMENT_JSON);
   private static final BsonDocumentToRowConverter CONVERTER = new BsonDocumentToRowConverter();
 
   private static final BiFunction<DataType, BsonValue, Object> CONVERT =
@@ -275,10 +223,9 @@ public class BsonDocumentToRowConverterTest {
   @Test
   @DisplayName("test date and timestamp support")
   void testDateAndTimestampSupport() {
-    int oneDay = 86400000;
-    int oneDayAnd1Hour = oneDay + 3600000;
+    long oneDayAnd1Hour = TimeUnit.MILLISECONDS.convert(25, TimeUnit.HOURS);
 
-    BsonInt32 bsonInt32 = new BsonInt32(oneDayAnd1Hour);
+    BsonInt32 bsonInt32 = new BsonInt32((int) oneDayAnd1Hour);
     BsonInt64 bsonInt64 = new BsonInt64(oneDayAnd1Hour * 2L);
     BsonDouble bsonDouble = new BsonDouble(oneDayAnd1Hour * 3L);
     BsonDateTime bsonDateTime = new BsonDateTime(oneDayAnd1Hour * 4L);
@@ -287,36 +234,52 @@ public class BsonDocumentToRowConverterTest {
 
     assertAll(
         "Testing date support",
-        () -> assertEquals(new Date(oneDay), CONVERT.apply(DataTypes.DateType, bsonInt32)),
-        () -> assertEquals(new Date(oneDay * 2L), CONVERT.apply(DataTypes.DateType, bsonInt64)),
-        () -> assertEquals(new Date(oneDay * 3L), CONVERT.apply(DataTypes.DateType, bsonDouble)),
-        () -> assertEquals(new Date(oneDay * 4L), CONVERT.apply(DataTypes.DateType, bsonDateTime)),
-        () -> assertEquals(new Date(oneDay * 5L), CONVERT.apply(DataTypes.DateType, bsonTimestamp)),
         () ->
-            assertEquals(new Date(oneDay * 7L), CONVERT.apply(DataTypes.DateType, bsonDecimal128)));
+            assertEquals(
+                new Timestamp(oneDayAnd1Hour), CONVERT.apply(DataTypes.DateType, bsonInt32)),
+        () ->
+            assertEquals(
+                new Timestamp(oneDayAnd1Hour * 2L), CONVERT.apply(DataTypes.DateType, bsonInt64)),
+        () ->
+            assertEquals(
+                new Timestamp(oneDayAnd1Hour * 3L), CONVERT.apply(DataTypes.DateType, bsonDouble)),
+        () ->
+            assertEquals(
+                new Timestamp(oneDayAnd1Hour * 4L),
+                CONVERT.apply(DataTypes.DateType, bsonDateTime)),
+        () ->
+            assertEquals(
+                new Timestamp(oneDayAnd1Hour * 5L),
+                CONVERT.apply(DataTypes.DateType, bsonTimestamp)),
+        () ->
+            assertEquals(
+                new Timestamp(oneDayAnd1Hour * 7L),
+                CONVERT.apply(DataTypes.DateType, bsonDecimal128)));
 
     assertAll(
         "Testing datetime support",
         () ->
             assertEquals(
-                new Date(oneDayAnd1Hour), CONVERT.apply(DataTypes.TimestampType, bsonInt32)),
+                new Timestamp(oneDayAnd1Hour), CONVERT.apply(DataTypes.TimestampType, bsonInt32)),
         () ->
             assertEquals(
-                new Date(oneDayAnd1Hour * 2L), CONVERT.apply(DataTypes.TimestampType, bsonInt64)),
+                new Timestamp(oneDayAnd1Hour * 2L),
+                CONVERT.apply(DataTypes.TimestampType, bsonInt64)),
         () ->
             assertEquals(
-                new Date(oneDayAnd1Hour * 3L), CONVERT.apply(DataTypes.TimestampType, bsonDouble)),
+                new Timestamp(oneDayAnd1Hour * 3L),
+                CONVERT.apply(DataTypes.TimestampType, bsonDouble)),
         () ->
             assertEquals(
-                new Date(oneDayAnd1Hour * 4L),
+                new Timestamp(oneDayAnd1Hour * 4L),
                 CONVERT.apply(DataTypes.TimestampType, bsonDateTime)),
         () ->
             assertEquals(
-                new Date(oneDayAnd1Hour * 5L),
+                new Timestamp(oneDayAnd1Hour * 5L),
                 CONVERT.apply(DataTypes.TimestampType, bsonTimestamp)),
         () ->
             assertEquals(
-                new Date(oneDayAnd1Hour * 7L),
+                new Timestamp(oneDayAnd1Hour * 7L),
                 CONVERT.apply(DataTypes.TimestampType, bsonDecimal128)));
 
     List<String> validKeys = asList("myInt", "myDouble", "myDate", "myDecimal");
@@ -386,7 +349,8 @@ public class BsonDocumentToRowConverterTest {
         () ->
             assertArrayEquals(
                 BsonDocumentToRowConverter.documentToByteArray(BSON_DOCUMENT),
-                (byte[]) CONVERT.apply(DataTypes.BinaryType, BsonDocument.parse(DOCUMENT_JSON))));
+                (byte[])
+                    CONVERT.apply(DataTypes.BinaryType, BsonDocument.parse(BSON_DOCUMENT_JSON))));
 
     List<String> validKeys = asList("myString", "myBytes", "mySubDoc");
     Set<String> invalidKeys =
@@ -415,8 +379,9 @@ public class BsonDocumentToRowConverterTest {
   @DisplayName("test array support")
   void testArraySupport() {
     DataType dataType = DataTypes.createArrayType(DataTypes.IntegerType);
-    assertIterableEquals(
-        asList(1, 2, 3), (Iterable<?>) CONVERT.apply(dataType, BSON_DOCUMENT.get("myArray")));
+    assertArrayEquals(
+        asList(1, 2, 3).toArray(),
+        (Object[]) CONVERT.apply(dataType, BSON_DOCUMENT.get("myArray")));
 
     Set<String> invalidKeys =
         BSON_DOCUMENT.keySet().stream()
@@ -503,7 +468,7 @@ public class BsonDocumentToRowConverterTest {
         new GenericRowWithSchema(
             asList("S2Fma2Egcm9ja3Mh", "2020-01-01T07:27:07Z", null).toArray(), structType);
 
-    BsonDocument mySubDoc = BsonDocument.parse(SUB_DOCUMENT_JSON);
+    BsonDocument mySubDoc = BsonDocument.parse(SUB_BSON_DOCUMENT_JSON);
     mySubDoc.remove("C");
     assertEquals(genericRowWithSchemaWithNull, CONVERT.apply(structType, mySubDoc));
 
@@ -519,7 +484,7 @@ public class BsonDocumentToRowConverterTest {
                 () -> CONVERT.apply(structType, BSON_DOCUMENT.get(k)),
                 format("Expected %s to fail", k)));
 
-    BsonDocument invalidDoc = BsonDocument.parse(SUB_DOCUMENT_JSON);
+    BsonDocument invalidDoc = BsonDocument.parse(SUB_BSON_DOCUMENT_JSON);
     invalidDoc.remove("A");
     assertThrows(DataException.class, () -> CONVERT.apply(structType, invalidDoc));
   }
@@ -527,49 +492,11 @@ public class BsonDocumentToRowConverterTest {
   @Test
   @DisplayName("test fromBsonDocument")
   void testFromBsonDocument() {
-    GenericRowWithSchema subSubDocRow =
-        new GenericRowWithSchema(
-            singletonList("12345.6789").toArray(), new StructType().add("D", DataTypes.StringType));
-    GenericRowWithSchema subDocRow =
-        new GenericRowWithSchema(
-            asList(
-                    BSON_DOCUMENT.getDocument("mySubDoc").getBinary("A").getData(),
-                    new Date(1577863627000L),
-                    subSubDocRow)
-                .toArray(),
-            new StructType()
-                .add("A", DataTypes.BinaryType, true)
-                .add("B", DataTypes.TimestampType)
-                .add("C", subSubDocRow.schema()));
+    BsonDocumentToRowConverter bsonDocumentToRowConverter =
+        new BsonDocumentToRowConverter(ALL_TYPES_ROW.schema());
+    GenericRowWithSchema actual = bsonDocumentToRowConverter.toRow(BSON_DOCUMENT_ALL_TYPES);
 
-    StructType schema =
-        new StructType()
-            .add("_id", DataTypes.StringType, true)
-            .add("myString", DataTypes.StringType, true)
-            .add("myInt", DataTypes.IntegerType, true)
-            .add("myDouble", DataTypes.DoubleType, true)
-            .add("mySubDoc", subDocRow.schema(), true)
-            .add("myArray", DataTypes.createArrayType(DataTypes.IntegerType, true), true)
-            .add("myBytes", DataTypes.BinaryType, true)
-            .add("myDate", DataTypes.TimestampType, true)
-            .add("myDecimal", DataTypes.createDecimalType(), true);
-
-    BsonDocumentToRowConverter bsonDocumentToRowConverter = new BsonDocumentToRowConverter(schema);
-    List<Object> values =
-        asList(
-            "5f15aab12435743f9bd126a4",
-            "some foo bla text",
-            42,
-            20.21,
-            subDocRow,
-            asList(1, 2, 3),
-            BSON_DOCUMENT.getBinary("myBytes").getData(),
-            new Date(BSON_DOCUMENT.getDateTime("myDate").getValue()),
-            BSON_DOCUMENT.getDecimal128("myDecimal").decimal128Value().bigDecimalValue());
-
-    assertEquals(
-        new GenericRowWithSchema(values.toArray(), schema),
-        bsonDocumentToRowConverter.toRow(BSON_DOCUMENT));
+    assertRows(ALL_TYPES_ROW, actual);
   }
 
   @Test
@@ -580,5 +507,36 @@ public class BsonDocumentToRowConverterTest {
         () -> CONVERT.apply(DataTypes.CalendarIntervalType, new BsonInt32(123)));
     assertThrows(
         DataException.class, () -> CONVERT.apply(DataTypes.BinaryType, new BsonInt32(123)));
+  }
+
+  private void assertRows(final GenericRowWithSchema expected, final GenericRowWithSchema actual) {
+    assertEquals(expected.schema(), actual.schema());
+
+    for (int i = 0; i < expected.values().length; i++) {
+      Object expectedValue = expected.values()[i];
+      Object actualValue = actual.values()[i];
+      assertRowValues(expectedValue, actualValue);
+    }
+  }
+
+  private void assertRowValues(final Object expectedValue, final Object actualValue) {
+    if (expectedValue == null || actualValue == null) {
+      assertEquals(expectedValue, actualValue);
+    } else if (expectedValue instanceof GenericRowWithSchema
+        && actualValue instanceof GenericRowWithSchema) {
+      assertRows((GenericRowWithSchema) expectedValue, (GenericRowWithSchema) actualValue);
+    } else if (expectedValue.getClass() == byte[].class) {
+      assertArrayEquals((byte[]) expectedValue, (byte[]) actualValue);
+    } else if (expectedValue.getClass() == Object[].class) {
+      Object[] expectedValues = (Object[]) expectedValue;
+      Object[] actualValues = (Object[]) actualValue;
+      assertEquals(
+          expectedValues.length, actualValues.length, "Different lengths for array of Objects");
+      for (int i = 0; i < expectedValues.length; i++) {
+        assertRowValues(expectedValues[i], actualValues[i]);
+      }
+    } else {
+      assertEquals(expectedValue, actualValue);
+    }
   }
 }
