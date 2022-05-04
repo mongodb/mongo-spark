@@ -18,7 +18,6 @@
 package com.mongodb.spark.sql.connector.schema;
 
 import static java.lang.String.format;
-import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.groupingBy;
 
 import java.math.BigDecimal;
@@ -48,6 +47,7 @@ import org.jetbrains.annotations.VisibleForTesting;
 
 import org.bson.BsonDocument;
 import org.bson.BsonValue;
+import org.bson.conversions.Bson;
 
 import com.mongodb.client.model.Aggregates;
 
@@ -75,12 +75,10 @@ public final class InferSchema {
     ReadConfig readConfig =
         MongoConfig.readConfig(options.asCaseSensitiveMap())
             .withOptions(options.asCaseSensitiveMap());
+    ArrayList<Bson> samplePipeline = new ArrayList<>(readConfig.getAggregationPipeline());
+    samplePipeline.add(Aggregates.sample(readConfig.getInferSchemaSampleSize()));
     return inferSchema(
-        readConfig.withCollection(
-            coll ->
-                coll.aggregate(
-                        singletonList(Aggregates.sample(readConfig.getInferSchemaSampleSize())))
-                    .into(new ArrayList<>())),
+        readConfig.withCollection(coll -> coll.aggregate(samplePipeline).into(new ArrayList<>())),
         readConfig);
   }
 
