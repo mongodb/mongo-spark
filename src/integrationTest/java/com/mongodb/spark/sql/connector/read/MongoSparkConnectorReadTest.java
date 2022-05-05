@@ -67,8 +67,10 @@ import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
 import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
-  private static final String READ_RESOURCES_JSON_PATH =
-      "src/integrationTest/resources/data/read/*.json";
+  private static final String READ_RESOURCES_HOBBITS_JSON_PATH =
+      "src/integrationTest/resources/data/read/hobbits.json";
+  private static final String READ_RESOURCES_INFER_SCHEMA_JSON_PATH =
+      "src/integrationTest/resources/data/read/infer_schema.json";
 
   private static final String BSON_DOCUMENT_JSON =
       "{"
@@ -149,7 +151,7 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
     SparkSession spark = getOrCreateSparkSession();
 
     List<BsonDocument> collectionData =
-        toBsonDocuments(spark.read().textFile(READ_RESOURCES_JSON_PATH));
+        toBsonDocuments(spark.read().textFile(READ_RESOURCES_HOBBITS_JSON_PATH));
     getCollection().insertMany(collectionData);
 
     StructType schema =
@@ -170,21 +172,48 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
 
     String collectionName = "inferredTest";
     List<BsonDocument> collectionData =
-        toBsonDocuments(spark.read().textFile(READ_RESOURCES_JSON_PATH));
+        toBsonDocuments(spark.read().textFile(READ_RESOURCES_INFER_SCHEMA_JSON_PATH));
     getDatabase()
         .getCollection(collectionName)
         .withDocumentClass(BsonDocument.class)
         .insertMany(collectionData);
 
-    assertIterableEquals(
-        collectionData,
-        toBsonDocuments(
-            spark
-                .read()
-                .format("mongodb")
-                .option(ReadConfig.COLLECTION_NAME_CONFIG, collectionName)
-                .load()
-                .toJSON()));
+    Dataset<Row> dataSet =
+        spark
+            .read()
+            .format("mongodb")
+            .option(ReadConfig.COLLECTION_NAME_CONFIG, collectionName)
+            .load();
+
+    StructType expectedSchema =
+        createStructType(
+            asList(
+                createStructField("_id", DataTypes.IntegerType, true),
+                createStructField("email", DataTypes.StringType, true),
+                createStructField("misc", DataTypes.StringType, true),
+                createStructField("name", DataTypes.StringType, true)));
+
+    assertEquals(expectedSchema, dataSet.schema());
+    assertEquals(20, dataSet.count());
+
+    // Ensure pipeline options are passed to infer schema
+    dataSet =
+        spark
+            .read()
+            .format("mongodb")
+            .option(ReadConfig.COLLECTION_NAME_CONFIG, collectionName)
+            .option(ReadConfig.AGGREGATION_PIPELINE_CONFIG, "{$match: {email: {$exists: false}}}")
+            .load();
+
+    expectedSchema =
+        createStructType(
+            asList(
+                createStructField("_id", DataTypes.IntegerType, true),
+                createStructField("misc", DataTypes.StringType, true),
+                createStructField("name", DataTypes.StringType, true)));
+
+    assertEquals(expectedSchema, dataSet.schema());
+    assertEquals(14, dataSet.count());
   }
 
   @Test
@@ -192,7 +221,7 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
     SparkSession spark = getOrCreateSparkSession();
 
     List<BsonDocument> collectionData =
-        toBsonDocuments(spark.read().textFile(READ_RESOURCES_JSON_PATH));
+        toBsonDocuments(spark.read().textFile(READ_RESOURCES_HOBBITS_JSON_PATH));
     getCollection().insertMany(collectionData);
     getCollection().insertOne(BsonDocument.parse("{_id: 10, name: 'Bombur'}"));
 

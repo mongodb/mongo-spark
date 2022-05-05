@@ -1,0 +1,20 @@
+{"_id":1, "name": "Locke Shute", "misc": "Research and Development"}
+{"_id":2, "name": "Darbie Coxen", "email": "dcoxen1@example.com"}
+{"_id":3, "name": "Darn Brahm", "email": "dbrahm2@example.com"}
+{"_id":4, "name": "Serge Wharby", "misc": "Sales"}
+{"_id":5, "name": "Danya Yerrell", "misc": {"job Title":  "Sales exec"}}
+{"_id":6, "name": "Winni Rance"}
+{"_id":7, "name": "Sondra Legendre", "email": "slegendre6@example.com", "misc": "Business Development"}
+{"_id":8, "name": "Parker Lampart"}
+{"_id":9, "name": "Ingaberg Nelles"}
+{"_id":10, "name": "Robbert Dainty"}
+{"_id":11, "name": "Edd Aldersea", "email": "ealderseaa@example.com", "misc": "Business Development"}
+{"_id":12, "name": "Ramsay Membry", "misc": "Training"}
+{"_id":13, "name": "Emyle Happert", "misc": "Product Management"}
+{"_id":14, "name": "Oralee Gommey", "email": "ogommeyd@example.com", "misc": "Marketing"}
+{"_id":15, "name": "Dillie Stuckey", "misc": "Legal"}
+{"_id":16, "name": "Kristien Cheeld"}
+{"_id":17, "name": "Vin Soldan", "misc": 15867}
+{"_id":18, "name": "Jacquelin Dumbrill", "misc": "Product Management"}
+{"_id":19, "name": "Cristobal McKern", "misc": ["Training", 1423]}
+{"_id":20, "name": "Loretta Filipovic", "email": "lfilipovicj@example.com"}
