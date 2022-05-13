@@ -23,6 +23,7 @@ import static java.util.Collections.singletonList;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.sql.Date;
 import java.sql.Timestamp;
 
 import org.apache.spark.sql.Row;
@@ -57,7 +58,7 @@ abstract class SchemaTest {
                   "abc".getBytes(StandardCharsets.UTF_8),
                   true,
                   (byte) 1,
-                  new Timestamp(3600000L),
+                  new Date(3600000L),
                   2.0,
                   3.0f,
                   5,

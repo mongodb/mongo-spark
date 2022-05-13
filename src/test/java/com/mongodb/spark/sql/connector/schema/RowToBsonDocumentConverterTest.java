@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
+import java.sql.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -38,6 +39,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import org.bson.BsonArray;
+import org.bson.BsonDateTime;
 import org.bson.BsonDecimal128;
 import org.bson.BsonDocument;
 import org.bson.types.Decimal128;
@@ -77,6 +79,17 @@ public class RowToBsonDocumentConverterTest extends SchemaTest {
                     "decimalType",
                     DataTypes.createDecimalType(bigDecimal.precision(), bigDecimal.scale()),
                     true));
+    assertEquals(expected, CONVERTER.fromRow(row));
+  }
+
+  @Test
+  @DisplayName("test date types")
+  void testDateTypes() {
+    Date date = Date.valueOf("2022-05-01");
+    Row row =
+        new GenericRowWithSchema(
+            new Object[] {date}, new StructType().add("dateType", DataTypes.DateType, true));
+    BsonDocument expected = new BsonDocument("dateType", new BsonDateTime(date.getTime()));
     assertEquals(expected, CONVERTER.fromRow(row));
   }
 
