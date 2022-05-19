@@ -17,17 +17,18 @@
 
 package com.mongodb.spark.sql.connector;
 
-import static java.lang.String.format;
-import static java.util.Arrays.asList;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-
+import com.mongodb.MongoCommandException;
+import com.mongodb.MongoNamespace;
+import com.mongodb.client.model.Filters;
+import com.mongodb.spark.sql.connector.assertions.Assertions;
+import com.mongodb.spark.sql.connector.config.MongoConfig;
+import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.config.WriteConfig;
+import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import org.apache.spark.sql.catalyst.analysis.NamespaceAlreadyExistsException;
 import org.apache.spark.sql.catalyst.analysis.NoSuchNamespaceException;
 import org.apache.spark.sql.catalyst.analysis.NoSuchTableException;
+import org.apache.spark.sql.catalyst.analysis.NonEmptyNamespaceException;
 import org.apache.spark.sql.catalyst.analysis.TableAlreadyExistsException;
 import org.apache.spark.sql.connector.catalog.Identifier;
 import org.apache.spark.sql.connector.catalog.NamespaceChange;
@@ -38,20 +39,17 @@ import org.apache.spark.sql.connector.catalog.TableChange;
 import org.apache.spark.sql.connector.expressions.Transform;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
+import org.bson.conversions.Bson;
 import org.jetbrains.annotations.TestOnly;
 import org.jetbrains.annotations.VisibleForTesting;
 
-import org.bson.conversions.Bson;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
-import com.mongodb.MongoCommandException;
-import com.mongodb.MongoNamespace;
-import com.mongodb.client.model.Filters;
-
-import com.mongodb.spark.sql.connector.assertions.Assertions;
-import com.mongodb.spark.sql.connector.config.MongoConfig;
-import com.mongodb.spark.sql.connector.config.ReadConfig;
-import com.mongodb.spark.sql.connector.config.WriteConfig;
-import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
+import static java.lang.String.format;
+import static java.util.Arrays.asList;
 
 /** Spark Catalog methods for working with namespaces (databases) and tables (collections). */
 public class MongoCatalog implements TableCatalog, SupportsNamespaces {
@@ -183,12 +181,31 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   }
 
   /**
+   * Drop a namespace from the catalog with cascade mode, recursively dropping all objects within
+   * the namespace if cascade is true.
+   *
+   * <p>If the catalog implementation does not support this operation, it may throw {@link
+   * UnsupportedOperationException}.
+   *
+   * @param namespace a multi-part namespace
+   * @param cascade When true, deletes all objects under the namespace
+   * @return true if the namespace was dropped
+   * @throws NoSuchNamespaceException If the namespace does not exist (optional)
+   * @throws NonEmptyNamespaceException If the namespace is non-empty and cascade is false
+   * @throws UnsupportedOperationException If drop is not a supported operation
+   */
+  @Override
+  public boolean dropNamespace(final String[] namespace, final boolean cascade)
+      throws NoSuchNamespaceException, NonEmptyNamespaceException {
+    return dropNamespace(namespace);
+  }
+
+  /**
    * Drop a database.
    *
    * @param namespace (database) a multi-part namespace
    * @return true if the namespace (database) was dropped
    */
-  @Override
   public boolean dropNamespace(final String[] namespace) {
     assertInitialized();
     if (namespaceExists(namespace)) {
@@ -243,7 +260,12 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
     properties.put(
         MongoConfig.READ_PREFIX + MongoConfig.DATABASE_NAME_CONFIG, identifier.namespace()[0]);
     properties.put(MongoConfig.READ_PREFIX + MongoConfig.COLLECTION_NAME_CONFIG, identifier.name());
-    return new MongoTable(MongoConfig.readConfig(properties));
+
+    CaseInsensitiveStringMap map = new CaseInsensitiveStringMap(properties);
+    return new MongoTable(
+        new MongoTableProvider().inferSchema(map), MongoConfig.readConfig(properties));
+
+    // return new MongoTable(MongoConfig.readConfig(properties));
   }
 
   /**

@@ -47,12 +47,13 @@ java {
 repositories {
     mavenCentral()
     maven("https://jitpack.io")
+    maven("https://repository.apache.org/content/groups/snapshots")
 }
 
 extra.apply {
     set("annotationsVersion", "22.0.0")
     set("mongodbDriverVersion", "[4.5.0,4.5.99)")
-    set("sparkVersion", "3.1.2")
+    set("sparkVersion", "3.4.0-SNAPSHOT")
 
     // Testing dependencies
     set("junitJupiterVersion", "5.7.2")
@@ -66,10 +67,10 @@ extra.apply {
 dependencies {
     compileOnly("org.jetbrains:annotations:${project.extra["annotationsVersion"]}")
 
-    implementation("org.apache.spark:spark-core_2.12:${project.extra["sparkVersion"]}")
-    implementation("org.apache.spark:spark-sql_2.12:${project.extra["sparkVersion"]}")
-    implementation("org.apache.spark:spark-catalyst_2.12:${project.extra["sparkVersion"]}")
-    implementation("org.apache.spark:spark-streaming_2.12:${project.extra["sparkVersion"]}")
+    implementation("org.apache.spark:spark-core_2.13:${project.extra["sparkVersion"]}")
+    implementation("org.apache.spark:spark-sql_2.13:${project.extra["sparkVersion"]}")
+    implementation("org.apache.spark:spark-catalyst_2.13:${project.extra["sparkVersion"]}")
+    implementation("org.apache.spark:spark-streaming_2.13:${project.extra["sparkVersion"]}")
 
     implementation("org.mongodb:mongodb-driver-sync:${project.extra["mongodbDriverVersion"]}")
 
@@ -94,6 +95,21 @@ java {
 tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"
     options.release.set(8)
+}
+
+tasks.withType<JavaExec>().configureEach {
+    jvmArgs("--add-opens", "java.base/java.util=ALL-UNNAMED")
+    jvmArgs("--add-opens", "java.base/java.lang.invoke=ALL-UNNAMED")
+    jvmArgs("--add-opens", "java.base/sun.nio.ch=ALL-UNNAMED")
+    jvmArgs("--add-opens", "java.base/java.nio=ALL-UNNAMED")
+    jvmArgs("--add-opens", "java.base/java.nio.invoke=ALL-UNNAMED")
+}
+
+tasks.withType<Exec>().configureEach {
+    args("--add-opens", "java.base/java.lang=ALL-UNNAMED")
+    args("--add-opens", "java.base/java.lang.invoke=ALL-UNNAMED")
+    args("--add-opens", "java.base/java.nio=ALL-UNNAMED")
+    args("--add-opens", "java.base/sun.nio.ch=ALL-UNNAMED")
 }
 
 /*
@@ -308,6 +324,12 @@ publishing {
 signing {
     val signingKey: String? by project
     val signingPassword: String? by project
+
+    setRequired {
+        // signing is only required if the artifacts are to be published
+        gradle.taskGraph.allTasks.any { it is PublishToMavenRepository }
+    }
+
     useInMemoryPgpKeys(signingKey, signingPassword)
     sign(publishing.publications["mavenJava"])
 }
