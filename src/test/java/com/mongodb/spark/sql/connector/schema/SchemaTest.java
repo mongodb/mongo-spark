@@ -94,6 +94,7 @@ abstract class SchemaTest {
           + SUB_BSON_DOCUMENT_JSON
           + ","
           + " \"myArray\": [{\"$numberInt\": \"1\"}, {\"$numberInt\": \"2\"}, {\"$numberInt\": \"3\"}],"
+          + " \"myNullArray\": null,"
           + " \"myBytes\": {\"$binary\": {\"base64\": \"S2Fma2Egcm9ja3Mh\", \"subType\": \"00\"}},"
           + " \"myDate\": {\"$date\": {\"$numberLong\": \"1234567890\"}},"
           + " \"myDecimal\": {\"$numberDecimal\": \"12345.6789\"}"

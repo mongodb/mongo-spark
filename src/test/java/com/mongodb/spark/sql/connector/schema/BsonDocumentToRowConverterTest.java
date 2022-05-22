@@ -85,6 +85,7 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
                     + "\"B\": \"2020-01-01T07:27:07Z\", "
                     + "\"C\": {\"D\": \"12345.6789\"}}");
             put("myArray", "[1, 2, 3]");
+            put("myNullArray", "null");
             put("myBytes", "S2Fma2Egcm9ja3Mh");
             put("myDate", "1970-01-15T06:56:07.89Z");
             put("myDecimal", "12345.6789");
@@ -383,9 +384,11 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
         asList(1, 2, 3).toArray(),
         (Object[]) CONVERT.apply(dataType, BSON_DOCUMENT.get("myArray")));
 
+    assertNull(CONVERT.apply(dataType, BSON_DOCUMENT.get("myNullArray")));
+
     Set<String> invalidKeys =
         BSON_DOCUMENT.keySet().stream()
-            .filter(k -> !k.equals("myArray"))
+            .filter(k -> !k.equals("myArray") & !k.equals("myNullArray"))
             .collect(Collectors.toSet());
 
     invalidKeys.forEach(

@@ -249,7 +249,9 @@ public final class BsonDocumentToRowConverter implements Serializable {
       final ArrayType dataType,
       final BsonValue bsonValue,
       final JsonWriterSettings jsonWriterSettings) {
-    if (!bsonValue.isArray()) {
+    if (bsonValue.isNull()) {
+      return null;
+    } else if (!bsonValue.isArray()) {
       throw invalidFieldData(fieldName, dataType, bsonValue);
     }
     BsonArray bsonArray = bsonValue.asArray();
