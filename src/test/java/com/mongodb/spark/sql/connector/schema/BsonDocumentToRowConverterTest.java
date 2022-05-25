@@ -30,7 +30,6 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -52,12 +51,15 @@ import org.bson.BsonDocument;
 import org.bson.BsonDouble;
 import org.bson.BsonInt32;
 import org.bson.BsonInt64;
+import org.bson.BsonNull;
 import org.bson.BsonString;
 import org.bson.BsonTimestamp;
 import org.bson.BsonValue;
 import org.bson.types.Decimal128;
 
 import com.mongodb.spark.sql.connector.exceptions.DataException;
+
+import scala.collection.JavaConverters;
 
 public class BsonDocumentToRowConverterTest extends SchemaTest {
 
@@ -88,6 +90,7 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
             put("myBytes", "S2Fma2Egcm9ja3Mh");
             put("myDate", "1970-01-15T06:56:07.89Z");
             put("myDecimal", "12345.6789");
+            put("null", null);
           }
         };
 
@@ -115,7 +118,8 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
         () -> assertEquals((byte) 1234567890000L, CONVERT.apply(DataTypes.ByteType, bsonTimestamp)),
         () ->
             assertEquals((byte) 1234567890.1234, CONVERT.apply(DataTypes.ByteType, bsonDecimal128)),
-        () -> assertEquals((byte) 987654321.54321, CONVERT.apply(DataTypes.ByteType, bsonString)));
+        () -> assertEquals((byte) 987654321.54321, CONVERT.apply(DataTypes.ByteType, bsonString)),
+        () -> assertNull(CONVERT.apply(DataTypes.ByteType, BsonNull.VALUE)));
 
     assertAll(
         "Testing int16 support",
@@ -129,8 +133,8 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
         () ->
             assertEquals(
                 (short) 1234567890.1234, CONVERT.apply(DataTypes.ShortType, bsonDecimal128)),
-        () ->
-            assertEquals((short) 987654321.54321, CONVERT.apply(DataTypes.ShortType, bsonString)));
+        () -> assertEquals((short) 987654321.54321, CONVERT.apply(DataTypes.ShortType, bsonString)),
+        () -> assertNull(CONVERT.apply(DataTypes.ShortType, BsonNull.VALUE)));
 
     assertAll(
         "Testing int32 support",
@@ -144,8 +148,8 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
         () ->
             assertEquals(
                 (int) 1234567890.1234, CONVERT.apply(DataTypes.IntegerType, bsonDecimal128)),
-        () ->
-            assertEquals((int) 987654321.54321, CONVERT.apply(DataTypes.IntegerType, bsonString)));
+        () -> assertEquals((int) 987654321.54321, CONVERT.apply(DataTypes.IntegerType, bsonString)),
+        () -> assertNull(CONVERT.apply(DataTypes.IntegerType, BsonNull.VALUE)));
 
     assertAll(
         "Testing int64 support",
@@ -156,7 +160,8 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
         () -> assertEquals(1234567890000L, CONVERT.apply(DataTypes.LongType, bsonTimestamp)),
         () ->
             assertEquals((long) 1234567890.1234, CONVERT.apply(DataTypes.LongType, bsonDecimal128)),
-        () -> assertEquals((long) 987654321.54321, CONVERT.apply(DataTypes.LongType, bsonString)));
+        () -> assertEquals((long) 987654321.54321, CONVERT.apply(DataTypes.LongType, bsonString)),
+        () -> assertNull(CONVERT.apply(DataTypes.LongType, BsonNull.VALUE)));
 
     assertAll(
         "Testing float32 support",
@@ -170,8 +175,8 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
         () ->
             assertEquals(
                 (float) 1234567890.1234, CONVERT.apply(DataTypes.FloatType, bsonDecimal128)),
-        () ->
-            assertEquals((float) 987654321.54321, CONVERT.apply(DataTypes.FloatType, bsonString)));
+        () -> assertEquals((float) 987654321.54321, CONVERT.apply(DataTypes.FloatType, bsonString)),
+        () -> assertNull(CONVERT.apply(DataTypes.FloatType, BsonNull.VALUE)));
 
     assertAll(
         "Testing float64 support",
@@ -185,7 +190,8 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
             assertEquals(
                 (double) 1234567890000L, CONVERT.apply(DataTypes.DoubleType, bsonTimestamp)),
         () -> assertEquals(1234567890.1234, CONVERT.apply(DataTypes.DoubleType, bsonDecimal128)),
-        () -> assertEquals(987654321.54321, CONVERT.apply(DataTypes.DoubleType, bsonString)));
+        () -> assertEquals(987654321.54321, CONVERT.apply(DataTypes.DoubleType, bsonString)),
+        () -> assertNull(CONVERT.apply(DataTypes.DoubleType, BsonNull.VALUE)));
 
     assertAll(
         "Testing decimal support",
@@ -204,7 +210,8 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
                 CONVERT.apply(DECIMAL_TYPE, bsonDecimal128)),
         () ->
             assertEquals(
-                new BigDecimal("987654321.54321"), CONVERT.apply(DECIMAL_TYPE, bsonString)));
+                new BigDecimal("987654321.54321"), CONVERT.apply(DECIMAL_TYPE, bsonString)),
+        () -> assertNull(CONVERT.apply(DECIMAL_TYPE, BsonNull.VALUE)));
 
     List<String> validKeys = asList("myInt", "myDouble", "myDate", "myDecimal");
     Set<String> invalidKeys =
@@ -254,7 +261,8 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
         () ->
             assertEquals(
                 new Timestamp(oneDayAnd1Hour * 7L),
-                CONVERT.apply(DataTypes.DateType, bsonDecimal128)));
+                CONVERT.apply(DataTypes.DateType, bsonDecimal128)),
+        () -> assertNull(CONVERT.apply(DataTypes.DateType, BsonNull.VALUE)));
 
     assertAll(
         "Testing datetime support",
@@ -280,7 +288,8 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
         () ->
             assertEquals(
                 new Timestamp(oneDayAnd1Hour * 7L),
-                CONVERT.apply(DataTypes.TimestampType, bsonDecimal128)));
+                CONVERT.apply(DataTypes.TimestampType, bsonDecimal128)),
+        () -> assertNull(CONVERT.apply(DataTypes.TimestampType, BsonNull.VALUE)));
 
     List<String> validKeys = asList("myInt", "myDouble", "myDate", "myDecimal");
     Set<String> invalidKeys =
@@ -309,7 +318,8 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
     assertAll(
         "Testing boolean support",
         () -> assertEquals(true, CONVERT.apply(DataTypes.BooleanType, BsonBoolean.TRUE)),
-        () -> assertEquals(false, CONVERT.apply(DataTypes.BooleanType, BsonBoolean.FALSE)));
+        () -> assertEquals(false, CONVERT.apply(DataTypes.BooleanType, BsonBoolean.FALSE)),
+        () -> assertNull(CONVERT.apply(DataTypes.BooleanType, BsonNull.VALUE)));
 
     Set<String> invalidKeys =
         BSON_DOCUMENT.keySet().stream()
@@ -350,7 +360,8 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
             assertArrayEquals(
                 BsonDocumentToRowConverter.documentToByteArray(BSON_DOCUMENT),
                 (byte[])
-                    CONVERT.apply(DataTypes.BinaryType, BsonDocument.parse(BSON_DOCUMENT_JSON))));
+                    CONVERT.apply(DataTypes.BinaryType, BsonDocument.parse(BSON_DOCUMENT_JSON))),
+        () -> assertNull(CONVERT.apply(DataTypes.BinaryType, BsonNull.VALUE)));
 
     List<String> validKeys = asList("myString", "myBytes", "mySubDoc");
     Set<String> invalidKeys =
@@ -378,10 +389,14 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
   @Test
   @DisplayName("test array support")
   void testArraySupport() {
+    BsonValue arrayContainingNull = BsonDocument.parse("{myArray: [null]}").get("myArray");
     DataType dataType = DataTypes.createArrayType(DataTypes.IntegerType);
     assertArrayEquals(
         asList(1, 2, 3).toArray(),
         (Object[]) CONVERT.apply(dataType, BSON_DOCUMENT.get("myArray")));
+    assertNull(CONVERT.apply(dataType, BsonNull.VALUE));
+    assertArrayEquals(
+        singletonList(null).toArray(), (Object[]) CONVERT.apply(dataType, arrayContainingNull));
 
     Set<String> invalidKeys =
         BSON_DOCUMENT.keySet().stream()
@@ -402,14 +417,25 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
     DataType dataType = DataTypes.createMapType(DataTypes.StringType, DataTypes.StringType);
 
     assertEquals(
-        new LinkedHashMap<String, String>() {
-          {
-            put("A", "S2Fma2Egcm9ja3Mh");
-            put("B", "2020-01-01T07:27:07Z");
-            put("C", "{\"D\": \"12345.6789\"}");
-          }
-        },
+        JavaConverters.mapAsScalaMap(
+            new HashMap<String, String>() {
+              {
+                put("A", "S2Fma2Egcm9ja3Mh");
+                put("B", "2020-01-01T07:27:07Z");
+                put("C", "{\"D\": \"12345.6789\"}");
+              }
+            }),
         CONVERT.apply(dataType, BSON_DOCUMENT.get("mySubDoc")));
+
+    assertNull(CONVERT.apply(dataType, BsonNull.VALUE));
+    assertEquals(
+        JavaConverters.mapAsScalaMap(
+            new HashMap<String, String>() {
+              {
+                put("A", null);
+              }
+            }),
+        CONVERT.apply(dataType, BsonDocument.parse("{mySubDoc: {A: null}}").get("mySubDoc")));
 
     Set<String> invalidKeys =
         BSON_DOCUMENT.keySet().stream()

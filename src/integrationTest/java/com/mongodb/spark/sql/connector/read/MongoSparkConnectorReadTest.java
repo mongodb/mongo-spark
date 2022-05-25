@@ -20,10 +20,12 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static org.apache.spark.sql.types.DataTypes.createStructField;
 import static org.apache.spark.sql.types.DataTypes.createStructType;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -44,6 +46,7 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
 import org.apache.spark.sql.streaming.StreamingQuery;
 import org.apache.spark.sql.streaming.StreamingQueryException;
 import org.apache.spark.sql.streaming.Trigger;
@@ -164,6 +167,65 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
     assertIterableEquals(
         collectionData,
         toBsonDocuments(spark.read().format("mongodb").schema(schema).load().toJSON()));
+  }
+
+  @Test
+  void testReadsHandleNullsWithSchemaSupplied() {
+    SparkSession spark = getOrCreateSparkSession();
+
+    List<BsonDocument> collectionData =
+        singletonList(
+            BsonDocument.parse(
+                "{"
+                    + "_id: 1,"
+                    + "arrayNull: null,"
+                    + "arrayContainingNull: [null],"
+                    + "structNull: null,"
+                    + "structContainingNull: {A: null},"
+                    + "mapNull: null,"
+                    + "mapContainingNull: {A: null},"
+                    + "}"));
+    getCollection().insertMany(collectionData);
+
+    StructType schema =
+        new StructType()
+            .add("_id", DataTypes.IntegerType, true)
+            .add("arrayNull", DataTypes.createArrayType(DataTypes.StringType, true))
+            .add("arrayContainingNull", DataTypes.createArrayType(DataTypes.IntegerType, true))
+            .add(
+                "structNull",
+                new StructType().add("A", DataTypes.createArrayType(DataTypes.IntegerType, true)))
+            .add(
+                "structContainingNull",
+                new StructType().add("A", DataTypes.createArrayType(DataTypes.IntegerType, true)))
+            .add(
+                "mapNull",
+                DataTypes.createMapType(DataTypes.StringType, DataTypes.StringType, true))
+            .add(
+                "mapContainingNull",
+                DataTypes.createMapType(DataTypes.StringType, DataTypes.StringType, true));
+
+    Row row = spark.read().format("mongodb").schema(schema).load().first();
+
+    assertAll(
+        () -> assertEquals(1, row.getInt(0)),
+        () -> assertNull(row.get(1)),
+        () -> assertIterableEquals(singletonList(null), row.getList(2)),
+        () -> assertNull(row.get(3)),
+        () -> {
+          Object[] structValues = {null};
+          new StructType().add("A", DataTypes.createArrayType(DataTypes.IntegerType, true));
+          assertEquals(new GenericRowWithSchema(structValues, schema), row.getStruct(4));
+        },
+        () -> assertNull(row.get(5)),
+        () ->
+            assertEquals(
+                new HashMap<String, String>() {
+                  {
+                    put("A", null);
+                  }
+                },
+                row.getJavaMap(6)));
   }
 
   @Test
