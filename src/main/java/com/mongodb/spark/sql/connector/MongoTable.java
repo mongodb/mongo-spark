@@ -40,6 +40,8 @@ import org.slf4j.LoggerFactory;
 
 import com.mongodb.spark.connector.Versions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
+import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.read.MongoScanBuilder;
 import com.mongodb.spark.sql.connector.write.MongoWriteBuilder;
 
@@ -96,7 +98,10 @@ public class MongoTable implements Table, SupportsWrite, SupportsRead {
   /** The name of this table. */
   @Override
   public String name() {
-    return "MongoTable(" + mongoConfig.getNamespace() + ")";
+    if (mongoConfig instanceof ReadConfig || mongoConfig instanceof WriteConfig) {
+      return "MongoTable(" + mongoConfig.getNamespace() + ")";
+    }
+    return "MongoTable()";
   }
 
   /**

@@ -199,14 +199,14 @@ public interface MongoConfig extends Serializable {
   /** @return the database name to use for this configuration */
   default String getDatabaseName() {
     throw new UnsupportedOperationException(
-        "Unspecialised MongoConfig. Use `mongoConfig.toReadConfig()` "
+        "Unspecialized MongoConfig. Use `mongoConfig.toReadConfig()` "
             + "or `mongoConfig.toWriteConfig()` to specialize");
   }
 
   /** @return the collection name to use for this configuration */
   default String getCollectionName() {
     throw new UnsupportedOperationException(
-        "Unspecialised MongoConfig. Use `mongoConfig.toReadConfig()` "
+        "Unspecialized MongoConfig. Use `mongoConfig.toReadConfig()` "
             + "or `mongoConfig.toWriteConfig()` to specialize");
   }
 

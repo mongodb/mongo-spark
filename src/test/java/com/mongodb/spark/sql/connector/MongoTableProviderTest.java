@@ -20,6 +20,9 @@ package com.mongodb.spark.sql.connector;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.apache.spark.sql.connector.catalog.Table;
+import org.apache.spark.sql.connector.expressions.Transform;
+import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 import org.junit.jupiter.api.Test;
 
@@ -32,5 +35,18 @@ public class MongoTableProviderTest {
     assertEquals("mongodb", tableProvider.shortName());
     assertTrue(tableProvider.supportsExternalMetadata());
     assertEquals(0, tableProvider.inferPartitioning(CaseInsensitiveStringMap.empty()).length);
+  }
+
+  @Test
+  void testMongoTableProviderGetTable() {
+    MongoTableProvider tableProvider = new MongoTableProvider();
+
+    Transform[] partitioning = new Transform[0];
+
+    Table table =
+        tableProvider.getTable(new StructType(), partitioning, CaseInsensitiveStringMap.empty());
+    assertEquals("MongoTable()", table.name());
+    assertEquals(partitioning, table.partitioning());
+    assertEquals(CaseInsensitiveStringMap.empty(), table.properties());
   }
 }
