@@ -91,6 +91,14 @@ public class RowToBsonDocumentConverterTest extends SchemaTest {
     BsonDocument expected =
         new BsonDocument("listType", new BsonArray(singletonList(SIMPLE_BSON_DOCUMENT)));
     assertEquals(expected, CONVERTER.fromRow(row));
+
+    row =
+        new GenericRowWithSchema(
+            new Object[] {singletonList(SIMPLE_ROW)},
+            new StructType()
+                .add("listType", DataTypes.createArrayType(SIMPLE_ROW.schema(), true), true));
+
+    assertEquals(expected, CONVERTER.fromRow(row));
   }
 
   @Test
@@ -98,7 +106,7 @@ public class RowToBsonDocumentConverterTest extends SchemaTest {
   void testMapTypes() {
     Row row =
         new GenericRowWithSchema(
-            new Object[] {toMap("mapType", SIMPLE_ROW)},
+            new Object[] {toScalaMap("mapType", SIMPLE_ROW)},
             new StructType()
                 .add(
                     "mapType",
@@ -106,6 +114,17 @@ public class RowToBsonDocumentConverterTest extends SchemaTest {
                     true));
     BsonDocument expected =
         new BsonDocument("mapType", new BsonDocument("mapType", SIMPLE_BSON_DOCUMENT));
+    assertEquals(expected, CONVERTER.fromRow(row));
+
+    row =
+        new GenericRowWithSchema(
+            new Object[] {toMap("mapType", SIMPLE_ROW)},
+            new StructType()
+                .add(
+                    "mapType",
+                    DataTypes.createMapType(DataTypes.StringType, SIMPLE_ROW.schema(), true),
+                    true));
+
     assertEquals(expected, CONVERTER.fromRow(row));
   }
 
@@ -123,7 +142,7 @@ public class RowToBsonDocumentConverterTest extends SchemaTest {
 
     Row invalidMap =
         new GenericRowWithSchema(
-            new Object[] {toMap(1, 2)},
+            new Object[] {toScalaMap(1, 2)},
             new StructType()
                 .add(
                     "mapType",
@@ -156,9 +175,13 @@ public class RowToBsonDocumentConverterTest extends SchemaTest {
     return JavaConverters.collectionAsScalaIterableConverter(asList(values)).asScala().toSeq();
   }
 
-  private <K, V> scala.collection.Map<K, V> toMap(final K key, final V value) {
+  private <K, V> scala.collection.Map<K, V> toScalaMap(final K key, final V value) {
+    return JavaConverters.mapAsScalaMap(toMap(key, value));
+  }
+
+  private <K, V> Map<K, V> toMap(final K key, final V value) {
     Map<K, V> map = new HashMap<>();
     map.put(key, value);
-    return JavaConverters.mapAsScalaMap(map);
+    return map;
   }
 }

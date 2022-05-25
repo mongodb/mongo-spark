@@ -24,6 +24,7 @@ import static java.util.Collections.singletonList;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
+import java.util.Date;
 
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
@@ -65,7 +66,7 @@ abstract class SchemaTest {
                   null,
                   (short) 7,
                   "string",
-                  new Timestamp(18000000L))
+                  new Date(18000000L))
               .toArray(),
           new StructType()
               .add("binaryType", DataTypes.BinaryType, true)

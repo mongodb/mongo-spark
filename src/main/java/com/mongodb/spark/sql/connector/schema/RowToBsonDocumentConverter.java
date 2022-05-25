@@ -22,6 +22,7 @@ import static java.lang.String.format;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -55,6 +56,8 @@ import org.bson.types.Decimal128;
 
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import com.mongodb.spark.sql.connector.exceptions.DataException;
+
+import scala.collection.JavaConverters;
 
 /**
  * The helper for conversion of GenericRowWithSchema instances to BsonDocuments.
@@ -123,8 +126,6 @@ public final class RowToBsonDocumentConverter implements Serializable {
         return new BsonBinary((byte[]) data);
       } else if (DataTypes.BooleanType.acceptsType(dataType)) {
         return new BsonBoolean((Boolean) data);
-      } else if (DataTypes.DateType.acceptsType(dataType)) {
-        return new BsonDateTime(((Timestamp) data).getTime());
       } else if (DataTypes.DoubleType.acceptsType(dataType)) {
         return new BsonDouble(((Number) data).doubleValue());
       } else if (DataTypes.FloatType.acceptsType(dataType)) {
@@ -139,7 +140,11 @@ public final class RowToBsonDocumentConverter implements Serializable {
         return new BsonInt64(((Number) data).longValue());
       } else if (DataTypes.StringType.acceptsType(dataType)) {
         return new BsonString((String) data);
-      } else if (DataTypes.TimestampType.acceptsType(dataType)) {
+      } else if (DataTypes.DateType.acceptsType(dataType)
+          || DataTypes.TimestampType.acceptsType(dataType)) {
+        if (data instanceof Date) {
+          return new BsonDateTime(((Date) data).getTime());
+        }
         return new BsonDateTime(((Timestamp) data).getTime());
       } else if (dataType instanceof DecimalType) {
         BigDecimal bigDecimal =
@@ -150,7 +155,14 @@ public final class RowToBsonDocumentConverter implements Serializable {
       } else if (dataType instanceof ArrayType) {
         DataType elementType = ((ArrayType) dataType).elementType();
         BsonArray bsonArray = new BsonArray();
-        ((List<Object>) data).forEach(d -> bsonArray.add(toBsonValue(elementType, d)));
+
+        List<Object> listData;
+        if (data instanceof List) {
+          listData = (List<Object>) data;
+        } else {
+          listData = JavaConverters.seqAsJavaList((scala.collection.Seq<Object>) data);
+        }
+        listData.forEach(d -> bsonArray.add(toBsonValue(elementType, d)));
         return bsonArray;
       } else if (dataType instanceof MapType) {
         DataType keyType = ((MapType) dataType).keyType();
@@ -160,8 +172,13 @@ public final class RowToBsonDocumentConverter implements Serializable {
               format("Cannot cast %s into a BsonValue. Invalid key type %s.", data, keyType));
         }
         BsonDocument bsonDocument = new BsonDocument();
-        ((Map<String, Object>) data)
-            .forEach((k, v) -> bsonDocument.put(k, toBsonValue(valueType, v)));
+        Map<String, Object> mapData;
+        if (data instanceof Map) {
+          mapData = (Map<String, Object>) data;
+        } else {
+          mapData = JavaConverters.mapAsJavaMap((scala.collection.Map<String, Object>) data);
+        }
+        mapData.forEach((k, v) -> bsonDocument.put(k, toBsonValue(valueType, v)));
         return bsonDocument;
       } else if (dataType instanceof StructType) {
         Row row = (Row) data;
@@ -169,15 +186,7 @@ public final class RowToBsonDocumentConverter implements Serializable {
         for (StructField field : row.schema().fields()) {
           int fieldIndex = row.fieldIndex(field.name());
           if (!(field.nullable() && row.isNullAt(fieldIndex))) {
-            Object fieldValue;
-            if (field.dataType() instanceof MapType) {
-              fieldValue = row.getJavaMap(fieldIndex);
-            } else if (field.dataType() instanceof ArrayType) {
-              fieldValue = row.getList(fieldIndex);
-            } else {
-              fieldValue = row.get(fieldIndex);
-            }
-            bsonDocument.append(field.name(), toBsonValue(field.dataType(), fieldValue));
+            bsonDocument.append(field.name(), toBsonValue(field.dataType(), row.get(fieldIndex)));
           }
         }
         return bsonDocument;
