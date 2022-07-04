@@ -22,10 +22,12 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static org.apache.spark.sql.types.DataTypes.createStructField;
 import static org.apache.spark.sql.types.DataTypes.createStructType;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -100,13 +102,6 @@ abstract class PartitionerTestCase extends MongoSparkConnectorTestCase {
    * <p>Also ensures that any user supplied pipelines are included
    */
   void assertPartitionerCoversAllData(final Partitioner partitioner, final ReadConfig readConfig) {
-
-    List<String> expectedDocumentsIds =
-        readConfig
-            .withCollection(coll -> coll.aggregate(readConfig.getAggregationPipeline()))
-            .map(d -> d.getString("_id").getValue())
-            .into(new ArrayList<>());
-
     SparkSession spark = getOrCreateSparkSession();
     List<String> actualIds =
         spark
@@ -120,6 +115,25 @@ abstract class PartitionerTestCase extends MongoSparkConnectorTestCase {
             .map((MapFunction<Row, String>) r -> r.getString(0), Encoders.STRING())
             .collectAsList();
 
-    assertIterableEquals(expectedDocumentsIds, actualIds);
+    assertEquals(
+        new HashSet<>(actualIds).size(), actualIds.size(), "Partitioner returns duplicated ids");
+
+    List<String> expectedDocumentsIds =
+        readConfig
+            .withCollection(coll -> coll.aggregate(readConfig.getAggregationPipeline()))
+            .map(d -> d.getString("_id").getValue())
+            .into(new ArrayList<>());
+
+    assertIterableEquals(
+        expectedDocumentsIds,
+        actualIds,
+        () -> {
+          List<String> missing = new ArrayList<>(expectedDocumentsIds);
+          missing.removeAll(actualIds);
+          if (missing.isEmpty()) {
+            return null;
+          }
+          return "Missing ids: " + missing;
+        });
   }
 }
