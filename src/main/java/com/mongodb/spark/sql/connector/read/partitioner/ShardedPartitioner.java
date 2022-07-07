@@ -109,15 +109,9 @@ public final class ShardedPartitioner implements Partitioner {
 
     BsonDocument keyDocument = configCollectionMetadata.getDocument("key", new BsonDocument());
     if (keyDocument.keySet().size() > 1) {
-      LOGGER.warn(
-          "Compound shard key: '{}'. Not supported, please use an alternative partitioner.",
-          keyDocument.toJson());
       throw new MongoSparkException(
           "Invalid partitioner strategy. The Sharded partitioner does not support compound shard keys.");
     } else if (keyDocument.containsValue(new BsonString("hashed"))) {
-      LOGGER.warn(
-          "Hashed shard key: '{}'. Not supported, please use an alternative partitioner.",
-          keyDocument.toJson());
       throw new MongoSparkException(
           "Invalid partitioner strategy. The Sharded partitioner does not support hashed shard keys.");
     }
