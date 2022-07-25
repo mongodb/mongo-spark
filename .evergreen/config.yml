@@ -437,7 +437,7 @@ buildvariants:
       - name: "integration-test-task"
 
   - matrix_name: "integration-tests-jdk11-sharded"
-    matrix_spec: { jdk: "jdk11", version: ["4.2", "5.0", "6.0"], topology: "sharded-cluster" }
+    matrix_spec: { jdk: "jdk11", version: ["4.4", "5.0", "6.0"], topology: "sharded-cluster" }
     display_name: "Integration tests: ${jdk} ${version} ${topology}"
     tags: [ "integration-test" ]
     run_on:
