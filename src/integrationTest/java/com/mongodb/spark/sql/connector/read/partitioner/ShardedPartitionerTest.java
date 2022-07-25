@@ -24,6 +24,7 @@ import static java.util.Collections.singletonList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -37,6 +38,7 @@ import org.bson.BsonDocument;
 import com.mongodb.client.MongoCollection;
 
 import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 
 public class ShardedPartitionerTest extends PartitionerTestCase {
@@ -62,14 +64,26 @@ public class ShardedPartitionerTest extends PartitionerTestCase {
   }
 
   @Test
-  void testPartitionsTheCollectionAsExpectedWithMultipleShardKeys() {
+  void testThrowsExceptionWithCompoundShardKeys() {
     assumeTrue(isSharded());
 
     ReadConfig readConfig = createReadConfig("partitionsWithMultipleShardKeys");
-    shardCollection(readConfig.getNamespace(), "{_id: 1, pk: 1}");
+    shardCollection(readConfig.getNamespace(), "{_id: 1, dups: 1}");
+    loadSampleData(1000, 10, readConfig);
+
+    assertThrows(MongoSparkException.class, () -> PARTITIONER.generatePartitions(readConfig));
+  }
+
+  @Test
+  void testThrowsExceptionWithHashedShardKeys() {
+    assumeTrue(isSharded());
+    assumeTrue(isAtLeastFourDotFour());
+
+    ReadConfig readConfig = createReadConfig("partitionsWithMultipleShardKeys");
+    shardCollection(readConfig.getNamespace(), "{_id: 'hashed'}");
     loadSampleData(100, 10, readConfig);
 
-    assertPartitioner(readConfig);
+    assertThrows(MongoSparkException.class, () -> PARTITIONER.generatePartitions(readConfig));
   }
 
   @Test

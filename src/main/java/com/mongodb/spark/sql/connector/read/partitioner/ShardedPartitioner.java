@@ -46,6 +46,7 @@ import com.mongodb.client.model.Sorts;
 
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 
 /**
@@ -54,7 +55,8 @@ import com.mongodb.spark.sql.connector.read.MongoInputPartition;
  * <p>Uses the chunks collection and partitions the collection based on the sharded collections
  * chunk ranges.
  *
- * <p><strong>Note:</strong> Does not support collections sharded using hashed shard keys.
+ * <p><strong>Note:</strong> Does not support collections sharded using hashed shard keys or
+ * compound shard keys.
  */
 @ApiStatus.Internal
 public final class ShardedPartitioner implements Partitioner {
@@ -87,7 +89,7 @@ public final class ShardedPartitioner implements Partitioner {
                     .getDatabase(CONFIG_DATABASE)
                     .getCollection(CONFIG_COLLECTIONS, BsonDocument.class)
                     .find(Filters.eq(ID_FIELD, readConfig.getNamespace().getFullName()))
-                    .projection(Projections.include("_id", "timestamp", "uuid", "dropped"))
+                    .projection(Projections.include("_id", "timestamp", "uuid", "dropped", "key"))
                     .first());
 
     if (configCollectionMetadata == null) {
@@ -103,6 +105,15 @@ public final class ShardedPartitioner implements Partitioner {
           "Collection '{}' has been dropped continuing with a single partition.",
           readConfig.getNamespace().getFullName());
       return new SinglePartitionPartitioner().generatePartitions(readConfig);
+    }
+
+    BsonDocument keyDocument = configCollectionMetadata.getDocument("key", new BsonDocument());
+    if (keyDocument.keySet().size() > 1) {
+      throw new MongoSparkException(
+          "Invalid partitioner strategy. The Sharded partitioner does not support compound shard keys.");
+    } else if (keyDocument.containsValue(new BsonString("hashed"))) {
+      throw new MongoSparkException(
+          "Invalid partitioner strategy. The Sharded partitioner does not support hashed shard keys.");
     }
 
     // Depending on MongoDB version the chunks collection will either use the collection namespace

@@ -277,7 +277,7 @@ public class MongoSparkConnectorHelper
           .runCommand(
               BsonDocument.parse(
                   format(
-                      "{shardCollection: '%s', key: %s, unique: true}",
+                      "{shardCollection: '%s', key: %s}",
                       mongoNamespace.getFullName(), shardKeyJson)));
 
       sleep(1000);
