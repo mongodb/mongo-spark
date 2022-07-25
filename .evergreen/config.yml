@@ -361,10 +361,6 @@ axes:
         display_name: "4.0"
         variables:
           VERSION: "4.0"
-      - id: "4.2"
-        display_name: "4.2"
-        variables:
-          VERSION: "4.2"
       - id: "4.4"
         display_name: "4.4"
         variables:
@@ -373,6 +369,10 @@ axes:
         display_name: "5.0"
         variables:
           VERSION: "5.0"
+      - id: "6.0"
+        display_name: "6.0"
+        variables:
+          VERSION: "6.0"
       - id: "latest"
         display_name: "latest"
         variables:
@@ -437,7 +437,7 @@ buildvariants:
       - name: "integration-test-task"
 
   - matrix_name: "integration-tests-jdk11-sharded"
-    matrix_spec: { jdk: "jdk11", version: ["4.2", "5.0", "latest"], topology: "sharded-cluster" }
+    matrix_spec: { jdk: "jdk11", version: ["4.2", "5.0", "6.0"], topology: "sharded-cluster" }
     display_name: "Integration tests: ${jdk} ${version} ${topology}"
     tags: [ "integration-test" ]
     run_on:
@@ -446,7 +446,7 @@ buildvariants:
       - name: "integration-test-task"
 
   - matrix_name: "integration-tests-jdk8"
-    matrix_spec: { jdk: "jdk8", version: ["4.0", "5.0", "latest"], topology: "replicaset"}
+    matrix_spec: { jdk: "jdk8", version: ["4.0", "5.0", "6.0"], topology: "replicaset"}
     display_name: "Integration tests: ${jdk} ${version} ${topology}"
     tags: [ "integration-test" ]
     run_on:
