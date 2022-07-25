@@ -61,6 +61,7 @@ import com.mongodb.client.model.Filters;
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 /** A builder for a {@link MongoScan}. */
 public class MongoScanBuilder
@@ -192,32 +193,52 @@ public class MongoScanBuilder
     } else if (filter instanceof EqualNullSafe) {
       EqualNullSafe equalNullSafe = (EqualNullSafe) filter;
       return new FilterAndPipelineStage(
-          filter, Filters.eq(equalNullSafe.attribute(), equalNullSafe.value()));
+          filter,
+          Filters.eq(
+              equalNullSafe.attribute(),
+              processValue(equalNullSafe.attribute(), equalNullSafe.value())));
     } else if (filter instanceof EqualTo) {
       EqualTo equalTo = (EqualTo) filter;
-      return new FilterAndPipelineStage(filter, Filters.eq(equalTo.attribute(), equalTo.value()));
+      return new FilterAndPipelineStage(
+          filter,
+          Filters.eq(equalTo.attribute(), processValue(equalTo.attribute(), equalTo.value())));
     } else if (filter instanceof GreaterThan) {
       GreaterThan greaterThan = (GreaterThan) filter;
       return new FilterAndPipelineStage(
-          filter, Filters.gt(greaterThan.attribute(), greaterThan.value()));
+          filter,
+          Filters.gt(
+              greaterThan.attribute(), processValue(greaterThan.attribute(), greaterThan.value())));
     } else if (filter instanceof GreaterThanOrEqual) {
       GreaterThanOrEqual greaterThanOrEqual = (GreaterThanOrEqual) filter;
       return new FilterAndPipelineStage(
-          filter, Filters.gte(greaterThanOrEqual.attribute(), greaterThanOrEqual.value()));
+          filter,
+          Filters.gte(
+              greaterThanOrEqual.attribute(),
+              processValue(greaterThanOrEqual.attribute(), greaterThanOrEqual.value())));
     } else if (filter instanceof In) {
       In inFilter = (In) filter;
-      return new FilterAndPipelineStage(
-          filter, Filters.in(inFilter.attribute(), inFilter.values()));
+      Bson pipelineStage =
+          Filters.in(
+              inFilter.attribute(),
+              Arrays.stream(inFilter.values())
+                  .map(v -> processValue(inFilter.attribute(), v))
+                  .collect(Collectors.toList()));
+      return new FilterAndPipelineStage(filter, pipelineStage);
     } else if (filter instanceof IsNull) {
       IsNull isNullFilter = (IsNull) filter;
       return new FilterAndPipelineStage(filter, Filters.eq(isNullFilter.attribute(), null));
     } else if (filter instanceof LessThan) {
       LessThan lessThan = (LessThan) filter;
-      return new FilterAndPipelineStage(filter, Filters.lt(lessThan.attribute(), lessThan.value()));
+      return new FilterAndPipelineStage(
+          filter,
+          Filters.lt(lessThan.attribute(), processValue(lessThan.attribute(), lessThan.value())));
     } else if (filter instanceof LessThanOrEqual) {
       LessThanOrEqual lessThanOrEqual = (LessThanOrEqual) filter;
       return new FilterAndPipelineStage(
-          filter, Filters.lte(lessThanOrEqual.attribute(), lessThanOrEqual.value()));
+          filter,
+          Filters.lte(
+              lessThanOrEqual.attribute(),
+              processValue(lessThanOrEqual.attribute(), lessThanOrEqual.value())));
     } else if (filter instanceof Not) {
       Not notFilter = (Not) filter;
       FilterAndPipelineStage notChild = processFilter(notFilter.child());
@@ -249,6 +270,10 @@ public class MongoScanBuilder
           Filters.regex(stringStartsWith.attribute(), format("^%s.*", stringStartsWith.value())));
     }
     return new FilterAndPipelineStage(filter, null);
+  }
+
+  private Object processValue(final String fieldName, final Object value) {
+    return RowToBsonDocumentConverter.toBsonValue(schema.apply(fieldName).dataType(), value);
   }
 
   /** FilterAndPipelineStage - contains an optional pipeline stage for the filter. */
