@@ -107,6 +107,7 @@ public class MongoPartitionReader implements PartitionReader<InternalRow> {
               .getDatabase(readConfig.getDatabaseName())
               .getCollection(readConfig.getCollectionName(), BsonDocument.class)
               .aggregate(partition.getPipeline())
+              .allowDiskUse(readConfig.getAggregationAllowDiskUse())
               .cursor();
     }
     return mongoCursor;

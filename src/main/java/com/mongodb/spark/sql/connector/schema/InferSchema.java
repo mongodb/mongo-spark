@@ -78,7 +78,11 @@ public final class InferSchema {
     ArrayList<Bson> samplePipeline = new ArrayList<>(readConfig.getAggregationPipeline());
     samplePipeline.add(Aggregates.sample(readConfig.getInferSchemaSampleSize()));
     return inferSchema(
-        readConfig.withCollection(coll -> coll.aggregate(samplePipeline).into(new ArrayList<>())),
+        readConfig.withCollection(
+            coll ->
+                coll.aggregate(samplePipeline)
+                    .allowDiskUse(readConfig.getAggregationAllowDiskUse())
+                    .into(new ArrayList<>())),
         readConfig);
   }
 

@@ -116,7 +116,9 @@ abstract class PaginatePartitioner extends FieldPartitioner {
                 boundaryPipeline.addAll(aggregationPipeline);
                 boundaryPipeline.add(Aggregates.skip(numDocumentsPerPartition));
                 boundaryPipeline.add(Aggregates.limit(1));
-                return coll.aggregate(boundaryPipeline).first();
+                return coll.aggregate(boundaryPipeline)
+                    .allowDiskUse(readConfig.getAggregationAllowDiskUse())
+                    .first();
               });
 
       if (boundary == null) {

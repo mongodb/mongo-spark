@@ -128,7 +128,10 @@ public final class PartitionerHelper {
       return readConfig
           .withCollection(
               coll ->
-                  Optional.ofNullable(coll.aggregate(COLL_STATS_AGGREGATION_PIPELINE).first())
+                  Optional.ofNullable(
+                          coll.aggregate(COLL_STATS_AGGREGATION_PIPELINE)
+                              .allowDiskUse(readConfig.getAggregationAllowDiskUse())
+                              .first())
                       .orElseGet(BsonDocument::new))
           .getDocument("storageStats", new BsonDocument());
     } catch (RuntimeException ex) {
