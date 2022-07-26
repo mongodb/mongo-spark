@@ -119,8 +119,15 @@ public final class RowToBsonDocumentConverter implements Serializable {
     return toBsonValue(row.schema(), row).asDocument();
   }
 
+  /**
+   * Converts data to a bson value that the data type represents
+   *
+   * @param dataType the data type
+   * @param data the data
+   * @return the bsonValue
+   */
   @SuppressWarnings("unchecked")
-  private BsonValue toBsonValue(final DataType dataType, final Object data) {
+  public static BsonValue toBsonValue(final DataType dataType, final Object data) {
     try {
       if (DataTypes.BinaryType.acceptsType(dataType)) {
         return new BsonBinary((byte[]) data);

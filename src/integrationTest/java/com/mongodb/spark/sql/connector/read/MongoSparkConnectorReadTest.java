@@ -150,6 +150,31 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
   }
 
   @Test
+  void testWhereFiltersAreConverted() {
+    BsonDocument allTypesDocument = BsonDocument.parse(BSON_DOCUMENT_JSON);
+    getCollection().insertOne(allTypesDocument);
+
+    SparkSession spark = getOrCreateSparkSession();
+    Row actual =
+        spark
+            .read()
+            .format("mongodb")
+            .load()
+            .where("dateTime = cast('2020-01-01T00:00:01.000Z' as timestamp)")
+            .first();
+
+    assertEquals(
+        BsonDocument.parse(EXPECTED_BSON_DOCUMENT_JSON),
+        new RowToBsonDocumentConverter(actual.schema()).fromRow(actual));
+
+    actual = spark.read().format("mongodb").load().where("arraySimple = array(1, 2, 3)").first();
+
+    assertEquals(
+        BsonDocument.parse(EXPECTED_BSON_DOCUMENT_JSON),
+        new RowToBsonDocumentConverter(actual.schema()).fromRow(actual));
+  }
+
+  @Test
   void testReadsAreSupportedWithSchemaSupplied() {
     SparkSession spark = getOrCreateSparkSession();
 
