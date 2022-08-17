@@ -18,7 +18,6 @@
 package com.mongodb.spark.sql.connector.connection;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -100,10 +99,10 @@ public class MongoClientCacheTest {
     verify(mongoClient, times(1)).close();
 
     // Verify behaviour after shutdown
-    assertThrows(IllegalStateException.class, () -> mongoClientCache.acquire(mongoClientFactory));
-    assertThrows(IllegalStateException.class, client1::close);
-    assertThrows(IllegalStateException.class, client2::close);
+    assertDoesNotThrow(() -> mongoClientCache.acquire(mongoClientFactory));
+    verify(mongoClientFactory, times(2)).create();
     assertDoesNotThrow(mongoClientCache::shutdown);
+    verify(mongoClient, times(2)).close();
   }
 
   private void sleep(final long millis) {

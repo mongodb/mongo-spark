@@ -45,14 +45,6 @@ public final class LazyMongoClientCache {
     }
 
     CLIENT_CACHE = new MongoClientCache(keepAliveMS);
-    Runtime.getRuntime().addShutdownHook(new ShutdownHook());
-  }
-
-  private static class ShutdownHook extends Thread {
-    @Override
-    public void run() {
-      CLIENT_CACHE.shutdown();
-    }
   }
 
   /**
