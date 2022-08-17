@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -48,11 +49,13 @@ import org.apache.spark.sql.sources.Or;
 import org.apache.spark.sql.sources.StringContains;
 import org.apache.spark.sql.sources.StringEndsWith;
 import org.apache.spark.sql.sources.StringStartsWith;
+import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 import org.jetbrains.annotations.Nullable;
 
 import org.bson.BsonDocument;
+import org.bson.BsonValue;
 import org.bson.conversions.Bson;
 
 import com.mongodb.client.model.Aggregates;
@@ -194,35 +197,44 @@ public class MongoScanBuilder
       EqualNullSafe equalNullSafe = (EqualNullSafe) filter;
       return new FilterAndPipelineStage(
           filter,
-          Filters.eq(
-              equalNullSafe.attribute(),
-              processValue(equalNullSafe.attribute(), equalNullSafe.value())));
+          getBsonValue(equalNullSafe.attribute(), equalNullSafe.value())
+              .map(bsonValue -> Filters.eq(equalNullSafe.attribute(), bsonValue))
+              .orElse(null));
     } else if (filter instanceof EqualTo) {
       EqualTo equalTo = (EqualTo) filter;
       return new FilterAndPipelineStage(
           filter,
-          Filters.eq(equalTo.attribute(), processValue(equalTo.attribute(), equalTo.value())));
+          getBsonValue(equalTo.attribute(), equalTo.value())
+              .map(bsonValue -> Filters.eq(equalTo.attribute(), bsonValue))
+              .orElse(null));
     } else if (filter instanceof GreaterThan) {
       GreaterThan greaterThan = (GreaterThan) filter;
       return new FilterAndPipelineStage(
           filter,
-          Filters.gt(
-              greaterThan.attribute(), processValue(greaterThan.attribute(), greaterThan.value())));
+          getBsonValue(greaterThan.attribute(), greaterThan.value())
+              .map(bsonValue -> Filters.gt(greaterThan.attribute(), bsonValue))
+              .orElse(null));
     } else if (filter instanceof GreaterThanOrEqual) {
       GreaterThanOrEqual greaterThanOrEqual = (GreaterThanOrEqual) filter;
       return new FilterAndPipelineStage(
           filter,
-          Filters.gte(
-              greaterThanOrEqual.attribute(),
-              processValue(greaterThanOrEqual.attribute(), greaterThanOrEqual.value())));
+          getBsonValue(greaterThanOrEqual.attribute(), greaterThanOrEqual.value())
+              .map(bsonValue -> Filters.gte(greaterThanOrEqual.attribute(), bsonValue))
+              .orElse(null));
     } else if (filter instanceof In) {
       In inFilter = (In) filter;
-      Bson pipelineStage =
-          Filters.in(
-              inFilter.attribute(),
-              Arrays.stream(inFilter.values())
-                  .map(v -> processValue(inFilter.attribute(), v))
-                  .collect(Collectors.toList()));
+      List<BsonValue> values =
+          Arrays.stream(inFilter.values())
+              .map(v -> getBsonValue(inFilter.attribute(), v))
+              .filter(Optional::isPresent)
+              .map(Optional::get)
+              .collect(Collectors.toList());
+
+      // Ensure all values were matched otherwise leave to Spark to filter.
+      Bson pipelineStage = null;
+      if (values.size() == inFilter.values().length) {
+        pipelineStage = Filters.in(inFilter.attribute(), values);
+      }
       return new FilterAndPipelineStage(filter, pipelineStage);
     } else if (filter instanceof IsNull) {
       IsNull isNullFilter = (IsNull) filter;
@@ -231,14 +243,16 @@ public class MongoScanBuilder
       LessThan lessThan = (LessThan) filter;
       return new FilterAndPipelineStage(
           filter,
-          Filters.lt(lessThan.attribute(), processValue(lessThan.attribute(), lessThan.value())));
+          getBsonValue(lessThan.attribute(), lessThan.value())
+              .map(bsonValue -> Filters.lt(lessThan.attribute(), bsonValue))
+              .orElse(null));
     } else if (filter instanceof LessThanOrEqual) {
       LessThanOrEqual lessThanOrEqual = (LessThanOrEqual) filter;
       return new FilterAndPipelineStage(
           filter,
-          Filters.lte(
-              lessThanOrEqual.attribute(),
-              processValue(lessThanOrEqual.attribute(), lessThanOrEqual.value())));
+          getBsonValue(lessThanOrEqual.attribute(), lessThanOrEqual.value())
+              .map(bsonValue -> Filters.lte(lessThanOrEqual.attribute(), bsonValue))
+              .orElse(null));
     } else if (filter instanceof Not) {
       Not notFilter = (Not) filter;
       FilterAndPipelineStage notChild = processFilter(notFilter.child());
@@ -272,8 +286,23 @@ public class MongoScanBuilder
     return new FilterAndPipelineStage(filter, null);
   }
 
-  private Object processValue(final String fieldName, final Object value) {
-    return RowToBsonDocumentConverter.toBsonValue(schema.apply(fieldName).dataType(), value);
+  private Optional<BsonValue> getBsonValue(final String fieldName, final Object value) {
+    try {
+      StructType localSchema = schema;
+      DataType localDataType = localSchema;
+
+      for (String localFieldName : fieldName.split("\\.")) {
+        StructField localField = localSchema.apply(localFieldName);
+        localDataType = localField.dataType();
+        if (localField.dataType() instanceof StructType) {
+          localSchema = (StructType) localField.dataType();
+        }
+      }
+      return Optional.of(RowToBsonDocumentConverter.toBsonValue(localDataType, value));
+    } catch (Exception e) {
+      // ignore
+      return Optional.empty();
+    }
   }
 
   /** FilterAndPipelineStage - contains an optional pipeline stage for the filter. */
