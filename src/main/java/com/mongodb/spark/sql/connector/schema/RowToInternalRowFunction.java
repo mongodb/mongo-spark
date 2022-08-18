@@ -22,13 +22,9 @@ import java.util.function.Function;
 
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.InternalRow;
-import org.apache.spark.sql.catalyst.analysis.SimpleAnalyzer$;
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder;
 import org.apache.spark.sql.catalyst.encoders.RowEncoder$;
-import org.apache.spark.sql.catalyst.expressions.Attribute;
 import org.apache.spark.sql.types.StructType;
-
-import scala.collection.Seq;
 
 /**
  * A Row to InternalRow function that uses a resolved and bound encoder for the given schema.
@@ -41,13 +37,8 @@ final class RowToInternalRowFunction implements Function<Row, InternalRow>, Seri
 
   private final ExpressionEncoder.Serializer<Row> serializer;
 
-  @SuppressWarnings("unchecked")
   RowToInternalRowFunction(final StructType schema) {
-    ExpressionEncoder<Row> rowEncoder = RowEncoder$.MODULE$.apply(schema);
-    Seq<Attribute> attributeSeq =
-        (Seq<Attribute>) (Seq<? extends Attribute>) rowEncoder.schema().toAttributes();
-    this.serializer =
-        rowEncoder.resolveAndBind(attributeSeq, SimpleAnalyzer$.MODULE$).createSerializer();
+    this.serializer = RowEncoder$.MODULE$.apply(schema).createSerializer();
   }
 
   @Override
