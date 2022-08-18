@@ -52,8 +52,9 @@ import com.mongodb.spark.sql.connector.assertions.Assertions;
 final class MongoClientCache {
   private final HashMap<MongoClientFactory, CachedMongoClient> cache = new HashMap<>();
   private final long keepAliveNanos;
-  private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-  private boolean isAvailable;
+  private final long initialCleanUpDelayMS;
+  private final long cleanUpDelayMS;
+  private ScheduledExecutorService scheduler;
 
   static final int INITIAL_CLEANUP_DELAY_MS = 1000;
   static final int CLEANUP_DELAY_MS = 200;
@@ -76,9 +77,8 @@ final class MongoClientCache {
   MongoClientCache(
       final long keepAliveMS, final long initialCleanUpDelayMS, final long cleanUpDelayMS) {
     this.keepAliveNanos = TimeUnit.NANOSECONDS.convert(keepAliveMS, TimeUnit.MILLISECONDS);
-    scheduler.scheduleWithFixedDelay(
-        this::checkClientCache, initialCleanUpDelayMS, cleanUpDelayMS, TimeUnit.MILLISECONDS);
-    isAvailable = true;
+    this.initialCleanUpDelayMS = initialCleanUpDelayMS;
+    this.cleanUpDelayMS = cleanUpDelayMS;
   }
 
   /**
@@ -92,7 +92,7 @@ final class MongoClientCache {
    *     MongoClientFactory}.
    */
   synchronized MongoClient acquire(final MongoClientFactory mongoClientFactory) {
-    assertIsAvailable();
+    ensureScheduler();
     return cache
         .computeIfAbsent(
             mongoClientFactory,
@@ -101,23 +101,28 @@ final class MongoClientCache {
   }
 
   synchronized void shutdown() {
-    if (isAvailable) {
+    if (scheduler != null) {
       scheduler.shutdownNow();
       cache.values().forEach(CachedMongoClient::shutdownClose);
       cache.clear();
-      isAvailable = false;
+      scheduler = null;
     }
   }
 
   private synchronized void checkClientCache() {
     long currentNanos = System.nanoTime();
     cache.entrySet().removeIf(e -> e.getValue().shouldBeRemoved(currentNanos));
+    if (cache.entrySet().isEmpty()) {
+      shutdown();
+    }
   }
 
-  private void assertIsAvailable() {
-    Assertions.ensureState(
-        () -> isAvailable,
-        () -> "The MongoClientCache has been shutdown and is no longer available");
+  private synchronized void ensureScheduler() {
+    if (scheduler == null) {
+      scheduler = Executors.newScheduledThreadPool(1);
+      scheduler.scheduleWithFixedDelay(
+          this::checkClientCache, initialCleanUpDelayMS, cleanUpDelayMS, TimeUnit.MILLISECONDS);
+    }
   }
 
   private static final class CachedMongoClient implements MongoClient {
@@ -149,7 +154,7 @@ final class MongoClientCache {
     @Override
     public void close() {
       synchronized (cache) {
-        cache.assertIsAvailable();
+        cache.ensureScheduler();
         Assertions.ensureState(
             () -> referenceCount > 0, () -> "MongoClient reference count cannot be below zero");
         releasedNanos = System.nanoTime();
