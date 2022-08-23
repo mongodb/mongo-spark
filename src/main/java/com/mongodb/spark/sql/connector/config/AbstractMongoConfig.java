@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -70,6 +69,7 @@ abstract class AbstractMongoConfig implements MongoConfig {
   private final Map<String, String> options;
   private final UsageMode usageMode;
   private transient MongoClientFactory mongoClientFactory;
+  private transient CaseInsensitiveStringMap caseInsensitiveOptions;
 
   /**
    * Constructs the instance
@@ -81,14 +81,14 @@ abstract class AbstractMongoConfig implements MongoConfig {
     this.originals = unmodifiableMap(originals);
     this.usageMode = usageMode;
 
-    Map<String, String> configOptions = new HashMap<>();
-    if (SparkSession.getActiveSession().isDefined()) {
-      Map<String, String> configMap =
-          Arrays.stream(SparkSession.active().sparkContext().getConf().getAll())
-              .collect(toMap(Tuple2::_1, Tuple2::_2));
-      configOptions = createUsageOptions(configMap, usageMode);
-    }
-
+    Map<String, String> configOptions =
+        SparkSession.getActiveSession()
+            .map(
+                s ->
+                    Arrays.stream(s.sparkContext().getConf().getAll())
+                        .collect(toMap(Tuple2::_1, Tuple2::_2)))
+            .map(m -> createUsageOptions(m, usageMode))
+            .getOrElse(HashMap::new);
     configOptions.putAll(createUsageOptions(originals, usageMode));
     this.options = unmodifiableMap(configOptions);
   }
@@ -100,7 +100,10 @@ abstract class AbstractMongoConfig implements MongoConfig {
 
   @Override
   public Map<String, String> getOptions() {
-    return options;
+    if (caseInsensitiveOptions == null) {
+      caseInsensitiveOptions = new CaseInsensitiveStringMap(options);
+    }
+    return caseInsensitiveOptions;
   }
 
   @Override
@@ -190,7 +193,7 @@ abstract class AbstractMongoConfig implements MongoConfig {
   @Override
   public String toString() {
     String cleanedOptions =
-        options.entrySet().stream()
+        getOptions().entrySet().stream()
             .map(
                 e -> {
                   String value = e.getValue();
@@ -213,12 +216,13 @@ abstract class AbstractMongoConfig implements MongoConfig {
       return false;
     }
     final AbstractMongoConfig that = (AbstractMongoConfig) o;
-    return Objects.equals(options, that.options) && usageMode == that.usageMode;
+    return Objects.equals(getOptions(), that.getOptions())
+        && usageMode == that.usageMode;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(options, usageMode);
+    return Objects.hash(getOptions(), usageMode);
   }
 
   Map<String, String> withOverrides(final String context, final Map<String, String> overrides) {
@@ -261,8 +265,6 @@ abstract class AbstractMongoConfig implements MongoConfig {
   private static Map<String, String> createUsageOptions(
       final Map<String, String> options, final UsageMode usageMode) {
 
-    CaseInsensitiveStringMap caseInsensitiveOptions = new CaseInsensitiveStringMap(options);
-
     String overridePrefix;
     String ignorePrefix;
     switch (usageMode) {
@@ -278,10 +280,11 @@ abstract class AbstractMongoConfig implements MongoConfig {
         throw new UnsupportedOperationException("Unsupported usage mode");
     }
 
+    CaseInsensitiveStringMap localCaseInsensitiveOptions = new CaseInsensitiveStringMap(options);
+
     List<String> defaults = new ArrayList<>();
     List<String> overrides = new ArrayList<>();
-    options.keySet().stream()
-        .map(k -> k.toLowerCase(Locale.ROOT))
+    localCaseInsensitiveOptions.keySet().stream()
         .filter(k -> k.startsWith(PREFIX))
         .forEach(
             k -> {
@@ -294,18 +297,21 @@ abstract class AbstractMongoConfig implements MongoConfig {
 
     Map<String, String> usageSpecificOptions = new HashMap<>();
     // Add any globally scoped options
-    addConnectionStringDatabaseAndCollection(PREFIX, caseInsensitiveOptions, usageSpecificOptions);
+    addConnectionStringDatabaseAndCollection(
+        PREFIX, localCaseInsensitiveOptions, usageSpecificOptions);
 
     defaults.forEach(
-        k -> usageSpecificOptions.put(k.substring(PREFIX.length()), caseInsensitiveOptions.get(k)));
+        k ->
+            usageSpecificOptions.put(
+                k.substring(PREFIX.length()), localCaseInsensitiveOptions.get(k)));
 
     // Add usage specifically scoped options
     addConnectionStringDatabaseAndCollection(
-        overridePrefix, caseInsensitiveOptions, usageSpecificOptions);
+        overridePrefix, localCaseInsensitiveOptions, usageSpecificOptions);
     overrides.forEach(
         k ->
             usageSpecificOptions.put(
-                k.substring(overridePrefix.length()), caseInsensitiveOptions.get(k)));
+                k.substring(overridePrefix.length()), localCaseInsensitiveOptions.get(k)));
     return usageSpecificOptions;
   }
 
