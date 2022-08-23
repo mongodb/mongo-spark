@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -440,6 +441,26 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
         ds.filter(new Column("age").isNotNull())
             .map((MapFunction<Row, String>) r -> r.getString(2), Encoders.STRING())
             .collectAsList());
+  }
+
+  @Test
+  void testCustomMongoClientFactory() {
+    SparkSession spark = getOrCreateSparkSession();
+
+    List<BsonDocument> collectionData =
+        toBsonDocuments(spark.read().textFile(READ_RESOURCES_HOBBITS_JSON_PATH));
+    getCollection().insertMany(collectionData);
+
+    spark
+        .read()
+        .format("mongodb")
+        .option(
+            ReadConfig.READ_PREFIX + ReadConfig.CLIENT_FACTORY_CONFIG,
+            "com.mongodb.spark.sql.connector.read.CustomMongoClientFactory")
+        .load()
+        .collect();
+
+    assertTrue(CustomMongoClientFactory.CALLED.get());
   }
 
   @Test
