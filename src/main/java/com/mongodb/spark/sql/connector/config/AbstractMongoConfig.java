@@ -216,8 +216,7 @@ abstract class AbstractMongoConfig implements MongoConfig {
       return false;
     }
     final AbstractMongoConfig that = (AbstractMongoConfig) o;
-    return Objects.equals(getOptions(), that.getOptions())
-        && usageMode == that.usageMode;
+    return Objects.equals(getOptions(), that.getOptions()) && usageMode == that.usageMode;
   }
 
   @Override
