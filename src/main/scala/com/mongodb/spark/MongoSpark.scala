@@ -136,10 +136,10 @@ object MongoSpark {
               val queryDocument = new BsonDocument()
               queryKeyList.foreach(key => queryDocument.append(key, doc.get(key)))
               if (writeConfig.replaceDocument) {
-                new ReplaceOneModel[BsonDocument](queryDocument, doc, new ReplaceOptions().upsert(true))
+                new ReplaceOneModel[BsonDocument](queryDocument, doc, new ReplaceOptions().upsert(writeConfig.upsertDocument))
               } else {
                 queryDocument.keySet().asScala.foreach(doc.remove(_))
-                new UpdateOneModel[BsonDocument](queryDocument, new BsonDocument("$set", doc), new UpdateOptions().upsert(true))
+                new UpdateOneModel[BsonDocument](queryDocument, new BsonDocument("$set", doc), new UpdateOptions().upsert(writeConfig.upsertDocument))
               }
             } else {
               new InsertOneModel[BsonDocument](doc)

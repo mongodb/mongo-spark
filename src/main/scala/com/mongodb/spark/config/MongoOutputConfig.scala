@@ -148,4 +148,13 @@ trait MongoOutputConfig extends MongoCompanionConfig {
    * @since 2.4.1
    */
   val extendedBsonTypesProperty = "extendedBsonTypes".toLowerCase
+
+  /**
+   * The upsert Document property
+   *
+   * If `true`, will use inserts / updates when saving data with an `_id` field. Otherwise, only updates the fields in the Dataset
+   *
+   * Default: None
+   */
+  val upsertDocumentProperty = "upsertDocument".toLowerCase
 }
