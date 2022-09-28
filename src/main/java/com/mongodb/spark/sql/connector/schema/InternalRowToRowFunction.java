@@ -28,7 +28,7 @@ import org.apache.spark.sql.catalyst.encoders.RowEncoder$;
 import org.apache.spark.sql.catalyst.expressions.Attribute;
 import org.apache.spark.sql.types.StructType;
 
-import scala.collection.Seq;
+import scala.collection.immutable.Seq;
 
 /**
  * An InternalRow to Row function that uses a resolved and bound encoder for the given schema.

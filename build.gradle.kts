@@ -52,7 +52,7 @@ repositories {
 extra.apply {
     set("annotationsVersion", "22.0.0")
     set("mongodbDriverVersion", "[4.5.0,4.5.99)")
-    set("sparkVersion", "3.1.2")
+    set("sparkVersion", "3.2.2")
 
     // Testing dependencies
     set("junitJupiterVersion", "5.7.2")
@@ -66,10 +66,14 @@ extra.apply {
 dependencies {
     compileOnly("org.jetbrains:annotations:${project.extra["annotationsVersion"]}")
 
-    implementation("org.apache.spark:spark-core_2.12:${project.extra["sparkVersion"]}")
-    implementation("org.apache.spark:spark-sql_2.12:${project.extra["sparkVersion"]}")
-    implementation("org.apache.spark:spark-catalyst_2.12:${project.extra["sparkVersion"]}")
-    implementation("org.apache.spark:spark-streaming_2.12:${project.extra["sparkVersion"]}")
+    // dohr-michael : this dependencies must be 'provided scope' because in all spark project this dependencies
+    // are already bundle to spark runtime, if we use implementation, this deps will be include in the project
+    // and by this way loaded 2 times in the container / final bundle of spark project.
+    // We need to include this deps to testImplementation because gradle don't include it in any runtime.
+    compileOnly("org.apache.spark:spark-core_2.13:${project.extra["sparkVersion"]}")
+    compileOnly("org.apache.spark:spark-sql_2.13:${project.extra["sparkVersion"]}")
+    compileOnly("org.apache.spark:spark-catalyst_2.13:${project.extra["sparkVersion"]}")
+    compileOnly("org.apache.spark:spark-streaming_2.13:${project.extra["sparkVersion"]}")
 
     implementation("org.mongodb:mongodb-driver-sync:${project.extra["mongodbDriverVersion"]}")
 
@@ -80,6 +84,11 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.mockito:mockito-junit-jupiter:${project.extra["mockitoVersion"]}")
     testImplementation("org.apiguardian:apiguardian-api:1.1.2") // https://github.com/gradle/gradle/issues/18627
+
+    testImplementation("org.apache.spark:spark-core_2.13:${project.extra["sparkVersion"]}")
+    testImplementation("org.apache.spark:spark-sql_2.13:${project.extra["sparkVersion"]}")
+    testImplementation("org.apache.spark:spark-catalyst_2.13:${project.extra["sparkVersion"]}")
+    testImplementation("org.apache.spark:spark-streaming_2.13:${project.extra["sparkVersion"]}")
 
     // Integration Tests
     testImplementation("org.apache.commons:commons-lang3:${project.extra["commons-lang3"]}")

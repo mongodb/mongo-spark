@@ -72,7 +72,7 @@ import org.bson.types.Decimal128;
 
 import com.mongodb.spark.sql.connector.exceptions.DataException;
 
-import scala.collection.JavaConverters$;
+import scala.jdk.javaapi.CollectionConverters$;
 
 /**
  * The helper for conversion of BsonDocuments to GenericRowWithSchema instances.
@@ -245,7 +245,7 @@ public final class BsonDocumentToRowConverter implements Serializable {
                         v,
                         jsonWriterSettings)));
 
-    return JavaConverters$.MODULE$.mapAsScalaMap(map);
+    return CollectionConverters$.MODULE$.asScala(map);
   }
 
   private Object[] convertToArray(
