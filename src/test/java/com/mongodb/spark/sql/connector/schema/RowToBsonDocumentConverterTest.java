@@ -44,9 +44,6 @@ import org.bson.types.Decimal128;
 
 import com.mongodb.spark.sql.connector.exceptions.DataException;
 
-import scala.collection.JavaConverters;
-import scala.collection.Seq;
-
 public class RowToBsonDocumentConverterTest extends SchemaTest {
 
   private static final RowToBsonDocumentConverter CONVERTER = new RowToBsonDocumentConverter();
@@ -171,12 +168,12 @@ public class RowToBsonDocumentConverterTest extends SchemaTest {
   }
 
   @SafeVarargs
-  private final <T> Seq<T> toSeq(final T... values) {
-    return JavaConverters.collectionAsScalaIterableConverter(asList(values)).asScala().toSeq();
+  private final <T> scala.collection.Seq<T> toSeq(final T... values) {
+    return JavaToScala.asScala(asList(values)).toSeq();
   }
 
   private <K, V> scala.collection.Map<K, V> toScalaMap(final K key, final V value) {
-    return JavaConverters.mapAsScalaMap(toMap(key, value));
+    return JavaToScala.asScala(toMap(key, value));
   }
 
   private <K, V> Map<K, V> toMap(final K key, final V value) {
