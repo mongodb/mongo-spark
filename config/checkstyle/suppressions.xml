@@ -26,4 +26,6 @@
 
     <!--Generated code-->
     <suppress checks="[a-zA-Z0-9]*" files="com[\\/]mongodb[\\/]spark[\\/]connector[\\/]Versions.java" />
+    <!--Cross Build Code, checkstyle don't understand properly added sources.-->
+    <suppress checks="JavadocPackage" files="com[\\/]mongodb[\\/]spark[\\/]sql[\\/]connector[\\/]schema[\\/]JavaToScala.java" />
 </suppressions>

@@ -35,8 +35,19 @@ plugins {
     id("com.github.johnrengelman.shadow") version "7.0.0"
 }
 
+// Usage: gradle -DscalaBinaryVersion=2.13 -DsparkVersion=3.2.2
+val scalaBinaryVersion = findProperty("scalaBinaryVersion") ?: "2.12"
+val sparkVersion = findProperty("sparkVersion") ?: "3.1.2"
+val baseVersion = "10.0.5-SNAPSHOT"
+
 group = "org.mongodb.spark"
-version = "10.0.5-SNAPSHOT"
+// Here to keep back compatibility. To be clean we need to have
+// all the time "${scalaBinaryVersion}_x.x.x-SNAPSHOT"
+version = if (scalaBinaryVersion == "2.12") {
+    baseVersion
+} else {
+    "${scalaBinaryVersion}_$baseVersion"
+}
 description = "The official MongoDB Apache Spark Connect Connector."
 
 java {
@@ -49,14 +60,12 @@ repositories {
     maven("https://jitpack.io")
 }
 
-// Usage: gradle -DscalaBinaryVersion=2.13 -DsparkVersion=3.2.2
-def scalaBinaryVersion = findProperty("scalaBinaryVersion") ?: "2.12"
-def sparkVersion = findProperty("sparkVersion") ?: "3.1.2"
-
 extra.apply {
     set("annotationsVersion", "22.0.0")
     set("mongodbDriverVersion", "[4.5.0,4.5.99)")
-    set("sparkVersion", "3.2.2")
+
+    set("sparkVersion", sparkVersion)
+    set("scalaBinaryVersion", scalaBinaryVersion)
 
     // Testing dependencies
     set("junitJupiterVersion", "5.7.2")
@@ -67,6 +76,19 @@ extra.apply {
     set("commons-lang3", "3.12.0")
 }
 
+sourceSets {
+    main {
+        java {
+            srcDirs("src/main/java")
+            if (scalaBinaryVersion == "2.12") {
+                srcDirs("src/main/java_scala_212")
+            } else {
+                srcDirs("src/main/java_scala_213")
+            }
+        }
+    }
+}
+
 dependencies {
     compileOnly("org.jetbrains:annotations:${project.extra["annotationsVersion"]}")
 
@@ -74,10 +96,11 @@ dependencies {
     // are already bundle to spark runtime, if we use implementation, this deps will be include in the project
     // and by this way loaded 2 times in the container / final bundle of spark project.
     // We need to include this deps to testImplementation because gradle don't include it in any runtime.
-    compileOnly("org.apache.spark:spark-core_${project.extra["scalaBinaryVersion"]}:${project.extra["sparkVersion"]}")
-    compileOnly("org.apache.spark:spark-sql_2.13:${project.extra["sparkVersion"]}")
-    compileOnly("org.apache.spark:spark-catalyst_2.13:${project.extra["sparkVersion"]}")
-    compileOnly("org.apache.spark:spark-streaming_2.13:${project.extra["sparkVersion"]}")
+    val sparkAndScalaBinary = "${project.extra["scalaBinaryVersion"]}:${project.extra["sparkVersion"]}"
+    compileOnly("org.apache.spark:spark-core_$sparkAndScalaBinary")
+    compileOnly("org.apache.spark:spark-sql_$sparkAndScalaBinary")
+    compileOnly("org.apache.spark:spark-catalyst_$sparkAndScalaBinary")
+    compileOnly("org.apache.spark:spark-streaming_$sparkAndScalaBinary")
 
     implementation("org.mongodb:mongodb-driver-sync:${project.extra["mongodbDriverVersion"]}")
 
@@ -89,10 +112,10 @@ dependencies {
     testImplementation("org.mockito:mockito-junit-jupiter:${project.extra["mockitoVersion"]}")
     testImplementation("org.apiguardian:apiguardian-api:1.1.2") // https://github.com/gradle/gradle/issues/18627
 
-    testImplementation("org.apache.spark:spark-core_2.13:${project.extra["sparkVersion"]}")
-    testImplementation("org.apache.spark:spark-sql_2.13:${project.extra["sparkVersion"]}")
-    testImplementation("org.apache.spark:spark-catalyst_2.13:${project.extra["sparkVersion"]}")
-    testImplementation("org.apache.spark:spark-streaming_2.13:${project.extra["sparkVersion"]}")
+    testImplementation("org.apache.spark:spark-core_$sparkAndScalaBinary")
+    testImplementation("org.apache.spark:spark-sql_$sparkAndScalaBinary")
+    testImplementation("org.apache.spark:spark-catalyst_$sparkAndScalaBinary")
+    testImplementation("org.apache.spark:spark-streaming_$sparkAndScalaBinary")
 
     // Integration Tests
     testImplementation("org.apache.commons:commons-lang3:${project.extra["commons-lang3"]}")
