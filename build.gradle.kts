@@ -74,7 +74,7 @@ dependencies {
     // are already bundle to spark runtime, if we use implementation, this deps will be include in the project
     // and by this way loaded 2 times in the container / final bundle of spark project.
     // We need to include this deps to testImplementation because gradle don't include it in any runtime.
-    compileOnly("org.apache.spark:spark-core_2.13:${project.extra["sparkVersion"]}")
+    compileOnly("org.apache.spark:spark-core_${project.extra["scalaBinaryVersion"]}:${project.extra["sparkVersion"]}")
     compileOnly("org.apache.spark:spark-sql_2.13:${project.extra["sparkVersion"]}")
     compileOnly("org.apache.spark:spark-catalyst_2.13:${project.extra["sparkVersion"]}")
     compileOnly("org.apache.spark:spark-streaming_2.13:${project.extra["sparkVersion"]}")
