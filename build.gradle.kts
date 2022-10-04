@@ -49,6 +49,10 @@ repositories {
     maven("https://jitpack.io")
 }
 
+// Usage: gradle -DscalaBinaryVersion=2.13 -DsparkVersion=3.2.2
+def scalaBinaryVersion = findProperty("scalaBinaryVersion") ?: "2.12"
+def sparkVersion = findProperty("sparkVersion") ?: "3.1.2"
+
 extra.apply {
     set("annotationsVersion", "22.0.0")
     set("mongodbDriverVersion", "[4.5.0,4.5.99)")
