@@ -58,8 +58,7 @@ import org.bson.BsonValue;
 import org.bson.types.Decimal128;
 
 import com.mongodb.spark.sql.connector.exceptions.DataException;
-
-import scala.collection.JavaConverters;
+import com.mongodb.spark.sql.connector.interop.JavaScala;
 
 public class BsonDocumentToRowConverterTest extends SchemaTest {
 
@@ -417,7 +416,7 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
     DataType dataType = DataTypes.createMapType(DataTypes.StringType, DataTypes.StringType);
 
     assertEquals(
-        JavaConverters.mapAsScalaMap(
+        JavaScala.asScala(
             new HashMap<String, String>() {
               {
                 put("A", "S2Fma2Egcm9ja3Mh");
@@ -429,7 +428,7 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
 
     assertNull(CONVERT.apply(dataType, BsonNull.VALUE));
     assertEquals(
-        JavaConverters.mapAsScalaMap(
+        JavaScala.asScala(
             new HashMap<String, String>() {
               {
                 put("A", null);

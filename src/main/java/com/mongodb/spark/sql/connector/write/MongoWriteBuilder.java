@@ -51,6 +51,7 @@ public class MongoWriteBuilder implements WriteBuilder, SupportsTruncate {
   }
 
   /** Returns a {@link MongoBatchWrite} to write data to batch source. */
+  @SuppressWarnings("deprecation")
   @Override
   public BatchWrite buildForBatch() {
     return new MongoBatchWrite(info, rowToBsonDocumentConverter, writeConfig, truncate);
@@ -58,6 +59,7 @@ public class MongoWriteBuilder implements WriteBuilder, SupportsTruncate {
 
   /** Returns a {@link MongoStreamingWrite} to write data to streaming source. */
   @Override
+  @SuppressWarnings("deprecation")
   public StreamingWrite buildForStreaming() {
     return new MongoStreamingWrite(info, rowToBsonDocumentConverter, writeConfig, truncate);
   }

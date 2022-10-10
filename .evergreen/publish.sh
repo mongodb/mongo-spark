@@ -29,4 +29,5 @@ fi
 SYSTEM_PROPERTIES="-Dorg.gradle.internal.publish.checksums.insecure=true -Dorg.gradle.internal.http.connectionTimeout=120000 -Dorg.gradle.internal.http.socketTimeout=120000"
 
 ./gradlew -version
-./gradlew ${SYSTEM_PROPERTIES} --stacktrace --info  ${TASK}
+./gradlew ${SYSTEM_PROPERTIES} --stacktrace --info ${TASK} -DscalaVersion=2.12 -DsparkVersion=3.1.2
+./gradlew ${SYSTEM_PROPERTIES} --stacktrace --info ${TASK} -DscalaVersion=2.13 -DsparkVersion=3.2.2

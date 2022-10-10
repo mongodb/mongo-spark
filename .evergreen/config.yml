@@ -269,7 +269,7 @@ functions:
         working_dir: "src"
         script: |
           ${PREPARE_SHELL}
-          .evergreen/run-static-checks.sh
+          SCALA_VERSION="${SCALA}" SPARK_VERSION="${SPARK}" .evergreen/run-static-checks.sh
 
   "run unit tests":
     - command: shell.exec
@@ -278,7 +278,7 @@ functions:
         working_dir: "src"
         script: |
           ${PREPARE_SHELL}
-          JDK="${JDK}" .evergreen/run-unit-tests.sh
+          SCALA_VERSION="${SCALA}" SPARK_VERSION="${SPARK}" .evergreen/run-unit-tests.sh
 
   "run integration tests":
     - command: shell.exec
@@ -287,7 +287,7 @@ functions:
         working_dir: "src"
         script: |
           ${PREPARE_SHELL}
-          MONGODB_URI="${MONGODB_URI}" JDK="${JDK}" .evergreen/run-integration-tests.sh
+          MONGODB_URI="${MONGODB_URI}" SCALA_VERSION="${SCALA}" SPARK_VERSION="${SPARK}" .evergreen/run-integration-tests.sh
 
   "publish snapshots":
     - command: shell.exec
@@ -392,26 +392,42 @@ axes:
         variables:
           TOPOLOGY: "replica_set"
       - id: "sharded-cluster"
-        display_name: Sharded Cluster
+        display_name: "Sharded Cluster"
         variables:
           TOPOLOGY: "sharded_cluster"
 
-  - id: "jdk"
-    display_name: "JDK"
+  - id: "scala"
+    display_name: "Scala"
     values:
-      - id: "jdk8"
-        display_name: "JDK8"
+      - id: "2.12"
+        display_name: "Scala 2.12"
         variables:
-          JDK: "jdk8"
-      - id: "jdk11"
-        display_name: "JDK11"
+          SCALA: "2.12"
+      - id: "2.13"
+        display_name: "Scala 2.13"
         variables:
-          JDK: "jdk11"
+          SCALA: "2.13"
+
+  - id: "spark"
+    display_name: "Spark"
+    values:
+      - id: "3.1.2"
+        display_name: "Spark 3.1.2"
+        variables:
+          SPARK: "3.1.2"
+      - id: "3.2.2"
+        display_name: "Spark 3.2.2"
+        variables:
+          SPARK: "3.2.2"
 
 buildvariants:
 
-  - name: "static-checks"
-    display_name: "Static Checks"
+  - matrix_name: "static-checks"
+    matrix_spec: { scala: "*", spark: "*" }
+    display_name: "Static checks: ${scala} ${spark}"
+    exclude_spec:
+      - {scala: "2.12", spark: "3.2.2"}
+      - {scala: "2.13", spark: "3.1.2"}
     run_on:
       - "ubuntu1804-test"
     tags: ["static-check"]
@@ -419,36 +435,32 @@ buildvariants:
       - name: "static-checks-task"
 
   - matrix_name: "unit-tests"
-    matrix_spec: { jdk: "*" }
-    display_name: "Units tests: ${jdk}"
+    matrix_spec: { scala: "*", spark: "*" }
+    exclude_spec: {scala: "2.13", spark: "3.1.2"}
+    display_name: "Units tests: ${scala} ${spark}"
     tags: ["unit-test"]
     run_on:
       - "ubuntu1804-test"
     tasks:
       - name: "unit-test-task"
 
-  - matrix_name: "integration-tests-jdk11-replicaset"
-    matrix_spec: { jdk: "jdk11", version: "*", topology: "replicaset"}
-    display_name: "Integration tests: ${jdk} ${version} ${topology}"
+  - matrix_name: "integration-tests-2-12"
+    matrix_spec: { scala: "2.12", spark: "*", version: ["6.0"], topology: "sharded-cluster"}
+    display_name: "Integration tests: ${scala} ${spark} ${version} ${topology}"
     tags: ["integration-test"]
     run_on:
       - "ubuntu1804-test"
     tasks:
       - name: "integration-test-task"
 
-  - matrix_name: "integration-tests-jdk11-sharded"
-    matrix_spec: { jdk: "jdk11", version: ["4.4", "5.0", "6.0"], topology: "sharded-cluster" }
-    display_name: "Integration tests: ${jdk} ${version} ${topology}"
-    tags: [ "integration-test" ]
-    run_on:
-      - "ubuntu1804-test"
-    tasks:
-      - name: "integration-test-task"
+  - matrix_name: "integration-tests-2-13"
+    matrix_spec: { scala: "2.13", spark: "3.2.2", version: "*", topology: "*"}
+    exclude_spec:
+      - {scala: "*", spark: "*", version: ["latest"], topology: "replicaset"}
+      - {scala: "*", spark: "*", version: ["4.0", "4.4", "5.0"], topology: "sharded-cluster"}
 
-  - matrix_name: "integration-tests-jdk8"
-    matrix_spec: { jdk: "jdk8", version: ["4.0", "5.0", "6.0"], topology: "replicaset"}
-    display_name: "Integration tests: ${jdk} ${version} ${topology}"
-    tags: [ "integration-test" ]
+    display_name: "Integration tests: ${scala} ${spark} ${version} ${topology}"
+    tags: ["integration-test"]
     run_on:
       - "ubuntu1804-test"
     tasks:

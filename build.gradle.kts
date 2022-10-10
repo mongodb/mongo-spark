@@ -35,11 +35,9 @@ plugins {
     id("com.github.johnrengelman.shadow") version "7.0.0"
 }
 
-// Usage: gradle -DscalaBinaryVersion=2.13 -DsparkVersion=3.2.2
-val scalaBinaryVersion = findProperty("scalaBinaryVersion") ?: "2.12"
-val sparkVersion = findProperty("sparkVersion") ?: "3.1.2"
-group = "org.mongodb.spark"
 version = "10.1.0-SNAPSHOT"
+group = "org.mongodb.spark"
+
 description = "The official MongoDB Apache Spark Connect Connector."
 
 java {
@@ -52,13 +50,15 @@ repositories {
     maven("https://jitpack.io")
 }
 
+// Usage: ./gradlew -DscalaVersion=2.12 -DsparkVersion=3.1.2
+val scalaVersion = System.getProperty("scalaVersion", "2.13")
+val sparkVersion = System.getProperty("sparkVersion", "3.2.2")
+
 extra.apply {
     set("annotationsVersion", "22.0.0")
-
     set("mongodbDriverVersion", "[4.7.2,4.7.99)")
-    set("mongodbDriverVersion", "[4.5.0,4.5.99)")
     set("sparkVersion", sparkVersion)
-    set("scalaBinaryVersion", scalaBinaryVersion)
+    set("scalaVersion", scalaVersion)
 
     // Testing dependencies
     set("junitJupiterVersion", "5.7.2")
@@ -72,12 +72,8 @@ extra.apply {
 sourceSets {
     main {
         java {
-            srcDirs("src/main/java")
-            if (scalaBinaryVersion == "2.12") {
-                srcDirs("src/main/java_scala_212")
-            } else {
-                srcDirs("src/main/java_scala_213")
-            }
+            val scalaInteropSrcDir = if (scalaVersion == "2.12") "java_scala_212" else "java_scala_213"
+            srcDirs("src/main/java", "src/main/$scalaInteropSrcDir")
         }
     }
 }
@@ -85,30 +81,26 @@ sourceSets {
 dependencies {
     compileOnly("org.jetbrains:annotations:${project.extra["annotationsVersion"]}")
 
-    // dohr-michael : this dependencies must be 'provided scope' because in all spark project this dependencies
-    // are already bundle to spark runtime, if we use implementation, this deps will be include in the project
-    // and by this way loaded 2 times in the container / final bundle of spark project.
-    // We need to include this deps to testImplementation because gradle don't include it in any runtime.
-    val sparkAndScalaBinary = "${project.extra["scalaBinaryVersion"]}:${project.extra["sparkVersion"]}"
-    compileOnly("org.apache.spark:spark-core_$sparkAndScalaBinary")
-    compileOnly("org.apache.spark:spark-sql_$sparkAndScalaBinary")
-    compileOnly("org.apache.spark:spark-catalyst_$sparkAndScalaBinary")
-    compileOnly("org.apache.spark:spark-streaming_$sparkAndScalaBinary")
-
     implementation("org.mongodb:mongodb-driver-sync:${project.extra["mongodbDriverVersion"]}")
 
+    compileOnly("org.apache.spark:spark-core_$scalaVersion:$sparkVersion")
+    compileOnly("org.apache.spark:spark-sql_$scalaVersion:$sparkVersion")
+    compileOnly("org.apache.spark:spark-catalyst_$scalaVersion:$sparkVersion")
+    compileOnly("org.apache.spark:spark-streaming_$scalaVersion:$sparkVersion")
+
     shadow("org.mongodb:mongodb-driver-sync:${project.extra["mongodbDriverVersion"]}")
+
+    // Test version of Spark
+    testImplementation("org.apache.spark:spark-core_$scalaVersion:$sparkVersion")
+    testImplementation("org.apache.spark:spark-sql_$scalaVersion:$sparkVersion")
+    testImplementation("org.apache.spark:spark-catalyst_$scalaVersion:$sparkVersion")
+    testImplementation("org.apache.spark:spark-streaming_$scalaVersion:$sparkVersion")
 
     // Unit Tests
     testImplementation(platform("org.junit:junit-bom:5.8.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.mockito:mockito-junit-jupiter:${project.extra["mockitoVersion"]}")
     testImplementation("org.apiguardian:apiguardian-api:1.1.2") // https://github.com/gradle/gradle/issues/18627
-
-    testImplementation("org.apache.spark:spark-core_$sparkAndScalaBinary")
-    testImplementation("org.apache.spark:spark-sql_$sparkAndScalaBinary")
-    testImplementation("org.apache.spark:spark-catalyst_$sparkAndScalaBinary")
-    testImplementation("org.apache.spark:spark-streaming_$sparkAndScalaBinary")
 
     // Integration Tests
     testImplementation("org.apache.commons:commons-lang3:${project.extra["commons-lang3"]}")
@@ -125,9 +117,9 @@ tasks.withType<JavaCompile> {
     options.release.set(8)
 }
 
-/*
- * Generated build config
- */
+// ===========================
+//     Build Config
+// ===========================
 val gitVersion: String by lazy {
     val describeStdOut = ByteArrayOutputStream()
     exec {
@@ -145,11 +137,9 @@ buildConfig {
     buildConfigField("String", "VERSION", provider { "\"$gitVersion\"" })
 }
 
-/*
- * Testing
- */
-
-// Add intergation tests
+// ===========================
+//     Testing
+// ===========================
 sourceSets.create("integrationTest") {
     java.srcDir("src/integrationTest/java")
     compileClasspath += sourceSets["main"].output + configurations["testRuntimeClasspath"]
@@ -198,6 +188,8 @@ tasks.withType<Test> {
         override fun afterSuite(d: TestDescriptor?, r: TestResult?) {
             if (d != null && r != null && d.parent == null) {
                 val resultsSummary = """Tests summary:
+                    | Scala Version: $scalaVersion,
+                    | Spark Version: $sparkVersion,
                     | ${r.testCount} tests,
                     | ${r.successfulTestCount} succeeded,
                     | ${r.failedTestCount} failed,
@@ -213,9 +205,9 @@ tasks.withType<Test> {
     })
 }
 
-/*
- * Code checking
- */
+// ===========================
+//     Code Quality checks
+// ===========================
 checkstyle {
     toolVersion = "7.4"
 }
@@ -264,20 +256,18 @@ tasks.named("compileJava") {
     dependsOn(":spotlessApply")
 }
 
-/*
- * ShadowJar
- */
+// ===========================
+//       Publishing
+// ===========================
 tasks.shadowJar {
     configurations = listOf(project.configurations.shadow.get())
 }
 
-/*
- * Publishing
- */
 tasks.register<Jar>("sourcesJar") {
     description = "Create the sources jar"
     from(sourceSets.main.get().allSource)
     archiveClassifier.set("sources")
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 tasks.register<Jar>("javadocJar") {
@@ -289,7 +279,7 @@ tasks.register<Jar>("javadocJar") {
 publishing {
     publications {
         create<MavenPublication>("mavenJava") {
-            artifactId = "mongo-spark-connector"
+            artifactId = "mongo-spark-connector_$scalaVersion"
             from(components["java"])
             artifact(tasks["sourcesJar"])
             artifact(tasks["javadocJar"])
