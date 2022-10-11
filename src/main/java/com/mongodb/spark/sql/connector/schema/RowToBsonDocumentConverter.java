@@ -21,7 +21,6 @@ import static java.lang.String.format;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.sql.Timestamp;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -149,10 +148,7 @@ public final class RowToBsonDocumentConverter implements Serializable {
         return new BsonString((String) data);
       } else if (DataTypes.DateType.acceptsType(dataType)
           || DataTypes.TimestampType.acceptsType(dataType)) {
-        if (data instanceof Date) {
-          return new BsonDateTime(((Date) data).getTime());
-        }
-        return new BsonDateTime(((Timestamp) data).getTime());
+        return new BsonDateTime(((Date) data).getTime());
       } else if (dataType instanceof DecimalType) {
         BigDecimal bigDecimal =
             data instanceof BigDecimal
