@@ -36,7 +36,7 @@ plugins {
 }
 
 group = "org.mongodb.spark"
-version = "10.0.5-SNAPSHOT"
+version = "10.1.0-SNAPSHOT"
 description = "The official MongoDB Apache Spark Connect Connector."
 
 java {
