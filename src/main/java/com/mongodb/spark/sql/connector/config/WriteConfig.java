@@ -214,7 +214,7 @@ public final class WriteConfig extends AbstractMongoConfig {
       if (containsKey(WRITE_CONCERN_W_CONFIG)) {
         try {
           writeConcern = writeConcern.withW(getInt(WRITE_CONCERN_W_CONFIG, -1));
-        } catch (NumberFormatException e) {
+        } catch (ConfigException e) {
           // ignore
           writeConcern = writeConcern.withW(get(WRITE_CONCERN_W_CONFIG));
         }
