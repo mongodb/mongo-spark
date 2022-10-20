@@ -47,7 +47,6 @@ java {
 
 repositories {
     mavenCentral()
-    maven("https://jitpack.io")
 }
 
 // Usage: ./gradlew -DscalaVersion=2.12 -DsparkVersion=3.1.2
