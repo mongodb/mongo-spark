@@ -45,15 +45,14 @@ import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 
 /**
  * A partition reader returned by {@link
- * MongoStreamPartitionReaderFactory#createReader(org.apache.spark.sql.connector.read.InputPartition)}.
+ * MongoContinuousPartitionReaderFactory#createReader(org.apache.spark.sql.connector.read.InputPartition)}.
  *
  * <p>Utilizes MongoDBs change stream functionality, the continuous stream will consist of <a
  * href="https://docs.mongodb.com/manual/reference/change-events/">change events</a>.
  */
-public class MongoStreamPartitionReader implements ContinuousPartitionReader<InternalRow> {
+final class MongoContinuousPartitionReader implements ContinuousPartitionReader<InternalRow> {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoPartitionReader.class);
   private static final String FULL_DOCUMENT = "fullDocument";
-
   private final MongoInputPartition partition;
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
   private final ReadConfig readConfig;
@@ -72,8 +71,8 @@ public class MongoStreamPartitionReader implements ContinuousPartitionReader<Int
    *     InternalRow}
    * @param readConfig the read configuration for reading from the partition
    */
-  public MongoStreamPartitionReader(
-      final MongoInputPartition partition,
+  MongoContinuousPartitionReader(
+      final MongoContinuousInputPartition partition,
       final BsonDocumentToRowConverter bsonDocumentToRowConverter,
       final ReadConfig readConfig) {
     this.partition = partition;

@@ -42,7 +42,7 @@ import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
  * <p>Note: Requires MongoDB 4.2+ To support continuing a change stream after a collection has been
  * dropped.
  */
-public class MongoContinuousStream implements ContinuousStream {
+final class MongoContinuousStream implements ContinuousStream {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoContinuousStream.class);
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
   private final ReadConfig readConfig;
@@ -53,7 +53,7 @@ public class MongoContinuousStream implements ContinuousStream {
    * @param schema the schema for the data
    * @param readConfig the read configuration
    */
-  public MongoContinuousStream(final StructType schema, final ReadConfig readConfig) {
+  MongoContinuousStream(final StructType schema, final ReadConfig readConfig) {
     Assertions.validateConfig(
         schema,
         (s) -> !s.isEmpty(),
@@ -65,7 +65,7 @@ public class MongoContinuousStream implements ContinuousStream {
   @Override
   public InputPartition[] planInputPartitions(final Offset start) {
     return new InputPartition[] {
-      new MongoInputPartition(
+      new MongoContinuousInputPartition(
           0,
           readConfig.getAggregationPipeline(),
           new ResumeTokenPartitionOffset(((ResumeTokenOffset) start).getResumeToken()))
@@ -74,7 +74,7 @@ public class MongoContinuousStream implements ContinuousStream {
 
   @Override
   public ContinuousPartitionReaderFactory createContinuousReaderFactory() {
-    return new MongoStreamPartitionReaderFactory(bsonDocumentToRowConverter, readConfig);
+    return new MongoContinuousPartitionReaderFactory(bsonDocumentToRowConverter, readConfig);
   }
 
   @Override

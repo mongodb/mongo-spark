@@ -137,6 +137,8 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
           + "\"undefined\": \"{\\\"$undefined\\\": true}\""
           + "}";
 
+  private static final Trigger CONTINUOUS_TRIGGER = Trigger.Continuous("1 seconds");
+
   @Test
   void testHandlesAllBsonTypes() {
     BsonDocument allTypesDocument = BsonDocument.parse(BSON_DOCUMENT_JSON);
@@ -468,6 +470,7 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
     assumeTrue(supportsChangeStreams());
     testStreamingQuery(
         createMongoConfig("continuousStream"),
+        CONTINUOUS_TRIGGER,
         coll ->
             coll.insertMany(
                 IntStream.range(0, 25)
@@ -483,7 +486,7 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
 
     MongoConfig mongoConfig = createMongoConfig("withDrop");
     withStreamingQuery(
-        () -> createStreamingQuery(mongoConfig, DEFAULT_SCHEMA, null),
+        () -> createStreamingQuery(mongoConfig, DEFAULT_SCHEMA, null, CONTINUOUS_TRIGGER),
         (streamingQuery) -> {
           ReadConfig readConfig = mongoConfig.toReadConfig();
           WriteConfig writeConfig = mongoConfig.toWriteConfig();
@@ -538,6 +541,7 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
     testStreamingQuery(
         mongoConfig,
         filterColumn,
+        CONTINUOUS_TRIGGER,
         coll -> {
           coll.insertMany(
               IntStream.range(0, 50)
@@ -577,6 +581,7 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
     testStreamingQuery(
         mongoConfig,
         schema,
+        CONTINUOUS_TRIGGER,
         coll -> {
           coll.insertMany(
               IntStream.range(0, 50)
@@ -619,7 +624,7 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
                 createStructField("a", DataTypes.StringType, false)));
 
     withStreamingQuery(
-        () -> createStreamingQuery(mongoConfig, schema, null),
+        () -> createStreamingQuery(mongoConfig, schema, null, CONTINUOUS_TRIGGER),
         (streamingQuery) -> {
           ReadConfig readConfig = mongoConfig.toReadConfig();
           WriteConfig writeConfig = mongoConfig.toWriteConfig();
@@ -707,27 +712,30 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
   @SafeVarargs
   private final void testStreamingQuery(
       final MongoConfig mongoConfig,
+      final Trigger trigger,
       final Consumer<MongoCollection<BsonDocument>> setup,
       final Consumer<MongoCollection<BsonDocument>>... assertions) {
-    testStreamingQuery(mongoConfig, DEFAULT_SCHEMA, setup, assertions);
+    testStreamingQuery(mongoConfig, DEFAULT_SCHEMA, trigger, setup, assertions);
   }
 
   @SafeVarargs
   private final void testStreamingQuery(
       final MongoConfig mongoConfig,
       final StructType schema,
+      final Trigger trigger,
       final Consumer<MongoCollection<BsonDocument>> setup,
       final Consumer<MongoCollection<BsonDocument>>... assertions) {
-    testStreamingQuery(mongoConfig, schema, null, setup, assertions);
+    testStreamingQuery(mongoConfig, schema, null, trigger, setup, assertions);
   }
 
   @SafeVarargs
   private final void testStreamingQuery(
       final MongoConfig mongoConfig,
       final Column condition,
+      final Trigger trigger,
       final Consumer<MongoCollection<BsonDocument>> setup,
       final Consumer<MongoCollection<BsonDocument>>... assertions) {
-    testStreamingQuery(mongoConfig, DEFAULT_SCHEMA, condition, setup, assertions);
+    testStreamingQuery(mongoConfig, DEFAULT_SCHEMA, condition, trigger, setup, assertions);
   }
 
   @SafeVarargs
@@ -735,11 +743,12 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
       final MongoConfig mongoConfig,
       final StructType schema,
       final Column condition,
+      final Trigger trigger,
       final Consumer<MongoCollection<BsonDocument>> setup,
-      final Consumer<MongoCollection<BsonDocument>>... assertions) {
+      final Consumer<MongoCollection<BsonDocument>>... consumers) {
 
     withStreamingQuery(
-        () -> createStreamingQuery(mongoConfig, schema, condition),
+        () -> createStreamingQuery(mongoConfig, schema, condition, trigger),
         (streamingQuery) -> {
           retryAssertion(
               () ->
@@ -748,13 +757,11 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
                       "Stream is not initialized"));
           mongoConfig.toReadConfig().doWithCollection(setup);
 
-          retryAssertion(
-              () -> {
-                WriteConfig writeConfig = mongoConfig.toWriteConfig();
-                for (Consumer<MongoCollection<BsonDocument>> assertion : assertions) {
-                  writeConfig.doWithCollection(assertion);
-                }
-              });
+          WriteConfig writeConfig = mongoConfig.toWriteConfig();
+
+          for (Consumer<MongoCollection<BsonDocument>> consumer : consumers) {
+            retryAssertion(() -> writeConfig.doWithCollection(consumer));
+          }
         });
   }
 
@@ -784,9 +791,12 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
   }
 
   private StreamingQuery createStreamingQuery(
-      final MongoConfig mongoConfig, final StructType schema, final Column condition) {
+      final MongoConfig mongoConfig,
+      final StructType schema,
+      final Column condition,
+      final Trigger trigger) {
     Dataset<Row> ds =
-        getOrCreateSparkSession()
+        getOrCreateSparkSession(getSparkConf().set("numPartitions", "1"))
             .readStream()
             .format("mongodb")
             .options(mongoConfig.toReadConfig().getOptions())
@@ -801,7 +811,7 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
       return ds.writeStream()
           .format("mongodb")
           .options(mongoConfig.toWriteConfig().getOptions())
-          .trigger(Trigger.Continuous("1 seconds"))
+          .trigger(trigger)
           .outputMode("append")
           .start();
     } catch (TimeoutException e) {

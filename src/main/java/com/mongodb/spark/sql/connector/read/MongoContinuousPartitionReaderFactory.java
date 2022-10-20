@@ -31,14 +31,14 @@ import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 
 /**
- * A factory used to create {@link MongoStreamPartitionReader} instances.
+ * A factory used to create {@link MongoContinuousPartitionReader} instances.
  *
  * <p>Utilizes MongoDBs change stream functionality, the continuous streams will consist of <a
  * href="https://docs.mongodb.com/manual/reference/change-events/">change events</a>.
  */
-public final class MongoStreamPartitionReaderFactory implements ContinuousPartitionReaderFactory {
+final class MongoContinuousPartitionReaderFactory implements ContinuousPartitionReaderFactory {
   private static final Logger LOGGER =
-      LoggerFactory.getLogger(MongoStreamPartitionReaderFactory.class);
+      LoggerFactory.getLogger(MongoContinuousPartitionReaderFactory.class);
   private static final long serialVersionUID = 1L;
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
   private final ReadConfig readConfig;
@@ -49,7 +49,7 @@ public final class MongoStreamPartitionReaderFactory implements ContinuousPartit
    * @param bsonDocumentToRowConverter the bson document to internal row converter
    * @param readConfig the read configuration
    */
-  public MongoStreamPartitionReaderFactory(
+  MongoContinuousPartitionReaderFactory(
       final BsonDocumentToRowConverter bsonDocumentToRowConverter, final ReadConfig readConfig) {
     this.bsonDocumentToRowConverter = bsonDocumentToRowConverter;
     this.readConfig = readConfig;
@@ -58,13 +58,13 @@ public final class MongoStreamPartitionReaderFactory implements ContinuousPartit
   @Override
   public ContinuousPartitionReader<InternalRow> createReader(final InputPartition partition) {
     Assertions.ensureState(
-        () -> partition instanceof MongoInputPartition,
+        () -> partition instanceof MongoContinuousInputPartition,
         () ->
             format(
-                "Unsupported InputPartition type, a MongoInputPartition instance is required. Got: %s",
+                "Unsupported InputPartition type, a MongoContinuousInputPartition instance is required. Got: %s",
                 partition.getClass()));
     LOGGER.debug("Creating MongoStreamPartitionReader for {}", partition);
-    return new MongoStreamPartitionReader(
-        (MongoInputPartition) partition, bsonDocumentToRowConverter, readConfig);
+    return new MongoContinuousPartitionReader(
+        (MongoContinuousInputPartition) partition, bsonDocumentToRowConverter, readConfig);
   }
 }
