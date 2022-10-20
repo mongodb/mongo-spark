@@ -38,6 +38,7 @@ import org.apache.spark.sql.types.IntegerType;
 import org.apache.spark.sql.types.LongType;
 import org.apache.spark.sql.types.MapType;
 import org.apache.spark.sql.types.Metadata;
+import org.apache.spark.sql.types.StringType;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
@@ -244,6 +245,18 @@ public final class InferSchema {
                   if ((dataType1 instanceof MapType && dataType2 instanceof StructType)
                       || (dataType1 instanceof StructType && dataType2 instanceof MapType)) {
                     return appendStructToMap(dataType1, dataType2, readConfig);
+                  }
+
+                  if ((dataType1 instanceof StringType && dataType2 instanceof StructType)
+                      || (dataType1 instanceof StructType && dataType2 instanceof StringType)) {
+                    DataType selectedDt;
+                    if (dataType1 instanceof StructType) {
+                      selectedDt = dataType1;
+                    } else {
+                      selectedDt = dataType2;
+                    }
+
+                    return compatibleType(PLACE_HOLDER_DATA_TYPE, selectedDt, readConfig);
                   }
 
                   return DataTypes.StringType; // Lowest common type
