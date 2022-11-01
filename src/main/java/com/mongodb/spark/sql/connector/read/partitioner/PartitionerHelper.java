@@ -30,6 +30,7 @@ import org.bson.BsonType;
 import org.bson.BsonValue;
 
 import com.mongodb.MongoCommandException;
+import com.mongodb.client.MongoDatabase;
 
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
@@ -153,7 +154,8 @@ public final class PartitionerHelper {
     return readConfig
         .withClient(
             c -> {
-              c.getDatabase(readConfig.getDatabaseName()).runCommand(PING_COMMAND);
+              MongoDatabase db = c.getDatabase(readConfig.getDatabaseName());
+              db.runCommand(PING_COMMAND, db.getReadPreference());
               return c.getClusterDescription();
             })
         .getServerDescriptions()
