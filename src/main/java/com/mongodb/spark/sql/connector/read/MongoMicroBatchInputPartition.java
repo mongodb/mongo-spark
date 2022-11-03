@@ -56,7 +56,7 @@ public class MongoMicroBatchInputPartition extends MongoInputPartition {
     this.endOffset = endOffset;
   }
 
-  /** @return he bson timestamp at the start offset */
+  /** @return the bson timestamp at the start offset */
   public BsonTimestamp getStartAtOperationTime() {
     return new BsonTimestamp((int) startOffset.offset(), 0);
   }
