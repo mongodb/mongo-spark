@@ -89,9 +89,6 @@ dependencies {
 
     shadow("org.mongodb:mongodb-driver-sync:${project.extra["mongodbDriverVersion"]}")
 
-    // Test
-    testCompileOnly("org.jetbrains:annotations:${project.extra["annotationsVersion"]}")
-
     // Test version of Spark
     testImplementation("org.apache.spark:spark-core_$scalaVersion:$sparkVersion")
     testImplementation("org.apache.spark:spark-sql_$scalaVersion:$sparkVersion")

@@ -44,7 +44,6 @@ import org.apache.spark.sql.streaming.StreamingQueryException;
 import org.apache.spark.sql.streaming.Trigger;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 import org.bson.BsonDocument;
@@ -300,7 +299,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
   private final void testStreamingQuery(
       final MongoConfig mongoConfig,
       final StructType schema,
-      @Nullable final Column condition,
+      final Column condition,
       final Consumer<MongoConfig> setup,
       final Consumer<MongoConfig>... consumers) {
 
@@ -327,9 +326,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
   }
 
   private StreamingQuery createStreamingQuery(
-      final MongoConfig mongoConfig,
-      @Nullable final StructType schema,
-      @Nullable final Column condition) {
+      final MongoConfig mongoConfig, final StructType schema, final Column condition) {
     Dataset<Row> ds =
         getOrCreateSparkSession(getSparkConf().set("numPartitions", "1"))
             .readStream()
@@ -367,7 +364,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
   }
 
   private MongoConfig createMongoConfig(
-      final String suffix, @Nullable final String extraKey, @Nullable final String extraValue) {
+      final String suffix, final String extraKey, final String extraValue) {
     Map<String, String> options = new HashMap<>();
     Arrays.stream(getSparkConf().getAllWithPrefix(MongoConfig.PREFIX))
         .forEach(t -> options.put(MongoConfig.PREFIX + t._1(), t._2()));
