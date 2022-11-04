@@ -45,6 +45,7 @@ import org.apache.spark.sql.streaming.Trigger;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 import org.junit.jupiter.api.Test;
+import org.opentest4j.AssertionFailedError;
 
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
@@ -310,7 +311,12 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
               assertFalse(
                   streamingQuery.status().message().contains("Initializing"),
                   "Stream is not initialized"));
-      setup.accept(mongoConfig);
+      try {
+        setup.accept(mongoConfig);
+      } catch (Exception e) {
+        throw new AssertionFailedError("Setup failed: " + e.getMessage());
+      }
+
       for (Consumer<MongoConfig> consumer : consumers) {
         retryAssertion(() -> consumer.accept(mongoConfig));
       }
