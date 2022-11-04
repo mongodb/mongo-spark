@@ -17,7 +17,6 @@
 package com.mongodb.spark.sql.connector.read;
 
 import java.time.Instant;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.spark.sql.connector.read.InputPartition;
 import org.apache.spark.sql.connector.read.PartitionReaderFactory;
@@ -48,7 +47,7 @@ public class MongoMicroBatchStream implements MicroBatchStream {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoMicroBatchStream.class);
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
   private final ReadConfig readConfig;
-  private volatile Long lastTimeMs = System.currentTimeMillis();
+  private volatile Long lastTime = Instant.now().getEpochSecond();
 
   private int partitionId;
 
@@ -69,11 +68,11 @@ public class MongoMicroBatchStream implements MicroBatchStream {
 
   @Override
   public Offset latestOffset() {
-    long now = System.currentTimeMillis();
-    if (lastTimeMs < now) {
-      lastTimeMs = now;
+    long now = Instant.now().getEpochSecond();
+    if (lastTime < now) {
+      lastTime = now;
     }
-    return new LongOffset(TimeUnit.MILLISECONDS.toSeconds(lastTimeMs));
+    return new LongOffset(lastTime);
   }
 
   @Override
@@ -91,7 +90,7 @@ public class MongoMicroBatchStream implements MicroBatchStream {
 
   @Override
   public Offset initialOffset() {
-    return new LongOffset(Instant.now().getEpochSecond());
+    return new LongOffset(0);
   }
 
   @Override
