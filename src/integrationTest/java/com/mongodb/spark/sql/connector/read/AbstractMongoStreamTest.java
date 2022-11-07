@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -226,10 +227,13 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
   void testStreamCustomMongoClientFactory() {
     assumeTrue(supportsChangeStreams());
     testStreamingQuery(
-        createMongoConfig(
-            "CustomClientFactory",
-            ReadConfig.PREFIX + ReadConfig.CLIENT_FACTORY_CONFIG,
-            "com.mongodb.spark.sql.connector.read.CustomMongoClientFactory"),
+        createMongoConfig("CustomClientFactory")
+            .withOption(
+                ReadConfig.PREFIX + ReadConfig.CLIENT_FACTORY_CONFIG,
+                "com.mongodb.spark.sql.connector.read.CustomMongoClientFactory")
+            .withOption(
+                WriteConfig.PREFIX + ReadConfig.CLIENT_FACTORY_CONFIG,
+                "com.mongodb.spark.sql.connector.read.CustomMongoClientFactory"),
         withSource(
             coll ->
                 coll.insertMany(
@@ -317,8 +321,25 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
         throw new AssertionFailedError("Setup failed: " + e.getMessage());
       }
 
+      HELPER.sleep(1001);
+
       for (Consumer<MongoConfig> consumer : consumers) {
-        retryAssertion(() -> consumer.accept(mongoConfig));
+        retryAssertion(
+            () -> consumer.accept(mongoConfig),
+            () -> {
+              withSource(
+                      coll ->
+                          LOGGER.info(
+                              "Source Collection Status: {}.",
+                              coll.find().map(BsonDocument::toJson).into(new ArrayList<>())))
+                  .accept(mongoConfig);
+              withSink(
+                      coll ->
+                          LOGGER.info(
+                              "Sink Collection Status: {}.",
+                              coll.find().map(BsonDocument::toJson).into(new ArrayList<>())))
+                  .accept(mongoConfig);
+            });
       }
     } catch (RuntimeException e) {
       fail(e);
@@ -358,19 +379,16 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
   }
 
   private Consumer<MongoConfig> withSource(final Consumer<MongoCollection<BsonDocument>> consumer) {
+    LOGGER.info(">> With Source: ");
     return mongoConfig -> mongoConfig.toReadConfig().doWithCollection(consumer);
   }
 
   private Consumer<MongoConfig> withSink(final Consumer<MongoCollection<BsonDocument>> consumer) {
+    LOGGER.info("<< With Sink: ");
     return mongoConfig -> mongoConfig.toWriteConfig().doWithCollection(consumer);
   }
 
   private MongoConfig createMongoConfig(final String suffix) {
-    return createMongoConfig(suffix, null, null);
-  }
-
-  private MongoConfig createMongoConfig(
-      final String suffix, final String extraKey, final String extraValue) {
     Map<String, String> options = new HashMap<>();
     Arrays.stream(getSparkConf().getAllWithPrefix(MongoConfig.PREFIX))
         .forEach(t -> options.put(MongoConfig.PREFIX + t._1(), t._2()));
@@ -381,9 +399,6 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
         WriteConfig.WRITE_PREFIX + WriteConfig.COLLECTION_NAME_CONFIG,
         collectionPrefix() + "SinkColl" + suffix);
 
-    if (extraKey != null && extraValue != null) {
-      options.put(extraKey, extraValue);
-    }
     return MongoConfig.createConfig(options);
   }
 }

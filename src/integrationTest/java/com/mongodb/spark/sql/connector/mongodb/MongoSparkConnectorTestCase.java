@@ -41,7 +41,7 @@ import com.mongodb.spark.sql.connector.config.MongoConfig;
 @MongoDBOnline()
 public class MongoSparkConnectorTestCase {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(MongoSparkConnectorTestCase.class);
+  public static final Logger LOGGER = LoggerFactory.getLogger(MongoSparkConnectorTestCase.class);
 
   @RegisterExtension
   public static final MongoSparkConnectorHelper HELPER = new MongoSparkConnectorHelper();
@@ -144,7 +144,11 @@ public class MongoSparkConnectorTestCase {
   }
 
   public void retryAssertion(final Runnable assertion) {
-    int retries = 10;
+    retryAssertion(assertion, () -> {});
+  }
+
+  public void retryAssertion(final Runnable assertion, final Runnable onFailure) {
+    int retries = 5;
     int counter = 0;
     int timeoutMs = 1000;
     boolean hasError = true;
@@ -155,9 +159,14 @@ public class MongoSparkConnectorTestCase {
         assertion.run();
         hasError = false;
       } catch (AssertionFailedError e) {
-        LOGGER.info("Failed assertion attempt: {}. {}", counter, e.getMessage());
+        LOGGER.info(
+            "Failed assertion attempt: {} timeout: {}ms. {}", counter, timeoutMs, e.getMessage());
         exception = e;
-        HELPER.sleep(timeoutMs, "Interrupted when retrying assertion.");
+        onFailure.run();
+        if (counter < retries) {
+          HELPER.sleep(timeoutMs, "Interrupted when retrying assertion.");
+          timeoutMs += timeoutMs;
+        }
       }
     }
     if (hasError) {
