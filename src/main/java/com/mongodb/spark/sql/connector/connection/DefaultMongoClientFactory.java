@@ -21,15 +21,19 @@ import java.util.Objects;
 
 import org.jetbrains.annotations.ApiStatus;
 
+import com.mongodb.MongoDriverInformation;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 
+import com.mongodb.spark.connector.Versions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
+import com.mongodb.spark.sql.connector.config.ReadConfig;
 
 /** The default MongoClientFactory implementation. */
 @ApiStatus.Internal
 public final class DefaultMongoClientFactory implements MongoClientFactory {
   private final MongoConfig config;
+  private final MongoDriverInformation mongoDriverInformation;
 
   /**
    * Create a new instance of MongoClientFactory
@@ -38,12 +42,14 @@ public final class DefaultMongoClientFactory implements MongoClientFactory {
    */
   public DefaultMongoClientFactory(final MongoConfig config) {
     this.config = config;
+    this.mongoDriverInformation =
+        generateMongoDriverInformation(config instanceof ReadConfig ? "Source" : "Sink");
   }
 
   /** @return create a new instance of a {@code MongoClient}. */
   @Override
   public MongoClient create() {
-    return MongoClients.create(config.getConnectionString());
+    return MongoClients.create(config.getConnectionString(), mongoDriverInformation);
   }
 
   @Override
@@ -55,11 +61,24 @@ public final class DefaultMongoClientFactory implements MongoClientFactory {
       return false;
     }
     final DefaultMongoClientFactory that = (DefaultMongoClientFactory) o;
-    return Objects.equals(config.getConnectionString(), that.config.getConnectionString());
+    return config.equals(that.config)
+        && Objects.equals(mongoDriverInformation, that.mongoDriverInformation);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(config.getConnectionString());
+    return Objects.hash(config, mongoDriverInformation);
+  }
+
+  private static MongoDriverInformation generateMongoDriverInformation(final String configType) {
+    return MongoDriverInformation.builder()
+        .driverName(Versions.NAME + "|" + configType)
+        .driverVersion(Versions.VERSION)
+        .driverPlatform(
+            "Scala/"
+                + scala.util.Properties.versionNumberString()
+                + "/Spark/"
+                + org.apache.spark.package$.MODULE$.SPARK_VERSION())
+        .build();
   }
 }
