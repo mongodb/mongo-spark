@@ -161,6 +161,7 @@ public final class PartitionerHelper {
         .getServerDescriptions()
         .stream()
         .flatMap(sd -> sd.getHosts().stream())
+        .distinct()
         .collect(Collectors.toList());
   }
 
