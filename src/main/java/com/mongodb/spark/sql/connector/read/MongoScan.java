@@ -79,7 +79,8 @@ public class MongoScan implements Scan {
   @Override
   public ContinuousStream toContinuousStream(final String checkpointLocation) {
     Assertions.validateConfig(
-        checkpointLocation::isEmpty,
+        checkpointLocation,
+        String::isEmpty,
         () -> "The MongoDB continuous streams do not support checkpointLocations.");
     return new MongoContinuousStream(schema, readConfig);
   }
