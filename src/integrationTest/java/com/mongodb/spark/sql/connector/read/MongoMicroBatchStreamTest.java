@@ -27,6 +27,6 @@ public class MongoMicroBatchStreamTest extends AbstractMongoStreamTest {
 
   @Override
   Trigger getTrigger() {
-    return Trigger.ProcessingTime("10 seconds");
+    return Trigger.ProcessingTime("5 seconds");
   }
 }

@@ -71,6 +71,8 @@ public class MongoScan implements Scan {
    *
    * <p>Note: Requires MongoDB 4.2+ To support continuing a change stream after a collection has
    * been dropped.
+   *
+   * @param checkpointLocation check point locations are not supported
    */
   @Override
   public MicroBatchStream toMicroBatchStream(final String checkpointLocation) {
@@ -85,6 +87,8 @@ public class MongoScan implements Scan {
    *
    * <p>Note: Requires MongoDB 4.2+ To support continuing a change stream after a collection has
    * been dropped.
+   *
+   * @param checkpointLocation check point locations are not supported
    */
   @Override
   public ContinuousStream toContinuousStream(final String checkpointLocation) {

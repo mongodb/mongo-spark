@@ -90,7 +90,7 @@ public class MongoMicroBatchStream implements MicroBatchStream {
 
   @Override
   public Offset initialOffset() {
-    return new LongOffset(0);
+    return new LongOffset(-1);
   }
 
   @Override

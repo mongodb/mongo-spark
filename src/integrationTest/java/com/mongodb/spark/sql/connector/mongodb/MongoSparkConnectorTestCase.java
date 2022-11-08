@@ -150,12 +150,13 @@ public class MongoSparkConnectorTestCase {
   public void retryAssertion(final Runnable assertion, final Runnable onFailure) {
     int retries = 5;
     int counter = 0;
-    int timeoutMs = 1000;
+    int timeoutMs = 2000;
     boolean hasError = true;
     AssertionFailedError exception = null;
     while (counter < retries && hasError) {
       try {
         counter++;
+        LOGGER.info("Assertion attempt: {}", counter);
         assertion.run();
         hasError = false;
       } catch (AssertionFailedError e) {
@@ -164,6 +165,7 @@ public class MongoSparkConnectorTestCase {
         exception = e;
         onFailure.run();
         if (counter < retries) {
+          LOGGER.info("SLEEPING {}ms", timeoutMs);
           HELPER.sleep(timeoutMs, "Interrupted when retrying assertion.");
           timeoutMs += timeoutMs;
         }
