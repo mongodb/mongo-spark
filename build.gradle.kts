@@ -132,7 +132,7 @@ buildConfig {
     className("Versions")
     packageName("com.mongodb.spark.connector")
     useJavaOutput()
-    buildConfigField("String", "NAME", "\"mongo-spark\"")
+    buildConfigField("String", "NAME", "\"mongo-spark-connector\"")
     buildConfigField("String", "VERSION", provider { "\"$gitVersion\"" })
 }
 
