@@ -43,7 +43,7 @@ public final class DefaultMongoClientFactory implements MongoClientFactory {
   public DefaultMongoClientFactory(final MongoConfig config) {
     this.config = config;
     this.mongoDriverInformation =
-        generateMongoDriverInformation(config instanceof ReadConfig ? "Source" : "Sink");
+        generateMongoDriverInformation(config instanceof ReadConfig ? "source" : "sink");
   }
 
   /** @return create a new instance of a {@code MongoClient}. */
