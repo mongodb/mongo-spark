@@ -680,26 +680,6 @@ class MongoSparkConnectorReadTest extends MongoSparkConnectorTestCase {
   }
 
   @Test
-  void testContinuousStreamCheckpointLocation() {
-    SparkSession spark = getOrCreateSparkSession();
-    assertThrows(
-        ConfigException.class,
-        () ->
-            spark
-                .readStream()
-                .format("mongodb")
-                .schema(DEFAULT_SCHEMA)
-                .option("checkpointLocation", "/tmp/checkpoint")
-                .load()
-                .writeStream()
-                .trigger(Trigger.Continuous("1 seconds"))
-                .format("memory")
-                .queryName("test")
-                .outputMode("append")
-                .start());
-  }
-
-  @Test
   void testMicroBatchStreamingReadsAreNotSupported() {
     SparkSession spark = getOrCreateSparkSession();
     StreamingQueryException streamingQueryException =

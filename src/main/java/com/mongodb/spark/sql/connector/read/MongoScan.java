@@ -22,13 +22,11 @@ import org.apache.spark.sql.connector.read.Scan;
 import org.apache.spark.sql.connector.read.streaming.ContinuousStream;
 import org.apache.spark.sql.types.StructType;
 
-import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 
 /** A logical representation of MongoDB data source scan. */
 public class MongoScan implements Scan {
-
   private final StructType schema;
   private final ReadConfig readConfig;
 
@@ -78,10 +76,6 @@ public class MongoScan implements Scan {
    */
   @Override
   public ContinuousStream toContinuousStream(final String checkpointLocation) {
-    Assertions.validateConfig(
-        checkpointLocation,
-        String::isEmpty,
-        () -> "The MongoDB continuous streams do not support checkpointLocations.");
     return new MongoContinuousStream(schema, readConfig);
   }
 }
