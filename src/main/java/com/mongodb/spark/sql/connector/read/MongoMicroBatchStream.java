@@ -42,7 +42,7 @@ import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
  *
  * <p>Uses seconds since epoch offsets to create boundaries between partitions.
  */
-public class MongoMicroBatchStream implements MicroBatchStream {
+final class MongoMicroBatchStream implements MicroBatchStream {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoMicroBatchStream.class);
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;

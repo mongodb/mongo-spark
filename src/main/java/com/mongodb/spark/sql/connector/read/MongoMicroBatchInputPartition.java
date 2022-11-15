@@ -32,7 +32,7 @@ import org.bson.BsonTimestamp;
  *
  * <p>Provides the meta information regarding a partition of a collection
  */
-public class MongoMicroBatchInputPartition extends MongoInputPartition {
+final class MongoMicroBatchInputPartition extends MongoInputPartition {
   private static final long serialVersionUID = 1L;
 
   private final LongOffset startOffset;

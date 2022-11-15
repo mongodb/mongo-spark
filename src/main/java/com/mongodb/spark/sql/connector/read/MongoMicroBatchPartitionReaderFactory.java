@@ -31,7 +31,7 @@ import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 
 /** A factory used to create {@link MongoMicroBatchPartitionReader} instances. */
-public class MongoMicroBatchPartitionReaderFactory implements PartitionReaderFactory, Serializable {
+final class MongoMicroBatchPartitionReaderFactory implements PartitionReaderFactory, Serializable {
   private static final long serialVersionUID = 1L;
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
   private final ReadConfig readConfig;
