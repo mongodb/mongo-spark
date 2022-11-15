@@ -56,6 +56,7 @@ public class MongoTable implements Table, SupportsWrite, SupportsRead {
               TableCapability.STREAMING_WRITE,
               TableCapability.ACCEPT_ANY_SCHEMA,
               TableCapability.BATCH_READ,
+              TableCapability.MICRO_BATCH_READ,
               TableCapability.CONTINUOUS_READ));
   private final StructType schema;
   private final Transform[] partitioning;

@@ -41,7 +41,7 @@ import com.mongodb.spark.sql.connector.config.MongoConfig;
 @MongoDBOnline()
 public class MongoSparkConnectorTestCase {
 
-  private static final Logger LOGGER = LoggerFactory.getLogger(MongoSparkConnectorTestCase.class);
+  public static final Logger LOGGER = LoggerFactory.getLogger(MongoSparkConnectorTestCase.class);
 
   @RegisterExtension
   public static final MongoSparkConnectorHelper HELPER = new MongoSparkConnectorHelper();
@@ -144,25 +144,34 @@ public class MongoSparkConnectorTestCase {
   }
 
   public void retryAssertion(final Runnable assertion) {
-    retryAssertion(assertion, 10, 2000);
+    retryAssertion(assertion, () -> {});
   }
 
-  public void retryAssertion(final Runnable assertion, final int retries, final long timeoutMs) {
+  public void retryAssertion(final Runnable assertion, final Runnable onFailure) {
+    int retries = 5;
     int counter = 0;
+    int timeoutMs = 2000;
     boolean hasError = true;
     AssertionFailedError exception = null;
     while (counter < retries && hasError) {
       try {
         counter++;
+        LOGGER.info("Assertion attempt: {}", counter);
         assertion.run();
         hasError = false;
       } catch (AssertionFailedError e) {
-        LOGGER.info("Failed assertion on attempt: {}", counter);
+        LOGGER.info(
+            "Failed assertion attempt: {} timeout: {}ms. {}", counter, timeoutMs, e.getMessage());
         exception = e;
-        HELPER.sleep(timeoutMs, "Interrupted when retrying assertion.");
+        onFailure.run();
+        if (counter < retries) {
+          LOGGER.info("SLEEPING {}ms", timeoutMs);
+          HELPER.sleep(timeoutMs, "Interrupted when retrying assertion.");
+          timeoutMs += timeoutMs;
+        }
       }
     }
-    if (hasError && exception != null) {
+    if (hasError) {
       throw exception;
     }
   }
