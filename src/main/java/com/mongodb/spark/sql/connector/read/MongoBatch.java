@@ -28,7 +28,7 @@ import com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper;
 import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 
 /** MongoBatch defines how to read data from MongoDB. */
-public class MongoBatch implements Batch {
+final class MongoBatch implements Batch {
 
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
   private final ReadConfig readConfig;
@@ -39,7 +39,7 @@ public class MongoBatch implements Batch {
    * @param schema the schema for the data
    * @param readConfig the read configuration
    */
-  public MongoBatch(final StructType schema, final ReadConfig readConfig) {
+  MongoBatch(final StructType schema, final ReadConfig readConfig) {
     this.bsonDocumentToRowConverter = new BsonDocumentToRowConverter(schema);
     this.readConfig = readConfig;
   }

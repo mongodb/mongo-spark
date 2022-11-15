@@ -46,7 +46,7 @@ final class MongoMicroBatchInputPartition extends MongoInputPartition {
    * @param startOffset the start offset in seconds since epoch
    * @param endOffset the end offset in seconds since epoch
    */
-  public MongoMicroBatchInputPartition(
+  MongoMicroBatchInputPartition(
       final int partitionId,
       final List<BsonDocument> pipeline,
       final LongOffset startOffset,

@@ -24,10 +24,9 @@ import org.apache.spark.sql.connector.read.streaming.MicroBatchStream;
 import org.apache.spark.sql.types.StructType;
 
 import com.mongodb.spark.sql.connector.config.ReadConfig;
-import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 
 /** A logical representation of MongoDB data source scan. */
-public class MongoScan implements Scan {
+final class MongoScan implements Scan {
   private final StructType schema;
   private final ReadConfig readConfig;
 
@@ -37,7 +36,7 @@ public class MongoScan implements Scan {
    * @param schema the schema for the data
    * @param readConfig the read configuration
    */
-  public MongoScan(final StructType schema, final ReadConfig readConfig) {
+  MongoScan(final StructType schema, final ReadConfig readConfig) {
     this.schema = schema;
     this.readConfig = readConfig;
   }

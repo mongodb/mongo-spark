@@ -16,7 +16,7 @@
  */
 
 @ApiStatus.Internal
-@ApiStatus.AvailableSince("3.1.0")
+@ApiStatus.AvailableSince("10.0.0")
 package com.mongodb.spark.sql.connector;
 
 import org.jetbrains.annotations.ApiStatus;

@@ -21,7 +21,7 @@ import java.util.Objects;
 import org.apache.spark.sql.connector.write.WriterCommitMessage;
 
 /** Represents a successful write to MongoDB */
-class MongoWriterCommitMessage implements WriterCommitMessage {
+final class MongoWriterCommitMessage implements WriterCommitMessage {
   private static final long serialVersionUID = 1L;
 
   private final int partitionId;

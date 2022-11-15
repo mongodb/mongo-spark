@@ -24,7 +24,7 @@ import org.bson.BsonDocument;
 import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 
 /** An offset that contains a resume token from a change stream */
-public final class ResumeTokenOffset extends Offset {
+final class ResumeTokenOffset extends Offset {
   static final ResumeTokenOffset INITIAL_RESUME_TOKEN_OFFSET =
       new ResumeTokenOffset(new BsonDocument());
 
@@ -50,7 +50,7 @@ public final class ResumeTokenOffset extends Offset {
    *
    * @param resumeToken from the change stream
    */
-  public ResumeTokenOffset(final BsonDocument resumeToken) {
+  ResumeTokenOffset(final BsonDocument resumeToken) {
     this.resumeToken = resumeToken != null ? resumeToken : new BsonDocument();
   }
 

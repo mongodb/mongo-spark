@@ -37,7 +37,7 @@ import com.mongodb.spark.sql.connector.exceptions.DataException;
 import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 /** MongoStreamingWrite defines how to write the data to MongoDB when streaming data. */
-public class MongoStreamingWrite implements StreamingWrite {
+final class MongoStreamingWrite implements StreamingWrite {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoStreamingWrite.class);
   private final LogicalWriteInfo info;
   private final WriteConfig writeConfig;

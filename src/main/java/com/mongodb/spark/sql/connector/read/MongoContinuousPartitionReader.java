@@ -51,7 +51,8 @@ import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
  * href="https://docs.mongodb.com/manual/reference/change-events/">change events</a>.
  */
 final class MongoContinuousPartitionReader implements ContinuousPartitionReader<InternalRow> {
-  private static final Logger LOGGER = LoggerFactory.getLogger(MongoPartitionReader.class);
+  private static final Logger LOGGER =
+      LoggerFactory.getLogger(MongoContinuousPartitionReader.class);
   private static final String FULL_DOCUMENT = "fullDocument";
   private final MongoInputPartition partition;
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;

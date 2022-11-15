@@ -52,6 +52,7 @@ import org.apache.spark.sql.sources.StringStartsWith;
 import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
 
 import org.bson.BsonDocument;
@@ -67,7 +68,8 @@ import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 /** A builder for a {@link MongoScan}. */
-public class MongoScanBuilder
+@ApiStatus.Internal
+public final class MongoScanBuilder
     implements ScanBuilder, SupportsPushDownFilters, SupportsPushDownRequiredColumns {
 
   private final StructType schema;

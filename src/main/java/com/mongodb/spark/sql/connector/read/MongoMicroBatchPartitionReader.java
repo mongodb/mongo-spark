@@ -66,7 +66,7 @@ final class MongoMicroBatchPartitionReader implements PartitionReader<InternalRo
    *     InternalRow}
    * @param readConfig the read configuration for reading from the partition
    */
-  public MongoMicroBatchPartitionReader(
+  MongoMicroBatchPartitionReader(
       final MongoMicroBatchInputPartition partition,
       final BsonDocumentToRowConverter bsonDocumentToRowConverter,
       final ReadConfig readConfig) {

@@ -37,7 +37,7 @@ import com.mongodb.spark.sql.connector.exceptions.DataException;
 import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 /** MongoBatchWrite defines how to write the data to MongoDB when batch processing. */
-class MongoBatchWrite implements BatchWrite {
+final class MongoBatchWrite implements BatchWrite {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoBatchWrite.class);
   private final LogicalWriteInfo info;
   private final WriteConfig writeConfig;

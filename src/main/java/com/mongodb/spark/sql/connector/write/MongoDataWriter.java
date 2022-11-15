@@ -44,7 +44,7 @@ import com.mongodb.spark.sql.connector.exceptions.DataException;
 import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 /** The MongoDB writer that writes the input RDD partition into MongoDB. */
-class MongoDataWriter implements DataWriter<InternalRow> {
+final class MongoDataWriter implements DataWriter<InternalRow> {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoDataWriter.class);
   private final int partitionId;
   private final long taskId;

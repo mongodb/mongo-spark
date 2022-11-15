@@ -31,7 +31,7 @@ import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 
 /** A factory used to create {@link MongoPartitionReader} instances. */
-public class MongoPartitionReaderFactory implements PartitionReaderFactory, Serializable {
+final class MongoPartitionReaderFactory implements PartitionReaderFactory, Serializable {
   private static final long serialVersionUID = 1L;
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
   private final ReadConfig readConfig;
@@ -42,7 +42,7 @@ public class MongoPartitionReaderFactory implements PartitionReaderFactory, Seri
    * @param bsonDocumentToRowConverter the bson document to internal row converter
    * @param readConfig the read configuration
    */
-  public MongoPartitionReaderFactory(
+  MongoPartitionReaderFactory(
       final BsonDocumentToRowConverter bsonDocumentToRowConverter, final ReadConfig readConfig) {
     this.bsonDocumentToRowConverter = bsonDocumentToRowConverter;
     this.readConfig = readConfig;

@@ -26,18 +26,16 @@ import org.bson.BsonDocument;
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 
 /** A resume token partition offset */
-public final class ResumeTokenPartitionOffset implements PartitionOffset {
+final class ResumeTokenPartitionOffset implements PartitionOffset {
   private static final long serialVersionUID = 1L;
   private final BsonDocument resumeToken;
-  static final ResumeTokenPartitionOffset INITIAL_RESUME_TOKEN_PARTITION_OFFSET =
-      new ResumeTokenPartitionOffset(new BsonDocument());
 
   /**
    * Construct a new instance
    *
    * @param resumeToken the change stream resume token
    */
-  public ResumeTokenPartitionOffset(final BsonDocument resumeToken) {
+  ResumeTokenPartitionOffset(final BsonDocument resumeToken) {
     Assertions.ensureArgument(() -> resumeToken != null, () -> "Invalid resume token");
     this.resumeToken = resumeToken;
   }

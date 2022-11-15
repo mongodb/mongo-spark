@@ -26,7 +26,7 @@ import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 /** The factory responsible for creating the write operations for the batch or streaming write. */
-class MongoDataWriterFactory implements DataWriterFactory, StreamingDataWriterFactory {
+final class MongoDataWriterFactory implements DataWriterFactory, StreamingDataWriterFactory {
 
   static final long serialVersionUID = 1L;
 

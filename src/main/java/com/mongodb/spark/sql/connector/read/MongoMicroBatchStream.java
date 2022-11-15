@@ -57,7 +57,7 @@ final class MongoMicroBatchStream implements MicroBatchStream {
    * @param schema the schema for the data
    * @param readConfig the read configuration
    */
-  public MongoMicroBatchStream(final StructType schema, final ReadConfig readConfig) {
+  MongoMicroBatchStream(final StructType schema, final ReadConfig readConfig) {
     Assertions.validateConfig(
         schema,
         (s) -> !s.isEmpty(),

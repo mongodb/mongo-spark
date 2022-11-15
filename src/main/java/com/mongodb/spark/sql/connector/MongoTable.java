@@ -46,7 +46,7 @@ import com.mongodb.spark.sql.connector.read.MongoScanBuilder;
 import com.mongodb.spark.sql.connector.write.MongoWriteBuilder;
 
 /** Represents a MongoDB Collection. */
-public class MongoTable implements Table, SupportsWrite, SupportsRead {
+final class MongoTable implements Table, SupportsWrite, SupportsRead {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoTable.class);
   private static final Set<TableCapability> TABLE_CAPABILITY_SET =
       new HashSet<>(
@@ -67,7 +67,7 @@ public class MongoTable implements Table, SupportsWrite, SupportsRead {
    *
    * @param mongoConfig The specified table configuration
    */
-  public MongoTable(final MongoConfig mongoConfig) {
+  MongoTable(final MongoConfig mongoConfig) {
     this(new StructType(), mongoConfig);
   }
 
@@ -77,7 +77,7 @@ public class MongoTable implements Table, SupportsWrite, SupportsRead {
    * @param schema The specified table schema.
    * @param mongoConfig The specified table configuration
    */
-  public MongoTable(final StructType schema, final MongoConfig mongoConfig) {
+  MongoTable(final StructType schema, final MongoConfig mongoConfig) {
     this(schema, new Transform[0], mongoConfig);
   }
 
@@ -88,7 +88,7 @@ public class MongoTable implements Table, SupportsWrite, SupportsRead {
    * @param partitioning The specified table partitioning.
    * @param mongoConfig The specified table configuration
    */
-  public MongoTable(
+  MongoTable(
       final StructType schema, final Transform[] partitioning, final MongoConfig mongoConfig) {
     LOGGER.info("Creating MongoTable: {}-{}", Versions.NAME, Versions.VERSION);
     this.schema = schema;

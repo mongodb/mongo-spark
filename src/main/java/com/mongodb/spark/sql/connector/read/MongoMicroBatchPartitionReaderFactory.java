@@ -42,7 +42,7 @@ final class MongoMicroBatchPartitionReaderFactory implements PartitionReaderFact
    * @param bsonDocumentToRowConverter the bson document to internal row converter
    * @param readConfig the read configuration
    */
-  public MongoMicroBatchPartitionReaderFactory(
+  MongoMicroBatchPartitionReaderFactory(
       final BsonDocumentToRowConverter bsonDocumentToRowConverter, final ReadConfig readConfig) {
     this.bsonDocumentToRowConverter = bsonDocumentToRowConverter;
     this.readConfig = readConfig;
