@@ -30,8 +30,8 @@ import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 
-/** A factory used to create {@link MongoPartitionReader} instances. */
-final class MongoPartitionReaderFactory implements PartitionReaderFactory, Serializable {
+/** A factory used to create {@link MongoBatchPartitionReader} instances. */
+final class MongoBatchPartitionReaderFactory implements PartitionReaderFactory, Serializable {
   private static final long serialVersionUID = 1L;
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
   private final ReadConfig readConfig;
@@ -42,7 +42,7 @@ final class MongoPartitionReaderFactory implements PartitionReaderFactory, Seria
    * @param bsonDocumentToRowConverter the bson document to internal row converter
    * @param readConfig the read configuration
    */
-  MongoPartitionReaderFactory(
+  MongoBatchPartitionReaderFactory(
       final BsonDocumentToRowConverter bsonDocumentToRowConverter, final ReadConfig readConfig) {
     this.bsonDocumentToRowConverter = bsonDocumentToRowConverter;
     this.readConfig = readConfig;
@@ -61,7 +61,7 @@ final class MongoPartitionReaderFactory implements PartitionReaderFactory, Seria
             format(
                 "Unsupported InputPartition type, a MongoInputPartition instance is required. Got: %s",
                 partition.getClass()));
-    return new MongoPartitionReader(
+    return new MongoBatchPartitionReader(
         (MongoInputPartition) partition, bsonDocumentToRowConverter, readConfig);
   }
 }

@@ -33,11 +33,11 @@ import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 
 /**
  * A partition reader returned by {@link
- * MongoPartitionReaderFactory#createReader(org.apache.spark.sql.connector.read.InputPartition)}.
+ * MongoBatchPartitionReaderFactory#createReader(org.apache.spark.sql.connector.read.InputPartition)}.
  * It's responsible for outputting data for a RDD partition.
  */
-class MongoPartitionReader implements PartitionReader<InternalRow> {
-  private static final Logger LOGGER = LoggerFactory.getLogger(MongoPartitionReader.class);
+class MongoBatchPartitionReader implements PartitionReader<InternalRow> {
+  private static final Logger LOGGER = LoggerFactory.getLogger(MongoBatchPartitionReader.class);
   private final MongoInputPartition partition;
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
   private final ReadConfig readConfig;
@@ -55,7 +55,7 @@ class MongoPartitionReader implements PartitionReader<InternalRow> {
    *     InternalRow}
    * @param readConfig the read configuration for reading from the partition
    */
-  MongoPartitionReader(
+  MongoBatchPartitionReader(
       final MongoInputPartition partition,
       final BsonDocumentToRowConverter bsonDocumentToRowConverter,
       final ReadConfig readConfig) {

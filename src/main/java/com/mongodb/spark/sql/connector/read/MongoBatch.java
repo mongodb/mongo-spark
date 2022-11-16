@@ -53,6 +53,6 @@ final class MongoBatch implements Batch {
   /** Returns a factory to create a {@link PartitionReader} for each {@link InputPartition}. */
   @Override
   public PartitionReaderFactory createReaderFactory() {
-    return new MongoPartitionReaderFactory(bsonDocumentToRowConverter, readConfig);
+    return new MongoBatchPartitionReaderFactory(bsonDocumentToRowConverter, readConfig);
   }
 }
