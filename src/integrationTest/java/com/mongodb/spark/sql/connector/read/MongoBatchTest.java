@@ -21,6 +21,7 @@ import static java.util.Collections.singletonList;
 import static org.apache.spark.sql.types.DataTypes.createStructField;
 import static org.apache.spark.sql.types.DataTypes.createStructType;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -417,6 +418,66 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
         ds.filter(new Column("age").isNotNull())
             .map((MapFunction<Row, String>) r -> r.getString(2), Encoders.STRING())
             .collectAsList());
+  }
+
+  @Test
+  void testReadsAutomaticallyFilterRequiredNonExistentFields() {
+    SparkSession spark = getOrCreateSparkSession();
+
+    List<BsonDocument> collectionData =
+        asList(
+            BsonDocument.parse("{a: 1, b: []}"),
+            BsonDocument.parse("{a: 2, b: [\"1\"]}"),
+            BsonDocument.parse("{a: 3}"),
+            BsonDocument.parse("{b: [\"2\"]}"),
+            BsonDocument.parse("{b: [\"3\"]}"),
+            BsonDocument.parse("{a: 4, b: [\"4\"]}"));
+    getCollection().insertMany(collectionData);
+
+    // Note using collectAsList().size() to force use of the schema.
+    int dataSize =
+        assertDoesNotThrow(() -> spark.read().format("mongodb").load().collectAsList().size());
+    assertEquals(6, dataSize);
+
+    StructType aExists =
+        createStructType(
+            asList(
+                createStructField("a", DataTypes.IntegerType, false),
+                createStructField("b", DataTypes.createArrayType(DataTypes.StringType), true)));
+
+    dataSize =
+        assertDoesNotThrow(
+            () -> spark.read().format("mongodb").schema(aExists).load().collectAsList().size());
+    assertEquals(4, dataSize);
+
+    StructType bExists =
+        createStructType(
+            asList(
+                createStructField("a", DataTypes.IntegerType, true),
+                createStructField("b", DataTypes.createArrayType(DataTypes.StringType), false)));
+
+    dataSize =
+        assertDoesNotThrow(
+            () -> spark.read().format("mongodb").schema(bExists).load().collectAsList().size());
+    assertEquals(5, dataSize);
+
+    StructType allFieldsExist =
+        createStructType(
+            asList(
+                createStructField("a", DataTypes.IntegerType, false),
+                createStructField("b", DataTypes.createArrayType(DataTypes.StringType), false)));
+
+    dataSize =
+        assertDoesNotThrow(
+            () ->
+                spark
+                    .read()
+                    .format("mongodb")
+                    .schema(allFieldsExist)
+                    .load()
+                    .collectAsList()
+                    .size());
+    assertEquals(3, dataSize);
   }
 
   @Test

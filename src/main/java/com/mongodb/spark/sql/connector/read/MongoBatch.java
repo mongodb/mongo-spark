@@ -17,6 +17,8 @@
 
 package com.mongodb.spark.sql.connector.read;
 
+import static com.mongodb.spark.sql.connector.read.MongoInputPartitionHelper.generateMongoBatchPartitions;
+
 import org.apache.spark.sql.connector.read.Batch;
 import org.apache.spark.sql.connector.read.InputPartition;
 import org.apache.spark.sql.connector.read.PartitionReader;
@@ -24,14 +26,14 @@ import org.apache.spark.sql.connector.read.PartitionReaderFactory;
 import org.apache.spark.sql.types.StructType;
 
 import com.mongodb.spark.sql.connector.config.ReadConfig;
-import com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper;
 import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 
 /** MongoBatch defines how to read data from MongoDB. */
 final class MongoBatch implements Batch {
 
-  private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
+  private final StructType schema;
   private final ReadConfig readConfig;
+  private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
 
   /**
    * Construct a new instance
@@ -40,14 +42,15 @@ final class MongoBatch implements Batch {
    * @param readConfig the read configuration
    */
   MongoBatch(final StructType schema, final ReadConfig readConfig) {
-    this.bsonDocumentToRowConverter = new BsonDocumentToRowConverter(schema);
+    this.schema = schema;
     this.readConfig = readConfig;
+    this.bsonDocumentToRowConverter = new BsonDocumentToRowConverter(schema);
   }
 
   /** Returns a list of partitions that split the collection into parts */
   @Override
   public InputPartition[] planInputPartitions() {
-    return PartitionerHelper.generatePartitions(readConfig);
+    return generateMongoBatchPartitions(schema, readConfig);
   }
 
   /** Returns a factory to create a {@link PartitionReader} for each {@link InputPartition}. */

@@ -34,7 +34,6 @@ import com.mongodb.client.MongoDatabase;
 
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
-import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 
 /** Partitioner helper class, contains various utility methods used by the partitioner instances. */
 public final class PartitionerHelper {
@@ -43,33 +42,6 @@ public final class PartitionerHelper {
       singletonList(BsonDocument.parse("{'$collStats': {'storageStats': { } } }"));
   private static final BsonDocument PING_COMMAND = BsonDocument.parse("{ping: 1}");
   public static final Partitioner SINGLE_PARTITIONER = new SinglePartitionPartitioner();
-
-  /**
-   * @param readConfig the read config
-   * @return the partitioner class name
-   */
-  public static MongoInputPartition[] generatePartitions(final ReadConfig readConfig) {
-    try {
-      Partitioner partitioner = readConfig.getPartitioner();
-      LOGGER.debug("Generating partitions using '{}'.", partitioner.getClass().getSimpleName());
-      List<MongoInputPartition> mongoInputPartitions = partitioner.generatePartitions(readConfig);
-      LOGGER.debug(
-          "Partitioner '{}' created {} partition(s).",
-          partitioner.getClass().getSimpleName(),
-          mongoInputPartitions.size());
-
-      if (mongoInputPartitions.isEmpty()) {
-        LOGGER.warn(
-            "Partitioner '{}' failed to create any partitions. Falling back to a single partition for the collection",
-            partitioner.getClass().getSimpleName());
-        mongoInputPartitions = SINGLE_PARTITIONER.generatePartitions(readConfig);
-      }
-
-      return mongoInputPartitions.toArray(new MongoInputPartition[0]);
-    } catch (RuntimeException ex) {
-      throw new MongoSparkException("Partitioning failed.", ex);
-    }
-  }
 
   /**
    * Returns the head {@code $match} aggregation stage or an empty document.
