@@ -43,8 +43,10 @@ import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 
 /**
  * A partition reader returned by {@link
- * MongoPartitionReaderFactory#createReader(org.apache.spark.sql.connector.read.InputPartition)}.
- * It's responsible for outputting data for a RDD partition.
+ * MongoMicroBatchPartitionReaderFactory#createReader(org.apache.spark.sql.connector.read.InputPartition)}.
+ *
+ * <p>Utilizes MongoDBs change stream functionality, each micro batch stream will consist of <a
+ * href="https://docs.mongodb.com/manual/reference/change-events/">change events</a>.
  */
 final class MongoMicroBatchPartitionReader implements PartitionReader<InternalRow> {
   private static final Logger LOGGER =
