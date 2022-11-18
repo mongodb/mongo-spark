@@ -222,7 +222,63 @@ public class InferSchemaTest extends SchemaTest {
 
   @Test
   @DisplayName("It should be able to infer the schema from arrays")
-  void testInferArraysComplex() {
+  void testInferArrays() {
+
+    assertAll(
+        "arrays simple",
+        () ->
+            assertEquals(
+                DataTypes.createStructType(
+                    singletonList(
+                        DataTypes.createStructField(
+                            "arrayField",
+                            DataTypes.createArrayType(DataTypes.StringType, true),
+                            true))),
+                InferSchema.inferSchema(
+                    singletonList(BsonDocument.parse("{arrayField: []}")), READ_CONFIG)),
+        () ->
+            assertEquals(
+                DataTypes.createStructType(
+                    singletonList(
+                        DataTypes.createStructField(
+                            "arrayField",
+                            DataTypes.createArrayType(DataTypes.BooleanType, true),
+                            true))),
+                InferSchema.inferSchema(
+                    asList(
+                        BsonDocument.parse("{arrayField: []}"),
+                        BsonDocument.parse("{arrayField: [true]}")),
+                    READ_CONFIG)),
+        () ->
+            assertEquals(
+                DataTypes.createStructType(
+                    singletonList(
+                        DataTypes.createStructField(
+                            "arrayField",
+                            DataTypes.createArrayType(DataTypes.BooleanType, true),
+                            true))),
+                InferSchema.inferSchema(
+                    asList(
+                        BsonDocument.parse("{arrayField: [true]}"),
+                        BsonDocument.parse("{arrayField: []}"),
+                        BsonDocument.parse("{arrayField: []}")),
+                    READ_CONFIG)),
+        () ->
+            assertEquals(
+                DataTypes.createStructType(
+                    singletonList(
+                        DataTypes.createStructField(
+                            "arrayField",
+                            DataTypes.createArrayType(DataTypes.BooleanType, true),
+                            true))),
+                InferSchema.inferSchema(
+                    asList(
+                        BsonDocument.parse("{arrayField: []}"),
+                        BsonDocument.parse("{arrayField: []}"),
+                        BsonDocument.parse("{arrayField: [false]}"),
+                        BsonDocument.parse("{arrayField: []}")),
+                    READ_CONFIG)));
+
     StructType elementType =
         DataTypes.createStructType(
             asList(
@@ -263,6 +319,16 @@ public class InferSchemaTest extends SchemaTest {
                     singletonList(
                         BsonDocument.parse(
                             "{arrayField: [{a: 1, b: 2}, {}, {c: 3}, {d: 4, e: 5}]}")),
+                    READ_CONFIG)),
+        () ->
+            assertEquals(
+                expectedStructType,
+                InferSchema.inferSchema(
+                    asList(
+                        BsonDocument.parse("{arrayField: [{a: 1, e: 2}]}"),
+                        BsonDocument.parse("{arrayField: [{d: 3, c: 4}]}"),
+                        BsonDocument.parse("{arrayField: []}"),
+                        BsonDocument.parse("{arrayField: [{b: 5}]}")),
                     READ_CONFIG)));
 
     StructType expectedNestedStructType =
@@ -288,6 +354,17 @@ public class InferSchemaTest extends SchemaTest {
                     asList(
                         BsonDocument.parse("{arrayField: [[{a: 1, e: 2}]]}"),
                         BsonDocument.parse("{arrayField: [[{d: 3, c: 4}]]}"),
+                        BsonDocument.parse("{arrayField: []}"),
+                        BsonDocument.parse("{arrayField: [[{b: 5}]]}")),
+                    READ_CONFIG)),
+        () ->
+            assertEquals(
+                expectedNestedStructType,
+                InferSchema.inferSchema(
+                    asList(
+                        BsonDocument.parse("{arrayField: [[{a: 1, e: 2}]]}"),
+                        BsonDocument.parse("{arrayField: [[{d: 3, c: 4}]]}"),
+                        BsonDocument.parse("{arrayField: [[]]}"),
                         BsonDocument.parse("{arrayField: [[{b: 5}]]}")),
                     READ_CONFIG)),
         () ->

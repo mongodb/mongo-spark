@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.spark.sql.catalyst.analysis.TypeCoercion;
@@ -89,9 +90,25 @@ public final class InferSchema {
   @VisibleForTesting
   static StructType inferSchema(
       final List<BsonDocument> bsonDocuments, final ReadConfig readConfig) {
-    return bsonDocuments.stream()
-        .map(d -> getStructType(d, readConfig))
-        .reduce(PLACE_HOLDER_STRUCT_TYPE, (dt1, dt2) -> compatibleStructType(dt1, dt2, readConfig));
+    StructType structType =
+        bsonDocuments.stream()
+            .map(d -> getStructType(d, readConfig))
+            .reduce(
+                PLACE_HOLDER_STRUCT_TYPE, (dt1, dt2) -> compatibleStructType(dt1, dt2, readConfig));
+
+    return DataTypes.createStructType(
+        Arrays.stream(structType.fields())
+            .map(
+                f -> {
+                  if (f.dataType().sameType(PLACE_HOLDER_ARRAY_TYPE)) {
+                    return DataTypes.createStructField(
+                        f.name(),
+                        DataTypes.createArrayType(DataTypes.StringType, true),
+                        f.nullable());
+                  }
+                  return f;
+                })
+            .collect(Collectors.toList()));
   }
 
   @NotNull
@@ -118,7 +135,11 @@ public final class InferSchema {
                 .map(v -> getDataType(v, readConfig))
                 .distinct()
                 .reduce((d1, d2) -> compatibleType(d1, d2, readConfig))
-                .orElse(DataTypes.StringType);
+                .orElse(PLACE_HOLDER_DATA_TYPE);
+
+        if (elementType.sameType(PLACE_HOLDER_DATA_TYPE)) {
+          return PLACE_HOLDER_ARRAY_TYPE;
+        }
         return DataTypes.createArrayType(elementType, true);
       case SYMBOL:
       case STRING:
@@ -254,9 +275,24 @@ public final class InferSchema {
 
   private static DataType compatibleArrayType(
       final ArrayType arrayType1, final ArrayType arrayType2, final ReadConfig readConfig) {
-    return DataTypes.createArrayType(
-        compatibleType(arrayType1.elementType(), arrayType2.elementType(), readConfig),
-        arrayType1.containsNull() || arrayType2.containsNull());
+
+    DataType arrayElementType1 = arrayType1.elementType();
+    DataType arrayElementType2 = arrayType2.elementType();
+
+    if (arrayElementType1 != PLACE_HOLDER_DATA_TYPE
+        && arrayElementType2 != PLACE_HOLDER_DATA_TYPE) {
+      return DataTypes.createArrayType(
+          compatibleType(arrayElementType1, arrayElementType2, readConfig),
+          arrayType1.containsNull() || arrayType2.containsNull());
+    } else if (arrayElementType1 == PLACE_HOLDER_DATA_TYPE
+        && arrayElementType2 == PLACE_HOLDER_DATA_TYPE) {
+      return DataTypes.createArrayType(
+          DataTypes.StringType, arrayType1.containsNull() || arrayType2.containsNull());
+    } else if (arrayElementType1 != PLACE_HOLDER_DATA_TYPE) {
+      return arrayType1;
+    } else {
+      return arrayType2;
+    }
   }
 
   private static DataType appendStructToMap(
@@ -347,6 +383,8 @@ public final class InferSchema {
           return PLACE_HOLDER_DATA_TYPE;
         }
       };
+  static final ArrayType PLACE_HOLDER_ARRAY_TYPE =
+      DataTypes.createArrayType(PLACE_HOLDER_DATA_TYPE);
 
   private InferSchema() {}
 }

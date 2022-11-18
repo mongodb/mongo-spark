@@ -17,6 +17,7 @@
 
 package com.mongodb.spark.sql.connector.schema;
 
+import static com.mongodb.spark.sql.connector.schema.InferSchema.PLACE_HOLDER_ARRAY_TYPE;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
@@ -24,7 +25,9 @@ import static java.util.Collections.singletonList;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.stream.Collectors;
 
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
@@ -137,7 +140,7 @@ abstract class SchemaTest {
 
   static final StructType BSON_DOCUMENT_ALL_TYPES_SCHEMA =
       new StructType()
-          .add("arrayEmpty", DataTypes.createArrayType(DataTypes.StringType, true))
+          .add("arrayEmpty", PLACE_HOLDER_ARRAY_TYPE)
           .add("arraySimple", DataTypes.createArrayType(DataTypes.IntegerType, true))
           .add(
               "arrayComplex",
@@ -175,6 +178,20 @@ abstract class SchemaTest {
           .add("timestamp", DataTypes.TimestampType)
           .add("undefined", DataTypes.StringType);
 
+  static final StructType BSON_DOCUMENT_ALL_TYPES_SCHEMA_FINAL =
+      DataTypes.createStructType(
+          Arrays.stream(BSON_DOCUMENT_ALL_TYPES_SCHEMA.fields())
+              .map(
+                  f -> {
+                    if (f.dataType().sameType(PLACE_HOLDER_ARRAY_TYPE)) {
+                      return DataTypes.createStructField(
+                          f.name(),
+                          DataTypes.createArrayType(DataTypes.StringType, true),
+                          f.nullable());
+                    }
+                    return f;
+                  })
+              .collect(Collectors.toList()));
   static final GenericRowWithSchema ALL_TYPES_ROW =
       new GenericRowWithSchema(
           asList(
@@ -235,5 +252,5 @@ abstract class SchemaTest {
                   new Timestamp(305419896000L),
                   "{\"$undefined\": true}")
               .toArray(),
-          BSON_DOCUMENT_ALL_TYPES_SCHEMA);
+          BSON_DOCUMENT_ALL_TYPES_SCHEMA_FINAL);
 }
