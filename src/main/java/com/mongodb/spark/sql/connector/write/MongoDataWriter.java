@@ -140,12 +140,15 @@ final class MongoDataWriter implements DataWriter<InternalRow> {
         return new InsertOneModel<>(bsonDocument);
       case REPLACE:
         return new ReplaceOneModel<>(
-            getIdFieldDocument(bsonDocument), bsonDocument, new ReplaceOptions().upsert(true));
+            getIdFieldDocument(bsonDocument),
+            bsonDocument,
+            new ReplaceOptions().upsert(writeConfig.isUpsert()));
       case UPDATE:
         BsonDocument idFields = getIdFieldDocument(bsonDocument);
         idFields.keySet().forEach(bsonDocument::remove);
         BsonDocument setDocument = new BsonDocument("$set", bsonDocument);
-        return new UpdateOneModel<>(idFields, setDocument, new UpdateOptions().upsert(true));
+        return new UpdateOneModel<>(
+            idFields, setDocument, new UpdateOptions().upsert(writeConfig.isUpsert()));
       default:
         throw new DataException("Unsupported operation type: " + writeConfig.getOperationType());
     }

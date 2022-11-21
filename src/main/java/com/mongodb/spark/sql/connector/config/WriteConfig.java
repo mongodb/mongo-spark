@@ -153,6 +153,19 @@ public final class WriteConfig extends AbstractMongoConfig {
    */
   public static final String WRITE_CONCERN_W_TIMEOUT_MS_CONFIG = "writeConcern.wTimeoutMS";
 
+  /**
+   * Upsert documents, when using replace or update operations.
+   *
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: {@value UPSERT_DOCUMENT_DEFAULT}
+   *
+   * @since 10.1
+   */
+  public static final String UPSERT_DOCUMENT_CONFIG = "upsertDocument";
+
+  private static final boolean UPSERT_DOCUMENT_DEFAULT = true;
+
   private final WriteConcern writeConcern;
   private final OperationType operationType;
 
@@ -206,6 +219,11 @@ public final class WriteConfig extends AbstractMongoConfig {
   /** @return true if the bulk operation is ordered */
   public boolean isOrdered() {
     return getBoolean(ORDERED_BULK_OPERATION_CONFIG, ORDERED_BULK_OPERATION_DEFAULT);
+  }
+
+  /** @return true if should use an upsert */
+  public boolean isUpsert() {
+    return getBoolean(UPSERT_DOCUMENT_CONFIG, UPSERT_DOCUMENT_DEFAULT);
   }
 
   private WriteConcern createWriteConcern() {
