@@ -82,7 +82,20 @@ public class MongoSparkConnectorTestCase {
     return getMaxWireVersion() >= 9;
   }
 
+  public boolean isAtLeastFiveDotZero() {
+    return getMaxWireVersion() >= 12;
+  }
+
   private int getMaxWireVersion() {
+    MongoClient mongoClient = HELPER.getMongoClient();
+    ClusterType clusterType = mongoClient.getClusterDescription().getType();
+    int counter = 0;
+    while (clusterType == ClusterType.UNKNOWN && counter < 30) {
+      HELPER.sleep(1000, "Interrupted when max wire version");
+      clusterType = mongoClient.getClusterDescription().getType();
+      counter++;
+    }
+
     return HELPER.getMongoClient().getClusterDescription().getServerDescriptions().stream()
         .map(ServerDescription::getMaxWireVersion)
         .max(Integer::compare)

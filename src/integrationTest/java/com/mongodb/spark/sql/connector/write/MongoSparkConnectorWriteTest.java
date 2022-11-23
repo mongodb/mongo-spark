@@ -22,6 +22,7 @@ import static org.apache.spark.sql.types.DataTypes.createStructType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,12 +42,20 @@ import org.junit.jupiter.api.Test;
 
 import org.bson.BsonDocument;
 
+import com.mongodb.client.model.CreateCollectionOptions;
 import com.mongodb.client.model.Projections;
+import com.mongodb.client.model.TimeSeriesGranularity;
+import com.mongodb.client.model.TimeSeriesOptions;
 
 import com.mongodb.spark.sql.connector.config.MongoConfig;
+import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
 
 class MongoSparkConnectorWriteTest extends MongoSparkConnectorTestCase {
+
+  private static final String TIMESERIES_RESOURCES_JSON_PATH =
+      "src/integrationTest/resources/data/timeseries/*.json";
+
   private static final String WRITE_RESOURCES_JSON_PATH =
       "src/integrationTest/resources/data/write/*.json";
 
@@ -70,6 +79,52 @@ class MongoSparkConnectorWriteTest extends MongoSparkConnectorTestCase {
     assertEquals(10, getCollection().countDocuments());
 
     assertCollection();
+  }
+
+  @Test
+  void testTimeseriesSupport() {
+    assumeTrue(isAtLeastFiveDotZero());
+    SparkSession spark = getOrCreateSparkSession();
+
+    getDatabase()
+        .createCollection(
+            getCollectionName(),
+            new CreateCollectionOptions()
+                .timeSeriesOptions(
+                    new TimeSeriesOptions("timestamp")
+                        .metaField("metadata")
+                        .granularity(TimeSeriesGranularity.HOURS)));
+
+    StructType schema =
+        createStructType(
+            asList(
+                createStructField(
+                    "metadata",
+                    DataTypes.createStructType(
+                        asList(
+                            createStructField("sensorId", DataTypes.IntegerType, false),
+                            createStructField("type", DataTypes.StringType, false))),
+                    false),
+                createStructField("timestamp", DataTypes.DateType, false),
+                createStructField("temp", DataTypes.IntegerType, false)));
+
+    Dataset<Row> df = spark.read().schema(schema).json(TIMESERIES_RESOURCES_JSON_PATH);
+    df.write()
+        .mode("Append")
+        .format("mongodb")
+        .option(WriteConfig.UPSERT_DOCUMENT_CONFIG, "false")
+        .save();
+
+    assertEquals(
+        1,
+        getDatabase()
+            .listCollections()
+            .filter(
+                BsonDocument.parse(
+                    "{ \"name\": \"" + getCollectionName() + "\",  \"type\": \"timeseries\"}"))
+            .into(new ArrayList<>())
+            .size());
+    assertEquals(12, getCollection().countDocuments());
   }
 
   @Test
