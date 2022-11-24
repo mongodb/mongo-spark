@@ -139,7 +139,6 @@ public final class SamplePartitioner extends FieldPartitioner {
                             Aggregates.sort(Sorts.ascending(partitionField))))
                     .allowDiskUse(readConfig.getAggregationAllowDiskUse())
                     .into(new ArrayList<>()));
-
     return createMongoInputPartitions(
         partitionField, getRightHandBoundaries(samples, samplesPerPartition), readConfig);
   }

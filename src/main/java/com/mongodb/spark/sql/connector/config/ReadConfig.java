@@ -191,33 +191,8 @@ public final class ReadConfig extends AbstractMongoConfig {
 
   private static final String STREAM_LOOKUP_FULL_DOCUMENT_DEFAULT = FullDocument.DEFAULT.getValue();
 
-  /**
-   * Include automatically generated pipeline filters and projections from the schema in the
-   * aggregation pipeline.
-   *
-   * <p>If `true`:
-   *
-   * <ul>
-   *   <li>Adds a {@code {$match : { <field>: { $exists: true } } }} expression for all non-nullable
-   *       fields.
-   *   <li>Projects only the fields listed in the schema.
-   * </ul>
-   *
-   * <p>Configuration: {@value}
-   *
-   * <p>Default: {@value INCLUDE_SCHEMA_FILTERS_AND_PROJECTIONS_DEFAULT} and allows users to disable
-   * automatically generated pipeline stages that filter and project schema fields.
-   *
-   * <p>Note: Disabling will mean all data is sent to Spark and any filters or projections will
-   * occur there.
-   *
-   * <p>Note: When streaming and using {@value STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG} = true, all
-   * schema field names are prefixed with {@code fullDocument.}
-   */
   public static final String INCLUDE_SCHEMA_FILTERS_AND_PROJECTIONS_CONFIG =
       "include.schema.filters.and.projections";
-
-  private static final boolean INCLUDE_SCHEMA_FILTERS_AND_PROJECTIONS_DEFAULT = true;
 
   private final List<BsonDocument> aggregationPipeline;
 
@@ -304,13 +279,6 @@ public final class ReadConfig extends AbstractMongoConfig {
     } catch (IllegalArgumentException e) {
       throw new ConfigException(e);
     }
-  }
-
-  /** @return true if the pipeline will also include schema based filters and projections. */
-  public boolean includeSchemaFiltersAndProjections() {
-    return getBoolean(
-        INCLUDE_SCHEMA_FILTERS_AND_PROJECTIONS_CONFIG,
-        INCLUDE_SCHEMA_FILTERS_AND_PROJECTIONS_DEFAULT);
   }
 
   /**

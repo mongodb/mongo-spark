@@ -18,15 +18,15 @@ package com.mongodb.spark.sql.connector.read;
 
 import static com.mongodb.spark.sql.connector.read.partitioner.Partitioner.LOGGER;
 import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper.SINGLE_PARTITIONER;
-import static java.util.Collections.emptyList;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Function;
 
-import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 
-import org.bson.BsonBoolean;
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
 
@@ -35,16 +35,6 @@ import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import com.mongodb.spark.sql.connector.read.partitioner.Partitioner;
 
 final class MongoInputPartitionHelper {
-
-  static List<BsonDocument> generatePipeline(final StructType schema, final ReadConfig readConfig) {
-    if (readConfig.includeSchemaFiltersAndProjections()) {
-      List<BsonDocument> schemaPipeline =
-          generateSchemaPipeline(schema, readConfig.streamPublishFullDocumentOnly());
-      return mergePipelines(schemaPipeline, readConfig.getAggregationPipeline());
-    } else {
-      return readConfig.getAggregationPipeline();
-    }
-  }
 
   static MongoInputPartition[] generateMongoBatchPartitions(
       final StructType schema, final ReadConfig readConfig) {
@@ -66,69 +56,55 @@ final class MongoInputPartitionHelper {
             mongoInputPartitions.size());
       }
 
-      if (readConfig.includeSchemaFiltersAndProjections()) {
-        mongoInputPartitions = appendSchemaPipeline(schema, mongoInputPartitions);
-      }
-      return mongoInputPartitions.toArray(new MongoInputPartition[0]);
+      List<MongoInputPartition> partitions = mongoInputPartitions;
+      return schemaProjections(schema, readConfig.streamPublishFullDocumentOnly())
+          .map(
+              schemaProjection -> {
+                List<MongoInputPartition> partitionsWithProjection =
+                    new ArrayList<>(partitions.size());
+                partitions.forEach(
+                    p ->
+                        partitionsWithProjection.add(
+                            new MongoInputPartition(
+                                p.getPartitionId(),
+                                mergePipelineFunction(p.getPipeline()).apply(schemaProjection),
+                                p.getPreferredLocations())));
+                return partitionsWithProjection;
+              })
+          .orElse(mongoInputPartitions)
+          .toArray(new MongoInputPartition[0]);
     } catch (RuntimeException ex) {
       throw new MongoSparkException("Partitioning failed.", ex);
     }
   }
 
-  private static List<MongoInputPartition> appendSchemaPipeline(
-      final StructType schema, final List<MongoInputPartition> initialPartitions) {
-
-    List<BsonDocument> schemaPipeline = generateSchemaPipeline(schema, false);
-
-    if (schemaPipeline.isEmpty()) {
-      return initialPartitions;
-    }
-
-    List<MongoInputPartition> mongoInputPartitions = new ArrayList<>(initialPartitions.size());
-    initialPartitions.forEach(
-        p ->
-            mongoInputPartitions.add(
-                new MongoInputPartition(
-                    p.getPartitionId(),
-                    mergePipelines(schemaPipeline, p.getPipeline()),
-                    p.getPreferredLocations())));
-    return mongoInputPartitions;
+  static List<BsonDocument> generatePipeline(final StructType schema, final ReadConfig readConfig) {
+    return schemaProjections(schema, readConfig.streamPublishFullDocumentOnly())
+        .map(mergePipelineFunction(readConfig.getAggregationPipeline()))
+        .orElse(readConfig.getAggregationPipeline());
   }
 
-  private static List<BsonDocument> mergePipelines(
-      final List<BsonDocument> schemaPipeline, final List<BsonDocument> pipeline) {
-    if (schemaPipeline.isEmpty()) {
-      return pipeline;
-    }
-    List<BsonDocument> withSchemaPipeline = new ArrayList<>(pipeline);
-    withSchemaPipeline.addAll(schemaPipeline);
-    return withSchemaPipeline;
-  }
-
-  private static List<BsonDocument> generateSchemaPipeline(
+  private static Optional<BsonDocument> schemaProjections(
       final StructType schema, final boolean streamPublishFullDocumentOnly) {
     if (schema.isEmpty()) {
-      return emptyList();
+      return Optional.empty();
     }
 
     String fieldPrefix = streamPublishFullDocumentOnly ? "fullDocument." : "";
-
-    List<BsonDocument> schemaPipeline = new ArrayList<>();
-    BsonDocument fieldExists = new BsonDocument();
     BsonDocument projections = new BsonDocument();
-    for (StructField field : schema.fields()) {
-      String fieldName = fieldPrefix + field.name();
+    Arrays.stream(schema.fields())
+        .map(f -> fieldPrefix + f.name())
+        .forEach(f -> projections.append(f, new BsonInt32(1)));
+    return Optional.of(new BsonDocument("$project", projections));
+  }
 
-      if (!field.nullable()) {
-        fieldExists.append(fieldName, new BsonDocument("$exists", BsonBoolean.TRUE));
-      }
-      projections.append(fieldName, new BsonInt32(1));
-    }
-    if (!fieldExists.isEmpty()) {
-      schemaPipeline.add(new BsonDocument("$match", fieldExists));
-    }
-    schemaPipeline.add(new BsonDocument("$project", projections));
-    return schemaPipeline;
+  private static Function<BsonDocument, List<BsonDocument>> mergePipelineFunction(
+      final List<BsonDocument> pipeline) {
+    return projectionStage -> {
+      List<BsonDocument> pipelineWithSchemaProjection = new ArrayList<>(pipeline);
+      pipelineWithSchemaProjection.add(projectionStage);
+      return pipelineWithSchemaProjection;
+    };
   }
 
   private MongoInputPartitionHelper() {}

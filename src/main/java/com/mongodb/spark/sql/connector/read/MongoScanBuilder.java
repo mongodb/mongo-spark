@@ -41,6 +41,7 @@ import org.apache.spark.sql.sources.Filter;
 import org.apache.spark.sql.sources.GreaterThan;
 import org.apache.spark.sql.sources.GreaterThanOrEqual;
 import org.apache.spark.sql.sources.In;
+import org.apache.spark.sql.sources.IsNotNull;
 import org.apache.spark.sql.sources.IsNull;
 import org.apache.spark.sql.sources.LessThan;
 import org.apache.spark.sql.sources.LessThanOrEqual;
@@ -177,10 +178,6 @@ public final class MongoScanBuilder
   /**
    * Processes the Filter and if possible creates the equivalent aggregation pipeline stage.
    *
-   * <p>To aid performance `IsNotNull` filters are not converted and left to Spark to process. In
-   * most cases the pipeline `$ne: null` filter is not even needed as it is implicitly covered by
-   * any extra filters.
-   *
    * @param filter the filter to be applied
    * @return the FilterAndPipelineStage which contains a pipeline stage if the filter is convertible
    *     into an aggregation pipeline.
@@ -241,6 +238,9 @@ public final class MongoScanBuilder
     } else if (filter instanceof IsNull) {
       IsNull isNullFilter = (IsNull) filter;
       return new FilterAndPipelineStage(filter, Filters.eq(isNullFilter.attribute(), null));
+    } else if (filter instanceof IsNotNull) {
+      IsNotNull isNotNullFilter = (IsNotNull) filter;
+      return new FilterAndPipelineStage(filter, Filters.exists(isNotNullFilter.attribute(), true));
     } else if (filter instanceof LessThan) {
       LessThan lessThan = (LessThan) filter;
       return new FilterAndPipelineStage(
