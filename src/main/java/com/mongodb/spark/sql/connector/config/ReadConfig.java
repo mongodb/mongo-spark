@@ -191,9 +191,6 @@ public final class ReadConfig extends AbstractMongoConfig {
 
   private static final String STREAM_LOOKUP_FULL_DOCUMENT_DEFAULT = FullDocument.DEFAULT.getValue();
 
-  public static final String INCLUDE_SCHEMA_FILTERS_AND_PROJECTIONS_CONFIG =
-      "include.schema.filters.and.projections";
-
   private final List<BsonDocument> aggregationPipeline;
 
   /**
