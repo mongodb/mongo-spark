@@ -17,6 +17,7 @@
 
 package com.mongodb.spark.sql.connector.read;
 
+import static com.mongodb.spark.sql.connector.read.MongoInputPartitionHelper.generatePipeline;
 import static com.mongodb.spark.sql.connector.read.ResumeTokenOffset.INITIAL_RESUME_TOKEN_OFFSET;
 import static java.lang.String.format;
 
@@ -44,8 +45,9 @@ import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
  */
 final class MongoContinuousStream implements ContinuousStream {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoContinuousStream.class);
-  private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
+  private final StructType schema;
   private final ReadConfig readConfig;
+  private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
 
   /**
    * Construct a new instance
@@ -58,8 +60,9 @@ final class MongoContinuousStream implements ContinuousStream {
         schema,
         (s) -> !s.isEmpty(),
         () -> "Mongo Continuous streams require a schema to be defined");
-    this.bsonDocumentToRowConverter = new BsonDocumentToRowConverter(schema);
+    this.schema = schema;
     this.readConfig = readConfig;
+    this.bsonDocumentToRowConverter = new BsonDocumentToRowConverter(schema);
   }
 
   @Override
@@ -67,7 +70,7 @@ final class MongoContinuousStream implements ContinuousStream {
     return new InputPartition[] {
       new MongoContinuousInputPartition(
           0,
-          readConfig.getAggregationPipeline(),
+          generatePipeline(schema, readConfig),
           new ResumeTokenPartitionOffset(((ResumeTokenOffset) start).getResumeToken()))
     };
   }

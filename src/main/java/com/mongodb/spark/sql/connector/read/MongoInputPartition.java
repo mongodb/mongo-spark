@@ -75,6 +75,11 @@ public class MongoInputPartition implements InputPartition {
     return pipeline;
   }
 
+  /** @return the preferred locations as a list */
+  public List<String> getPreferredLocations() {
+    return preferredLocations;
+  }
+
   /**
    * The preferred locations for the read.
    *

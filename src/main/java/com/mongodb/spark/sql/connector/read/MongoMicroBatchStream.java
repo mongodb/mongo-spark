@@ -16,6 +16,8 @@
  */
 package com.mongodb.spark.sql.connector.read;
 
+import static com.mongodb.spark.sql.connector.read.MongoInputPartitionHelper.generatePipeline;
+
 import java.time.Instant;
 
 import org.apache.spark.sql.connector.read.InputPartition;
@@ -45,8 +47,9 @@ import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 final class MongoMicroBatchStream implements MicroBatchStream {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoMicroBatchStream.class);
-  private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
+  private final StructType schema;
   private final ReadConfig readConfig;
+  private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
   private volatile Long lastTime = Instant.now().getEpochSecond();
 
   private int partitionId;
@@ -62,8 +65,9 @@ final class MongoMicroBatchStream implements MicroBatchStream {
         schema,
         (s) -> !s.isEmpty(),
         () -> "Mongo micro batch streams require a schema to be defined");
-    this.bsonDocumentToRowConverter = new BsonDocumentToRowConverter(schema);
+    this.schema = schema;
     this.readConfig = readConfig;
+    this.bsonDocumentToRowConverter = new BsonDocumentToRowConverter(schema);
   }
 
   @Override
@@ -79,7 +83,7 @@ final class MongoMicroBatchStream implements MicroBatchStream {
   public InputPartition[] planInputPartitions(final Offset start, final Offset end) {
     return new InputPartition[] {
       new MongoMicroBatchInputPartition(
-          partitionId++, readConfig.getAggregationPipeline(), (LongOffset) start, (LongOffset) end)
+          partitionId++, generatePipeline(schema, readConfig), (LongOffset) start, (LongOffset) end)
     };
   }
 

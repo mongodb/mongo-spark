@@ -420,6 +420,38 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
   }
 
   @Test
+  void testReadsCanFilterNonExistentFields() {
+    SparkSession spark = getOrCreateSparkSession();
+
+    List<BsonDocument> collectionData =
+        asList(
+            BsonDocument.parse("{a: 1, b: []}"),
+            BsonDocument.parse("{a: 2, b: [\"1\"]}"),
+            BsonDocument.parse("{a: 3}"),
+            BsonDocument.parse("{b: [\"2\"]}"),
+            BsonDocument.parse("{b: [\"3\"]}"),
+            BsonDocument.parse("{a: 4, b: [\"4\"]}"));
+    getCollection().insertMany(collectionData);
+
+    Dataset<Row> ds = spark.read().format("mongodb").load();
+
+    long dataSize = ds.count();
+    assertEquals(6, dataSize);
+
+    // a exists
+    dataSize = ds.filter("a IS NOT NULL").count();
+    assertEquals(4, dataSize);
+
+    // b exists
+    dataSize = ds.filter("b IS NOT NULL").count();
+    assertEquals(5, dataSize);
+
+    // a & b exists
+    dataSize = ds.filter("a IS NOT NULL AND b IS NOT NULL").count();
+    assertEquals(3, dataSize);
+  }
+
+  @Test
   void testCustomMongoClientFactory() {
     SparkSession spark = getOrCreateSparkSession();
 
