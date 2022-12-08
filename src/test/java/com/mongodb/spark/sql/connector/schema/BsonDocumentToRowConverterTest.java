@@ -62,12 +62,11 @@ import com.mongodb.spark.sql.connector.interop.JavaScala;
 
 public class BsonDocumentToRowConverterTest extends SchemaTest {
 
-  private static final BsonDocumentToRowConverter CONVERTER = new BsonDocumentToRowConverter();
+  private static final BsonDocumentToRowConverter CONVERTER =
+      new BsonDocumentToRowConverter(new StructType());
 
   private static final BiFunction<DataType, BsonValue, Object> CONVERT =
-      (dataType, bsonValue) ->
-          CONVERTER.convertBsonValue(
-              "", dataType, bsonValue, ConverterHelper.DEFAULT_JSON_WRITER_SETTINGS);
+      (dataType, bsonValue) -> CONVERTER.convertBsonValue("", dataType, bsonValue);
   private static final DataType DECIMAL_TYPE = DataTypes.createDecimalType();
 
   @Test
