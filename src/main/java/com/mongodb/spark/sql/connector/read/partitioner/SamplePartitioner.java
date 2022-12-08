@@ -30,6 +30,7 @@ import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 
 import org.bson.BsonDocument;
+import org.bson.BsonInt32;
 import org.bson.conversions.Bson;
 
 import com.mongodb.client.model.Aggregates;
@@ -112,7 +113,8 @@ public final class SamplePartitioner extends FieldPartitioner {
     } else {
       count = readConfig.withCollection(coll -> coll.countDocuments(matchQuery));
     }
-    double avgObjSizeInBytes = storageStats.getNumber("avgObjSize").doubleValue();
+    double avgObjSizeInBytes =
+        storageStats.get("avgObjSize", new BsonInt32(0)).asNumber().doubleValue();
     double numDocumentsPerPartition = Math.floor(partitionSizeInBytes / avgObjSizeInBytes);
 
     if (numDocumentsPerPartition >= count) {

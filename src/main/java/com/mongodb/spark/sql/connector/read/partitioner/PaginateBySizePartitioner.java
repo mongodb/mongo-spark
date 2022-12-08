@@ -25,6 +25,7 @@ import java.util.List;
 import org.jetbrains.annotations.ApiStatus;
 
 import org.bson.BsonDocument;
+import org.bson.BsonInt32;
 
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
@@ -73,7 +74,8 @@ public final class PaginateBySizePartitioner extends PaginatePartitioner {
       return SINGLE_PARTITIONER.generatePartitions(readConfig);
     }
 
-    double avgObjSizeInBytes = storageStats.getNumber("avgObjSize").doubleValue();
+    double avgObjSizeInBytes =
+        storageStats.get("avgObjSize", new BsonInt32(0)).asNumber().doubleValue();
     if (avgObjSizeInBytes >= partitionSizeBytes) {
       LOGGER.warn(
           "Average document size `{}` is greater than the partition size `{}`. Please increase the partition size."
