@@ -73,7 +73,7 @@ import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 public final class MongoScanBuilder
     implements ScanBuilder, SupportsPushDownFilters, SupportsPushDownRequiredColumns {
   private static final RowToBsonDocumentConverter CONVERTER =
-      new RowToBsonDocumentConverter(new StructType());
+      new RowToBsonDocumentConverter(new StructType(), false);
   private final StructType schema;
   private final ReadConfig readConfig;
   private final boolean isCaseSensitive;

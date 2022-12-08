@@ -191,6 +191,21 @@ public final class ReadConfig extends AbstractMongoConfig {
 
   private static final String STREAM_LOOKUP_FULL_DOCUMENT_DEFAULT = FullDocument.DEFAULT.getValue();
 
+  /**
+   * Output extended JSON for any String types.
+   *
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: {@value OUTPUT_EXTENDED_JSON_DEFAULT}
+   *
+   * <p>If true, will produce extended JSON for any fields that have the String datatype.
+   *
+   * @since 10.1
+   */
+  public static final String OUTPUT_EXTENDED_JSON_CONFIG = "outputExtendedJson";
+
+  private static final boolean OUTPUT_EXTENDED_JSON_DEFAULT = false;
+
   private final List<BsonDocument> aggregationPipeline;
 
   /**
@@ -276,6 +291,14 @@ public final class ReadConfig extends AbstractMongoConfig {
     } catch (IllegalArgumentException e) {
       throw new ConfigException(e);
     }
+  }
+
+  /**
+   * @return true if should ouput extended JSON
+   * @since 10.1
+   */
+  public boolean outputExtendedJson() {
+    return getBoolean(OUTPUT_EXTENDED_JSON_CONFIG, OUTPUT_EXTENDED_JSON_DEFAULT);
   }
 
   /**

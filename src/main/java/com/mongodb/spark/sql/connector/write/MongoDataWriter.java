@@ -50,6 +50,7 @@ final class MongoDataWriter implements DataWriter<InternalRow> {
   private final int partitionId;
   private final long taskId;
   private final RowToBsonDocumentConverter rowToBsonDocumentConverter;
+
   private final WriteConfig writeConfig;
   private final long epochId;
   private final BulkWriteOptions bulkWriteOptions;
@@ -73,7 +74,8 @@ final class MongoDataWriter implements DataWriter<InternalRow> {
       final long epochId) {
     this.partitionId = partitionId;
     this.taskId = taskId;
-    this.rowToBsonDocumentConverter = new RowToBsonDocumentConverter(schema);
+    this.rowToBsonDocumentConverter =
+        new RowToBsonDocumentConverter(schema, writeConfig.convertJson());
     this.writeConfig = writeConfig;
     this.epochId = epochId;
     this.bulkWriteOptions = new BulkWriteOptions().ordered(writeConfig.isOrdered());

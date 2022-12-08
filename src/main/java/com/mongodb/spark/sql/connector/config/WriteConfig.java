@@ -166,6 +166,19 @@ public final class WriteConfig extends AbstractMongoConfig {
 
   private static final boolean UPSERT_DOCUMENT_DEFAULT = true;
 
+  /**
+   * Convert JSON and extended JSON values into their BSON equivalent.
+   *
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: {@value CONVERT_JSON_DEFAULT}
+   *
+   * @since 10.1
+   */
+  public static final String CONVERT_JSON_CONFIG = "convertJson";
+
+  private static final boolean CONVERT_JSON_DEFAULT = false;
+
   private final WriteConcern writeConcern;
   private final OperationType operationType;
 
@@ -224,6 +237,14 @@ public final class WriteConfig extends AbstractMongoConfig {
   /** @return true if should use an upsert */
   public boolean isUpsert() {
     return getBoolean(UPSERT_DOCUMENT_CONFIG, UPSERT_DOCUMENT_DEFAULT);
+  }
+
+  /**
+   * @return the true if JSON strings should be converted
+   * @since 10.1
+   */
+  public boolean convertJson() {
+    return getBoolean(CONVERT_JSON_CONFIG, CONVERT_JSON_DEFAULT);
   }
 
   private WriteConcern createWriteConcern() {

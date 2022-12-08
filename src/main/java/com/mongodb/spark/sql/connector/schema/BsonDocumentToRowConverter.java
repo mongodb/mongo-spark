@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.InternalRow;
@@ -66,6 +67,7 @@ import org.bson.BsonValue;
 import org.bson.RawBsonDocument;
 import org.bson.codecs.EncoderContext;
 import org.bson.io.BasicOutputBuffer;
+import org.bson.json.JsonWriterSettings;
 import org.bson.types.Decimal128;
 
 import com.mongodb.spark.sql.connector.exceptions.DataException;
@@ -85,15 +87,19 @@ public final class BsonDocumentToRowConverter implements Serializable {
   private static final long serialVersionUID = 1L;
   private final Function<Row, InternalRow> rowToInternalRowFunction;
   private final StructType schema;
+  private final boolean outputExtendedJson;
 
   /**
-   * Create a new instance with the default json writer settings
+   * Create a new instance
    *
    * @param schema the schema for the row
+   * @param outputExtendedJson if true will produce extended JSON for any fields that have the
+   *     String datatype.
    */
-  public BsonDocumentToRowConverter(final StructType schema) {
+  public BsonDocumentToRowConverter(final StructType schema, final boolean outputExtendedJson) {
     this.schema = schema;
     this.rowToInternalRowFunction = new RowToInternalRowFunction(schema);
+    this.outputExtendedJson = outputExtendedJson;
   }
 
   /** @return the schema for the converter */
@@ -167,11 +173,16 @@ public final class BsonDocumentToRowConverter implements Serializable {
     throw invalidFieldData(fieldName, dataType, bsonValue);
   }
 
+  private JsonWriterSettings getJsonWriterSettings() {
+    return outputExtendedJson
+        ? ConverterHelper.EXTENDED_JSON_WRITER_SETTINGS
+        : ConverterHelper.RELAXED_JSON_WRITER_SETTINGS;
+  }
+
   private GenericRowWithSchema convertToRow(
       final String fieldName, final StructType dataType, final BsonValue bsonValue) {
-    if (!bsonValue.isDocument()) {
-      throw invalidFieldData(fieldName, dataType, bsonValue);
-    }
+    ensureFieldData(bsonValue::isDocument, () -> invalidFieldData(fieldName, dataType, bsonValue));
+
     BsonDocument bsonDocument = bsonValue.asDocument();
     List<Object> values = new ArrayList<>();
     for (StructField field : dataType.fields()) {
@@ -191,12 +202,10 @@ public final class BsonDocumentToRowConverter implements Serializable {
 
   private scala.collection.Map<String, ?> convertToMap(
       final String fieldName, final MapType dataType, final BsonValue bsonValue) {
-    if (!bsonValue.isDocument()) {
-      throw invalidFieldData(fieldName, dataType, bsonValue);
-    }
-    if (!(dataType.keyType() instanceof StringType)) {
-      throw invalidFieldData(fieldName, dataType, bsonValue, " Map keys must be strings.");
-    }
+    ensureFieldData(bsonValue::isDocument, () -> invalidFieldData(fieldName, dataType, bsonValue));
+    ensureFieldData(
+        () -> dataType.keyType() instanceof StringType,
+        () -> invalidFieldData(fieldName, dataType, bsonValue, " Map keys must be strings."));
 
     Map<String, Object> map = new HashMap<>();
     bsonValue
@@ -301,13 +310,10 @@ public final class BsonDocumentToRowConverter implements Serializable {
     switch (bsonValue.getBsonType()) {
       case STRING:
         return bsonValue.asString().getValue();
-      case SYMBOL:
-        return bsonValue.asSymbol().getSymbol();
       case DOCUMENT:
-        return bsonValue.asDocument().toJson(ConverterHelper.DEFAULT_JSON_WRITER_SETTINGS);
+        return bsonValue.asDocument().toJson(getJsonWriterSettings());
       default:
-        String value =
-            new BsonDocument("v", bsonValue).toJson(ConverterHelper.DEFAULT_JSON_WRITER_SETTINGS);
+        String value = new BsonDocument("v", bsonValue).toJson(getJsonWriterSettings());
         // Strip down to just the value
         value = value.substring(6, value.length() - 1);
         // Remove unnecessary quotes of BsonValues converted to Strings.
@@ -344,12 +350,19 @@ public final class BsonDocumentToRowConverter implements Serializable {
     return currentLevel.isEmpty() ? subLevel : format("%s.%s", currentLevel, subLevel);
   }
 
-  private DataException invalidFieldData(
+  private static void ensureFieldData(
+      final Supplier<Boolean> isValid, final Supplier<DataException> errorSupplier) {
+    if (!isValid.get()) {
+      throw errorSupplier.get();
+    }
+  }
+
+  private static DataException invalidFieldData(
       final String fieldName, final DataType dataType, final BsonValue bsonValue) {
     return invalidFieldData(fieldName, dataType, bsonValue, "");
   }
 
-  private DataException invalidFieldData(
+  private static DataException invalidFieldData(
       final String fieldName,
       final DataType dataType,
       final BsonValue bsonValue,
@@ -362,9 +375,7 @@ public final class BsonDocumentToRowConverter implements Serializable {
 
   private DataException missingFieldException(final String fieldPath, final BsonDocument value) {
     return new DataException(
-        format(
-            "Missing field '%s' in: '%s'",
-            fieldPath, value.toJson(ConverterHelper.DEFAULT_JSON_WRITER_SETTINGS)));
+        format("Missing field '%s' in: '%s'", fieldPath, value.toJson(getJsonWriterSettings())));
   }
 
   @VisibleForTesting
