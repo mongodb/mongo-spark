@@ -18,16 +18,15 @@
 package com.mongodb.spark.sql.connector.schema;
 
 import static java.lang.String.format;
+import static java.util.Arrays.asList;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 
 import org.apache.spark.sql.Row;
-import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.types.ArrayType;
 import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.DataTypes;
@@ -38,7 +37,6 @@ import org.apache.spark.sql.types.StringType;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.TestOnly;
 
 import org.bson.BsonArray;
 import org.bson.BsonBinary;
@@ -49,11 +47,11 @@ import org.bson.BsonDocument;
 import org.bson.BsonDouble;
 import org.bson.BsonInt32;
 import org.bson.BsonInt64;
+import org.bson.BsonNull;
 import org.bson.BsonString;
 import org.bson.BsonValue;
 import org.bson.types.Decimal128;
 
-import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import com.mongodb.spark.sql.connector.exceptions.DataException;
 import com.mongodb.spark.sql.connector.interop.JavaScala;
 
@@ -66,42 +64,10 @@ import com.mongodb.spark.sql.connector.interop.JavaScala;
 public final class RowToBsonDocumentConverter implements Serializable {
 
   private static final long serialVersionUID = 1L;
-
-  private final Function<InternalRow, Row> internalRowConverter;
-
-  /** Construct a new instance */
-  @TestOnly
-  public RowToBsonDocumentConverter() {
-    this(
-        internalRow -> {
-          throw new ConfigException("No InternalRow to Row converter");
-        });
-  }
-
-  /**
-   * Construct a new instance
-   *
-   * @param schema the schema for the row
-   */
-  public RowToBsonDocumentConverter(final StructType schema) {
-    this(new InternalRowToRowFunction(schema));
-  }
+  public static final RowToBsonDocumentConverter CONVERTER = new RowToBsonDocumentConverter();
 
   /** Construct a new instance */
-  private RowToBsonDocumentConverter(final Function<InternalRow, Row> internalRowConverter) {
-    this.internalRowConverter = internalRowConverter;
-  }
-
-  /**
-   * Converts a {@link Row} to a {@link BsonDocument}
-   *
-   * @param row the row to convert
-   * @throws DataException if the {@code Row} does not have a schema associated with it
-   * @return a BsonDocument representing the data in the row
-   */
-  public BsonDocument fromRow(final InternalRow row) {
-    return fromRow(internalRowConverter.apply(row));
-  }
+  private RowToBsonDocumentConverter() {}
 
   /**
    * Converts a {@link Row} to a {@link BsonDocument}
@@ -125,7 +91,7 @@ public final class RowToBsonDocumentConverter implements Serializable {
    * @return the bsonValue
    */
   @SuppressWarnings("unchecked")
-  public static BsonValue toBsonValue(final DataType dataType, final Object data) {
+  public BsonValue toBsonValue(final DataType dataType, final Object data) {
     try {
       if (DataTypes.BinaryType.acceptsType(dataType)) {
         return new BsonBinary((byte[]) data);
@@ -148,6 +114,8 @@ public final class RowToBsonDocumentConverter implements Serializable {
       } else if (DataTypes.DateType.acceptsType(dataType)
           || DataTypes.TimestampType.acceptsType(dataType)) {
         return new BsonDateTime(((Date) data).getTime());
+      } else if (DataTypes.NullType.acceptsType(dataType)) {
+        return new BsonNull();
       } else if (dataType instanceof DecimalType) {
         BigDecimal bigDecimal =
             data instanceof BigDecimal
@@ -161,6 +129,8 @@ public final class RowToBsonDocumentConverter implements Serializable {
         List<Object> listData;
         if (data instanceof List) {
           listData = (List<Object>) data;
+        } else if (data instanceof Object[]) {
+          listData = asList((Object[]) data);
         } else {
           listData = JavaScala.asJava((scala.collection.Seq<Object>) data);
         }
@@ -201,6 +171,8 @@ public final class RowToBsonDocumentConverter implements Serializable {
     }
 
     throw new DataException(
-        format("Cannot cast %s into a BsonValue. %s has no matching BsonValue.", data, dataType));
+        format(
+            "Cannot cast %s into a BsonValue. %s data type has no matching BsonValue.",
+            data, dataType));
   }
 }

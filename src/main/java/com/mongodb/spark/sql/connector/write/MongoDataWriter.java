@@ -16,14 +16,17 @@
  */
 package com.mongodb.spark.sql.connector.write;
 
+import static com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter.CONVERTER;
 import static java.lang.String.format;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.write.DataWriter;
 import org.apache.spark.sql.connector.write.WriterCommitMessage;
+import org.apache.spark.sql.types.StructType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,14 +44,13 @@ import com.mongodb.client.model.WriteModel;
 
 import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.exceptions.DataException;
-import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 /** The MongoDB writer that writes the input RDD partition into MongoDB. */
 final class MongoDataWriter implements DataWriter<InternalRow> {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoDataWriter.class);
   private final int partitionId;
   private final long taskId;
-  private final RowToBsonDocumentConverter rowToBsonDocumentConverter;
+  private final InternalRowToRowFunction internalRowToRowFunction;
   private final WriteConfig writeConfig;
   private final long epochId;
   private final BulkWriteOptions bulkWriteOptions;
@@ -61,17 +63,18 @@ final class MongoDataWriter implements DataWriter<InternalRow> {
    *
    * @param partitionId A unique id of the RDD partition that the returned writer will process.
    * @param taskId The task id returned by {@link org.apache.spark.TaskContext#taskAttemptId()}.
+   * @param schema the schema for the writer
    * @param writeConfig the MongoDB write configuration
    */
   MongoDataWriter(
       final int partitionId,
       final long taskId,
-      final RowToBsonDocumentConverter rowToBsonDocumentConverter,
+      final StructType schema,
       final WriteConfig writeConfig,
       final long epochId) {
     this.partitionId = partitionId;
     this.taskId = taskId;
-    this.rowToBsonDocumentConverter = rowToBsonDocumentConverter;
+    this.internalRowToRowFunction = new InternalRowToRowFunction(schema);
     this.writeConfig = writeConfig;
     this.epochId = epochId;
     this.bulkWriteOptions = new BulkWriteOptions().ordered(writeConfig.isOrdered());
@@ -87,7 +90,8 @@ final class MongoDataWriter implements DataWriter<InternalRow> {
    */
   @Override
   public void write(final InternalRow record) {
-    BsonDocument bsonDocument = rowToBsonDocumentConverter.fromRow(record);
+    Row row = internalRowToRowFunction.apply(record);
+    BsonDocument bsonDocument = CONVERTER.fromRow(row);
     writeModelList.add(getWriteModel(bsonDocument));
     if (writeModelList.size() >= writeConfig.getMaxBatchSize()) {
       writeModels();

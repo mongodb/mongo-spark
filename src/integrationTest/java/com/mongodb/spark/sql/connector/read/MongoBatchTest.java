@@ -16,6 +16,7 @@
  */
 package com.mongodb.spark.sql.connector.read;
 
+import static com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter.CONVERTER;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static org.apache.spark.sql.types.DataTypes.createStructField;
@@ -44,7 +45,6 @@ import org.bson.BsonDocument;
 
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
-import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 class MongoBatchTest extends MongoSparkConnectorTestCase {
   private static final String READ_RESOURCES_HOBBITS_JSON_PATH =
@@ -121,9 +121,7 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
     SparkSession spark = getOrCreateSparkSession();
     Row actual = spark.read().format("mongodb").load().first();
 
-    assertEquals(
-        BsonDocument.parse(EXPECTED_BSON_DOCUMENT_JSON),
-        new RowToBsonDocumentConverter(actual.schema()).fromRow(actual));
+    assertEquals(BsonDocument.parse(EXPECTED_BSON_DOCUMENT_JSON), CONVERTER.fromRow(actual));
   }
 
   @Test
@@ -136,33 +134,23 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
 
     // Simple types
     Row actual = dataset.where("_id = 1").first();
-    assertEquals(
-        BsonDocument.parse(EXPECTED_BSON_DOCUMENT_JSON),
-        new RowToBsonDocumentConverter(actual.schema()).fromRow(actual));
+    assertEquals(BsonDocument.parse(EXPECTED_BSON_DOCUMENT_JSON), CONVERTER.fromRow(actual));
 
     // Casted types
     actual = dataset.where("dateTime = cast('2020-01-01T00:00:01.000Z' as timestamp)").first();
-    assertEquals(
-        BsonDocument.parse(EXPECTED_BSON_DOCUMENT_JSON),
-        new RowToBsonDocumentConverter(actual.schema()).fromRow(actual));
+    assertEquals(BsonDocument.parse(EXPECTED_BSON_DOCUMENT_JSON), CONVERTER.fromRow(actual));
 
     // Find complex matches
     actual = dataset.where("arraySimple = array(1, 2, 3)").first();
-    assertEquals(
-        BsonDocument.parse(EXPECTED_BSON_DOCUMENT_JSON),
-        new RowToBsonDocumentConverter(actual.schema()).fromRow(actual));
+    assertEquals(BsonDocument.parse(EXPECTED_BSON_DOCUMENT_JSON), CONVERTER.fromRow(actual));
 
     // Find nested matches
     actual = dataset.where("document.a = 1").first();
-    assertEquals(
-        BsonDocument.parse(EXPECTED_BSON_DOCUMENT_JSON),
-        new RowToBsonDocumentConverter(actual.schema()).fromRow(actual));
+    assertEquals(BsonDocument.parse(EXPECTED_BSON_DOCUMENT_JSON), CONVERTER.fromRow(actual));
 
     // Functional filters - handled by spark
     actual = dataset.filter("array_contains(arraySimple, 2)").first();
-    assertEquals(
-        BsonDocument.parse(EXPECTED_BSON_DOCUMENT_JSON),
-        new RowToBsonDocumentConverter(actual.schema()).fromRow(actual));
+    assertEquals(BsonDocument.parse(EXPECTED_BSON_DOCUMENT_JSON), CONVERTER.fromRow(actual));
   }
 
   @Test

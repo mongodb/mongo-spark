@@ -21,27 +21,25 @@ import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.write.DataWriter;
 import org.apache.spark.sql.connector.write.DataWriterFactory;
 import org.apache.spark.sql.connector.write.streaming.StreamingDataWriterFactory;
+import org.apache.spark.sql.types.StructType;
 
 import com.mongodb.spark.sql.connector.config.WriteConfig;
-import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 /** The factory responsible for creating the write operations for the batch or streaming write. */
 final class MongoDataWriterFactory implements DataWriterFactory, StreamingDataWriterFactory {
 
   static final long serialVersionUID = 1L;
-
-  private final RowToBsonDocumentConverter rowToBsonDocumentConverter;
+  private final StructType schema;
   private final WriteConfig writeConfig;
 
   /**
    * Construct a new instance
    *
-   * @param rowToBsonDocumentConverter the row to BsonDocument converter
+   * @param schema the schema for the writer
    * @param writeConfig the configuration for the write
    */
-  MongoDataWriterFactory(
-      final RowToBsonDocumentConverter rowToBsonDocumentConverter, final WriteConfig writeConfig) {
-    this.rowToBsonDocumentConverter = rowToBsonDocumentConverter;
+  MongoDataWriterFactory(final StructType schema, final WriteConfig writeConfig) {
+    this.schema = schema;
     this.writeConfig = writeConfig;
   }
 
@@ -53,7 +51,7 @@ final class MongoDataWriterFactory implements DataWriterFactory, StreamingDataWr
    */
   @Override
   public DataWriter<InternalRow> createWriter(final int partitionId, final long taskId) {
-    return new MongoDataWriter(partitionId, taskId, rowToBsonDocumentConverter, writeConfig, -1);
+    return new MongoDataWriter(partitionId, taskId, schema, writeConfig, -1);
   }
 
   /**
@@ -67,7 +65,6 @@ final class MongoDataWriterFactory implements DataWriterFactory, StreamingDataWr
   @Override
   public DataWriter<InternalRow> createWriter(
       final int partitionId, final long taskId, final long epochId) {
-    return new MongoDataWriter(
-        partitionId, taskId, rowToBsonDocumentConverter, writeConfig, epochId);
+    return new MongoDataWriter(partitionId, taskId, schema, writeConfig, epochId);
   }
 }

@@ -17,6 +17,7 @@
 
 package com.mongodb.spark.sql.connector.schema;
 
+import static com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter.CONVERTER;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -48,8 +49,6 @@ import com.mongodb.spark.sql.connector.interop.JavaScala;
 import scala.collection.Seq;
 
 public class RowToBsonDocumentConverterTest extends SchemaTest {
-
-  private static final RowToBsonDocumentConverter CONVERTER = new RowToBsonDocumentConverter();
 
   @Test
   @DisplayName("test simple types")

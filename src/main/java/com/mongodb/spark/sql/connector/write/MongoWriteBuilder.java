@@ -25,13 +25,11 @@ import org.apache.spark.sql.connector.write.streaming.StreamingWrite;
 import org.jetbrains.annotations.ApiStatus;
 
 import com.mongodb.spark.sql.connector.config.WriteConfig;
-import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 /** MongoWriteBuilder handles the creation of batch writer or streaming writers. */
 @ApiStatus.Internal
 public class MongoWriteBuilder implements WriteBuilder, SupportsTruncate {
   private final LogicalWriteInfo info;
-  private final RowToBsonDocumentConverter rowToBsonDocumentConverter;
   private final WriteConfig writeConfig;
 
   private final boolean truncate;
@@ -43,40 +41,32 @@ public class MongoWriteBuilder implements WriteBuilder, SupportsTruncate {
    * @param writeConfig the configuration for the write
    */
   public MongoWriteBuilder(final LogicalWriteInfo info, final WriteConfig writeConfig) {
-    this(
-        info,
-        new RowToBsonDocumentConverter(info.schema()),
-        writeConfig.withOptions(info.options()),
-        false);
+    this(info, writeConfig.withOptions(info.options()), false);
   }
 
   /** Returns a {@link MongoBatchWrite} to write data to batch source. */
   @SuppressWarnings("deprecation")
   @Override
   public BatchWrite buildForBatch() {
-    return new MongoBatchWrite(info, rowToBsonDocumentConverter, writeConfig, truncate);
+    return new MongoBatchWrite(info, writeConfig, truncate);
   }
 
   /** Returns a {@link MongoStreamingWrite} to write data to streaming source. */
   @Override
   @SuppressWarnings("deprecation")
   public StreamingWrite buildForStreaming() {
-    return new MongoStreamingWrite(info, rowToBsonDocumentConverter, writeConfig, truncate);
+    return new MongoStreamingWrite(info, writeConfig, truncate);
   }
 
   /** @return a MongoWriteBuilder where truncate is set to true. */
   @Override
   public WriteBuilder truncate() {
-    return new MongoWriteBuilder(info, rowToBsonDocumentConverter, writeConfig, true);
+    return new MongoWriteBuilder(info, writeConfig, true);
   }
 
   private MongoWriteBuilder(
-      final LogicalWriteInfo info,
-      final RowToBsonDocumentConverter rowToBsonDocumentConverter,
-      final WriteConfig writeConfig,
-      final boolean truncate) {
+      final LogicalWriteInfo info, final WriteConfig writeConfig, final boolean truncate) {
     this.info = info;
-    this.rowToBsonDocumentConverter = rowToBsonDocumentConverter;
     this.writeConfig = writeConfig;
     this.truncate = truncate;
   }

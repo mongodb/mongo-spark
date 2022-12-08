@@ -34,31 +34,24 @@ import com.mongodb.client.MongoCollection;
 
 import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.exceptions.DataException;
-import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 /** MongoStreamingWrite defines how to write the data to MongoDB when streaming data. */
 final class MongoStreamingWrite implements StreamingWrite {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoStreamingWrite.class);
   private final LogicalWriteInfo info;
   private final WriteConfig writeConfig;
-  private final RowToBsonDocumentConverter rowToBsonDocumentConverter;
   private final boolean truncate;
 
   /**
    * Construct a new instance
    *
    * @param info the logical write information
-   * @param rowToBsonDocumentConverter the row to BsonDocument converter
    * @param writeConfig the configuration for the write
    * @param truncate truncate the table
    */
   MongoStreamingWrite(
-      final LogicalWriteInfo info,
-      final RowToBsonDocumentConverter rowToBsonDocumentConverter,
-      final WriteConfig writeConfig,
-      final boolean truncate) {
+      final LogicalWriteInfo info, final WriteConfig writeConfig, final boolean truncate) {
     this.info = info;
-    this.rowToBsonDocumentConverter = rowToBsonDocumentConverter;
     this.writeConfig = writeConfig;
     this.truncate = truncate;
   }
@@ -66,14 +59,16 @@ final class MongoStreamingWrite implements StreamingWrite {
   /**
    * Creates the MongoDataWriterFactory instance will be serialized and sent to executors.
    *
-   * @param info Physical information about the input data that will be written to this table.
+   * @param physicalWriteInfo Physical information about the input data that will be written to this
+   *     table.
    */
   @Override
-  public StreamingDataWriterFactory createStreamingWriterFactory(final PhysicalWriteInfo info) {
+  public StreamingDataWriterFactory createStreamingWriterFactory(
+      final PhysicalWriteInfo physicalWriteInfo) {
     if (truncate) {
       writeConfig.doWithCollection(MongoCollection::drop);
     }
-    return new MongoDataWriterFactory(rowToBsonDocumentConverter, writeConfig);
+    return new MongoDataWriterFactory(info.schema(), writeConfig);
   }
 
   /**

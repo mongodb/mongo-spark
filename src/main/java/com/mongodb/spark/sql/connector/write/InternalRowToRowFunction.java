@@ -15,7 +15,7 @@
  *
  */
 
-package com.mongodb.spark.sql.connector.schema;
+package com.mongodb.spark.sql.connector.write;
 
 import java.io.Serializable;
 import java.util.function.Function;
