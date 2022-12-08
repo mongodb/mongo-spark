@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.spark.sql.Row;
+import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.types.ArrayType;
 import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.DataTypes;
@@ -64,10 +65,28 @@ import com.mongodb.spark.sql.connector.interop.JavaScala;
 public final class RowToBsonDocumentConverter implements Serializable {
 
   private static final long serialVersionUID = 1L;
-  public static final RowToBsonDocumentConverter CONVERTER = new RowToBsonDocumentConverter();
 
-  /** Construct a new instance */
-  private RowToBsonDocumentConverter() {}
+  private final InternalRowToRowFunction internalRowToRowFunction;
+
+  /**
+   * Construct a new instance
+   *
+   * @param schema the schema for the row
+   */
+  public RowToBsonDocumentConverter(final StructType schema) {
+    this.internalRowToRowFunction = new InternalRowToRowFunction(schema);
+  }
+
+  /**
+   * Converts a {@link InternalRow} to a {@link BsonDocument}
+   *
+   * @param row the internal row to convert
+   * @throws DataException if the {@code Row} does not have a schema associated with it
+   * @return a BsonDocument representing the data in the row
+   */
+  public BsonDocument fromRow(final InternalRow row) {
+    return fromRow(internalRowToRowFunction.apply(row));
+  }
 
   /**
    * Converts a {@link Row} to a {@link BsonDocument}

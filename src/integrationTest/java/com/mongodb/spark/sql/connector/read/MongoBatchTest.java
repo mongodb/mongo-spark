@@ -16,7 +16,6 @@
  */
 package com.mongodb.spark.sql.connector.read;
 
-import static com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter.CONVERTER;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static org.apache.spark.sql.types.DataTypes.createStructField;
@@ -45,8 +44,11 @@ import org.bson.BsonDocument;
 
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
+import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 class MongoBatchTest extends MongoSparkConnectorTestCase {
+  private static final RowToBsonDocumentConverter CONVERTER =
+      new RowToBsonDocumentConverter(new StructType());
   private static final String READ_RESOURCES_HOBBITS_JSON_PATH =
       "src/integrationTest/resources/data/read/hobbits.json";
   private static final String READ_RESOURCES_INFER_SCHEMA_JSON_PATH =
