@@ -63,14 +63,21 @@ import com.mongodb.spark.sql.connector.interop.JavaScala;
 public class BsonDocumentToRowConverterTest extends SchemaTest {
 
   private static final BsonDocumentToRowConverter CONVERTER =
-      new BsonDocumentToRowConverter(new StructType());
+      new BsonDocumentToRowConverter(new StructType(), false);
 
   private static final BiFunction<DataType, BsonValue, Object> CONVERT =
       (dataType, bsonValue) -> CONVERTER.convertBsonValue("", dataType, bsonValue);
+
+  private static final BsonDocumentToRowConverter EXTENDED_CONVERTER =
+      new BsonDocumentToRowConverter(new StructType(), true);
+
+  private static final BiFunction<DataType, BsonValue, Object> EXTENDED_CONVERT =
+      (dataType, bsonValue) -> EXTENDED_CONVERTER.convertBsonValue("", dataType, bsonValue);
+
   private static final DataType DECIMAL_TYPE = DataTypes.createDecimalType();
 
   @Test
-  @DisplayName("test string support")
+  @DisplayName("test string support relaxed")
   void testStringSupport() {
     Map<String, String> expected =
         new HashMap<String, String>() {
@@ -94,6 +101,16 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
 
     BSON_DOCUMENT.forEach(
         (k, v) -> assertEquals(expected.get(k), CONVERT.apply(DataTypes.StringType, v)));
+  }
+
+  @Test
+  @DisplayName("test extended Json string support")
+  void testExtendedJsonStringSupport() {
+    BSON_DOCUMENT_ALL_TYPES.forEach(
+        (k, v) ->
+            assertEquals(
+                ALL_TYPES_EXTENDED_JSON_ROW.get(ALL_TYPES_EXTENDED_JSON_ROW.fieldIndex(k)),
+                EXTENDED_CONVERT.apply(DataTypes.StringType, v)));
   }
 
   @Test
@@ -517,7 +534,7 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
   @DisplayName("test fromBsonDocument")
   void testFromBsonDocument() {
     BsonDocumentToRowConverter bsonDocumentToRowConverter =
-        new BsonDocumentToRowConverter(ALL_TYPES_ROW.schema());
+        new BsonDocumentToRowConverter(ALL_TYPES_ROW.schema(), false);
     GenericRowWithSchema actual = bsonDocumentToRowConverter.toRow(BSON_DOCUMENT_ALL_TYPES);
 
     assertRows(ALL_TYPES_ROW, actual);
@@ -535,10 +552,9 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
 
   private void assertRows(final GenericRowWithSchema expected, final GenericRowWithSchema actual) {
     assertEquals(expected.schema(), actual.schema());
-
-    for (int i = 0; i < expected.values().length; i++) {
-      Object expectedValue = expected.values()[i];
-      Object actualValue = actual.values()[i];
+    for (String fieldName : expected.schema().fieldNames()) {
+      Object expectedValue = expected.values()[expected.schema().fieldIndex(fieldName)];
+      Object actualValue = actual.values()[actual.schema().fieldIndex(fieldName)];
       assertRowValues(expectedValue, actualValue);
     }
   }

@@ -26,6 +26,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.stream.Collectors;
 
@@ -50,6 +51,7 @@ abstract class SchemaTest {
               + "'floatType': 3.0, "
               + "'integerType': 5, "
               + "'longType': {'$numberLong': '6'}, "
+              + "'nullType': null,"
               + "'shortType': 7, "
               + "'stringType': 'string', "
               + "'timestampType': {'$date': '1970-01-01T05:00:00Z'}"
@@ -80,7 +82,7 @@ abstract class SchemaTest {
               .add("floatType", DataTypes.FloatType, true)
               .add("integerType", DataTypes.IntegerType, true)
               .add("longType", DataTypes.LongType, true)
-              .add("nullType", DataTypes.NullType, true)
+              .add("nullType", DataTypes.NullType, false)
               .add("shortType", DataTypes.ShortType, true)
               .add("stringType", DataTypes.StringType, true)
               .add("timestampType", DataTypes.TimestampType, true));
@@ -116,7 +118,7 @@ abstract class SchemaTest {
           + "\"binary\": {\"$binary\": {\"base64\": \"S2Fma2Egcm9ja3Mh\", \"subType\": \"00\"}}, "
           + "\"boolean\": true, "
           + "\"code\": {\"$code\": \"int i = 0;\"}, "
-          + "\"codeWithScope\": {\"$code\": \"int x = y\", \"$scope\": {\"y\": {\"$numberInt\": \"1\"}}}, "
+          + "\"codeWithScope\": {\"$code\": \"int x = y;\", \"$scope\": {\"y\": {\"$numberInt\": \"1\"}}}, "
           + "\"dateTime\": {\"$date\": {\"$numberLong\": \"1577836801000\"}}, "
           + "\"decimal128\": {\"$numberDecimal\": \"1.0\"}, "
           + "\"documentEmpty\": {},"
@@ -138,9 +140,17 @@ abstract class SchemaTest {
   static final BsonDocument BSON_DOCUMENT_ALL_TYPES =
       RawBsonDocument.parse(BSON_DOCUMENT_ALL_TYPES_JSON);
 
+  // null values aren't copied
+  static final BsonDocument BSON_DOCUMENT_ALL_TYPES_NO_NULL =
+      BsonDocument.parse(BSON_DOCUMENT_ALL_TYPES_JSON);
+
+  static {
+    BSON_DOCUMENT_ALL_TYPES_NO_NULL.remove("null");
+  }
+
   static final StructType BSON_DOCUMENT_ALL_TYPES_SCHEMA =
       new StructType()
-          .add("arrayEmpty", PLACE_HOLDER_ARRAY_TYPE)
+          .add("arrayEmpty", DataTypes.createArrayType(DataTypes.StringType, true))
           .add("arraySimple", DataTypes.createArrayType(DataTypes.IntegerType, true))
           .add(
               "arrayComplex",
@@ -178,24 +188,10 @@ abstract class SchemaTest {
           .add("timestamp", DataTypes.TimestampType)
           .add("undefined", DataTypes.StringType);
 
-  static final StructType BSON_DOCUMENT_ALL_TYPES_SCHEMA_FINAL =
-      DataTypes.createStructType(
-          Arrays.stream(BSON_DOCUMENT_ALL_TYPES_SCHEMA.fields())
-              .map(
-                  f -> {
-                    if (f.dataType().sameType(PLACE_HOLDER_ARRAY_TYPE)) {
-                      return DataTypes.createStructField(
-                          f.name(),
-                          DataTypes.createArrayType(DataTypes.StringType, true),
-                          f.nullable());
-                    }
-                    return f;
-                  })
-              .collect(Collectors.toList()));
   static final GenericRowWithSchema ALL_TYPES_ROW =
       new GenericRowWithSchema(
           asList(
-                  emptyList().toArray(),
+                  Collections.<String>emptyList().toArray(),
                   asList(1, 2, 3).toArray(),
                   asList(
                           new GenericRowWithSchema(
@@ -229,7 +225,7 @@ abstract class SchemaTest {
                   new byte[] {75, 97, 102, 107, 97, 32, 114, 111, 99, 107, 115, 33},
                   true,
                   "{\"$code\": \"int i = 0;\"}",
-                  "{\"$code\": \"int x = y\", \"$scope\": {\"y\": 1}}",
+                  "{\"$code\": \"int x = y;\", \"$scope\": {\"y\": 1}}",
                   new Timestamp(1577836801000L),
                   new BigDecimal("1.0"),
                   new GenericRowWithSchema(
@@ -252,5 +248,119 @@ abstract class SchemaTest {
                   new Timestamp(305419896000L),
                   "{\"$undefined\": true}")
               .toArray(),
-          BSON_DOCUMENT_ALL_TYPES_SCHEMA_FINAL);
+          BSON_DOCUMENT_ALL_TYPES_SCHEMA);
+
+  static final StructType BSON_DOCUMENT_STRING_SCHEMA =
+      DataTypes.createStructType(
+          Arrays.stream(BSON_DOCUMENT_ALL_TYPES_SCHEMA.fields())
+              .map(f -> DataTypes.createStructField(f.name(), DataTypes.StringType, f.nullable()))
+              .collect(Collectors.toList()));
+
+  // Relaxed JSON Schema
+  static final BsonDocument BSON_DOCUMENT_RELAXED =
+      RawBsonDocument.parse(
+          "{"
+              + " \"arrayEmpty\": [],"
+              + " \"arraySimple\": [ 1, 2, 3 ],"
+              + " \"arrayComplex\": [ {\"a\": 1 }, {\"a\": 2 } ],"
+              + " \"arrayMixedTypes\": [ 1, 2, true, [ 1, 2, 3 ], {\"a\": 2 } ],"
+              + " \"arrayComplexMixedTypes\": [ {\"a\": 1 }, {\"a\": \"a\" } ],"
+              + " \"binary\": \"S2Fma2Egcm9ja3Mh\","
+              + " \"boolean\": true,"
+              + " \"code\": { \"$code\": \"int i = 0;\"},"
+              + " \"codeWithScope\": { \"$code\": \"int x = y;\", \"$scope\": {\"y\": 1 }},"
+              + " \"dateTime\": \"2020-01-01T00:00:01Z\","
+              + " \"decimal128\": 1.0,"
+              + " \"documentEmpty\": {},"
+              + " \"document\": {\"a\": 1},"
+              + " \"double\": 62.0,"
+              + " \"int32\": 42,"
+              + " \"int64\": 52,"
+              + " \"maxKey\": {\"$maxKey\": 1},"
+              + " \"minKey\": {\"$minKey\": 1},"
+              + " \"null\": null,"
+              + " \"objectId\": \"5f3d1bbde0ca4d2829c91e1d\","
+              + " \"regex\": {\"$regularExpression\": {\"pattern\": \"^test.*regex.*xyz$\", \"options\": \"i\" }},"
+              + " \"string\": \"the fox ...\","
+              + " \"symbol\": \"ruby stuff\","
+              + " \"timestamp\": {\"$timestamp\": {\"t\": 305419896, \"i\": 5 }},"
+              + " \"undefined\": {\"$undefined\": true}"
+              + "}");
+  static final GenericRowWithSchema ALL_TYPES_RELAXED_JSON_ROW =
+      new GenericRowWithSchema(
+          asList(
+                  "[]",
+                  "[1, 2, 3]",
+                  "[{\"a\": 1}, {\"a\": 2}]",
+                  "[1, 2, true, [1, 2, 3], {\"a\": 2}]",
+                  "[{\"a\": 1}, {\"a\": \"a\"}]",
+                  "S2Fma2Egcm9ja3Mh",
+                  "true",
+                  "{\"$code\": \"int i = 0;\"}",
+                  "{\"$code\": \"int x = y;\", \"$scope\": {\"y\": 1}}",
+                  "2020-01-01T00:00:01Z",
+                  "1.0",
+                  "{}",
+                  "{\"a\": 1}",
+                  "62.0",
+                  "42",
+                  "52",
+                  "{\"$maxKey\": 1}",
+                  "{\"$minKey\": 1}",
+                  "null",
+                  "5f3d1bbde0ca4d2829c91e1d",
+                  "{\"$regularExpression\": {\"pattern\": \"^test.*regex.*xyz$\", \"options\": \"i\"}}",
+                  "the fox ...",
+                  "ruby stuff",
+                  "{\"$timestamp\": {\"t\": 305419896, \"i\": 5}}",
+                  "{\"$undefined\": true}")
+              .toArray(),
+          BSON_DOCUMENT_STRING_SCHEMA);
+
+  // Extended JSON
+  static final GenericRowWithSchema ALL_TYPES_EXTENDED_JSON_ROW =
+      new GenericRowWithSchema(
+          asList(
+                  "[]",
+                  "[{\"$numberInt\": \"1\"}, {\"$numberInt\": \"2\"}, {\"$numberInt\": \"3\"}]",
+                  "[{\"a\": {\"$numberInt\": \"1\"}}, {\"a\": {\"$numberInt\": \"2\"}}]",
+                  "[{\"$numberInt\": \"1\"}, {\"$numberInt\": \"2\"}, true, [{\"$numberInt\": \"1\"}, {\"$numberInt\": "
+                      + "\"2\"}, {\"$numberInt\": \"3\"}], {\"a\": {\"$numberInt\": \"2\"}}]",
+                  "[{\"a\": {\"$numberInt\": \"1\"}}, {\"a\": \"a\"}]",
+                  "{\"$binary\": {\"base64\": \"S2Fma2Egcm9ja3Mh\", \"subType\": \"00\"}}",
+                  "true",
+                  "{\"$code\": \"int i = 0;\"}",
+                  "{\"$code\": \"int x = y;\", \"$scope\": {\"y\": {\"$numberInt\": \"1\"}}}",
+                  "{\"$date\": {\"$numberLong\": \"1577836801000\"}}",
+                  "{\"$numberDecimal\": \"1.0\"}",
+                  "{}",
+                  "{\"a\": {\"$numberInt\": \"1\"}}",
+                  "{\"$numberDouble\": \"62.0\"}",
+                  "{\"$numberInt\": \"42\"}",
+                  "{\"$numberLong\": \"52\"}",
+                  "{\"$maxKey\": 1}",
+                  "{\"$minKey\": 1}",
+                  null,
+                  "{\"$oid\": \"5f3d1bbde0ca4d2829c91e1d\"}",
+                  "{\"$regularExpression\": {\"pattern\": \"^test.*regex.*xyz$\", \"options\": \"i\"}}",
+                  "the fox ...",
+                  "{\"$symbol\": \"ruby stuff\"}",
+                  "{\"$timestamp\": {\"t\": 305419896, \"i\": 5}}",
+                  "{\"$undefined\": true}")
+              .toArray(),
+          BSON_DOCUMENT_STRING_SCHEMA);
+
+  // Infer Schema
+  static final StructType BSON_DOCUMENT_ALL_TYPES_SCHEMA_WITH_PLACEHOLDER =
+      DataTypes.createStructType(
+          Arrays.stream(BSON_DOCUMENT_ALL_TYPES_SCHEMA.fields())
+              .map(
+                  f -> {
+                    if (f.name().equals("arrayEmpty")) {
+                      return DataTypes.createStructField(
+                          f.name(), PLACE_HOLDER_ARRAY_TYPE, f.nullable());
+                    }
+                    return f;
+                  })
+              .collect(Collectors.toList()));
 }

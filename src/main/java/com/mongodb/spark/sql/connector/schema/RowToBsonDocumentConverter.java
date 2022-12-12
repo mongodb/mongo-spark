@@ -51,6 +51,7 @@ import org.bson.BsonInt64;
 import org.bson.BsonNull;
 import org.bson.BsonString;
 import org.bson.BsonValue;
+import org.bson.json.JsonParseException;
 import org.bson.types.Decimal128;
 
 import com.mongodb.spark.sql.connector.exceptions.DataException;
@@ -67,14 +68,17 @@ public final class RowToBsonDocumentConverter implements Serializable {
   private static final long serialVersionUID = 1L;
 
   private final InternalRowToRowFunction internalRowToRowFunction;
+  private final boolean convertJson;
 
   /**
    * Construct a new instance
    *
    * @param schema the schema for the row
+   * @param convertJson the true if JSON strings should be converted
    */
-  public RowToBsonDocumentConverter(final StructType schema) {
+  public RowToBsonDocumentConverter(final StructType schema, final boolean convertJson) {
     this.internalRowToRowFunction = new InternalRowToRowFunction(schema);
+    this.convertJson = convertJson;
   }
 
   /**
@@ -129,7 +133,7 @@ public final class RowToBsonDocumentConverter implements Serializable {
       } else if (DataTypes.LongType.acceptsType(dataType)) {
         return new BsonInt64(((Number) data).longValue());
       } else if (DataTypes.StringType.acceptsType(dataType)) {
-        return new BsonString((String) data);
+        return processString((String) data);
       } else if (DataTypes.DateType.acceptsType(dataType)
           || DataTypes.TimestampType.acceptsType(dataType)) {
         return new BsonDateTime(((Date) data).getTime());
@@ -193,5 +197,18 @@ public final class RowToBsonDocumentConverter implements Serializable {
         format(
             "Cannot cast %s into a BsonValue. %s data type has no matching BsonValue.",
             data, dataType));
+  }
+
+  private static final String BSON_TEMPLATE = "{v: %s}";
+
+  private BsonValue processString(final String data) {
+    if (convertJson) {
+      try {
+        return BsonDocument.parse(format(BSON_TEMPLATE, data)).get("v");
+      } catch (JsonParseException e) {
+        return new BsonString(data);
+      }
+    }
+    return new BsonString(data);
   }
 }

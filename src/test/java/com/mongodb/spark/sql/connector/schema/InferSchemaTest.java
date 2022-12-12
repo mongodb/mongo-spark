@@ -78,7 +78,7 @@ public class InferSchemaTest extends SchemaTest {
   @Test
   void testSingleFullDocument() {
     assertEquals(
-        BSON_DOCUMENT_ALL_TYPES_SCHEMA,
+        BSON_DOCUMENT_ALL_TYPES_SCHEMA_WITH_PLACEHOLDER,
         InferSchema.getDataType(BSON_DOCUMENT_ALL_TYPES, READ_CONFIG));
   }
 
@@ -598,7 +598,7 @@ public class InferSchemaTest extends SchemaTest {
   }
 
   private DataType getDataType(final String fieldName) {
-    return BSON_DOCUMENT_ALL_TYPES_SCHEMA
-        .fields()[BSON_DOCUMENT_ALL_TYPES_SCHEMA.fieldIndex(fieldName)].dataType();
+    return BSON_DOCUMENT_ALL_TYPES_SCHEMA_WITH_PLACEHOLDER
+        .fields()[BSON_DOCUMENT_ALL_TYPES_SCHEMA_WITH_PLACEHOLDER.fieldIndex(fieldName)].dataType();
   }
 }
