@@ -41,6 +41,7 @@ import org.apache.spark.sql.types.StructType;
 import org.junit.jupiter.api.Test;
 
 import org.bson.BsonDocument;
+import org.bson.BsonNull;
 
 import com.mongodb.client.model.CreateCollectionOptions;
 import com.mongodb.client.model.Projections;
@@ -231,6 +232,7 @@ class MongoSparkConnectorWriteTest extends MongoSparkConnectorTestCase {
             .collectAsList()
             .stream()
             .map(BsonDocument::parse)
+            .peek(d -> d.put("age", d.getOrDefault("age", BsonNull.VALUE)))
             .collect(Collectors.toList());
 
     ArrayList<BsonDocument> actual =

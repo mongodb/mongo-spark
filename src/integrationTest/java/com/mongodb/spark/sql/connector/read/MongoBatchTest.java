@@ -108,6 +108,7 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
           + "\"int64\": {\"$numberLong\": \"52\"}, "
           + "\"maxKey\": \"{\\\"$maxKey\\\": 1}\", "
           + "\"minKey\": \"{\\\"$minKey\\\": 1}\", "
+          + "\"null\": null, "
           + "\"objectId\": \"5f3d1bbde0ca4d2829c91e1d\", "
           + "\"regex\": \"{\\\"$regularExpression\\\": {\\\"pattern\\\": \\\"^test.*regex.*xyz$\\\", \\\"options\\\": \\\"i\\\"}}\", "
           + "\"string\": \"the fox ...\", "

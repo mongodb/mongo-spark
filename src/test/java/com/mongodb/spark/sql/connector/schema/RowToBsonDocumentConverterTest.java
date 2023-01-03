@@ -70,8 +70,7 @@ public class RowToBsonDocumentConverterTest extends SchemaTest {
   @DisplayName("test extended json string types")
   void testExtendedStringTypes() {
     assertEquals(
-        BSON_DOCUMENT_ALL_TYPES_NO_NULL,
-        EXTENDED_JSON_CONVERTER.fromRow(ALL_TYPES_EXTENDED_JSON_ROW));
+        BSON_DOCUMENT_ALL_TYPES, EXTENDED_JSON_CONVERTER.fromRow(ALL_TYPES_EXTENDED_JSON_ROW));
   }
 
   @Test
@@ -142,6 +141,24 @@ public class RowToBsonDocumentConverterTest extends SchemaTest {
                     DataTypes.createMapType(DataTypes.StringType, SIMPLE_ROW.schema(), true),
                     true));
 
+    assertEquals(expected, DEFAULT_CONVERTER.fromRow(row));
+  }
+
+  @Test
+  @DisplayName("test null values")
+  void testNullValues() {
+    Row row =
+        new GenericRowWithSchema(
+            new Object[] {null, toSeq("a", null), toScalaMap("k", (String) null)},
+            new StructType()
+                .add("field", DataTypes.StringType)
+                .add("arrayType", DataTypes.createArrayType(DataTypes.StringType, true), true)
+                .add(
+                    "mapType",
+                    DataTypes.createMapType(DataTypes.StringType, DataTypes.StringType, true),
+                    true));
+    BsonDocument expected =
+        BsonDocument.parse("{field: null, arrayType: ['a', null], mapType: {k: null}}");
     assertEquals(expected, DEFAULT_CONVERTER.fromRow(row));
   }
 
