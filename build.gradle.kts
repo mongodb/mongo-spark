@@ -128,6 +128,15 @@ val gitVersion: String by lazy {
     describeStdOut.toString().substring(1).trim()
 }
 
+val gitDiffNameOnly: String by lazy {
+    val describeStdOut = ByteArrayOutputStream()
+    exec {
+        commandLine = listOf("git", "diff", "--name-only")
+        standardOutput = describeStdOut
+    }
+    describeStdOut.toString().replaceIndent(" - ")
+}
+
 buildConfig {
     className("Versions")
     packageName("com.mongodb.spark.connector")
@@ -358,6 +367,9 @@ tasks.register("publishArchives") {
                 | =================
                 |
                 | $version != $gitVersion
+                |
+                | Modified Files:
+                |$gitDiffNameOnly
                 |
                 | The project version does not match the git tag.
                 |""".trimMargin()
