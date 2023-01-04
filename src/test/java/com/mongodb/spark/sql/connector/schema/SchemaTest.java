@@ -140,14 +140,6 @@ abstract class SchemaTest {
   static final BsonDocument BSON_DOCUMENT_ALL_TYPES =
       RawBsonDocument.parse(BSON_DOCUMENT_ALL_TYPES_JSON);
 
-  // null values aren't copied
-  static final BsonDocument BSON_DOCUMENT_ALL_TYPES_NO_NULL =
-      BsonDocument.parse(BSON_DOCUMENT_ALL_TYPES_JSON);
-
-  static {
-    BSON_DOCUMENT_ALL_TYPES_NO_NULL.remove("null");
-  }
-
   static final StructType BSON_DOCUMENT_ALL_TYPES_SCHEMA =
       new StructType()
           .add("arrayEmpty", DataTypes.createArrayType(DataTypes.StringType, true))

@@ -116,7 +116,9 @@ public final class RowToBsonDocumentConverter implements Serializable {
   @SuppressWarnings("unchecked")
   public BsonValue toBsonValue(final DataType dataType, final Object data) {
     try {
-      if (DataTypes.BinaryType.acceptsType(dataType)) {
+      if (data == null) {
+        return BsonNull.VALUE;
+      } else if (DataTypes.BinaryType.acceptsType(dataType)) {
         return new BsonBinary((byte[]) data);
       } else if (DataTypes.BooleanType.acceptsType(dataType)) {
         return new BsonBoolean((Boolean) data);
@@ -138,7 +140,7 @@ public final class RowToBsonDocumentConverter implements Serializable {
           || DataTypes.TimestampType.acceptsType(dataType)) {
         return new BsonDateTime(((Date) data).getTime());
       } else if (DataTypes.NullType.acceptsType(dataType)) {
-        return new BsonNull();
+        return BsonNull.VALUE;
       } else if (dataType instanceof DecimalType) {
         BigDecimal bigDecimal =
             data instanceof BigDecimal
@@ -180,9 +182,7 @@ public final class RowToBsonDocumentConverter implements Serializable {
         BsonDocument bsonDocument = new BsonDocument();
         for (StructField field : row.schema().fields()) {
           int fieldIndex = row.fieldIndex(field.name());
-          if (!(field.nullable() && row.isNullAt(fieldIndex))) {
-            bsonDocument.append(field.name(), toBsonValue(field.dataType(), row.get(fieldIndex)));
-          }
+          bsonDocument.append(field.name(), toBsonValue(field.dataType(), row.get(fieldIndex)));
         }
         return bsonDocument;
       }
