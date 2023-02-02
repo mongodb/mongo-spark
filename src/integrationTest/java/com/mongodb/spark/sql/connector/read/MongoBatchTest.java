@@ -471,7 +471,7 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
 
   @Test
   void testReadFromTimeseriesDatabase() {
-    assumeTrue(isAtLeastFiveDotZero());
+    assumeTrue(isAtLeastFiveDotZero() && !isSharded());
     SparkSession spark = getOrCreateSparkSession();
     getCollection().drop();
 
