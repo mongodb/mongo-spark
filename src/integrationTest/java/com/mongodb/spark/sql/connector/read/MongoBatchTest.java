@@ -25,12 +25,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.HashMap;
 import java.util.List;
 
 import org.apache.spark.api.java.function.MapFunction;
 import org.apache.spark.sql.Column;
+import org.apache.spark.sql.DataFrameReader;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
@@ -41,6 +43,10 @@ import org.apache.spark.sql.types.StructType;
 import org.junit.jupiter.api.Test;
 
 import org.bson.BsonDocument;
+
+import com.mongodb.client.model.CreateCollectionOptions;
+import com.mongodb.client.model.TimeSeriesGranularity;
+import com.mongodb.client.model.TimeSeriesOptions;
 
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
@@ -461,6 +467,66 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
         .collect();
 
     assertTrue(CustomMongoClientFactory.CALLED.get());
+  }
+
+  @Test
+  void testReadFromTimeseriesDatabase() {
+    assumeTrue(isAtLeastFiveDotZero());
+    SparkSession spark = getOrCreateSparkSession();
+    getCollection().drop();
+
+    getDatabase()
+        .createCollection(
+            getCollectionName(),
+            new CreateCollectionOptions()
+                .timeSeriesOptions(
+                    new TimeSeriesOptions("timestamp")
+                        .metaField("metadata")
+                        .granularity(TimeSeriesGranularity.HOURS)));
+
+    List<BsonDocument> collectionData =
+        asList(
+            BsonDocument.parse(
+                "{'timestamp': {'$date': '2021-05-18T00:00:00Z'}, metadata: {sensorId: 5578, type: 'temperature'}, temp: 12}"),
+            BsonDocument.parse(
+                "{'timestamp': {'$date': '2021-05-18T04:00:00Z'}, metadata: {sensorId: 5578, type: 'temperature'}, temp: 11}"),
+            BsonDocument.parse(
+                "{'timestamp': {'$date': '2021-05-18T08:00:00Z'}, metadata: {sensorId: 5578, type: 'temperature'}, temp: 11}"),
+            BsonDocument.parse(
+                "{'timestamp': {'$date': '2021-05-18T12:00:00Z'}, metadata: {sensorId: 5578, type: 'temperature'}, temp: 12}"),
+            BsonDocument.parse(
+                "{'timestamp': {'$date': '2021-05-18T16:00:00Z'}, metadata: {sensorId: 5578, type: 'temperature'}, temp: 16}"),
+            BsonDocument.parse(
+                "{'timestamp': {'$date': '2021-05-18T20:00:00Z'}, metadata: {sensorId: 5578, type: 'temperature'}, temp: 15}"),
+            BsonDocument.parse(
+                "{'timestamp': {'$date': '2021-05-19T00:00:00Z'}, metadata: {sensorId: 5578, type: 'temperature'}, temp: 13}"),
+            BsonDocument.parse(
+                "{'timestamp': {'$date': '2021-05-19T04:00:00Z'}, metadata: {sensorId: 5578, type: 'temperature'}, temp: 12}"),
+            BsonDocument.parse(
+                "{'timestamp': {'$date': '2021-05-19T08:00:00Z'}, metadata: {sensorId: 5578, type: 'temperature'}, temp: 11}"),
+            BsonDocument.parse(
+                "{'timestamp': {'$date': '2021-05-19T12:00:00Z'}, metadata: {sensorId: 5578, type: 'temperature'}, temp: 12}"),
+            BsonDocument.parse(
+                "{'timestamp': {'$date': '2021-05-19T16:00:00Z'}, metadata: {sensorId: 5578, type: 'temperature'}, temp: 17}"),
+            BsonDocument.parse(
+                "{'timestamp': {'$date': '2021-05-19T20:00:00Z'}, metadata: {sensorId: 5578, type: 'temperature'}, temp: 12}"));
+    getCollection().insertMany(collectionData);
+
+    DataFrameReader dfr = spark.read().format("mongodb");
+
+    String partitioner =
+        "com.mongodb.spark.sql.connector.read.partitioner.PaginateBySizePartitioner";
+    assertEquals(collectionData.size(), dfr.option("partitioner", partitioner).load().count());
+
+    partitioner =
+        "com.mongodb.spark.sql.connector.read.partitioner.PaginateIntoPartitionsPartitioner";
+    assertEquals(collectionData.size(), dfr.option("partitioner", partitioner).load().count());
+
+    partitioner = "com.mongodb.spark.sql.connector.read.partitioner.SamplePartitioner";
+    assertEquals(collectionData.size(), dfr.option("partitioner", partitioner).load().count());
+
+    partitioner = "com.mongodb.spark.sql.connector.read.partitioner.SinglePartitionPartitioner";
+    assertEquals(collectionData.size(), dfr.option("partitioner", partitioner).load().count());
   }
 
   private List<BsonDocument> toBsonDocuments(final Dataset<String> dataset) {
