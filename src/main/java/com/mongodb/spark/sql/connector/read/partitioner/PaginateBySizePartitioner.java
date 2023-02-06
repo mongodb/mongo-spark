@@ -88,7 +88,7 @@ public final class PaginateBySizePartitioner extends PaginatePartitioner {
     int numDocumentsPerPartition = (int) Math.floor(partitionSizeBytes / avgObjSizeInBytes);
     BsonDocument matchQuery = PartitionerHelper.matchQuery(readConfig.getAggregationPipeline());
     long count;
-    if (matchQuery.isEmpty()) {
+    if (matchQuery.isEmpty() && storageStats.containsKey("count")) {
       count = storageStats.getNumber("count").longValue();
     } else {
       count = readConfig.withCollection(coll -> coll.countDocuments(matchQuery));

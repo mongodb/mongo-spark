@@ -74,7 +74,7 @@ final class MongoInputPartitionHelper {
           .orElse(mongoInputPartitions)
           .toArray(new MongoInputPartition[0]);
     } catch (RuntimeException ex) {
-      throw new MongoSparkException("Partitioning failed.", ex);
+      throw new MongoSparkException("Partitioning failed. " + ex.getMessage(), ex);
     }
   }
 
