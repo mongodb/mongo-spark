@@ -179,6 +179,21 @@ public final class WriteConfig extends AbstractMongoConfig {
 
   private static final boolean CONVERT_JSON_DEFAULT = false;
 
+  /**
+   * Keep null values in the BSON document.
+   *
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: {@value IGNORE_NONE_DEFAULT}
+   *
+   * <p>If true, will store a field in the database only if it is present.
+   *
+   * @since 10.1
+   */
+  public static final String IGNORE_NONE_CONFIG = "ignoreNone";
+
+  private static final boolean IGNORE_NONE_DEFAULT = false;
+
   private final WriteConcern writeConcern;
   private final OperationType operationType;
 
@@ -245,6 +260,14 @@ public final class WriteConfig extends AbstractMongoConfig {
    */
   public boolean convertJson() {
     return getBoolean(CONVERT_JSON_CONFIG, CONVERT_JSON_DEFAULT);
+  }
+
+  /**
+   * @return the true if null values should not appear in the BSON document
+   * @since 10.1
+   */
+  public boolean ignoreNone() {
+    return getBoolean(IGNORE_NONE_CONFIG, IGNORE_NONE_DEFAULT);
   }
 
   private WriteConcern createWriteConcern() {
