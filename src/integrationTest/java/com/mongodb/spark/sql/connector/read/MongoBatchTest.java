@@ -54,7 +54,7 @@ import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 class MongoBatchTest extends MongoSparkConnectorTestCase {
   private static final RowToBsonDocumentConverter CONVERTER =
-      new RowToBsonDocumentConverter(new StructType(), false);
+      new RowToBsonDocumentConverter(new StructType(), false, false);
 
   private static final String READ_RESOURCES_HOBBITS_JSON_PATH =
       "src/integrationTest/resources/data/read/hobbits.json";
