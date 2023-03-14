@@ -49,9 +49,11 @@ import scala.collection.Seq;
 
 public class RowToBsonDocumentConverterTest extends SchemaTest {
   private static final RowToBsonDocumentConverter DEFAULT_CONVERTER =
-      new RowToBsonDocumentConverter(new StructType(), false);
+      new RowToBsonDocumentConverter(new StructType(), false, false);
   private static final RowToBsonDocumentConverter EXTENDED_JSON_CONVERTER =
-      new RowToBsonDocumentConverter(new StructType(), true);
+      new RowToBsonDocumentConverter(new StructType(), true, false);
+  private static final RowToBsonDocumentConverter IGNORE_NONE_CONVERTER =
+      new RowToBsonDocumentConverter(new StructType(), false, true);
 
   @Test
   @DisplayName("test simple types")
@@ -160,6 +162,27 @@ public class RowToBsonDocumentConverterTest extends SchemaTest {
     BsonDocument expected =
         BsonDocument.parse("{field: null, arrayType: ['a', null], mapType: {k: null}}");
     assertEquals(expected, DEFAULT_CONVERTER.fromRow(row));
+  }
+
+  @Test
+  @DisplayName("test ignore none")
+  void testIgnoreNone() {
+    Row row =
+        new GenericRowWithSchema(
+            new Object[] {null, toSeq("a", null), toScalaMap("k", (String) null)},
+            new StructType()
+                .add("field", DataTypes.StringType)
+                .add("arrayType", DataTypes.createArrayType(DataTypes.StringType, true), true)
+                .add(
+                    "mapType",
+                    DataTypes.createMapType(DataTypes.StringType, DataTypes.StringType, true),
+                    true));
+    BsonDocument expected = BsonDocument.parse("{arrayType: ['a'], mapType: {}}");
+
+    assertEquals(
+        expected,
+        IGNORE_NONE_CONVERTER.fromRow(row),
+        IGNORE_NONE_CONVERTER.fromRow(row).toString());
   }
 
   @Test
