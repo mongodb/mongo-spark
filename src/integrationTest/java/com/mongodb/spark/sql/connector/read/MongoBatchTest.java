@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.spark.api.java.function.MapFunction;
 import org.apache.spark.sql.Column;
@@ -413,6 +414,133 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
             "Glóin",
             "Fíli"),
         ds.filter(new Column("age").isNotNull())
+            .map((MapFunction<Row, String>) r -> r.getString(2), Encoders.STRING())
+            .collectAsList());
+  }
+
+  @Test
+  void testReadsAreSupportedWithHyphenedNamesFilters() {
+    SparkSession spark = getOrCreateSparkSession();
+
+    List<BsonDocument> collectionData =
+        toBsonDocuments(spark.read().textFile(READ_RESOURCES_HOBBITS_JSON_PATH)).stream()
+            .map(d -> d.append("full-name", d.remove("name")).append("actual-age", d.remove("age")))
+            .collect(Collectors.toList());
+    getCollection().insertMany(collectionData);
+    getCollection().insertOne(BsonDocument.parse("{_id: 10, 'full-name': 'Bombur'}"));
+
+    Dataset<Row> ds = spark.read().format("mongodb").load();
+
+    // EqualNullSafe
+    assertIterableEquals(
+        singletonList("Gandalf"),
+        ds.filter(new Column("actual-age").eqNullSafe(1000))
+            .map((MapFunction<Row, String>) r -> r.getString(2), Encoders.STRING())
+            .collectAsList());
+
+    // EqualTo
+    assertIterableEquals(
+        singletonList("Gandalf"),
+        ds.filter(new Column("actual-age").equalTo(1000))
+            .map((MapFunction<Row, String>) r -> r.getString(2), Encoders.STRING())
+            .collectAsList());
+
+    // GreaterThan
+    assertIterableEquals(
+        asList("Gandalf", "Thorin"),
+        ds.filter(new Column("actual-age").gt(178))
+            .map((MapFunction<Row, String>) r -> r.getString(2), Encoders.STRING())
+            .collectAsList());
+
+    // GreaterThanOrEqual
+    assertIterableEquals(
+        asList("Gandalf", "Thorin", "Balin"),
+        ds.filter(new Column("actual-age").geq(178))
+            .map((MapFunction<Row, String>) r -> r.getString(2), Encoders.STRING())
+            .collectAsList());
+
+    // In
+    assertIterableEquals(
+        asList("Kíli", "Fíli"),
+        ds.filter(new Column("full-name").isin("Kíli", "Fíli"))
+            .map((MapFunction<Row, String>) r -> r.getString(2), Encoders.STRING())
+            .collectAsList());
+
+    // IsNull
+    assertIterableEquals(
+        singletonList("Bombur"),
+        ds.filter(new Column("actual-age").isNull())
+            .map((MapFunction<Row, String>) r -> r.getString(2), Encoders.STRING())
+            .collectAsList());
+
+    // LessThan
+    assertIterableEquals(
+        asList("Bilbo Baggins", "Kíli"),
+        ds.filter(new Column("actual-age").lt(82))
+            .map((MapFunction<Row, String>) r -> r.getString(2), Encoders.STRING())
+            .collectAsList());
+
+    // LessThanOrEqual
+    assertIterableEquals(
+        asList("Bilbo Baggins", "Kíli", "Fíli"),
+        ds.filter(new Column("actual-age").leq(82))
+            .map((MapFunction<Row, String>) r -> r.getString(2), Encoders.STRING())
+            .collectAsList());
+
+    // Not
+    assertIterableEquals(
+        asList("Gandalf", "Thorin", "Balin", "Kíli", "Dwalin", "Óin", "Glóin", "Fíli"),
+        ds.filter(new Column("actual-age").notEqual(50))
+            .map((MapFunction<Row, String>) r -> r.getString(2), Encoders.STRING())
+            .collectAsList());
+
+    // StringContains
+    assertIterableEquals(
+        asList("Bilbo Baggins", "Thorin", "Balin", "Dwalin", "Óin", "Glóin"),
+        ds.filter(new Column("full-name").contains("in"))
+            .map((MapFunction<Row, String>) r -> r.getString(2), Encoders.STRING())
+            .collectAsList());
+
+    // StringEndsWith
+    assertIterableEquals(
+        asList("Kíli", "Fíli"),
+        ds.filter(new Column("full-name").endsWith("li"))
+            .map((MapFunction<Row, String>) r -> r.getString(2), Encoders.STRING())
+            .collectAsList());
+
+    // StringStartsWith
+    assertIterableEquals(
+        asList("Gandalf", "Glóin"),
+        ds.filter(new Column("full-name").startsWith("G"))
+            .map((MapFunction<Row, String>) r -> r.getString(2), Encoders.STRING())
+            .collectAsList());
+
+    // And
+    assertIterableEquals(
+        singletonList("Gandalf"),
+        ds.filter(new Column("full-name").startsWith("G").and(new Column("actual-age").gt(200)))
+            .map((MapFunction<Row, String>) r -> r.getString(2), Encoders.STRING())
+            .collectAsList());
+    // Or
+    assertIterableEquals(
+        asList("Bilbo Baggins", "Balin", "Kíli", "Fíli", "Bombur"),
+        ds.filter(new Column("full-name").startsWith("B").or(new Column("actual-age").lt(150)))
+            .map((MapFunction<Row, String>) r -> r.getString(2), Encoders.STRING())
+            .collectAsList());
+
+    // IsNotNull - filter handled by Spark alone
+    assertIterableEquals(
+        asList(
+            "Bilbo Baggins",
+            "Gandalf",
+            "Thorin",
+            "Balin",
+            "Kíli",
+            "Dwalin",
+            "Óin",
+            "Glóin",
+            "Fíli"),
+        ds.filter(new Column("actual-age").isNotNull())
             .map((MapFunction<Row, String>) r -> r.getString(2), Encoders.STRING())
             .collectAsList());
   }

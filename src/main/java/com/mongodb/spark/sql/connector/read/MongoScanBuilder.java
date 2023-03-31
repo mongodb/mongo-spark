@@ -195,37 +195,42 @@ public final class MongoScanBuilder
       }
     } else if (filter instanceof EqualNullSafe) {
       EqualNullSafe equalNullSafe = (EqualNullSafe) filter;
+      String fieldName = getFieldName(equalNullSafe.attribute());
       return new FilterAndPipelineStage(
           filter,
-          getBsonValue(equalNullSafe.attribute(), equalNullSafe.value())
-              .map(bsonValue -> Filters.eq(equalNullSafe.attribute(), bsonValue))
+          getBsonValue(fieldName, equalNullSafe.value())
+              .map(bsonValue -> Filters.eq(fieldName, bsonValue))
               .orElse(null));
     } else if (filter instanceof EqualTo) {
       EqualTo equalTo = (EqualTo) filter;
+      String fieldName = getFieldName(equalTo.attribute());
       return new FilterAndPipelineStage(
           filter,
-          getBsonValue(equalTo.attribute(), equalTo.value())
-              .map(bsonValue -> Filters.eq(equalTo.attribute(), bsonValue))
+          getBsonValue(fieldName, equalTo.value())
+              .map(bsonValue -> Filters.eq(fieldName, bsonValue))
               .orElse(null));
     } else if (filter instanceof GreaterThan) {
       GreaterThan greaterThan = (GreaterThan) filter;
+      String fieldName = getFieldName(greaterThan.attribute());
       return new FilterAndPipelineStage(
           filter,
-          getBsonValue(greaterThan.attribute(), greaterThan.value())
-              .map(bsonValue -> Filters.gt(greaterThan.attribute(), bsonValue))
+          getBsonValue(fieldName, greaterThan.value())
+              .map(bsonValue -> Filters.gt(fieldName, bsonValue))
               .orElse(null));
     } else if (filter instanceof GreaterThanOrEqual) {
       GreaterThanOrEqual greaterThanOrEqual = (GreaterThanOrEqual) filter;
+      String fieldName = getFieldName(greaterThanOrEqual.attribute());
       return new FilterAndPipelineStage(
           filter,
-          getBsonValue(greaterThanOrEqual.attribute(), greaterThanOrEqual.value())
-              .map(bsonValue -> Filters.gte(greaterThanOrEqual.attribute(), bsonValue))
+          getBsonValue(fieldName, greaterThanOrEqual.value())
+              .map(bsonValue -> Filters.gte(fieldName, bsonValue))
               .orElse(null));
     } else if (filter instanceof In) {
       In inFilter = (In) filter;
+      String fieldName = getFieldName(inFilter.attribute());
       List<BsonValue> values =
           Arrays.stream(inFilter.values())
-              .map(v -> getBsonValue(inFilter.attribute(), v))
+              .map(v -> getBsonValue(fieldName, v))
               .filter(Optional::isPresent)
               .map(Optional::get)
               .collect(Collectors.toList());
@@ -233,28 +238,32 @@ public final class MongoScanBuilder
       // Ensure all values were matched otherwise leave to Spark to filter.
       Bson pipelineStage = null;
       if (values.size() == inFilter.values().length) {
-        pipelineStage = Filters.in(inFilter.attribute(), values);
+        pipelineStage = Filters.in(fieldName, values);
       }
       return new FilterAndPipelineStage(filter, pipelineStage);
     } else if (filter instanceof IsNull) {
       IsNull isNullFilter = (IsNull) filter;
-      return new FilterAndPipelineStage(filter, Filters.eq(isNullFilter.attribute(), null));
+      String fieldName = getFieldName(isNullFilter.attribute());
+      return new FilterAndPipelineStage(filter, Filters.eq(fieldName, null));
     } else if (filter instanceof IsNotNull) {
       IsNotNull isNotNullFilter = (IsNotNull) filter;
-      return new FilterAndPipelineStage(filter, Filters.exists(isNotNullFilter.attribute(), true));
+      String fieldName = getFieldName(isNotNullFilter.attribute());
+      return new FilterAndPipelineStage(filter, Filters.exists(fieldName, true));
     } else if (filter instanceof LessThan) {
       LessThan lessThan = (LessThan) filter;
+      String fieldName = getFieldName(lessThan.attribute());
       return new FilterAndPipelineStage(
           filter,
-          getBsonValue(lessThan.attribute(), lessThan.value())
-              .map(bsonValue -> Filters.lt(lessThan.attribute(), bsonValue))
+          getBsonValue(fieldName, lessThan.value())
+              .map(bsonValue -> Filters.lt(fieldName, bsonValue))
               .orElse(null));
     } else if (filter instanceof LessThanOrEqual) {
       LessThanOrEqual lessThanOrEqual = (LessThanOrEqual) filter;
+      String fieldName = getFieldName(lessThanOrEqual.attribute());
       return new FilterAndPipelineStage(
           filter,
-          getBsonValue(lessThanOrEqual.attribute(), lessThanOrEqual.value())
-              .map(bsonValue -> Filters.lte(lessThanOrEqual.attribute(), bsonValue))
+          getBsonValue(fieldName, lessThanOrEqual.value())
+              .map(bsonValue -> Filters.lte(fieldName, bsonValue))
               .orElse(null));
     } else if (filter instanceof Not) {
       Not notFilter = (Not) filter;
@@ -272,21 +281,28 @@ public final class MongoScanBuilder
       }
     } else if (filter instanceof StringContains) {
       StringContains stringContains = (StringContains) filter;
+      String fieldName = getFieldName(stringContains.attribute());
       return new FilterAndPipelineStage(
-          filter,
-          Filters.regex(stringContains.attribute(), format(".*%s.*", stringContains.value())));
+          filter, Filters.regex(fieldName, format(".*%s.*", stringContains.value())));
     } else if (filter instanceof StringEndsWith) {
       StringEndsWith stringEndsWith = (StringEndsWith) filter;
+      String fieldName = getFieldName(stringEndsWith.attribute());
       return new FilterAndPipelineStage(
-          filter,
-          Filters.regex(stringEndsWith.attribute(), format(".*%s$", stringEndsWith.value())));
+          filter, Filters.regex(fieldName, format(".*%s$", stringEndsWith.value())));
     } else if (filter instanceof StringStartsWith) {
       StringStartsWith stringStartsWith = (StringStartsWith) filter;
+      String fieldName = getFieldName(stringStartsWith.attribute());
       return new FilterAndPipelineStage(
-          filter,
-          Filters.regex(stringStartsWith.attribute(), format("^%s.*", stringStartsWith.value())));
+          filter, Filters.regex(fieldName, format("^%s.*", stringStartsWith.value())));
     }
     return new FilterAndPipelineStage(filter, null);
+  }
+
+  private String getFieldName(final String attribute) {
+    if (attribute.startsWith("`") && attribute.endsWith("`")) {
+      return attribute.substring(1, attribute.length() - 1);
+    }
+    return attribute;
   }
 
   private Optional<BsonValue> getBsonValue(final String fieldName, final Object value) {
