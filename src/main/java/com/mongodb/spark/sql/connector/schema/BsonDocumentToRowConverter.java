@@ -63,6 +63,7 @@ import org.bson.BsonDecimal128;
 import org.bson.BsonDocument;
 import org.bson.BsonInt64;
 import org.bson.BsonNumber;
+import org.bson.BsonObjectId;
 import org.bson.BsonValue;
 import org.bson.RawBsonDocument;
 import org.bson.codecs.EncoderContext;
@@ -137,6 +138,9 @@ public final class BsonDocumentToRowConverter implements Serializable {
     if (bsonValue.isNull()) {
       return null;
     } else if (dataType instanceof StructType) {
+      if (bsonValue instanceof BsonObjectId) {
+        return convertToRow((StructType) dataType, (BsonObjectId) bsonValue);
+      }
       return convertToRow(fieldName, (StructType) dataType, bsonValue);
     } else if (dataType instanceof MapType) {
       return convertToMap(fieldName, (MapType) dataType, bsonValue);
@@ -197,6 +201,13 @@ public final class BsonDocumentToRowConverter implements Serializable {
         throw missingFieldException(fullFieldPath, bsonDocument);
       }
     }
+    return new GenericRowWithSchema(values.toArray(), dataType);
+  }
+
+  private GenericRowWithSchema convertToRow(
+      final StructType dataType, final BsonObjectId bsonValue) {
+    List<Object> values = new ArrayList<>();
+    values.add(bsonValue.getValue().toString());
     return new GenericRowWithSchema(values.toArray(), dataType);
   }
 
