@@ -40,6 +40,8 @@ If you’ve identified a security vulnerability in a connector or any other Mong
 
 ## Build
 
+./gradlew -DscalaVersion=2.12 -DsparkVersion=3.1.2 shadowJar
+
 ### Note: The following instructions are intended for internal use.
 #### Please see the [downloading](#downloading) instructions for information on getting and using the MongoDB Spark Connector.
 

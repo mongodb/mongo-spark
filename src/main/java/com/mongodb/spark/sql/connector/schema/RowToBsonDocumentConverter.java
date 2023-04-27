@@ -187,8 +187,18 @@ public final class RowToBsonDocumentConverter implements Serializable {
           return new BsonObjectId(new ObjectId(row.getString(0)));
         }
         for (StructField field : row.schema().fields()) {
-          int fieldIndex = row.fieldIndex(field.name());
-          bsonDocument.append(field.name(), toBsonValue(field.dataType(), row.get(fieldIndex)));
+          String name = field.name();
+          int fieldIndex = row.fieldIndex(name);
+          Object value = row.get(fieldIndex);
+          if (value != null) {
+            // keep only fields that are present in the row
+            bsonDocument.append(field.name(), toBsonValue(field.dataType(), value));
+          } else if (name.equals("_id")) {
+            // there is a field with the name _id
+            // and its value is null
+            // assign a default value
+            bsonDocument.append(field.name(), new BsonObjectId(new ObjectId()));
+          }
         }
         return bsonDocument;
       }
