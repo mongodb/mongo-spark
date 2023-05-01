@@ -132,6 +132,7 @@ public final class ShardedPartitioner implements Partitioner {
                     .find(chunksMatchPredicate)
                     .projection(CHUNKS_PROJECTIONS)
                     .sort(SORTS)
+                    .allowDiskUse(readConfig.getAggregationAllowDiskUse())
                     .into(new ArrayList<>()));
 
     List<MongoInputPartition> partitions = createMongoInputPartitions(chunks, readConfig);
