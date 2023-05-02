@@ -125,8 +125,9 @@ public final class MongoScanBuilder
    */
   @Override
   public Filter[] pushFilters(final Filter[] filters) {
-    List<FilterAndPipelineStage> processed =
-        Arrays.stream(filters).map(this::processFilter).collect(Collectors.toList());
+    // TODO: check if in the mongo config the push filters is set to true?
+    List<FilterAndPipelineStage> processed = new ArrayList<>();
+    //     Arrays.stream(filters).map(this::processFilter).collect(Collectors.toList());
 
     List<FilterAndPipelineStage> withPipelines =
         processed.stream()
