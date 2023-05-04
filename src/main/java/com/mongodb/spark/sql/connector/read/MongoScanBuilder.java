@@ -127,7 +127,7 @@ public final class MongoScanBuilder
   public Filter[] pushFilters(final Filter[] filters) {
     // TODO: check if in the mongo config the push filters is set to true?
     List<FilterAndPipelineStage> processed = new ArrayList<>();
-    //     Arrays.stream(filters).map(this::processFilter).collect(Collectors.toList());
+    // Arrays.stream(filters).map(this::processFilter).collect(Collectors.toList())
 
     List<FilterAndPipelineStage> withPipelines =
         processed.stream()
@@ -147,10 +147,11 @@ public final class MongoScanBuilder
     pushedFilters =
         withPipelines.stream().map(FilterAndPipelineStage::getFilter).toArray(Filter[]::new);
 
-    return processed.stream()
-        .filter(e -> !e.hasPipelineStage())
-        .map(FilterAndPipelineStage::getFilter)
-        .toArray(Filter[]::new);
+    return filters;
+    //    return processed.stream()
+    //        .filter(e -> !e.hasPipelineStage())
+    //        .map(FilterAndPipelineStage::getFilter)
+    //        .toArray(Filter[]::new);
   }
 
   /** @return any filters that have been converted into an aggregation pipeline. */
