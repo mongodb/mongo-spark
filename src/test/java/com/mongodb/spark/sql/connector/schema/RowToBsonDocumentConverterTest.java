@@ -52,7 +52,7 @@ public class RowToBsonDocumentConverterTest extends SchemaTest {
       new RowToBsonDocumentConverter(new StructType(), false, false);
   private static final RowToBsonDocumentConverter EXTENDED_JSON_CONVERTER =
       new RowToBsonDocumentConverter(new StructType(), true, false);
-  private static final RowToBsonDocumentConverter IGNORE_NONE_CONVERTER =
+  private static final RowToBsonDocumentConverter IGNORE_NULL_VALUES_CONVERTER =
       new RowToBsonDocumentConverter(new StructType(), false, true);
 
   @Test
@@ -165,8 +165,8 @@ public class RowToBsonDocumentConverterTest extends SchemaTest {
   }
 
   @Test
-  @DisplayName("test ignore none")
-  void testIgnoreNone() {
+  @DisplayName("test ignore null values")
+  void testIgnoreNullValues() {
     Row row =
         new GenericRowWithSchema(
             new Object[] {null, toSeq("a", null), toScalaMap("k", (String) null)},
@@ -181,8 +181,8 @@ public class RowToBsonDocumentConverterTest extends SchemaTest {
 
     assertEquals(
         expected,
-        IGNORE_NONE_CONVERTER.fromRow(row),
-        IGNORE_NONE_CONVERTER.fromRow(row).toString());
+        IGNORE_NULL_VALUES_CONVERTER.fromRow(row),
+        IGNORE_NULL_VALUES_CONVERTER.fromRow(row).toString());
   }
 
   @Test

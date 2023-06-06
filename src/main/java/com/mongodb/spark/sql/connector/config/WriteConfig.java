@@ -180,19 +180,19 @@ public final class WriteConfig extends AbstractMongoConfig {
   private static final boolean CONVERT_JSON_DEFAULT = false;
 
   /**
-   * Keep null values in the BSON document.
+   * Ignore null values, even those within arrays or documents.
    *
    * <p>Configuration: {@value}
    *
-   * <p>Default: {@value IGNORE_NONE_DEFAULT}
+   * <p>Default: {@value IGNORE_NULL_VALUES_DEFAULT}
    *
-   * <p>If true, will store a field in the database only if it is present.
+   * <p>If true, will store only store non-null values.
    *
    * @since 10.1
    */
-  public static final String IGNORE_NONE_CONFIG = "ignoreNone";
+  public static final String IGNORE_NULL_VALUES_CONFIG = "ignoreNullValues";
 
-  private static final boolean IGNORE_NONE_DEFAULT = false;
+  private static final boolean IGNORE_NULL_VALUES_DEFAULT = false;
 
   private final WriteConcern writeConcern;
   private final OperationType operationType;
@@ -263,11 +263,11 @@ public final class WriteConfig extends AbstractMongoConfig {
   }
 
   /**
-   * @return the true if null values should not appear in the BSON document
+   * @return the true if null values should be ignored, even those within arrays or documents
    * @since 10.1
    */
-  public boolean ignoreNone() {
-    return getBoolean(IGNORE_NONE_CONFIG, IGNORE_NONE_DEFAULT);
+  public boolean ignoreNullValues() {
+    return getBoolean(IGNORE_NULL_VALUES_CONFIG, IGNORE_NULL_VALUES_DEFAULT);
   }
 
   private WriteConcern createWriteConcern() {
