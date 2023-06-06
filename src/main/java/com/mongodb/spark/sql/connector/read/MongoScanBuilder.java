@@ -299,6 +299,7 @@ public final class MongoScanBuilder
   }
 
   private String getFieldName(final String attribute) {
+    // Spark automatically escapes hyphenated names using backticks
     if (attribute.startsWith("`") && attribute.endsWith("`")) {
       return attribute.substring(1, attribute.length() - 1);
     }
