@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 import org.apache.spark.sql.AnalysisException;
 import org.apache.spark.sql.DataFrameWriter;
 import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.functions;
@@ -44,7 +45,6 @@ import org.bson.BsonDocument;
 import org.bson.BsonNull;
 
 import com.mongodb.client.model.CreateCollectionOptions;
-import com.mongodb.client.model.Projections;
 import com.mongodb.client.model.TimeSeriesGranularity;
 import com.mongodb.client.model.TimeSeriesOptions;
 
@@ -80,6 +80,33 @@ class MongoSparkConnectorWriteTest extends MongoSparkConnectorTestCase {
     assertEquals(10, getCollection().countDocuments());
 
     assertCollection();
+  }
+
+  @Test
+  void testIgnoreNullValues() {
+    List<String> dataWithNulls =
+        asList(
+            "{'_id': 1, 'string': 'mystring', 'array': [1, 2], 'subDoc': {'k':  'v'}}",
+            "{'_id': 2, 'string': null, 'array': null, 'subDoc':  null}",
+            "{'_id': 3, 'string': 'mystring', 'array': [null], 'subDoc': {'k':  'v'}}",
+            "{'_id': 4, 'string': 'mystring', 'array': [1, 2], 'subDoc': {'k':  null}}");
+
+    List<String> dataWithoutNulls =
+        asList(
+            "{'_id': 1, 'string': 'mystring', 'array': [1, 2], 'subDoc': {'k':  'v'}}",
+            "{'_id': 2}",
+            "{'_id': 3, 'string': 'mystring', 'array': [], 'subDoc': {'k':  'v'}}",
+            "{'_id': 4, 'string': 'mystring', 'array': [1, 2], 'subDoc': {}}");
+
+    SparkSession spark = getOrCreateSparkSession();
+    Dataset<Row> df = spark.read().json(spark.createDataset(dataWithNulls, Encoders.STRING()));
+
+    df.write().format("mongodb").mode("Overwrite").save();
+    assertCollection(dataWithNulls.stream().map(BsonDocument::parse).collect(Collectors.toList()));
+
+    df.write().format("mongodb").option("ignoreNullValues", "true").mode("Overwrite").save();
+    assertCollection(
+        dataWithoutNulls.stream().map(BsonDocument::parse).collect(Collectors.toList()));
   }
 
   @Test
@@ -224,6 +251,7 @@ class MongoSparkConnectorWriteTest extends MongoSparkConnectorTestCase {
   }
 
   private void assertCollection(final String collectionName) {
+
     List<BsonDocument> expected =
         getOrCreateSparkSession()
             .read()
@@ -235,15 +263,28 @@ class MongoSparkConnectorWriteTest extends MongoSparkConnectorTestCase {
             .peek(d -> d.put("age", d.getOrDefault("age", BsonNull.VALUE)))
             .collect(Collectors.toList());
 
-    ArrayList<BsonDocument> actual =
-        getCollection(collectionName)
-            .find()
-            .projection(Projections.excludeId())
-            .map(
-                d ->
-                    BsonDocument.parse(
-                        d.toJson())) // Parse as simple json for simplified numeric values
-            .into(new ArrayList<>());
+    List<BsonDocument> actual =
+        getCollectionData(collectionName).stream()
+            .peek(d -> d.remove("_id"))
+            .collect(Collectors.toList());
     assertIterableEquals(expected, actual);
+  }
+
+  private void assertCollection(final List<BsonDocument> expected) {
+    assertCollection(getCollectionName(), expected);
+  }
+
+  private void assertCollection(final String collectionName, final List<BsonDocument> expected) {
+    assertIterableEquals(expected, getCollectionData(collectionName));
+  }
+
+  private List<BsonDocument> getCollectionData(final String collectionName) {
+    return getCollection(collectionName)
+        .find()
+        .map(
+            d ->
+                BsonDocument.parse(
+                    d.toJson())) // Parse as simple json for simplified numeric values
+        .into(new ArrayList<>());
   }
 }

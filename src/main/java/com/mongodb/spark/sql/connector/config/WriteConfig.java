@@ -179,6 +179,21 @@ public final class WriteConfig extends AbstractMongoConfig {
 
   private static final boolean CONVERT_JSON_DEFAULT = false;
 
+  /**
+   * Ignore null values, even those within arrays or documents.
+   *
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: {@value IGNORE_NULL_VALUES_DEFAULT}
+   *
+   * <p>If true, will store only store non-null values.
+   *
+   * @since 10.1
+   */
+  public static final String IGNORE_NULL_VALUES_CONFIG = "ignoreNullValues";
+
+  private static final boolean IGNORE_NULL_VALUES_DEFAULT = false;
+
   private final WriteConcern writeConcern;
   private final OperationType operationType;
 
@@ -245,6 +260,14 @@ public final class WriteConfig extends AbstractMongoConfig {
    */
   public boolean convertJson() {
     return getBoolean(CONVERT_JSON_CONFIG, CONVERT_JSON_DEFAULT);
+  }
+
+  /**
+   * @return the true if null values should be ignored, even those within arrays or documents
+   * @since 10.1
+   */
+  public boolean ignoreNullValues() {
+    return getBoolean(IGNORE_NULL_VALUES_CONFIG, IGNORE_NULL_VALUES_DEFAULT);
   }
 
   private WriteConcern createWriteConcern() {

@@ -25,6 +25,7 @@ import java.math.BigDecimal;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.InternalRow;
@@ -69,16 +70,20 @@ public final class RowToBsonDocumentConverter implements Serializable {
 
   private final InternalRowToRowFunction internalRowToRowFunction;
   private final boolean convertJson;
+  private final boolean ignoreNulls;
 
   /**
    * Construct a new instance
    *
    * @param schema the schema for the row
-   * @param convertJson the true if JSON strings should be converted
+   * @param convertJson if true JSON strings should be converted
+   * @param ignoreNulls if true ignore any null values, even those in arrays, maps or struct values
    */
-  public RowToBsonDocumentConverter(final StructType schema, final boolean convertJson) {
+  public RowToBsonDocumentConverter(
+      final StructType schema, final boolean convertJson, final boolean ignoreNulls) {
     this.internalRowToRowFunction = new InternalRowToRowFunction(schema);
     this.convertJson = convertJson;
+    this.ignoreNulls = ignoreNulls;
   }
 
   /**
@@ -116,7 +121,7 @@ public final class RowToBsonDocumentConverter implements Serializable {
   @SuppressWarnings("unchecked")
   public BsonValue toBsonValue(final DataType dataType, final Object data) {
     try {
-      if (data == null) {
+      if (!ignoreNulls && data == null) {
         return BsonNull.VALUE;
       } else if (DataTypes.BinaryType.acceptsType(dataType)) {
         return new BsonBinary((byte[]) data);
@@ -159,7 +164,11 @@ public final class RowToBsonDocumentConverter implements Serializable {
         } else {
           listData = JavaScala.asJava((scala.collection.Seq<Object>) data);
         }
-        listData.forEach(d -> bsonArray.add(toBsonValue(elementType, d)));
+        for (Object obj : listData) {
+          if (!(ignoreNulls && Objects.isNull(obj))) {
+            bsonArray.add(toBsonValue(elementType, obj));
+          }
+        }
         return bsonArray;
       } else if (dataType instanceof MapType) {
         DataType keyType = ((MapType) dataType).keyType();
@@ -175,14 +184,20 @@ public final class RowToBsonDocumentConverter implements Serializable {
         } else {
           mapData = JavaScala.asJava((scala.collection.Map<String, Object>) data);
         }
-        mapData.forEach((k, v) -> bsonDocument.put(k, toBsonValue(valueType, v)));
+        for (Map.Entry<String, Object> entry : mapData.entrySet()) {
+          if (!(ignoreNulls && Objects.isNull(entry.getValue()))) {
+            bsonDocument.put(entry.getKey(), toBsonValue(valueType, entry.getValue()));
+          }
+        }
         return bsonDocument;
       } else if (dataType instanceof StructType) {
         Row row = (Row) data;
         BsonDocument bsonDocument = new BsonDocument();
         for (StructField field : row.schema().fields()) {
           int fieldIndex = row.fieldIndex(field.name());
-          bsonDocument.append(field.name(), toBsonValue(field.dataType(), row.get(fieldIndex)));
+          if (!(ignoreNulls && field.nullable() && row.isNullAt(fieldIndex))) {
+            bsonDocument.append(field.name(), toBsonValue(field.dataType(), row.get(fieldIndex)));
+          }
         }
         return bsonDocument;
       }
