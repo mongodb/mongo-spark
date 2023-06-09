@@ -19,6 +19,8 @@ package com.mongodb.spark.sql.connector.read;
 import static com.mongodb.spark.sql.connector.read.MongoInputPartitionHelper.generatePipeline;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.spark.sql.connector.read.InputPartition;
 import org.apache.spark.sql.connector.read.PartitionReaderFactory;
@@ -82,10 +84,49 @@ final class MongoMicroBatchStream implements MicroBatchStream {
 
   @Override
   public InputPartition[] planInputPartitions(final Offset start, final Offset end) {
-    return new InputPartition[] {
-      new MongoMicroBatchInputPartition(
-          partitionId++, generatePipeline(schema, readConfig), (LongOffset) start, (LongOffset) end)
-    };
+    if (((LongOffset) start).offset() == -1) {
+      return new InputPartition[] {
+        new MongoMicroBatchInputPartition(
+            partitionId++,
+            generatePipeline(schema, readConfig),
+            (LongOffset) start,
+            (LongOffset) end)
+      };
+    }
+
+    LongOffset diff = ((LongOffset) end).$minus(((LongOffset) start).offset());
+    Integer parts =
+        Integer.valueOf(readConfig.getPartitionerOptions().getOrDefault("partitions", "4"));
+    Integer diffOffset = Math.toIntExact(diff.offset() / parts);
+    Integer remainder = Math.toIntExact(diff.offset() % parts);
+
+    int[] arrayRemainder = new int[parts + 1];
+    for (int i = 1; i < remainder; i++) {
+      arrayRemainder[i] = i;
+    }
+    for (int i = remainder; i <= parts; i++) {
+      arrayRemainder[i] = remainder;
+    }
+
+    List<InputPartition> partitions = new ArrayList<>();
+
+    LOGGER.debug("Preparing {} partitions for offsets {} - {}", parts, start, end);
+
+    for (int i = 0; i < parts; i++) {
+      LOGGER.debug(
+          "Generated partition with id {} for offsets {} - {}",
+          partitionId,
+          ((LongOffset) start).$plus(diffOffset * i).$plus(arrayRemainder[i]),
+          ((LongOffset) start).$plus(diffOffset * (i + 1)).$plus(arrayRemainder[i + 1]));
+      partitions.add(
+          new MongoMicroBatchInputPartition(
+              partitionId++,
+              generatePipeline(schema, readConfig),
+              ((LongOffset) start).$plus(diffOffset * i).$plus(arrayRemainder[i]),
+              ((LongOffset) start).$plus(diffOffset * (i + 1)).$plus(arrayRemainder[i + 1])));
+    }
+
+    return partitions.toArray(new InputPartition[0]);
   }
 
   @Override

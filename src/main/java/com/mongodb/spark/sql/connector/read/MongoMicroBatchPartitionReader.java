@@ -167,6 +167,11 @@ final class MongoMicroBatchPartitionReader implements PartitionReader<InternalRo
       pipeline.add(
           Aggregates.match(Filters.lt("clusterTime", partition.getEndOffsetTimestamp()))
               .toBsonDocument());
+      if (partition.getStartOffsetTimestamp().getValue() > 0) {
+        pipeline.add(
+            Aggregates.match(Filters.gte("clusterTime", partition.getStartOffsetTimestamp()))
+                .toBsonDocument());
+      }
       if (readConfig.streamPublishFullDocumentOnly()) {
         pipeline.add(Aggregates.match(Filters.exists(FULL_DOCUMENT)).toBsonDocument());
       }
