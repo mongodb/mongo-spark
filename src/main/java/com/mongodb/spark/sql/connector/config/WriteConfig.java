@@ -180,6 +180,22 @@ public final class WriteConfig extends AbstractMongoConfig {
   private static final boolean CONVERT_JSON_DEFAULT = false;
 
   /**
+   * Convert only nested JSON objects and arrays into their BSON equivalent.
+   *
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: {@value CONVERT_JSON_NESTED_VALUES_ONLY_DEFAULT}
+   *
+   * <p>Requires {@value CONVERT_JSON_CONFIG}=true
+   *
+   * @since 10.2
+   */
+  public static final String CONVERT_JSON_NESTED_VALUES_ONLY_CONFIG =
+      "convertJson.nestedValuesOnly";
+
+  private static final boolean CONVERT_JSON_NESTED_VALUES_ONLY_DEFAULT = false;
+
+  /**
    * Ignore null values, even those within arrays or documents.
    *
    * <p>Configuration: {@value}
@@ -260,6 +276,16 @@ public final class WriteConfig extends AbstractMongoConfig {
    */
   public boolean convertJson() {
     return getBoolean(CONVERT_JSON_CONFIG, CONVERT_JSON_DEFAULT);
+  }
+
+  /**
+   * @return the true if only nested JSON strings should be converted
+   * @since 10.2
+   */
+  public boolean convertJsonNestedValuesOnlyConfig() {
+    return convertJson()
+        && getBoolean(
+            CONVERT_JSON_NESTED_VALUES_ONLY_CONFIG, CONVERT_JSON_NESTED_VALUES_ONLY_DEFAULT);
   }
 
   /**

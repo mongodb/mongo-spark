@@ -70,6 +70,7 @@ public final class RowToBsonDocumentConverter implements Serializable {
 
   private final InternalRowToRowFunction internalRowToRowFunction;
   private final boolean convertJson;
+  private final boolean convertJsonNestedValuesOnly;
   private final boolean ignoreNulls;
 
   /**
@@ -77,12 +78,17 @@ public final class RowToBsonDocumentConverter implements Serializable {
    *
    * @param schema the schema for the row
    * @param convertJson if true JSON strings should be converted
+   * @param convertJsonNestedValuesOnly if true only nested JSON objects will be converted
    * @param ignoreNulls if true ignore any null values, even those in arrays, maps or struct values
    */
   public RowToBsonDocumentConverter(
-      final StructType schema, final boolean convertJson, final boolean ignoreNulls) {
+      final StructType schema,
+      final boolean convertJson,
+      final boolean convertJsonNestedValuesOnly,
+      final boolean ignoreNulls) {
     this.internalRowToRowFunction = new InternalRowToRowFunction(schema);
     this.convertJson = convertJson;
+    this.convertJsonNestedValuesOnly = convertJsonNestedValuesOnly;
     this.ignoreNulls = ignoreNulls;
   }
 
@@ -215,9 +221,21 @@ public final class RowToBsonDocumentConverter implements Serializable {
   }
 
   private static final String BSON_TEMPLATE = "{v: %s}";
+  private static final char JSON_OBJECT_START = '{';
+  private static final char JSON_OBJECT_END = '}';
+
+  private static final char JSON_ARRAY_START = '[';
+  private static final char JSON_ARRAY_END = ']';
+
+  private static boolean isJsonObject(final String data) {
+    char firstChar = data.charAt(0);
+    char lastChar = data.charAt(data.length() - 1);
+    return (firstChar == JSON_OBJECT_START && lastChar == JSON_OBJECT_END)
+        || (firstChar == JSON_ARRAY_START && lastChar == JSON_ARRAY_END);
+  }
 
   private BsonValue processString(final String data) {
-    if (convertJson) {
+    if (parseJsonData(data)) {
       try {
         return BsonDocument.parse(format(BSON_TEMPLATE, data)).get("v");
       } catch (JsonParseException e) {
@@ -225,5 +243,10 @@ public final class RowToBsonDocumentConverter implements Serializable {
       }
     }
     return new BsonString(data);
+  }
+
+  private boolean parseJsonData(final String data) {
+    return (convertJson && !convertJsonNestedValuesOnly)
+        || (convertJsonNestedValuesOnly && isJsonObject(data));
   }
 }
