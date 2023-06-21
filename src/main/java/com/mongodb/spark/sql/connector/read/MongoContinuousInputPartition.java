@@ -32,26 +32,26 @@ import org.bson.BsonDocument;
 final class MongoContinuousInputPartition extends MongoInputPartition {
   private static final long serialVersionUID = 1L;
 
-  private final MongoContinuousInputPartitionOffset resumeTokenPartitionOffset;
+  private final MongoContinuousInputPartitionOffset partitionOffset;
 
   /**
    * Construct a new instance
    *
    * @param partitionId the id of the partition
    * @param pipeline the pipeline to partition the collection
-   * @param mongoContinuousInputPartitionOffset the resume token offset for the partition
+   * @param partitionOffset the resume token offset for the partition
    */
   MongoContinuousInputPartition(
       final int partitionId,
       final List<BsonDocument> pipeline,
-      final MongoContinuousInputPartitionOffset mongoContinuousInputPartitionOffset) {
+      final MongoContinuousInputPartitionOffset partitionOffset) {
     super(partitionId, pipeline);
-    this.resumeTokenPartitionOffset = mongoContinuousInputPartitionOffset;
+    this.partitionOffset = partitionOffset;
   }
 
   /** @return the resume token offset */
   MongoContinuousInputPartitionOffset getPartitionOffset() {
-    return resumeTokenPartitionOffset;
+    return partitionOffset;
   }
 
   @Override
@@ -66,12 +66,12 @@ final class MongoContinuousInputPartition extends MongoInputPartition {
       return false;
     }
     final MongoContinuousInputPartition that = (MongoContinuousInputPartition) o;
-    return Objects.equals(resumeTokenPartitionOffset, that.resumeTokenPartitionOffset);
+    return Objects.equals(partitionOffset, that.partitionOffset);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(super.hashCode(), resumeTokenPartitionOffset);
+    return Objects.hash(super.hashCode(), partitionOffset);
   }
 
   @Override
@@ -85,8 +85,8 @@ final class MongoContinuousInputPartition extends MongoInputPartition {
             .collect(Collectors.joining(",", "[", "]"))
         + ", preferredLocations="
         + Arrays.toString(preferredLocations())
-        + "resumeTokenPartitionOffset="
-        + resumeTokenPartitionOffset
+        + "partitionOffset="
+        + partitionOffset
         + "} ";
   }
 }

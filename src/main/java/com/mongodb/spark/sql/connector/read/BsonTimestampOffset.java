@@ -17,27 +17,44 @@
 package com.mongodb.spark.sql.connector.read;
 
 import org.bson.BsonDocument;
+import org.bson.BsonTimestamp;
 
 import com.mongodb.client.ChangeStreamIterable;
 
-final class ResumeTokenBasedOffset extends MongoOffset {
-
+final class BsonTimestampOffset extends MongoOffset {
   private static final long serialVersionUID = 1L;
+  private final long bsonTimestampValue;
+  private transient BsonTimestamp bsonTimestamp;
 
-  private final BsonDocument resumeToken;
+  BsonTimestampOffset(final BsonTimestamp value) {
+    bsonTimestamp = value;
+    bsonTimestampValue = value.getValue();
+  }
 
-  ResumeTokenBasedOffset(final BsonDocument resumeToken) {
-    this.resumeToken = resumeToken;
+  BsonTimestampOffset(final long value) {
+    this.bsonTimestampValue = value;
   }
 
   @Override
   String getOffsetJsonValue() {
-    return resumeToken.toJson(EXTENDED_JSON_WRITER_SETTINGS);
+    String docJson =
+        new BsonDocument("v", getBsonTimestamp()).toJson(EXTENDED_JSON_WRITER_SETTINGS);
+    return docJson.substring(6, docJson.length() - 1);
   }
 
   @Override
   <T> ChangeStreamIterable<T> applyToChangeStreamIterable(
       final ChangeStreamIterable<T> changeStreamIterable) {
-    return changeStreamIterable.startAfter(resumeToken);
+    if (getBsonTimestamp().getTime() >= 0) {
+      return changeStreamIterable.startAtOperationTime(getBsonTimestamp());
+    }
+    return changeStreamIterable;
+  }
+
+  BsonTimestamp getBsonTimestamp() {
+    if (bsonTimestamp == null) {
+      bsonTimestamp = new BsonTimestamp(bsonTimestampValue);
+    }
+    return bsonTimestamp;
   }
 }
