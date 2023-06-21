@@ -32,25 +32,25 @@ import org.bson.BsonDocument;
 final class MongoContinuousInputPartition extends MongoInputPartition {
   private static final long serialVersionUID = 1L;
 
-  private final ResumeTokenPartitionOffset resumeTokenPartitionOffset;
+  private final MongoContinuousInputPartitionOffset resumeTokenPartitionOffset;
 
   /**
    * Construct a new instance
    *
    * @param partitionId the id of the partition
    * @param pipeline the pipeline to partition the collection
-   * @param resumeTokenPartitionOffset the resume token offset for the partition
+   * @param mongoContinuousInputPartitionOffset the resume token offset for the partition
    */
   MongoContinuousInputPartition(
       final int partitionId,
       final List<BsonDocument> pipeline,
-      final ResumeTokenPartitionOffset resumeTokenPartitionOffset) {
+      final MongoContinuousInputPartitionOffset mongoContinuousInputPartitionOffset) {
     super(partitionId, pipeline);
-    this.resumeTokenPartitionOffset = resumeTokenPartitionOffset;
+    this.resumeTokenPartitionOffset = mongoContinuousInputPartitionOffset;
   }
 
   /** @return the resume token offset */
-  ResumeTokenPartitionOffset getResumeTokenPartitionOffset() {
+  MongoContinuousInputPartitionOffset getPartitionOffset() {
     return resumeTokenPartitionOffset;
   }
 

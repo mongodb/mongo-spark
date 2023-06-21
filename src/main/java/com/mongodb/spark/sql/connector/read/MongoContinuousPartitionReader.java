@@ -24,6 +24,7 @@ import java.util.function.Function;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.read.streaming.ContinuousPartitionReader;
 import org.apache.spark.sql.connector.read.streaming.PartitionOffset;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,7 +59,7 @@ final class MongoContinuousPartitionReader implements ContinuousPartitionReader<
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
   private final ReadConfig readConfig;
 
-  private ResumeTokenPartitionOffset lastOffset;
+  private MongoContinuousInputPartitionOffset lastOffset;
   private InternalRow currentRow;
   private boolean closed = false;
   private MongoClient mongoClient;
@@ -81,7 +82,7 @@ final class MongoContinuousPartitionReader implements ContinuousPartitionReader<
 
     this.readConfig = readConfig;
     this.currentRow = null;
-    this.lastOffset = partition.getResumeTokenPartitionOffset();
+    this.lastOffset = partition.getPartitionOffset();
 
     LOGGER.debug(
         "Creating partition reader for: Partition: {} with Schema: {}",
@@ -139,13 +140,16 @@ final class MongoContinuousPartitionReader implements ContinuousPartitionReader<
           try {
             if (c.hasNext()) {
               BsonDocument next = c.next();
-              lastOffset = new ResumeTokenPartitionOffset(c.getResumeToken());
+              if (next.containsKey("_id") && next.isDocument("_id")) {
+                setLastOffset(next.getDocument("_id"));
+              }
               if (readConfig.streamPublishFullDocumentOnly()) {
                 next = next.getDocument(FULL_DOCUMENT, new BsonDocument());
               }
               currentRow = bsonDocumentToRowConverter.toInternalRow(next);
               return true;
             }
+            setLastOffset(c.getResumeToken());
           } catch (MongoException e) {
             LOGGER.info(
                 "Trying to get more data from the change stream failed, releasing cursor.", e);
@@ -154,6 +158,12 @@ final class MongoContinuousPartitionReader implements ContinuousPartitionReader<
           currentRow = null;
           return false;
         });
+  }
+
+  private void setLastOffset(@Nullable final BsonDocument resumeToken) {
+    if (resumeToken != null) {
+      lastOffset = new MongoContinuousInputPartitionOffset(new ResumeTokenBasedOffset(resumeToken));
+    }
   }
 
   private MongoChangeStreamCursor<BsonDocument> getCursor() {

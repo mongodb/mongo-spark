@@ -18,7 +18,7 @@
 package com.mongodb.spark.sql.connector.read;
 
 import static com.mongodb.spark.sql.connector.read.MongoInputPartitionHelper.generatePipeline;
-import static com.mongodb.spark.sql.connector.read.ResumeTokenOffset.INITIAL_RESUME_TOKEN_OFFSET;
+import static com.mongodb.spark.sql.connector.read.ResumeTokenBasedOffset.INITIAL_RESUME_TOKEN_OFFSET;
 import static java.lang.String.format;
 
 import org.apache.spark.sql.connector.read.InputPartition;
@@ -72,7 +72,7 @@ final class MongoContinuousStream implements ContinuousStream {
       new MongoContinuousInputPartition(
           0,
           generatePipeline(schema, readConfig),
-          new ResumeTokenPartitionOffset(((ResumeTokenOffset) start).getResumeToken()))
+          new MongoContinuousInputPartitionOffset(((ResumeTokenBasedOffset) start)))
     };
   }
 
@@ -86,13 +86,14 @@ final class MongoContinuousStream implements ContinuousStream {
     Assertions.ensureState(
         () -> offsets.length == 1, () -> "Multiple offsets found when there should only be one.");
     Assertions.ensureState(
-        () -> offsets[0] instanceof ResumeTokenPartitionOffset,
+        () -> offsets[0] instanceof MongoContinuousInputPartitionOffset,
         () ->
             format(
                 "Unexpected partition offset type. "
                     + "Expected ResumeTokenPartitionOffset` found `%s`",
                 offsets[0].getClass()));
-    return new ResumeTokenOffset(((ResumeTokenPartitionOffset) offsets[0]).getResumeToken());
+    return new ResumeTokenBasedOffset(
+        ((MongoContinuousInputPartitionOffset) offsets[0]).getResumeToken());
   }
 
   @Override
@@ -102,7 +103,7 @@ final class MongoContinuousStream implements ContinuousStream {
 
   @Override
   public Offset deserializeOffset(final String json) {
-    return ResumeTokenOffset.parse(json);
+    return ResumeTokenBasedOffset.parse(json);
   }
 
   @Override

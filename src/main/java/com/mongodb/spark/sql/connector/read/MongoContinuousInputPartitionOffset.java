@@ -26,22 +26,22 @@ import org.bson.BsonDocument;
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 
 /** A resume token partition offset */
-final class ResumeTokenPartitionOffset implements PartitionOffset {
+final class MongoContinuousInputPartitionOffset implements PartitionOffset {
   private static final long serialVersionUID = 1L;
-  private final BsonDocument resumeToken;
+  private final ResumeTokenBasedOffset offset;
 
   /**
    * Construct a new instance
    *
    * @param resumeToken the change stream resume token
    */
-  ResumeTokenPartitionOffset(final BsonDocument resumeToken) {
-    Assertions.ensureArgument(() -> resumeToken != null, () -> "Invalid resume token");
-    this.resumeToken = resumeToken;
+  MongoContinuousInputPartitionOffset(final ResumeTokenBasedOffset offset) {
+    Assertions.ensureArgument(() -> offset != null, () -> "Invalid offset");
+    this.offset = offset;
   }
 
   BsonDocument getResumeToken() {
-    return resumeToken;
+    return offset.getResumeToken();
   }
 
   @Override
@@ -52,7 +52,7 @@ final class ResumeTokenPartitionOffset implements PartitionOffset {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    final ResumeTokenPartitionOffset that = (ResumeTokenPartitionOffset) o;
+    final MongoContinuousInputPartitionOffset that = (MongoContinuousInputPartitionOffset) o;
     return Objects.equals(getResumeToken(), that.getResumeToken());
   }
 
@@ -63,6 +63,8 @@ final class ResumeTokenPartitionOffset implements PartitionOffset {
 
   @Override
   public String toString() {
-    return "ResumeTokenPartitionOffset{" + "resumeToken=" + resumeToken.toJson() + '}';
+    return "MongoContinuousInputPartitionOffset{resumeToken="
+        + offset.getResumeToken().toJson()
+        + '}';
   }
 }

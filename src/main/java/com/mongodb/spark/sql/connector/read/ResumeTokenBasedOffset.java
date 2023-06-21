@@ -17,6 +17,8 @@
 
 package com.mongodb.spark.sql.connector.read;
 
+import java.io.Serializable;
+
 import org.apache.spark.sql.connector.read.streaming.Offset;
 
 import org.bson.BsonDocument;
@@ -24,9 +26,11 @@ import org.bson.BsonDocument;
 import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 
 /** An offset that contains a resume token from a change stream */
-final class ResumeTokenOffset extends Offset {
-  static final ResumeTokenOffset INITIAL_RESUME_TOKEN_OFFSET =
-      new ResumeTokenOffset(new BsonDocument());
+final class ResumeTokenBasedOffset extends Offset implements Serializable {
+  private static final long serialVersionUID = 1L;
+
+  static final ResumeTokenBasedOffset INITIAL_RESUME_TOKEN_OFFSET =
+      new ResumeTokenBasedOffset(new BsonDocument());
 
   /**
    * Create a new instance from a json representation of a resume token
@@ -34,9 +38,9 @@ final class ResumeTokenOffset extends Offset {
    * @param json representation of a resume token
    * @return the ResumeTokenOffset
    */
-  public static ResumeTokenOffset parse(final String json) {
+  public static ResumeTokenBasedOffset parse(final String json) {
     try {
-      return new ResumeTokenOffset(BsonDocument.parse(json));
+      return new ResumeTokenBasedOffset(BsonDocument.parse(json));
     } catch (RuntimeException ex) {
       throw new MongoSparkException(
           "Unable to parse the json string into a resume token. " + ex.getMessage(), ex);
@@ -50,7 +54,7 @@ final class ResumeTokenOffset extends Offset {
    *
    * @param resumeToken from the change stream
    */
-  ResumeTokenOffset(final BsonDocument resumeToken) {
+  ResumeTokenBasedOffset(final BsonDocument resumeToken) {
     this.resumeToken = resumeToken != null ? resumeToken : new BsonDocument();
   }
 
