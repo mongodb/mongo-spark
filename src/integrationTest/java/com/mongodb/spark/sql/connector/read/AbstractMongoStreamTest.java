@@ -253,6 +253,34 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
   }
 
   @Test
+  void testStreamResumable() {
+    assumeTrue(supportsChangeStreams());
+    testIdentifier = "Resumable";
+
+    MongoConfig mongoConfig = createMongoConfig();
+
+    testStreamingQuery(
+        "mongodb",
+        mongoConfig,
+        withSource("inserting 0-25", (msg, coll) -> coll.insertMany(createDocuments(0, 25))),
+        withSink(
+            "Expected to see 25 documents",
+            (msg, ds) -> assertEquals(25, ds.countDocuments(), msg)));
+
+    // Insert 50 documents - when there is no stream running
+    mongoConfig.toReadConfig().doWithCollection(coll -> coll.insertMany(createDocuments(100, 200)));
+
+    // Start the stream again - confirm it resumes at last point and sees the new documents
+    testStreamingQuery(
+        "mongodb",
+        mongoConfig,
+        withSource("Setup", (msg, coll) -> {} /* NOOP */),
+        withSink(
+            "Expecting to see 100 documents",
+            (msg, ds) -> assertEquals(125, ds.countDocuments(), msg)));
+  }
+
+  @Test
   void testStreamCustomMongoClientFactory() {
     assumeTrue(supportsChangeStreams());
     testIdentifier = "CustomClientFactory";
@@ -378,6 +406,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
 
       try {
         setup.accept(mongoConfig);
+        LOGGER.info("Setup completed");
       } catch (Exception e) {
         throw new AssertionFailedError("Setup failed: " + e.getMessage());
       }
@@ -423,6 +452,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     } finally {
       try {
         streamingQuery.stop();
+        LOGGER.info("Stream stopped");
       } catch (TimeoutException e) {
         fail("Stopping the stream failed: ", e);
       }

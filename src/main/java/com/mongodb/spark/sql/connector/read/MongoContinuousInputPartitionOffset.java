@@ -25,23 +25,31 @@ import org.bson.BsonDocument;
 
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 
-/** A resume token partition offset */
-final class ResumeTokenPartitionOffset implements PartitionOffset {
+/**
+ * The continuous stream partition offset class.
+ *
+ * <p>Relies on a ResumeTokenOffset for determining the partitions offset.
+ */
+final class MongoContinuousInputPartitionOffset implements PartitionOffset {
   private static final long serialVersionUID = 1L;
-  private final BsonDocument resumeToken;
+  private final ResumeTokenOffset offset;
 
   /**
    * Construct a new instance
    *
-   * @param resumeToken the change stream resume token
+   * @param offset the resume token offset
    */
-  ResumeTokenPartitionOffset(final BsonDocument resumeToken) {
-    Assertions.ensureArgument(() -> resumeToken != null, () -> "Invalid resume token");
-    this.resumeToken = resumeToken;
+  MongoContinuousInputPartitionOffset(final ResumeTokenOffset offset) {
+    Assertions.ensureArgument(() -> offset != null, () -> "Invalid resume token");
+    this.offset = offset;
+  }
+
+  public ResumeTokenOffset getOffset() {
+    return offset;
   }
 
   BsonDocument getResumeToken() {
-    return resumeToken;
+    return offset.getResumeToken();
   }
 
   @Override
@@ -52,17 +60,17 @@ final class ResumeTokenPartitionOffset implements PartitionOffset {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    final ResumeTokenPartitionOffset that = (ResumeTokenPartitionOffset) o;
-    return Objects.equals(getResumeToken(), that.getResumeToken());
+    final MongoContinuousInputPartitionOffset that = (MongoContinuousInputPartitionOffset) o;
+    return Objects.equals(offset, that.offset);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(getResumeToken());
+    return Objects.hash(offset);
   }
 
   @Override
   public String toString() {
-    return "ResumeTokenPartitionOffset{" + "resumeToken=" + resumeToken.toJson() + '}';
+    return "MongoContinuousInputPartitionOffset{" + "offset=" + offset.json() + '}';
   }
 }

@@ -18,9 +18,9 @@
 package com.mongodb.spark.sql.connector.read;
 
 import static com.mongodb.spark.sql.connector.read.MongoInputPartitionHelper.generatePipeline;
-import static com.mongodb.spark.sql.connector.read.ResumeTokenOffset.INITIAL_RESUME_TOKEN_OFFSET;
 import static java.lang.String.format;
 
+import org.apache.spark.SparkContext;
 import org.apache.spark.sql.connector.read.InputPartition;
 import org.apache.spark.sql.connector.read.streaming.ContinuousPartitionReaderFactory;
 import org.apache.spark.sql.connector.read.streaming.ContinuousStream;
@@ -46,6 +46,7 @@ import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 final class MongoContinuousStream implements ContinuousStream {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoContinuousStream.class);
   private final StructType schema;
+  private final MongoOffsetStore mongoOffsetStore;
   private final ReadConfig readConfig;
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
 
@@ -55,12 +56,18 @@ final class MongoContinuousStream implements ContinuousStream {
    * @param schema the schema for the data
    * @param readConfig the read configuration
    */
-  MongoContinuousStream(final StructType schema, final ReadConfig readConfig) {
+  MongoContinuousStream(
+      final StructType schema, final String checkpointLocation, final ReadConfig readConfig) {
     Assertions.validateConfig(
         schema,
         (s) -> !s.isEmpty(),
         () -> "Mongo Continuous streams require a schema to be defined");
     this.schema = schema;
+    this.mongoOffsetStore =
+        new MongoOffsetStore(
+            SparkContext.getOrCreate().hadoopConfiguration(),
+            checkpointLocation,
+            ResumeTokenOffset.DEFAULT_OFFSET);
     this.readConfig = readConfig;
     this.bsonDocumentToRowConverter =
         new BsonDocumentToRowConverter(schema, readConfig.outputExtendedJson());
@@ -72,7 +79,7 @@ final class MongoContinuousStream implements ContinuousStream {
       new MongoContinuousInputPartition(
           0,
           generatePipeline(schema, readConfig),
-          new ResumeTokenPartitionOffset(((ResumeTokenOffset) start).getResumeToken()))
+          new MongoContinuousInputPartitionOffset((ResumeTokenOffset) start))
     };
   }
 
@@ -86,28 +93,29 @@ final class MongoContinuousStream implements ContinuousStream {
     Assertions.ensureState(
         () -> offsets.length == 1, () -> "Multiple offsets found when there should only be one.");
     Assertions.ensureState(
-        () -> offsets[0] instanceof ResumeTokenPartitionOffset,
+        () -> offsets[0] instanceof MongoContinuousInputPartitionOffset,
         () ->
             format(
                 "Unexpected partition offset type. "
-                    + "Expected ResumeTokenPartitionOffset` found `%s`",
+                    + "Expected MongoContinuousInputPartitionOffset` found `%s`",
                 offsets[0].getClass()));
-    return new ResumeTokenOffset(((ResumeTokenPartitionOffset) offsets[0]).getResumeToken());
+    return ((MongoContinuousInputPartitionOffset) offsets[0]).getOffset();
   }
 
   @Override
   public Offset initialOffset() {
-    return INITIAL_RESUME_TOKEN_OFFSET;
+    return mongoOffsetStore.initialOffset();
   }
 
   @Override
   public Offset deserializeOffset(final String json) {
-    return ResumeTokenOffset.parse(json);
+    return mongoOffsetStore.fromJson(json);
   }
 
   @Override
   public void commit(final Offset end) {
     LOGGER.info("ContinuousStream commit: {}", end);
+    mongoOffsetStore.updateOffset((ResumeTokenOffset) end);
   }
 
   @Override

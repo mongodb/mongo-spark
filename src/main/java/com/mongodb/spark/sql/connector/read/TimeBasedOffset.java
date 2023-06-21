@@ -18,36 +18,33 @@ package com.mongodb.spark.sql.connector.read;
 
 import static java.lang.String.format;
 
-import org.bson.BsonDocument;
 import org.bson.BsonValue;
 
-final class ResumeTokenOffset extends MongoOffset {
+final class TimeBasedOffset extends MongoOffset {
 
   private static final long serialVersionUID = 1L;
+  private final int offset;
+  static final TimeBasedOffset DEFAULT_OFFSET = new TimeBasedOffset(-1);
 
-  private final BsonDocument resumeToken;
-  static final ResumeTokenOffset DEFAULT_OFFSET = new ResumeTokenOffset(new BsonDocument());
-
-  ResumeTokenOffset(final BsonDocument resumeToken) {
-    this.resumeToken = resumeToken;
+  TimeBasedOffset(final long offset) {
+    this.offset = (int) offset;
   }
 
   @Override
   MongoOffset fromJson(final String json) {
     BsonValue offset = getOffsetBsonValue(json);
-    if (!offset.isDocument()) {
-      throw new UnsupportedOperationException(
-          format("Invalid offset value (not a document): `%s`.", json));
+    if (!offset.isInt32()) {
+      throw new UnsupportedOperationException(format("Invalid offset value: `%s`.", json));
     }
-    return new ResumeTokenOffset(offset.asDocument());
+    return new TimeBasedOffset(offset.asInt32().getValue());
   }
 
   @Override
   String getOffsetStringValue() {
-    return resumeToken.toJson();
+    return String.valueOf(offset);
   }
 
-  BsonDocument getResumeToken() {
-    return resumeToken;
+  public int getOffset() {
+    return offset;
   }
 }
