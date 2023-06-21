@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 
 import org.bson.BsonArray;
 import org.bson.BsonDocument;
+import org.bson.BsonTimestamp;
 import org.bson.BsonType;
 import org.bson.BsonValue;
 
@@ -192,6 +193,24 @@ public final class ReadConfig extends AbstractMongoConfig {
   private static final String STREAM_LOOKUP_FULL_DOCUMENT_DEFAULT = FullDocument.DEFAULT.getValue();
 
   /**
+   * Streaming start at operation time.
+   *
+   * <p>Specifies the bson timestamp value for the start at operation time.
+   *
+   * <p>See: <a
+   * href="https://www.mongodb.com/docs/v6.0/reference/bson-types/#timestamps">BsonTimestamp</a>.
+   *
+   * <p>Configuration: {@value}
+   *
+   * @since 10.2
+   */
+  public static final String STREAM_START_AT_OPERATION_TIME_CONFIG =
+      "change.stream.start.at.operation.time";
+
+  private static final long STREAM_START_AT_OPERATION_TIME_DEFAULT =
+      new BsonTimestamp(-1, 0).getValue();
+
+  /**
    * Output extended JSON for any String types.
    *
    * <p>Configuration: {@value}
@@ -291,6 +310,18 @@ public final class ReadConfig extends AbstractMongoConfig {
     } catch (IllegalArgumentException e) {
       throw new ConfigException(e);
     }
+  }
+
+  /**
+   * Returns the initial start at operation time for a stream
+   *
+   * <p>Note: This value will be ignored if there is a checkpoint is present for the stream.
+   *
+   * @return the start at operation time for a stream
+   * @since 10.2
+   */
+  public long getStreamStartAtOperationTime() {
+    return getLong(STREAM_START_AT_OPERATION_TIME_CONFIG, STREAM_START_AT_OPERATION_TIME_DEFAULT);
   }
 
   /**

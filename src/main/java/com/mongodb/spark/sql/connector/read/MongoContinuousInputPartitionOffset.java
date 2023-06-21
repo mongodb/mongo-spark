@@ -22,26 +22,52 @@ import java.util.Objects;
 import org.apache.spark.sql.connector.read.streaming.PartitionOffset;
 
 import org.bson.BsonDocument;
+import org.bson.BsonTimestamp;
 
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 
-/** A resume token partition offset */
+/**
+ * The continuous stream partition offset class.
+ *
+ * <p>Relies on a ResumeTokenOffset for determining the partitions offset.
+ */
 final class MongoContinuousInputPartitionOffset implements PartitionOffset {
   private static final long serialVersionUID = 1L;
-  private final ResumeTokenBasedOffset offset;
+  private final MongoOffset offset;
 
   /**
    * Construct a new instance
    *
-   * @param resumeToken the change stream resume token
+   * @param offset the resume token offset
    */
-  MongoContinuousInputPartitionOffset(final ResumeTokenBasedOffset offset) {
-    Assertions.ensureArgument(() -> offset != null, () -> "Invalid offset");
+  MongoContinuousInputPartitionOffset(final MongoOffset offset) {
+    Assertions.ensureArgument(() -> offset != null, () -> "Invalid resume token");
     this.offset = offset;
   }
 
+  public MongoOffset getOffset() {
+    return offset;
+  }
+
+  boolean isResumeTokenBasedOffset() {
+    return offset instanceof ResumeTokenBasedOffset;
+  }
+
+  boolean isTimeBasedOffset() {
+    return offset instanceof BsonTimestampOffset;
+  }
+
   BsonDocument getResumeToken() {
-    return offset.getResumeToken();
+    Assertions.ensureState(
+        this::isResumeTokenBasedOffset,
+        () -> "The partition offset is not a resume token based offset.");
+    return ((ResumeTokenBasedOffset) offset).getResumeToken();
+  }
+
+  BsonTimestamp getTimestamp() {
+    Assertions.ensureState(
+        this::isTimeBasedOffset, () -> "The partition offset is not a time based offset.");
+    return ((BsonTimestampOffset) offset).getBsonTimestamp();
   }
 
   @Override
@@ -53,18 +79,16 @@ final class MongoContinuousInputPartitionOffset implements PartitionOffset {
       return false;
     }
     final MongoContinuousInputPartitionOffset that = (MongoContinuousInputPartitionOffset) o;
-    return Objects.equals(getResumeToken(), that.getResumeToken());
+    return Objects.equals(offset, that.offset);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(getResumeToken());
+    return Objects.hash(offset);
   }
 
   @Override
   public String toString() {
-    return "MongoContinuousInputPartitionOffset{resumeToken="
-        + offset.getResumeToken().toJson()
-        + '}';
+    return "MongoContinuousInputPartitionOffset{" + "offset=" + offset.json() + '}';
   }
 }

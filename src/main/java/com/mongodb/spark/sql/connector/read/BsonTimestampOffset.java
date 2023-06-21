@@ -16,24 +16,27 @@
  */
 package com.mongodb.spark.sql.connector.read;
 
-import org.bson.BsonDocument;
+import org.bson.BsonTimestamp;
 
-final class ResumeTokenBasedOffset extends MongoOffset {
+final class BsonTimestampOffset extends MongoOffset {
 
   private static final long serialVersionUID = 1L;
+  private final long value;
 
-  private final BsonDocument resumeToken;
+  BsonTimestampOffset(final BsonTimestamp value) {
+    this(value.getValue());
+  }
 
-  ResumeTokenBasedOffset(final BsonDocument resumeToken) {
-    this.resumeToken = resumeToken;
+  BsonTimestampOffset(final long value) {
+    this.value = value;
   }
 
   @Override
   String getOffsetStringValue() {
-    return resumeToken.toJson();
+    return String.valueOf(value);
   }
 
-  BsonDocument getResumeToken() {
-    return resumeToken;
+  BsonTimestamp getBsonTimestamp() {
+    return new BsonTimestamp(value);
   }
 }

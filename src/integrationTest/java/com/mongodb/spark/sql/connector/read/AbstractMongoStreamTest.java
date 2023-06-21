@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -54,6 +55,7 @@ import org.opentest4j.AssertionFailedError;
 
 import org.bson.BsonDocument;
 import org.bson.BsonString;
+import org.bson.BsonTimestamp;
 
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
@@ -253,6 +255,61 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
   }
 
   @Test
+  void testStreamResumable() {
+    assumeTrue(supportsChangeStreams());
+    assumeTrue(isAtLeastFourDotFour());
+    testIdentifier = "Resumable";
+
+    MongoConfig mongoConfig = createMongoConfig();
+
+    testStreamingQuery(
+        "mongodb",
+        mongoConfig,
+        withSource("inserting 0-25", (msg, coll) -> coll.insertMany(createDocuments(0, 25))),
+        withSink(
+            "Expected to see 25 documents",
+            (msg, ds) -> assertEquals(25, ds.countDocuments(), msg)));
+
+    // Insert 50 documents - when there is no stream running
+    mongoConfig.toReadConfig().doWithCollection(coll -> coll.insertMany(createDocuments(100, 200)));
+
+    // Start the stream again - confirm it resumes at last point and sees the new documents
+    testStreamingQuery(
+        "mongodb",
+        mongoConfig,
+        withSource("Setup", (msg, coll) -> {} /* NOOP */),
+        withSink(
+            "Expecting to see 100 documents",
+            (msg, ds) -> assertEquals(125, ds.countDocuments(), msg)));
+  }
+
+  @Test
+  void testStreamStartAtOperationTime() {
+    assumeTrue(supportsChangeStreams());
+    assumeTrue(isAtLeastFourDotFour());
+    testIdentifier = "startAtOperationTime";
+
+    ReadConfig mongoConfig = createMongoConfig().toReadConfig();
+
+    // Add some documents prior to the start time
+    mongoConfig.doWithCollection(coll -> coll.insertMany(createDocuments(0, 25)));
+
+    HELPER.sleep(1000);
+    BsonTimestamp currentTimestamp = new BsonTimestamp((int) Instant.now().getEpochSecond(), 0);
+
+    // Add some documents post start time
+    mongoConfig.doWithCollection(coll -> coll.insertMany(createDocuments(100, 120)));
+    testStreamingQuery(
+        mongoConfig.withOption(
+            ReadConfig.PREFIX + ReadConfig.STREAM_START_AT_OPERATION_TIME_CONFIG,
+            String.valueOf(currentTimestamp.getValue())),
+        withSource("Setup", (msg, coll) -> {} /* NOOP */),
+        withMemorySink(
+            "Expected to see 25 documents",
+            (msg, ds) -> assertEquals(20, ds.collectAsList().size(), msg)));
+  }
+
+  @Test
   void testStreamCustomMongoClientFactory() {
     assumeTrue(supportsChangeStreams());
     testIdentifier = "CustomClientFactory";
@@ -378,6 +435,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
 
       try {
         setup.accept(mongoConfig);
+        LOGGER.info("Setup completed");
       } catch (Exception e) {
         throw new AssertionFailedError("Setup failed: " + e.getMessage());
       }
@@ -423,6 +481,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     } finally {
       try {
         streamingQuery.stop();
+        LOGGER.info("Stream stopped");
       } catch (TimeoutException e) {
         fail("Stopping the stream failed: ", e);
       }

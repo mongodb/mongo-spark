@@ -20,14 +20,16 @@ import static com.mongodb.spark.sql.connector.read.MongoInputPartitionHelper.gen
 
 import java.time.Instant;
 
+import org.apache.spark.SparkContext;
 import org.apache.spark.sql.connector.read.InputPartition;
 import org.apache.spark.sql.connector.read.PartitionReaderFactory;
 import org.apache.spark.sql.connector.read.streaming.MicroBatchStream;
 import org.apache.spark.sql.connector.read.streaming.Offset;
-import org.apache.spark.sql.execution.streaming.LongOffset;
 import org.apache.spark.sql.types.StructType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import org.bson.BsonTimestamp;
 
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
@@ -48,6 +50,7 @@ final class MongoMicroBatchStream implements MicroBatchStream {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoMicroBatchStream.class);
   private final StructType schema;
+  private final MongoOffsetStore mongoOffsetStore;
   private final ReadConfig readConfig;
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
   private volatile Long lastTime = Instant.now().getEpochSecond();
@@ -60,12 +63,18 @@ final class MongoMicroBatchStream implements MicroBatchStream {
    * @param schema the schema for the data
    * @param readConfig the read configuration
    */
-  MongoMicroBatchStream(final StructType schema, final ReadConfig readConfig) {
+  MongoMicroBatchStream(
+      final StructType schema, final String checkpointLocation, final ReadConfig readConfig) {
     Assertions.validateConfig(
         schema,
         (s) -> !s.isEmpty(),
         () -> "Mongo micro batch streams require a schema to be defined");
     this.schema = schema;
+    this.mongoOffsetStore =
+        new MongoOffsetStore(
+            SparkContext.getOrCreate().hadoopConfiguration(),
+            checkpointLocation,
+            MongoOffset.getInitialOffset(readConfig));
     this.readConfig = readConfig;
     this.bsonDocumentToRowConverter =
         new BsonDocumentToRowConverter(schema, readConfig.outputExtendedJson());
@@ -77,14 +86,17 @@ final class MongoMicroBatchStream implements MicroBatchStream {
     if (lastTime < now) {
       lastTime = now;
     }
-    return new LongOffset(lastTime);
+    return new BsonTimestampOffset(new BsonTimestamp(lastTime.intValue(), 0));
   }
 
   @Override
   public InputPartition[] planInputPartitions(final Offset start, final Offset end) {
     return new InputPartition[] {
       new MongoMicroBatchInputPartition(
-          partitionId++, generatePipeline(schema, readConfig), (LongOffset) start, (LongOffset) end)
+          partitionId++,
+          generatePipeline(schema, readConfig),
+          (BsonTimestampOffset) start,
+          (BsonTimestampOffset) end)
     };
   }
 
@@ -95,17 +107,18 @@ final class MongoMicroBatchStream implements MicroBatchStream {
 
   @Override
   public Offset initialOffset() {
-    return new LongOffset(-1);
+    return mongoOffsetStore.initialOffset();
   }
 
   @Override
   public Offset deserializeOffset(final String json) {
-    return new LongOffset(Long.parseLong(json));
+    return mongoOffsetStore.fromJson(json);
   }
 
   @Override
   public void commit(final Offset end) {
     LOGGER.info("MicroBatchStream commit: {}", end);
+    mongoOffsetStore.updateOffset((MongoOffset) end);
   }
 
   @Override
