@@ -79,7 +79,8 @@ final class MongoDataWriter implements DataWriter<InternalRow> {
             schema, writeConfig.convertJson(), writeConfig.ignoreNullValues());
     this.writeConfig = writeConfig;
     this.epochId = epochId;
-    this.bulkWriteOptions = new BulkWriteOptions().ordered(writeConfig.isOrdered());
+    this.bulkWriteOptions =
+        new BulkWriteOptions().ordered(writeConfig.isOrdered()).comment(writeConfig.getComment());
   }
 
   /**

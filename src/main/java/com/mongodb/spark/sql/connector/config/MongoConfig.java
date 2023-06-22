@@ -28,6 +28,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.Nullable;
+
+import org.bson.BsonString;
 
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoNamespace;
@@ -158,6 +161,20 @@ public interface MongoConfig extends Serializable {
    * <p>{@value}
    */
   String COLLECTION_NAME_CONFIG = "collection";
+
+  /**
+   * Add a comment to mongodb operations
+   *
+   * <p>Allows debugging and profiling queries from the connector.
+   *
+   * <p>{@value}
+   *
+   * <p>See: <a
+   * href="https://www.mongodb.com/docs/current/reference/operator/query/comment/">$comment</a>
+   *
+   * <p>Note: Requires MongoDB 4.6+
+   */
+  String COMMENT_CONFIG = "comment";
 
   /** @return the options for this MongoConfig instance */
   Map<String, String> getOptions();
@@ -379,5 +396,11 @@ public interface MongoConfig extends Serializable {
     return value == null
         ? defaultValue
         : Arrays.stream(value.split(",")).map(String::trim).collect(toList());
+  }
+
+  /** @return the comment to be associated with an operation or null if not set */
+  @Nullable
+  default BsonString getComment() {
+    return containsKey(COMMENT_CONFIG) ? new BsonString(get(COMMENT_CONFIG)) : null;
   }
 }

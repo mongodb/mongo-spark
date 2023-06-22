@@ -17,6 +17,7 @@
 
 package com.mongodb.spark.sql.connector.read.partitioner;
 
+import static com.mongodb.spark.sql.connector.config.MongoConfig.COMMENT_CONFIG;
 import static com.mongodb.spark.sql.connector.config.ReadConfig.PARTITIONER_OPTIONS_PREFIX;
 import static com.mongodb.spark.sql.connector.read.partitioner.FieldPartitioner.PARTITION_FIELD_CONFIG;
 import static com.mongodb.spark.sql.connector.read.partitioner.PaginateIntoPartitionsPartitioner.MAX_NUMBER_OF_PARTITIONS_CONFIG;
@@ -273,5 +274,15 @@ public class PaginateIntoPartitionsPartitionerTest extends PartitionerTestCase {
                             PARTITIONER_OPTIONS_PREFIX + MAX_NUMBER_OF_PARTITIONS_CONFIG,
                             "0")),
                 MAX_NUMBER_OF_PARTITIONS_CONFIG + " is zero"));
+  }
+
+  @Test
+  void shouldLogCommentsInProfilerLogs() {
+    ReadConfig readConfig = createReadConfig("commentInLogs");
+    loadSampleData(50, 1, readConfig);
+
+    ReadConfig configWithComment = readConfig.withOption(COMMENT_CONFIG, TEST_COMMENT);
+    assertCommentsInProfile(
+        () -> PARTITIONER.generatePartitions(configWithComment), configWithComment);
   }
 }

@@ -16,6 +16,8 @@
  */
 package com.mongodb.spark.sql.connector.read;
 
+import static com.mongodb.spark.sql.connector.config.MongoConfig.COMMENT_CONFIG;
+import static com.mongodb.spark.sql.connector.config.MongoConfig.PREFIX;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
@@ -57,6 +59,7 @@ import org.bson.BsonString;
 
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.InsertManyOptions;
 import com.mongodb.client.model.Updates;
 
 import com.mongodb.spark.sql.connector.config.MongoConfig;
@@ -313,6 +316,30 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
             (msg, coll) -> assertEquals(50, coll.countDocuments(), msg)));
   }
 
+  @Test
+  void testLogCommentsInProfilerLogs() {
+    assumeTrue(supportsChangeStreams());
+
+    MongoConfig mongoConfig = createMongoConfig().withOption(PREFIX + COMMENT_CONFIG, TEST_COMMENT);
+
+    testIdentifier = "logsComments";
+
+    assertCommentsInProfile(
+        () ->
+            testStreamingQuery(
+                mongoConfig,
+                withSource(
+                    "inserting 0-25",
+                    (msg, coll) ->
+                        coll.insertMany(
+                            createDocuments(0, 25),
+                            new InsertManyOptions().comment(IGNORE_COMMENT))),
+                withMemorySink(
+                    "Expected to see 25 documents",
+                    (msg, ds) -> assertEquals(25, ds.collectAsList().size(), msg))),
+        mongoConfig.toReadConfig());
+  }
+
   private static final StructType DEFAULT_SCHEMA =
       createStructType(
           asList(
@@ -392,7 +419,10 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
                       coll ->
                           LOGGER.info(
                               "Source Collection Status: {}.",
-                              coll.find().map(BsonDocument::toJson).into(new ArrayList<>())));
+                              coll.find()
+                                  .comment(IGNORE_COMMENT)
+                                  .map(BsonDocument::toJson)
+                                  .into(new ArrayList<>())));
 
               if (writeFormat.equals(MONGODB)) {
                 mongoConfig
@@ -401,7 +431,10 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
                         coll ->
                             LOGGER.info(
                                 "Sink Collection Status: {}.",
-                                coll.find().map(BsonDocument::toJson).into(new ArrayList<>())));
+                                coll.find()
+                                    .comment(IGNORE_COMMENT)
+                                    .map(BsonDocument::toJson)
+                                    .into(new ArrayList<>())));
               } else {
                 LOGGER.info(
                     "Sink Memory Status: {}.",

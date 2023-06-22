@@ -16,6 +16,8 @@
  */
 package com.mongodb.spark.sql.connector.read;
 
+import static com.mongodb.spark.sql.connector.config.MongoConfig.COMMENT_CONFIG;
+import static com.mongodb.spark.sql.connector.interop.JavaScala.asJava;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static org.apache.spark.sql.types.DataTypes.createStructField;
@@ -49,7 +51,9 @@ import com.mongodb.client.model.CreateCollectionOptions;
 import com.mongodb.client.model.TimeSeriesGranularity;
 import com.mongodb.client.model.TimeSeriesOptions;
 
+import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
 import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
@@ -655,6 +659,74 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
 
     partitioner = "com.mongodb.spark.sql.connector.read.partitioner.SinglePartitionPartitioner";
     assertEquals(collectionData.size(), dfr.option("partitioner", partitioner).load().count());
+  }
+
+  @Test
+  void testReadsLogCommentsInProfilerLogs() {
+    SparkSession spark = getOrCreateSparkSession();
+
+    List<BsonDocument> collectionData =
+        toBsonDocuments(spark.read().textFile(READ_RESOURCES_HOBBITS_JSON_PATH));
+    getCollection().insertMany(collectionData);
+
+    WriteConfig writeConfig =
+        MongoConfig.writeConfig(asJava(spark.initialSessionOptions()))
+            .withOption(COMMENT_CONFIG, TEST_COMMENT);
+
+    assertCommentsInProfile(
+        () -> {
+          StructType schema =
+              createStructType(
+                  asList(
+                      createStructField("_id", DataTypes.IntegerType, false),
+                      createStructField("age", DataTypes.LongType, true),
+                      createStructField("name", DataTypes.StringType, true)));
+          assertIterableEquals(
+              collectionData,
+              toBsonDocuments(
+                  spark
+                      .read()
+                      .option(COMMENT_CONFIG, TEST_COMMENT)
+                      .format("mongodb")
+                      .schema(schema)
+                      .load()
+                      .toJSON()));
+        },
+        writeConfig);
+  }
+
+  @Test
+  void testWritesLogCommentsInProfilerLogs() {
+    SparkSession spark = getOrCreateSparkSession();
+
+    List<BsonDocument> collectionData =
+        toBsonDocuments(spark.read().textFile(READ_RESOURCES_HOBBITS_JSON_PATH));
+    getCollection().insertMany(collectionData);
+
+    WriteConfig writeConfig =
+        MongoConfig.writeConfig(asJava(spark.initialSessionOptions()))
+            .withOption(COMMENT_CONFIG, TEST_COMMENT);
+
+    assertCommentsInProfile(
+        () -> {
+          StructType schema =
+              createStructType(
+                  asList(
+                      createStructField("_id", DataTypes.IntegerType, false),
+                      createStructField("age", DataTypes.LongType, true),
+                      createStructField("name", DataTypes.StringType, true)));
+          assertIterableEquals(
+              collectionData,
+              toBsonDocuments(
+                  spark
+                      .read()
+                      .option(COMMENT_CONFIG, TEST_COMMENT)
+                      .format("mongodb")
+                      .schema(schema)
+                      .load()
+                      .toJSON()));
+        },
+        writeConfig);
   }
 
   private List<BsonDocument> toBsonDocuments(final Dataset<String> dataset) {

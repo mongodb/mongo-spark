@@ -83,6 +83,7 @@ public final class InferSchema {
             coll ->
                 coll.aggregate(samplePipeline)
                     .allowDiskUse(readConfig.getAggregationAllowDiskUse())
+                    .comment(readConfig.getComment())
                     .into(new ArrayList<>())),
         readConfig);
   }
