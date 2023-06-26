@@ -50,12 +50,13 @@ import com.mongodb.client.model.TimeSeriesGranularity;
 import com.mongodb.client.model.TimeSeriesOptions;
 
 import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
 import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 class MongoBatchTest extends MongoSparkConnectorTestCase {
   private static final RowToBsonDocumentConverter CONVERTER =
-      new RowToBsonDocumentConverter(new StructType(), false, false, false);
+      new RowToBsonDocumentConverter(new StructType(), WriteConfig.ConvertJson.FALSE, false);
 
   private static final String READ_RESOURCES_HOBBITS_JSON_PATH =
       "src/integrationTest/resources/data/read/hobbits.json";

@@ -42,6 +42,7 @@ import org.bson.BsonDecimal128;
 import org.bson.BsonDocument;
 import org.bson.types.Decimal128;
 
+import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.exceptions.DataException;
 import com.mongodb.spark.sql.connector.interop.JavaScala;
 
@@ -49,15 +50,16 @@ import scala.collection.Seq;
 
 public class RowToBsonDocumentConverterTest extends SchemaTest {
   private static final RowToBsonDocumentConverter DEFAULT_CONVERTER =
-      new RowToBsonDocumentConverter(new StructType(), false, false, false);
+      new RowToBsonDocumentConverter(new StructType(), WriteConfig.ConvertJson.FALSE, false);
   private static final RowToBsonDocumentConverter JSON_CONVERTER =
-      new RowToBsonDocumentConverter(new StructType(), true, false, false);
+      new RowToBsonDocumentConverter(new StructType(), WriteConfig.ConvertJson.ANY, false);
 
   private static final RowToBsonDocumentConverter NESTED_JSON_CONVERTER =
-      new RowToBsonDocumentConverter(new StructType(), true, true, false);
+      new RowToBsonDocumentConverter(
+          new StructType(), WriteConfig.ConvertJson.OBJECT_OR_ARRAY_ONLY, false);
 
   private static final RowToBsonDocumentConverter IGNORE_NULL_VALUES_CONVERTER =
-      new RowToBsonDocumentConverter(new StructType(), false, false, true);
+      new RowToBsonDocumentConverter(new StructType(), WriteConfig.ConvertJson.FALSE, true);
 
   @Test
   @DisplayName("test simple types")

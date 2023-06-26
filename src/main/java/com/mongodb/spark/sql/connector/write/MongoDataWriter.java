@@ -76,10 +76,7 @@ final class MongoDataWriter implements DataWriter<InternalRow> {
     this.taskId = taskId;
     this.rowToBsonDocumentConverter =
         new RowToBsonDocumentConverter(
-            schema,
-            writeConfig.convertJson(),
-            writeConfig.convertJsonNestedValuesOnlyConfig(),
-            writeConfig.ignoreNullValues());
+            schema, writeConfig.convertJson(), writeConfig.ignoreNullValues());
     this.writeConfig = writeConfig;
     this.epochId = epochId;
     this.bulkWriteOptions = new BulkWriteOptions().ordered(writeConfig.isOrdered());

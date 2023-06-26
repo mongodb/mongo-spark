@@ -25,6 +25,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.mongodb.WriteConcern;
 
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
@@ -36,6 +39,7 @@ import com.mongodb.spark.sql.connector.exceptions.ConfigException;
  */
 public final class WriteConfig extends AbstractMongoConfig {
   private static final long serialVersionUID = 1L;
+  private static final Logger LOGGER = LoggerFactory.getLogger(WriteConfig.class);
 
   /** The operation type for the write. */
   public enum OperationType {
@@ -59,6 +63,41 @@ public final class WriteConfig extends AbstractMongoConfig {
         }
       }
       throw new ConfigException(format("'%s' is not a valid Write Operation Type", operationType));
+    }
+
+    @Override
+    public String toString() {
+      return value;
+    }
+  }
+
+  /** The convert json configuration. */
+  public enum ConvertJson {
+    /** No conversion of string types */
+    FALSE("false"),
+    /** Try to parse any string as a json value */
+    ANY("any"),
+    /** Try to parse any string as a json value */
+    OBJECT_OR_ARRAY_ONLY("objectOrArrayOnly");
+
+    private final String value;
+    private static final String TRUE = "true";
+
+    ConvertJson(final String operationType) {
+      this.value = operationType;
+    }
+
+    static ConvertJson fromString(final String jsonType) {
+      for (ConvertJson convertJsonType : ConvertJson.values()) {
+        if (jsonType.equalsIgnoreCase(TRUE)) {
+          LOGGER.warn("{}: 'true' is deprecated. Use: '{}' instead.", CONVERT_JSON_CONFIG, ANY);
+          return ANY;
+        }
+        if (jsonType.equalsIgnoreCase(convertJsonType.value)) {
+          return convertJsonType;
+        }
+      }
+      throw new ConfigException(format("'%s' is not a valid Convert Json Type", jsonType));
     }
 
     @Override
@@ -171,29 +210,13 @@ public final class WriteConfig extends AbstractMongoConfig {
    *
    * <p>Configuration: {@value}
    *
-   * <p>Default: {@value CONVERT_JSON_DEFAULT}
+   * <p>Default: 'false'
    *
    * @since 10.1
    */
   public static final String CONVERT_JSON_CONFIG = "convertJson";
 
-  private static final boolean CONVERT_JSON_DEFAULT = false;
-
-  /**
-   * Convert only nested JSON objects and arrays into their BSON equivalent.
-   *
-   * <p>Configuration: {@value}
-   *
-   * <p>Default: {@value CONVERT_JSON_NESTED_VALUES_ONLY_DEFAULT}
-   *
-   * <p>Requires {@value CONVERT_JSON_CONFIG}=true
-   *
-   * @since 10.2
-   */
-  public static final String CONVERT_JSON_NESTED_VALUES_ONLY_CONFIG =
-      "convertJson.nestedValuesOnly";
-
-  private static final boolean CONVERT_JSON_NESTED_VALUES_ONLY_DEFAULT = false;
+  private static final String CONVERT_JSON_DEFAULT = ConvertJson.FALSE.value;
 
   /**
    * Ignore null values, even those within arrays or documents.
@@ -271,21 +294,11 @@ public final class WriteConfig extends AbstractMongoConfig {
   }
 
   /**
-   * @return the true if JSON strings should be converted
+   * @return the ConvertJson value regarding string parsing
    * @since 10.1
    */
-  public boolean convertJson() {
-    return getBoolean(CONVERT_JSON_CONFIG, CONVERT_JSON_DEFAULT);
-  }
-
-  /**
-   * @return the true if only nested JSON strings should be converted
-   * @since 10.2
-   */
-  public boolean convertJsonNestedValuesOnlyConfig() {
-    return convertJson()
-        && getBoolean(
-            CONVERT_JSON_NESTED_VALUES_ONLY_CONFIG, CONVERT_JSON_NESTED_VALUES_ONLY_DEFAULT);
+  public ConvertJson convertJson() {
+    return ConvertJson.fromString(getOrDefault(CONVERT_JSON_CONFIG, CONVERT_JSON_DEFAULT));
   }
 
   /**

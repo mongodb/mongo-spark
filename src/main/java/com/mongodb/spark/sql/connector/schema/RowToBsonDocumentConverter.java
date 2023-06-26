@@ -55,6 +55,7 @@ import org.bson.BsonValue;
 import org.bson.json.JsonParseException;
 import org.bson.types.Decimal128;
 
+import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.exceptions.DataException;
 import com.mongodb.spark.sql.connector.interop.JavaScala;
 
@@ -69,26 +70,22 @@ public final class RowToBsonDocumentConverter implements Serializable {
   private static final long serialVersionUID = 1L;
 
   private final InternalRowToRowFunction internalRowToRowFunction;
-  private final boolean convertJson;
-  private final boolean convertJsonNestedValuesOnly;
+  private final WriteConfig.ConvertJson convertJson;
   private final boolean ignoreNulls;
 
   /**
    * Construct a new instance
    *
    * @param schema the schema for the row
-   * @param convertJson if true JSON strings should be converted
-   * @param convertJsonNestedValuesOnly if true only nested JSON objects will be converted
+   * @param convertJson the convert Json configuration
    * @param ignoreNulls if true ignore any null values, even those in arrays, maps or struct values
    */
   public RowToBsonDocumentConverter(
       final StructType schema,
-      final boolean convertJson,
-      final boolean convertJsonNestedValuesOnly,
+      final WriteConfig.ConvertJson convertJson,
       final boolean ignoreNulls) {
     this.internalRowToRowFunction = new InternalRowToRowFunction(schema);
     this.convertJson = convertJson;
-    this.convertJsonNestedValuesOnly = convertJsonNestedValuesOnly;
     this.ignoreNulls = ignoreNulls;
   }
 
@@ -227,7 +224,7 @@ public final class RowToBsonDocumentConverter implements Serializable {
   private static final char JSON_ARRAY_START = '[';
   private static final char JSON_ARRAY_END = ']';
 
-  private static boolean isJsonObject(final String data) {
+  private static boolean isJsonObjectOrArray(final String data) {
     char firstChar = data.charAt(0);
     char lastChar = data.charAt(data.length() - 1);
     return (firstChar == JSON_OBJECT_START && lastChar == JSON_OBJECT_END)
@@ -246,7 +243,15 @@ public final class RowToBsonDocumentConverter implements Serializable {
   }
 
   private boolean parseJsonData(final String data) {
-    return (convertJson && !convertJsonNestedValuesOnly)
-        || (convertJsonNestedValuesOnly && isJsonObject(data));
+    switch (convertJson) {
+      case FALSE:
+        return false;
+      case ANY:
+        return true;
+      case OBJECT_OR_ARRAY_ONLY:
+        return isJsonObjectOrArray(data);
+      default:
+        throw new IllegalStateException("Unexpected value: " + convertJson);
+    }
   }
 }
