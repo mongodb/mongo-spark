@@ -88,16 +88,15 @@ public final class WriteConfig extends AbstractMongoConfig {
     }
 
     static ConvertJson fromString(final String jsonType) {
-      for (ConvertJson convertJsonType : ConvertJson.values()) {
-        if (jsonType.equalsIgnoreCase(TRUE)) {
-          LOGGER.warn("{}: 'true' is deprecated. Use: '{}' instead.", CONVERT_JSON_CONFIG, ANY);
-          return ANY;
-        }
-        if (jsonType.equalsIgnoreCase(convertJsonType.value)) {
-          return convertJsonType;
-        }
+      if (jsonType.equalsIgnoreCase(TRUE)) {
+        LOGGER.warn("{}: '{}' is deprecated. Use: '{}' instead.", CONVERT_JSON_CONFIG, TRUE, ANY);
+        return ANY;
       }
-      throw new ConfigException(format("'%s' is not a valid Convert Json Type", jsonType));
+      try {
+        return ConvertJson.valueOf(jsonType.toUpperCase(Locale.ROOT));
+      } catch (IllegalArgumentException e) {
+        throw new ConfigException(format("'%s' is not a valid Convert Json Type", jsonType), e);
+      }
     }
 
     @Override
