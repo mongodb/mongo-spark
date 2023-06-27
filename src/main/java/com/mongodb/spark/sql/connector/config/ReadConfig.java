@@ -27,6 +27,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.bson.BsonArray;
 import org.bson.BsonDocument;
 import org.bson.BsonTimestamp;
@@ -44,8 +47,12 @@ import com.mongodb.spark.sql.connector.read.partitioner.Partitioner;
  * <p>The {@link MongoConfig} for reads.
  */
 public final class ReadConfig extends AbstractMongoConfig {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ReadConfig.class);
 
   private static final long serialVersionUID = 1L;
+
+  private static final String EMPTY_STRING = "";
+
   /**
    * The partitioner full class name.
    *
@@ -142,7 +149,7 @@ public final class ReadConfig extends AbstractMongoConfig {
    */
   public static final String AGGREGATION_PIPELINE_CONFIG = "aggregation.pipeline";
 
-  public static final String AGGREGATION_PIPELINE_DEFAULT = "";
+  public static final String AGGREGATION_PIPELINE_DEFAULT = EMPTY_STRING;
 
   /**
    * Allow disk use when running the aggregation.
@@ -192,23 +199,73 @@ public final class ReadConfig extends AbstractMongoConfig {
 
   private static final String STREAM_LOOKUP_FULL_DOCUMENT_DEFAULT = FullDocument.DEFAULT.getValue();
 
-  /**
-   * Streaming start at operation time.
-   *
-   * <p>Specifies the bson timestamp value for the start at operation time.
-   *
-   * <p>See: <a
-   * href="https://www.mongodb.com/docs/v6.0/reference/bson-types/#timestamps">BsonTimestamp</a>.
-   *
-   * <p>Configuration: {@value}
-   *
-   * @since 10.2
-   */
-  public static final String STREAM_START_AT_OPERATION_TIME_CONFIG =
-      "change.stream.start.at.operation.time";
+  enum StartupMode {
+    /**
+     * Is equivalent to {@link #LATEST}, and is used to discriminate a situation when the default
+     * behavior is configured explicitly.
+     */
+    DEFAULT_INTERNAL,
+    /** @see #DEFAULT_INTERNAL */
+    LATEST,
+    TIMESTAMP;
 
-  private static final long STREAM_START_AT_OPERATION_TIME_DEFAULT =
-      new BsonTimestamp(-1, 0).getValue();
+    static StartupMode fromString(final String userStartupMode) {
+      try {
+        return userStartupMode.equals(STARTUP_MODE_DEFAULT)
+            ? DEFAULT_INTERNAL
+            : StartupMode.valueOf(userStartupMode.toUpperCase());
+      } catch (IllegalArgumentException e) {
+        throw new ConfigException(format("'%s' is not a valid Startup mode", userStartupMode));
+      }
+    }
+  }
+
+  /**
+   * The start up behavior when there is no stored offset available.
+   *
+   * <p>Specifies how the connector should start up when there is no offset available.
+   *
+   * <p>Resuming a change stream requires a resume token, which the connector stores as / reads from
+   * the offset. If no offset is available, the connector may either ignore all/some existing source
+   * data, or may at first copy all existing source data and then continue with processing new data.
+   *
+   * <p>Possible values are:
+   *
+   * <ul>
+   *   <li>'latest' is the default value. The connector creates a new change stream, processes
+   *       change events from it and stores resume tokens from them, thus ignoring all existing
+   *       source data.
+   *   <li>'timestamp' actuates 'startup.mode.timestamp.*' properties." If no such properties are
+   *       configured, then 'timestamp' is equivalent to 'latest'.
+   * </ul>
+   */
+  public static final String STARTUP_MODE_CONFIG = "startup.mode";
+
+  static final String STARTUP_MODE_DEFAULT = EMPTY_STRING;
+
+  /**
+   * The `startAtOperationTime` configuration.
+   *
+   * <p>Actuated only if 'startup.mode = timestamp'. Specifies the starting point for the change
+   * stream.
+   *
+   * <p>Must be either an integer number of seconds since the Epoch in the decimal format (example:
+   * 30), or an instant in the ISO-8601 format with one second precision (example:
+   * '1970-01-01T00:00:30Z'), or a BSON Timestamp in the canonical extended JSON (v2) format
+   * (example: '{\"$timestamp\": {\"t\": 30, \"i\": 0}}').
+   *
+   * <p>You may specify '0' to start at the beginning of the oplog.
+   *
+   * <p>Note: Requires MongoDB 4.0 or above.
+   *
+   * <p>See <a
+   * href="https://www.mongodb.com/docs/current/reference/operator/aggregation/changeStream>changeStreams</a>.
+   */
+  public static final String STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_CONFIG =
+      "startup.mode.timestamp.start.at.operation.time";
+
+  static final String STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_DEFAULT = "-1";
+  private static final BsonTimestamp LATEST_TIMESTAMP = new BsonTimestamp(-1, 0);
 
   /**
    * Output extended JSON for any String types.
@@ -315,13 +372,29 @@ public final class ReadConfig extends AbstractMongoConfig {
   /**
    * Returns the initial start at operation time for a stream
    *
-   * <p>Note: This value will be ignored if there is a checkpoint is present for the stream.
+   * <p>Note: This value will be ignored if the timestamp is negative or there is an existing offset
+   * present for the stream.
    *
    * @return the start at operation time for a stream
    * @since 10.2
    */
-  public long getStreamStartAtOperationTime() {
-    return getLong(STREAM_START_AT_OPERATION_TIME_CONFIG, STREAM_START_AT_OPERATION_TIME_DEFAULT);
+  public BsonTimestamp getInitialBsonTimestamp() {
+    StartupMode startupMode =
+        StartupMode.fromString(getOrDefault(STARTUP_MODE_CONFIG, STARTUP_MODE_DEFAULT));
+    switch (startupMode) {
+      case DEFAULT_INTERNAL:
+      case LATEST:
+        return LATEST_TIMESTAMP;
+      case TIMESTAMP:
+        return BsonTimestampParser.parse(
+            STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_CONFIG,
+            getOrDefault(
+                STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_CONFIG,
+                STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_DEFAULT),
+            LOGGER);
+      default:
+        throw new AssertionError(format("Unexpected startup mode %s", startupMode));
+    }
   }
 
   /**

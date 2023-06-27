@@ -34,14 +34,16 @@ import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 
 public class MongoOffsetTest {
 
-  private static final String TIMESTAMP_OFFSET_JSON = "{\"version\": 1, \"offset\": 5000}";
+  private static final String TIMESTAMP_OFFSET_JSON =
+      "{\"version\": 1, \"offset\": {\"$timestamp\": {\"t\": 5000, \"i\": 0}}}";
   private static final String RESUME_TOKEN_OFFSET_JSON =
       "{\"version\": 1, \"offset\": {\"_data\": \"123\"}}";
 
   private static final MongoOffset DEFAULT_TIMESTAMP_OFFSET =
       new BsonTimestampOffset(new BsonTimestamp(-1, 0));
 
-  private static final MongoOffset TIMESTAMP_OFFSET = new BsonTimestampOffset(5000);
+  private static final MongoOffset TIMESTAMP_OFFSET =
+      new BsonTimestampOffset(new BsonTimestamp(5000, 0));
   private static final MongoOffset RESUME_TOKEN_OFFSET =
       new ResumeTokenBasedOffset(new BsonDocument("_data", new BsonString("123")));
 
@@ -53,7 +55,10 @@ public class MongoOffsetTest {
     assertEquals(
         TIMESTAMP_OFFSET,
         MongoOffset.getInitialOffset(
-            readConfig.withOption(ReadConfig.STREAM_START_AT_OPERATION_TIME_CONFIG, "5000")));
+            readConfig
+                .withOption(ReadConfig.STARTUP_MODE_CONFIG, "timestamp")
+                .withOption(
+                    ReadConfig.STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_CONFIG, "5000")));
     assertEquals(MongoOffset.fromJson(RESUME_TOKEN_OFFSET_JSON), RESUME_TOKEN_OFFSET);
   }
 

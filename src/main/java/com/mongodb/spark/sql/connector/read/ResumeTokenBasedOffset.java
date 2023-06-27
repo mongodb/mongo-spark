@@ -31,17 +31,13 @@ final class ResumeTokenBasedOffset extends MongoOffset {
   }
 
   @Override
-  String getOffsetStringValue() {
-    return resumeToken.toJson();
+  String getOffsetJsonValue() {
+    return resumeToken.toJson(EXTENDED_JSON_WRITER_SETTINGS);
   }
 
   @Override
   <T> ChangeStreamIterable<T> applyToChangeStreamIterable(
       final ChangeStreamIterable<T> changeStreamIterable) {
     return changeStreamIterable.startAfter(resumeToken);
-  }
-
-  BsonDocument getResumeToken() {
-    return resumeToken;
   }
 }

@@ -19,13 +19,17 @@ package com.mongodb.spark.sql.connector.read;
 import static java.lang.String.format;
 
 import java.io.Serializable;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.apache.spark.sql.connector.read.streaming.Offset;
 
 import org.bson.BsonDocument;
 import org.bson.BsonInvalidOperationException;
 import org.bson.BsonValue;
+import org.bson.json.JsonMode;
 import org.bson.json.JsonParseException;
+import org.bson.json.JsonWriterSettings;
 
 import com.mongodb.client.ChangeStreamIterable;
 
@@ -34,11 +38,19 @@ import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 
 /** The abstract class for MongoDB change stream based offsets */
 abstract class MongoOffset extends Offset implements Serializable {
+  static final JsonWriterSettings EXTENDED_JSON_WRITER_SETTINGS =
+      JsonWriterSettings.builder().outputMode(JsonMode.EXTENDED).build();
   private static final int VERSION = 1;
   private static final String JSON_TEMPLATE = format("{\"version\": %d, \"offset\": %%s}", VERSION);
+  private static final Set<String> LEGACY_KEYSET =
+      new HashSet<String>() {
+        {
+          add("_data");
+        }
+      };
 
   static BsonTimestampOffset getInitialOffset(final ReadConfig readConfig) {
-    return new BsonTimestampOffset(readConfig.getStreamStartAtOperationTime());
+    return new BsonTimestampOffset(readConfig.getInitialBsonTimestamp());
   }
 
   static MongoOffset fromJson(final String json) {
@@ -48,6 +60,11 @@ abstract class MongoOffset extends Offset implements Serializable {
       offsetDocument = BsonDocument.parse(json);
     } catch (JsonParseException | BsonInvalidOperationException e) {
       throw new MongoSparkException(format("Invalid offset json string: `%s`.", json), e);
+    }
+
+    // Support legacy offsets
+    if (offsetDocument.keySet().equals(LEGACY_KEYSET)) {
+      return new ResumeTokenBasedOffset(offsetDocument);
     }
 
     if (!offsetDocument.containsKey("version")
@@ -62,8 +79,8 @@ abstract class MongoOffset extends Offset implements Serializable {
     }
 
     BsonValue offset = offsetDocument.get("offset");
-    if (offset.isNumber()) {
-      return new BsonTimestampOffset(offset.asNumber().longValue());
+    if (offset.isTimestamp()) {
+      return new BsonTimestampOffset(offset.asTimestamp());
     } else if (offset.isDocument()) {
       return new ResumeTokenBasedOffset(offset.asDocument());
     }
@@ -71,13 +88,13 @@ abstract class MongoOffset extends Offset implements Serializable {
         format("Invalid offset expected a timestamp or resume token: `%s`. `%s`", offset, json));
   }
 
-  abstract String getOffsetStringValue();
+  abstract String getOffsetJsonValue();
 
   abstract <T> ChangeStreamIterable<T> applyToChangeStreamIterable(
       ChangeStreamIterable<T> changeStreamIterable);
 
   @Override
   public final String json() {
-    return format(JSON_TEMPLATE, getOffsetStringValue());
+    return format(JSON_TEMPLATE, getOffsetJsonValue());
   }
 }

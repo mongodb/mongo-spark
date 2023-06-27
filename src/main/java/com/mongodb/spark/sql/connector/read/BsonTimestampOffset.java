@@ -16,6 +16,7 @@
  */
 package com.mongodb.spark.sql.connector.read;
 
+import org.bson.BsonDocument;
 import org.bson.BsonTimestamp;
 
 import com.mongodb.client.ChangeStreamIterable;
@@ -26,7 +27,8 @@ final class BsonTimestampOffset extends MongoOffset {
   private transient BsonTimestamp bsonTimestamp;
 
   BsonTimestampOffset(final BsonTimestamp value) {
-    this(value.getValue());
+    bsonTimestamp = value;
+    bsonTimestampValue = value.getValue();
   }
 
   BsonTimestampOffset(final long value) {
@@ -34,8 +36,10 @@ final class BsonTimestampOffset extends MongoOffset {
   }
 
   @Override
-  String getOffsetStringValue() {
-    return String.valueOf(bsonTimestampValue);
+  String getOffsetJsonValue() {
+    String docJson =
+        new BsonDocument("v", getBsonTimestamp()).toJson(EXTENDED_JSON_WRITER_SETTINGS);
+    return docJson.substring(6, docJson.length() - 1);
   }
 
   @Override
