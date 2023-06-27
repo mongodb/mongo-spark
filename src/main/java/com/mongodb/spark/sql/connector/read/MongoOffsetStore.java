@@ -50,12 +50,12 @@ class MongoOffsetStore {
   MongoOffsetStore(final Configuration conf, final String location, final MongoOffset offset) {
     try {
       this.fs = FileSystem.get(URI.create(location), conf);
-      this.path = new Path(URI.create(location));
-      this.offset = offset;
     } catch (IOException e) {
       throw new ConfigException(
           format("Unable to initialize the MongoOffsetStore: %s", location), e);
     }
+    this.path = new Path(URI.create(location));
+    this.offset = offset;
   }
 
   /**
@@ -80,11 +80,7 @@ class MongoOffsetStore {
         throw new ConfigException(format("Failed to parse offset from: %s", path), exception);
       }
     } else {
-      try (FSDataOutputStream out = fs.create(path, true)) {
-        out.write(offset.json().getBytes(StandardCharsets.UTF_8));
-      } catch (IOException exception) {
-        throw new ConfigException(format("Failed to create new offset to: %s", path), exception);
-      }
+      updateOffset(offset);
     }
     LOGGER.info("Initial offset: {}", offset.json());
     return offset;
