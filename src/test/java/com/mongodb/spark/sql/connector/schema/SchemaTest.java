@@ -343,7 +343,7 @@ abstract class SchemaTest {
           BSON_DOCUMENT_STRING_SCHEMA);
 
   // JSON Conversion types handling
-  static final StructType CONVERT_JSON_SCHEMA =
+  private static final StructType CONVERT_JSON_SCHEMA =
       DataTypes.createStructType(
           asList(
               DataTypes.createStructField("booleanString", DataTypes.StringType, true),
