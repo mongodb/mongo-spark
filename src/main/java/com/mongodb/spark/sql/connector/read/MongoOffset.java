@@ -52,7 +52,7 @@ abstract class MongoOffset extends Offset implements Serializable {
         || !offsetDocument.get("version").isNumber()
         || offsetDocument.get("version").asNumber().intValue() != VERSION) {
       throw new MongoSparkException(
-          format("Unsupported or missing Version: `%s`. Current Version is: %s", json, VERSION));
+          format("Unsupported or missing Version: `%s`. Current Version is: %d", json, VERSION));
     }
 
     if (!offsetDocument.containsKey("offset")) {
