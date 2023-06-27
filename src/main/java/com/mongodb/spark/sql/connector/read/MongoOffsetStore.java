@@ -36,7 +36,7 @@ import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 /** The Mongo offset store for streams. */
 final class MongoOffsetStore {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoOffsetStore.class);
-  private final Path path;
+  private final Path checkpointLocation;
   private final FileSystem fs;
   private MongoOffset offset;
 
@@ -44,17 +44,18 @@ final class MongoOffsetStore {
    * Instantiates a new Mongo offset store.
    *
    * @param conf the conf
-   * @param location the location
+   * @param checkpointLocation the checkpoint location for offsets
    * @param offset the offset
    */
-  MongoOffsetStore(final Configuration conf, final String location, final MongoOffset offset) {
+  MongoOffsetStore(
+      final Configuration conf, final String checkpointLocation, final MongoOffset offset) {
     try {
-      this.fs = FileSystem.get(URI.create(location), conf);
+      this.fs = FileSystem.get(URI.create(checkpointLocation), conf);
     } catch (IOException e) {
       throw new ConfigException(
-          format("Unable to initialize the MongoOffsetStore: %s", location), e);
+          format("Unable to initialize the MongoOffsetStore: %s", checkpointLocation), e);
     }
-    this.path = new Path(URI.create(location));
+    this.checkpointLocation = new Path(URI.create(checkpointLocation));
     this.offset = offset;
   }
 
@@ -66,23 +67,25 @@ final class MongoOffsetStore {
   public MongoOffset initialOffset() {
     boolean exists;
     try {
-      exists = fs.exists(path);
+      exists = fs.exists(checkpointLocation);
     } catch (IOException e) {
       throw new ConfigException(
-          format("Unable to determine if the checkpoint location exists: %s", path), e);
+          format("Unable to determine if the checkpoint location exists: %s", checkpointLocation),
+          e);
     }
 
     if (exists) {
-      try (FSDataInputStream in = fs.open(path)) {
+      try (FSDataInputStream in = fs.open(checkpointLocation)) {
         byte[] buf = IOUtils.toByteArray(in);
-        offset = fromJson(new String(buf, StandardCharsets.UTF_8));
+        offset = MongoOffset.fromJson(new String(buf, StandardCharsets.UTF_8));
       } catch (IOException exception) {
-        throw new ConfigException(format("Failed to parse offset from: %s", path), exception);
+        throw new ConfigException(
+            format("Failed to parse offset from: %s", checkpointLocation), exception);
       }
     } else {
       updateOffset(offset);
     }
-    LOGGER.info("Initial offset: {}", offset.json());
+    LOGGER.info("Initial offset: {}", offset);
     return offset;
   }
 
@@ -92,15 +95,13 @@ final class MongoOffsetStore {
    * @param offset the offset
    */
   public void updateOffset(final MongoOffset offset) {
-    try (FSDataOutputStream out = fs.create(path, true)) {
+    try (FSDataOutputStream out = fs.create(checkpointLocation, true)) {
       out.write(offset.json().getBytes(StandardCharsets.UTF_8));
+      out.hflush();
     } catch (IOException exception) {
       throw new ConfigException(
-          format("Failed to update new offset to: %s at %s", offset.json(), path), exception);
+          format("Failed to update new offset to: %s at %s", offset, checkpointLocation),
+          exception);
     }
-  }
-
-  MongoOffset fromJson(final String json) {
-    return MongoOffset.fromJson(json);
   }
 }

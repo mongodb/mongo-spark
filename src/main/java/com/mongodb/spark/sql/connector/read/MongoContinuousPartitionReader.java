@@ -183,11 +183,7 @@ final class MongoContinuousPartitionReader implements ContinuousPartitionReader<
               .watch(pipeline)
               .fullDocument(readConfig.getStreamFullDocument());
 
-      if (lastOffset.isResumeTokenBasedOffset()) {
-        changeStreamIterable = changeStreamIterable.startAfter(lastOffset.getResumeToken());
-      } else if (lastOffset.isTimeBasedOffset() && lastOffset.getTimestamp().getTime() > 0) {
-        changeStreamIterable = changeStreamIterable.startAtOperationTime(lastOffset.getTimestamp());
-      }
+      changeStreamIterable = lastOffset.applyToChangeStreamIterable(changeStreamIterable);
 
       try {
         changeStreamCursor =

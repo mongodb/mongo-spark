@@ -21,15 +21,14 @@ import java.util.Objects;
 
 import org.apache.spark.sql.connector.read.streaming.PartitionOffset;
 
-import org.bson.BsonDocument;
-import org.bson.BsonTimestamp;
+import com.mongodb.client.ChangeStreamIterable;
 
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 
 /**
  * The continuous stream partition offset class.
  *
- * <p>Relies on a ResumeTokenOffset for determining the partitions offset.
+ * <p>Relies on a MongoOffset for determining the partitions offset.
  */
 final class MongoContinuousInputPartitionOffset implements PartitionOffset {
   private static final long serialVersionUID = 1L;
@@ -49,25 +48,9 @@ final class MongoContinuousInputPartitionOffset implements PartitionOffset {
     return offset;
   }
 
-  boolean isResumeTokenBasedOffset() {
-    return offset instanceof ResumeTokenBasedOffset;
-  }
-
-  boolean isTimeBasedOffset() {
-    return offset instanceof BsonTimestampOffset;
-  }
-
-  BsonDocument getResumeToken() {
-    Assertions.ensureState(
-        this::isResumeTokenBasedOffset,
-        () -> "The partition offset is not a resume token based offset.");
-    return ((ResumeTokenBasedOffset) offset).getResumeToken();
-  }
-
-  BsonTimestamp getTimestamp() {
-    Assertions.ensureState(
-        this::isTimeBasedOffset, () -> "The partition offset is not a time based offset.");
-    return ((BsonTimestampOffset) offset).getBsonTimestamp();
+  public <T> ChangeStreamIterable<T> applyToChangeStreamIterable(
+      final ChangeStreamIterable<T> changeStreamIterable) {
+    return offset.applyToChangeStreamIterable(changeStreamIterable);
   }
 
   @Override
@@ -89,6 +72,6 @@ final class MongoContinuousInputPartitionOffset implements PartitionOffset {
 
   @Override
   public String toString() {
-    return "MongoContinuousInputPartitionOffset{" + "offset=" + offset.json() + '}';
+    return "MongoContinuousInputPartitionOffset{" + "offset=" + offset + '}';
   }
 }

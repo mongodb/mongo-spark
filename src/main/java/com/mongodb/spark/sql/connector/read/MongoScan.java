@@ -70,10 +70,6 @@ final class MongoScan implements Scan {
    *
    * <p>Note: Requires MongoDB 4.2+ To support continuing a change stream after a collection has
    * been dropped.
-   *
-   * @param checkpointLocation a path to Hadoop FS scratch space that can be used for failure
-   *     recovery. Data streams for the same logical source in the same query will be given the same
-   *     checkpointLocation.
    */
   @Override
   public MicroBatchStream toMicroBatchStream(final String checkpointLocation) {
@@ -88,10 +84,6 @@ final class MongoScan implements Scan {
    *
    * <p>Note: Requires MongoDB 4.2+ To support continuing a change stream after a collection has
    * been dropped.
-   *
-   * @param checkpointLocation a path to Hadoop FS scratch space that can be used for failure
-   *     recovery. Data streams for the same logical source in the same query will be given the same
-   *     checkpointLocation.
    */
   @Override
   public ContinuousStream toContinuousStream(final String checkpointLocation) {

@@ -18,6 +18,8 @@ package com.mongodb.spark.sql.connector.read;
 
 import org.bson.BsonDocument;
 
+import com.mongodb.client.ChangeStreamIterable;
+
 final class ResumeTokenBasedOffset extends MongoOffset {
 
   private static final long serialVersionUID = 1L;
@@ -31,6 +33,12 @@ final class ResumeTokenBasedOffset extends MongoOffset {
   @Override
   String getOffsetStringValue() {
     return resumeToken.toJson();
+  }
+
+  @Override
+  <T> ChangeStreamIterable<T> applyToChangeStreamIterable(
+      final ChangeStreamIterable<T> changeStreamIterable) {
+    return changeStreamIterable.startAfter(resumeToken);
   }
 
   BsonDocument getResumeToken() {

@@ -279,7 +279,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
         mongoConfig,
         withSource("Setup", (msg, coll) -> {} /* NOOP */),
         withSink(
-            "Expecting to see 100 documents",
+            "Expecting to see 125 documents",
             (msg, ds) -> assertEquals(125, ds.countDocuments(), msg)));
   }
 
@@ -289,23 +289,23 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     assumeTrue(isAtLeastFourDotFour());
     testIdentifier = "startAtOperationTime";
 
-    ReadConfig mongoConfig = createMongoConfig().toReadConfig();
+    ReadConfig readConfig = createMongoConfig().toReadConfig();
 
     // Add some documents prior to the start time
-    mongoConfig.doWithCollection(coll -> coll.insertMany(createDocuments(0, 25)));
+    readConfig.doWithCollection(coll -> coll.insertMany(createDocuments(0, 25)));
 
     HELPER.sleep(1000);
     BsonTimestamp currentTimestamp = new BsonTimestamp((int) Instant.now().getEpochSecond(), 0);
 
     // Add some documents post start time
-    mongoConfig.doWithCollection(coll -> coll.insertMany(createDocuments(100, 120)));
+    readConfig.doWithCollection(coll -> coll.insertMany(createDocuments(100, 120)));
     testStreamingQuery(
-        mongoConfig.withOption(
-            ReadConfig.PREFIX + ReadConfig.STREAM_START_AT_OPERATION_TIME_CONFIG,
+        readConfig.withOption(
+            ReadConfig.STREAM_START_AT_OPERATION_TIME_CONFIG,
             String.valueOf(currentTimestamp.getValue())),
         withSource("Setup", (msg, coll) -> {} /* NOOP */),
         withMemorySink(
-            "Expected to see 25 documents",
+            "Expected to see 20 documents",
             (msg, ds) -> assertEquals(20, ds.collectAsList().size(), msg)));
   }
 

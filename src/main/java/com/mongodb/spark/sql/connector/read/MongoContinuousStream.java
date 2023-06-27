@@ -109,7 +109,7 @@ final class MongoContinuousStream implements ContinuousStream {
 
   @Override
   public Offset deserializeOffset(final String json) {
-    return mongoOffsetStore.fromJson(json);
+    return MongoOffset.fromJson(json);
   }
 
   @Override

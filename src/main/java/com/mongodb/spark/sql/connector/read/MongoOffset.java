@@ -27,6 +27,8 @@ import org.bson.BsonInvalidOperationException;
 import org.bson.BsonValue;
 import org.bson.json.JsonParseException;
 
+import com.mongodb.client.ChangeStreamIterable;
+
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 
@@ -70,6 +72,9 @@ abstract class MongoOffset extends Offset implements Serializable {
   }
 
   abstract String getOffsetStringValue();
+
+  abstract <T> ChangeStreamIterable<T> applyToChangeStreamIterable(
+      ChangeStreamIterable<T> changeStreamIterable);
 
   @Override
   public final String json() {
