@@ -33,7 +33,7 @@ import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 /** The abstract class for MongoDB change stream based offsets */
 abstract class MongoOffset extends Offset implements Serializable {
   private static final int VERSION = 1;
-  private static final String JSON_TEMPLATE = format("{\"version\": %s, \"offset\": %%s}", VERSION);
+  private static final String JSON_TEMPLATE = format("{\"version\": %d, \"offset\": %%s}", VERSION);
 
   static BsonTimestampOffset getInitialOffset(final ReadConfig readConfig) {
     return new BsonTimestampOffset(readConfig.getStreamStartAtOperationTime());
