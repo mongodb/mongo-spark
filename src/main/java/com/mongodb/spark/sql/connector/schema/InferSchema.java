@@ -65,6 +65,8 @@ import com.mongodb.spark.sql.connector.config.ReadConfig;
  */
 @NotNull
 public final class InferSchema {
+  /** Inferred schema metadata */
+  public static final Metadata INFERRED_METADATA = Metadata.fromJson("{\"inferred\": true}");
 
   /**
    * Infer the schema for the collection
@@ -87,6 +89,14 @@ public final class InferSchema {
         readConfig);
   }
 
+  /**
+   * @param schema the schema
+   * @return true if the schema has been inferred.
+   */
+  public static boolean isInferred(final StructType schema) {
+    return Arrays.stream(schema.fields()).allMatch(f -> f.metadata().equals(INFERRED_METADATA));
+  }
+
   @VisibleForTesting
   static StructType inferSchema(
       final List<BsonDocument> bsonDocuments, final ReadConfig readConfig) {
@@ -104,7 +114,8 @@ public final class InferSchema {
                     return DataTypes.createStructField(
                         f.name(),
                         DataTypes.createArrayType(DataTypes.StringType, true),
-                        f.nullable());
+                        f.nullable(),
+                        INFERRED_METADATA);
                   }
                   return f;
                 })
@@ -127,7 +138,7 @@ public final class InferSchema {
             .forEach(
                 (k, v) ->
                     fields.add(
-                        new StructField(k, getDataType(v, readConfig), true, Metadata.empty())));
+                        new StructField(k, getDataType(v, readConfig), true, INFERRED_METADATA)));
         return dataTypeCheckStructTypeToMapType(DataTypes.createStructType(fields), readConfig);
       case ARRAY:
         DataType elementType =
@@ -201,7 +212,8 @@ public final class InferSchema {
                   .map(StructField::dataType)
                   .reduce(
                       PLACE_HOLDER_DATA_TYPE, (dt1, dt2) -> compatibleType(dt1, dt2, readConfig));
-          structFields.add(DataTypes.createStructField(fieldName, fieldCommonDataType, true));
+          structFields.add(
+              DataTypes.createStructField(fieldName, fieldCommonDataType, true, INFERRED_METADATA));
         });
 
     structFields.sort(Comparator.comparing(StructField::name));
