@@ -72,7 +72,7 @@ abstract class MongoOffset extends Offset implements Serializable {
   abstract String getOffsetStringValue();
 
   @Override
-  public String json() {
+  public final String json() {
     return format(JSON_TEMPLATE, getOffsetStringValue());
   }
 }
