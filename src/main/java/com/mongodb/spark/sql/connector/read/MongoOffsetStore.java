@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 
 /** The Mongo offset store for streams. */
-class MongoOffsetStore {
+final class MongoOffsetStore {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoOffsetStore.class);
   private final Path path;
   private final FileSystem fs;
