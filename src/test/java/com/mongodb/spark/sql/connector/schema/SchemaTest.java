@@ -370,7 +370,7 @@ abstract class SchemaTest {
               + " \"array\": [\"012345\", \"true\", {\"a\": \"foo\", \"b\": \"012345\", \"c\": \"true\"}]"
               + "}");
 
-  static final BsonDocument CONVERT_JSON_NESTED_ONLY_DOCUMENT =
+  static final BsonDocument CONVERT_JSON_OBJECT_OR_ARRAY_ONLY_DOCUMENT =
       BsonDocument.parse(
           "{"
               + " \"booleanString\": \"true\","
