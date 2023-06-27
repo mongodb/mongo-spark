@@ -259,7 +259,7 @@ public final class ReadConfig extends AbstractMongoConfig {
    * <p>Note: Requires MongoDB 4.0 or above.
    *
    * <p>See <a
-   * href="https://www.mongodb.com/docs/current/reference/operator/aggregation/changeStream>changeStreams</a>.
+   * href="https://www.mongodb.com/docs/current/reference/operator/aggregation/changeStream">changeStreams</a>.
    */
   public static final String STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_CONFIG =
       "startup.mode.timestamp.start.at.operation.time";
