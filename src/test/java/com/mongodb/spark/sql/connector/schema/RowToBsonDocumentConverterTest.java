@@ -54,7 +54,7 @@ public class RowToBsonDocumentConverterTest extends SchemaTest {
   private static final RowToBsonDocumentConverter JSON_CONVERTER =
       new RowToBsonDocumentConverter(new StructType(), WriteConfig.ConvertJson.ANY, false);
 
-  private static final RowToBsonDocumentConverter NESTED_JSON_CONVERTER =
+  private static final RowToBsonDocumentConverter OBJECT_OR_ARRAY_JSON_CONVERTER =
       new RowToBsonDocumentConverter(
           new StructType(), WriteConfig.ConvertJson.OBJECT_OR_ARRAY_ONLY, false);
 
