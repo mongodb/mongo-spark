@@ -251,7 +251,7 @@ public final class RowToBsonDocumentConverter implements Serializable {
       case OBJECT_OR_ARRAY_ONLY:
         return isJsonObjectOrArray(data);
       default:
-        throw new IllegalStateException("Unexpected value: " + convertJson);
+        throw new AssertionError("Unexpected value: " + convertJson);
     }
   }
 }

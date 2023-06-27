@@ -79,7 +79,8 @@ public class RowToBsonDocumentConverterTest extends SchemaTest {
   @DisplayName("test json converter objects or arrays only")
   void testExtendedStringTypes() {
     assertEquals(
-        CONVERT_JSON_NESTED_ONLY_DOCUMENT, NESTED_JSON_CONVERTER.fromRow(CONVERT_JSON_ROW));
+        CONVERT_JSON_OBJECT_OR_ARRAY_ONLY_DOCUMENT,
+        OBJECT_OR_ARRAY_JSON_CONVERTER.fromRow(CONVERT_JSON_ROW));
   }
 
   @Test

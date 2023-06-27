@@ -22,6 +22,7 @@ import static java.util.Collections.singletonList;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -77,7 +78,7 @@ public final class WriteConfig extends AbstractMongoConfig {
     FALSE("false"),
     /** Try to parse any string as a json value */
     ANY("any"),
-    /** Try to parse any string as a json value */
+    /** Only try to parse strings are potentially json objects or arrays */
     OBJECT_OR_ARRAY_ONLY("objectOrArrayOnly");
 
     private final String value;
