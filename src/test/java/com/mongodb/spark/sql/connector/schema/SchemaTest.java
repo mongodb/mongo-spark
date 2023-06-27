@@ -17,6 +17,7 @@
 
 package com.mongodb.spark.sql.connector.schema;
 
+import static com.mongodb.spark.sql.connector.schema.InferSchema.INFERRED_METADATA;
 import static com.mongodb.spark.sql.connector.schema.InferSchema.PLACE_HOLDER_ARRAY_TYPE;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
@@ -32,7 +33,9 @@ import java.util.stream.Collectors;
 
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
+import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.DataTypes;
+import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 
 import org.bson.BsonDocument;
@@ -141,44 +144,47 @@ abstract class SchemaTest {
       RawBsonDocument.parse(BSON_DOCUMENT_ALL_TYPES_JSON);
 
   static final StructType BSON_DOCUMENT_ALL_TYPES_SCHEMA =
-      new StructType()
-          .add("arrayEmpty", DataTypes.createArrayType(DataTypes.StringType, true))
-          .add("arraySimple", DataTypes.createArrayType(DataTypes.IntegerType, true))
-          .add(
-              "arrayComplex",
-              DataTypes.createArrayType(
+      DataTypes.createStructType(
+          asList(
+              createStructField(
+                  "arrayEmpty", DataTypes.createArrayType(DataTypes.StringType, true)),
+              createStructField(
+                  "arraySimple", DataTypes.createArrayType(DataTypes.IntegerType, true)),
+              createStructField(
+                  "arrayComplex",
+                  DataTypes.createArrayType(
+                      DataTypes.createStructType(
+                          singletonList(createStructField("a", DataTypes.IntegerType))))),
+              createStructField(
+                  "arrayMixedTypes", DataTypes.createArrayType(DataTypes.StringType, true)),
+              createStructField(
+                  "arrayComplexMixedTypes",
+                  DataTypes.createArrayType(
+                      DataTypes.createStructType(
+                          singletonList(createStructField("a", DataTypes.StringType))))),
+              createStructField("binary", DataTypes.BinaryType),
+              createStructField("boolean", DataTypes.BooleanType),
+              createStructField("code", DataTypes.StringType),
+              createStructField("codeWithScope", DataTypes.StringType),
+              createStructField("dateTime", DataTypes.TimestampType),
+              createStructField("decimal128", DataTypes.createDecimalType(2, 1)),
+              createStructField("documentEmpty", DataTypes.createStructType(emptyList())),
+              createStructField(
+                  "document",
                   DataTypes.createStructType(
-                      singletonList(
-                          DataTypes.createStructField("a", DataTypes.IntegerType, true)))))
-          .add("arrayMixedTypes", DataTypes.createArrayType(DataTypes.StringType, true))
-          .add(
-              "arrayComplexMixedTypes",
-              DataTypes.createArrayType(
-                  DataTypes.createStructType(
-                      singletonList(DataTypes.createStructField("a", DataTypes.StringType, true)))))
-          .add("binary", DataTypes.BinaryType)
-          .add("boolean", DataTypes.BooleanType)
-          .add("code", DataTypes.StringType)
-          .add("codeWithScope", DataTypes.StringType)
-          .add("dateTime", DataTypes.TimestampType)
-          .add("decimal128", DataTypes.createDecimalType(2, 1))
-          .add("documentEmpty", DataTypes.createStructType(emptyList()))
-          .add(
-              "document",
-              DataTypes.createStructType(
-                  singletonList(DataTypes.createStructField("a", DataTypes.IntegerType, true))))
-          .add("double", DataTypes.DoubleType)
-          .add("int32", DataTypes.IntegerType)
-          .add("int64", DataTypes.LongType)
-          .add("maxKey", DataTypes.StringType)
-          .add("minKey", DataTypes.StringType)
-          .add("null", DataTypes.NullType)
-          .add("objectId", DataTypes.StringType)
-          .add("regex", DataTypes.StringType)
-          .add("string", DataTypes.StringType)
-          .add("symbol", DataTypes.StringType)
-          .add("timestamp", DataTypes.TimestampType)
-          .add("undefined", DataTypes.StringType);
+                      singletonList(createStructField("a", DataTypes.IntegerType)))),
+              createStructField("double", DataTypes.DoubleType),
+              createStructField("int32", DataTypes.IntegerType),
+              createStructField("int64", DataTypes.LongType),
+              createStructField("maxKey", DataTypes.StringType),
+              createStructField("minKey", DataTypes.StringType),
+              createStructField("null", DataTypes.NullType),
+              createStructField("objectId", DataTypes.StringType),
+              createStructField("regex", DataTypes.StringType),
+              createStructField("string", DataTypes.StringType),
+              createStructField("symbol", DataTypes.StringType),
+              createStructField("timestamp", DataTypes.TimestampType),
+              createStructField("undefined", DataTypes.StringType)));
 
   static final GenericRowWithSchema ALL_TYPES_ROW =
       new GenericRowWithSchema(
@@ -189,30 +195,22 @@ abstract class SchemaTest {
                           new GenericRowWithSchema(
                               singletonList(1).toArray(),
                               DataTypes.createStructType(
-                                  singletonList(
-                                      DataTypes.createStructField(
-                                          "a", DataTypes.IntegerType, true)))),
+                                  singletonList(createStructField("a", DataTypes.IntegerType)))),
                           new GenericRowWithSchema(
                               singletonList(2).toArray(),
                               DataTypes.createStructType(
-                                  singletonList(
-                                      DataTypes.createStructField(
-                                          "a", DataTypes.IntegerType, true)))))
+                                  singletonList(createStructField("a", DataTypes.IntegerType)))))
                       .toArray(),
                   asList("1", "2", "true", "[1, 2, 3]", "{\"a\": 2}").toArray(),
                   asList(
                           new GenericRowWithSchema(
                               singletonList("1").toArray(),
                               DataTypes.createStructType(
-                                  singletonList(
-                                      DataTypes.createStructField(
-                                          "a", DataTypes.StringType, true)))),
+                                  singletonList(createStructField("a", DataTypes.StringType)))),
                           new GenericRowWithSchema(
                               singletonList("a").toArray(),
                               DataTypes.createStructType(
-                                  singletonList(
-                                      DataTypes.createStructField(
-                                          "a", DataTypes.StringType, true)))))
+                                  singletonList(createStructField("a", DataTypes.StringType)))))
                       .toArray(),
                   new byte[] {75, 97, 102, 107, 97, 32, 114, 111, 99, 107, 115, 33},
                   true,
@@ -225,8 +223,7 @@ abstract class SchemaTest {
                   new GenericRowWithSchema(
                       singletonList(1).toArray(),
                       DataTypes.createStructType(
-                          singletonList(
-                              DataTypes.createStructField("a", DataTypes.IntegerType, true)))),
+                          singletonList(createStructField("a", DataTypes.IntegerType)))),
                   62.0,
                   42,
                   52L,
@@ -387,9 +384,13 @@ abstract class SchemaTest {
                   f -> {
                     if (f.name().equals("arrayEmpty")) {
                       return DataTypes.createStructField(
-                          f.name(), PLACE_HOLDER_ARRAY_TYPE, f.nullable());
+                          f.name(), PLACE_HOLDER_ARRAY_TYPE, f.nullable(), INFERRED_METADATA);
                     }
                     return f;
                   })
               .collect(Collectors.toList()));
+
+  private static StructField createStructField(final String name, final DataType dataType) {
+    return DataTypes.createStructField(name, dataType, true, INFERRED_METADATA);
+  }
 }

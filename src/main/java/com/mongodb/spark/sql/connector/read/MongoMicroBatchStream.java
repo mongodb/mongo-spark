@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
+import com.mongodb.spark.sql.connector.schema.InferSchema;
 
 /**
  * MongoMicroBatchStream defines how to read a stream of data from MongoDB.
@@ -63,8 +64,11 @@ final class MongoMicroBatchStream implements MicroBatchStream {
   MongoMicroBatchStream(final StructType schema, final ReadConfig readConfig) {
     Assertions.validateConfig(
         schema,
-        (s) -> !s.isEmpty(),
-        () -> "Mongo micro batch streams require a schema to be defined");
+        (s) ->
+            !s.isEmpty()
+                && (!InferSchema.isInferred(s) || readConfig.streamPublishFullDocumentOnly()),
+        () ->
+            "Mongo micro batch streams require a schema to be explicitly defined, unless using publish full document only.");
     this.schema = schema;
     this.readConfig = readConfig;
     this.bsonDocumentToRowConverter =

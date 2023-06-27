@@ -55,6 +55,7 @@ import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
+import com.mongodb.spark.sql.connector.schema.InferSchema;
 import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 class MongoBatchTest extends MongoSparkConnectorTestCase {
@@ -269,10 +270,14 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
     StructType expectedSchema =
         createStructType(
             asList(
-                createStructField("_id", DataTypes.IntegerType, true),
-                createStructField("email", DataTypes.StringType, true),
-                createStructField("misc", DataTypes.StringType, true),
-                createStructField("name", DataTypes.StringType, true)));
+                createStructField(
+                    "_id", DataTypes.IntegerType, true, InferSchema.INFERRED_METADATA),
+                createStructField(
+                    "email", DataTypes.StringType, true, InferSchema.INFERRED_METADATA),
+                createStructField(
+                    "misc", DataTypes.StringType, true, InferSchema.INFERRED_METADATA),
+                createStructField(
+                    "name", DataTypes.StringType, true, InferSchema.INFERRED_METADATA)));
 
     assertEquals(expectedSchema, dataSet.schema());
     assertEquals(20, dataSet.count());
@@ -289,9 +294,12 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
     expectedSchema =
         createStructType(
             asList(
-                createStructField("_id", DataTypes.IntegerType, true),
-                createStructField("misc", DataTypes.StringType, true),
-                createStructField("name", DataTypes.StringType, true)));
+                createStructField(
+                    "_id", DataTypes.IntegerType, true, InferSchema.INFERRED_METADATA),
+                createStructField(
+                    "misc", DataTypes.StringType, true, InferSchema.INFERRED_METADATA),
+                createStructField(
+                    "name", DataTypes.StringType, true, InferSchema.INFERRED_METADATA)));
 
     assertEquals(expectedSchema, dataSet.schema());
     assertEquals(14, dataSet.count());

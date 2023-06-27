@@ -20,6 +20,7 @@ import static com.mongodb.spark.sql.connector.config.MongoConfig.COMMENT_CONFIG;
 import static com.mongodb.spark.sql.connector.config.MongoConfig.PREFIX;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static org.apache.spark.sql.types.DataTypes.createStructField;
 import static org.apache.spark.sql.types.DataTypes.createStructType;
@@ -46,6 +47,7 @@ import org.apache.spark.sql.Column;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.streaming.DataStreamReader;
 import org.apache.spark.sql.streaming.StreamingQuery;
 import org.apache.spark.sql.streaming.StreamingQueryException;
 import org.apache.spark.sql.streaming.Trigger;
@@ -181,6 +183,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     assumeTrue(isAtLeastFourDotFour());
 
     testIdentifier = "FullDocOnly";
+
     testStreamingQuery(
         createMongoConfig()
             .withOption(
@@ -273,8 +276,10 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
   }
 
   @Test
-  void testStreamNoSchema() {
+  void testStreamInferSchemaNoData() {
+    testIdentifier = "inferSchemaNoData";
     SparkSession spark = getOrCreateSparkSession();
+
     Throwable cause =
         assertThrows(
             Exception.class,
@@ -284,6 +289,36 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
                     .format(MONGODB)
                     .load()
                     .writeStream()
+                    .trigger(getTrigger())
+                    .format(MONGODB)
+                    .queryName("test")
+                    .outputMode("append")
+                    .start()
+                    .processAllAvailable());
+
+    if (cause instanceof StreamingQueryException) {
+      cause = ((StreamingQueryException) cause).cause();
+    }
+    assertTrue(cause instanceof ConfigException, format("Expected ConfigException: %s", cause));
+    assertTrue(cause.getMessage().contains("streams require a schema to be explicitly defined"));
+  }
+
+  @Test
+  void testStreamInferSchemaWithData() {
+    testIdentifier = "inferSchemaWithData";
+    SparkSession spark = getOrCreateSparkSession();
+
+    getCollection().insertMany(createDocuments(0, 25));
+    Throwable cause =
+        assertThrows(
+            Exception.class,
+            () ->
+                spark
+                    .readStream()
+                    .format(MONGODB)
+                    .load()
+                    .writeStream()
+                    .option("checkpointLocation", HELPER.getTempDirectory(true))
                     .trigger(getTrigger())
                     .format(MEMORY)
                     .queryName("test")
@@ -295,6 +330,29 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
       cause = ((StreamingQueryException) cause).cause();
     }
     assertTrue(cause instanceof ConfigException, format("Expected ConfigException: %s", cause));
+    assertTrue(cause.getMessage().contains("streams require a schema to be explicitly defined"));
+  }
+
+  @Test
+  void testStreamInferSchemaWithDataPublishFullOnly() {
+    assumeTrue(supportsChangeStreams());
+    testIdentifier = "inferSchemaWithDataPublishFullOnly";
+
+    ReadConfig readConfig =
+        createMongoConfig()
+            .toReadConfig()
+            .withOption(ReadConfig.STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG, "true");
+
+    getCollection(readConfig.getCollectionName()).insertMany(createDocuments(0, 1));
+    HELPER.sleep(1000);
+
+    testStreamingQuery(
+        readConfig,
+        IGNORE_SCHEMA,
+        withSource("inserting 100-125", (msg, coll) -> coll.insertMany(createDocuments(100, 125))),
+        withMemorySink(
+            "Expected to see 25 documents",
+            (msg, ds) -> assertEquals(25, ds.collectAsList().size(), msg)));
   }
 
   @Test
@@ -339,6 +397,8 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
                     (msg, ds) -> assertEquals(25, ds.collectAsList().size(), msg))),
         mongoConfig.toReadConfig());
   }
+
+  private static final StructType IGNORE_SCHEMA = createStructType(emptyList());
 
   private static final StructType DEFAULT_SCHEMA =
       createStructType(
@@ -467,13 +527,18 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
       final MongoConfig mongoConfig,
       final StructType schema,
       final Column condition) {
-    Dataset<Row> ds =
+
+    DataStreamReader dfr =
         getOrCreateSparkSession(getSparkConf().set("numPartitions", "1"))
             .readStream()
             .format(MONGODB)
-            .options(mongoConfig.toReadConfig().getOptions())
-            .schema(schema)
-            .load();
+            .options(mongoConfig.toReadConfig().getOptions());
+
+    if (schema != IGNORE_SCHEMA) {
+      dfr = dfr.schema(schema);
+    }
+
+    Dataset<Row> ds = dfr.load();
 
     if (condition != null) {
       ds = ds.filter(condition);
@@ -482,6 +547,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     try {
       return ds.writeStream()
           .format(writeFormat)
+          .options(mongoConfig.toWriteConfig().getOptions())
           .queryName(testIdentifier)
           .trigger(getTrigger())
           .start();

@@ -190,7 +190,8 @@ public class MongoSparkConnectorTestCase {
           profileCollection
               .find(
                   Filters.nor(
-                      Filters.exists("command.killCursors"), Filters.eq("command.comment", IGNORE_COMMENT)))
+                      Filters.exists("command.killCursors"),
+                      Filters.eq("command.comment", IGNORE_COMMENT)))
               .into(new ArrayList<>());
 
       List<String> withoutComment =
