@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.spark.SparkConf;
@@ -69,6 +70,7 @@ public class MongoSparkConnectorHelper
   private ConnectionString connectionString;
   private MongoClient mongoClient;
   private Boolean online;
+  private File tmpDirectory;
 
   public MongoSparkConnectorHelper() {}
 
@@ -88,6 +90,9 @@ public class MongoSparkConnectorHelper
   public void beforeEach(final ExtensionContext context) {
     if (mongoClient != null) {
       getDatabase().drop();
+    }
+    if (tmpDirectory != null) {
+      deleteTempDirectory();
     }
   }
 
@@ -298,13 +303,38 @@ public class MongoSparkConnectorHelper
     }
   }
 
-  private String getTempDirectory() {
-    try {
-      File tmpDirectory = Files.createTempDirectory("mongo-spark-connector").toFile();
-      tmpDirectory.deleteOnExit();
-      return tmpDirectory.getAbsolutePath();
-    } catch (IOException e) {
-      throw new UnsupportedOperationException("Could not create a temp directory", e);
+  private File createTempDirectory() {
+    if (tmpDirectory == null) {
+      try {
+        File temp = Files.createTempDirectory("mongo-spark-connector").toFile();
+        temp.deleteOnExit();
+        tmpDirectory = temp;
+      } catch (IOException e) {
+        throw new UnsupportedOperationException("Could not create a temp directory", e);
+      }
+    }
+    return tmpDirectory;
+  }
+
+  public String getTempDirectory() {
+    return getTempDirectory(true);
+  }
+
+  public String getTempDirectory(final boolean deleteExisting) {
+    if (deleteExisting) {
+      deleteTempDirectory();
+    }
+    return createTempDirectory().getAbsolutePath();
+  }
+
+  private void deleteTempDirectory() {
+    if (tmpDirectory != null) {
+      try {
+        FileUtils.deleteDirectory(tmpDirectory);
+      } catch (IOException e) {
+        throw new UnsupportedOperationException("Could not recreate temp directory", e);
+      }
+      tmpDirectory = null;
     }
   }
 }
