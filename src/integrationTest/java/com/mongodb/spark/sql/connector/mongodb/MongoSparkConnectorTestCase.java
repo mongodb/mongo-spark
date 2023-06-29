@@ -16,6 +16,7 @@
 package com.mongodb.spark.sql.connector.mongodb;
 
 import static java.lang.String.format;
+import static java.util.Arrays.asList;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
@@ -25,7 +26,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import org.apache.spark.SparkConf;
@@ -44,6 +44,7 @@ import com.mongodb.MongoNamespace;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.Filters;
 import com.mongodb.connection.ClusterType;
 import com.mongodb.connection.ServerDescription;
 
@@ -185,18 +186,16 @@ public class MongoSparkConnectorTestCase {
 
       runnable.run();
 
-      Predicate<? super Document> commentsToIgnore =
-          d -> {
-            String profileComment = d.get("comment", "");
-            return d.containsKey("killCursors")
-                || profileComment.equals(IGNORE_COMMENT)
-                || profileComment.equals(TEST_COMMENT);
-          };
+      List<Document> profileDocs =
+          profileCollection
+              .find(
+                  Filters.nor(
+                      Filters.exists("killCursors"), Filters.eq("command.comment", IGNORE_COMMENT)))
+              .into(new ArrayList<>());
 
-      List<Document> profileDocs = profileCollection.find().into(new ArrayList<>());
       List<String> withoutComment =
           profileDocs.stream()
-              .filter(d -> !commentsToIgnore.test(d.get("command", new Document())))
+              .filter(d -> !d.getEmbedded(asList("command", "comment"), "").equals(TEST_COMMENT))
               .map(Document::toJson)
               .collect(Collectors.toList());
 
