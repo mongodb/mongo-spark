@@ -301,9 +301,9 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     readConfig.doWithCollection(coll -> coll.insertMany(createDocuments(100, 120)));
     testStreamingQuery(
         readConfig
-            .withOption(ReadConfig.STARTUP_MODE_CONFIG, "timestamp")
+            .withOption(ReadConfig.STREAMING_STARTUP_MODE_CONFIG, "timestamp")
             .withOption(
-                ReadConfig.STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_CONFIG,
+                ReadConfig.STREAMING_STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_CONFIG,
                 format("{\"$timestamp\": {\"t\": %d, \"i\": 0}}", currentTimestamp.getTime())),
         withSource("Setup", (msg, coll) -> {} /* NOOP */),
         withMemorySink(

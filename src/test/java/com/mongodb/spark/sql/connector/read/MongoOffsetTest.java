@@ -40,7 +40,7 @@ public class MongoOffsetTest {
       "{\"version\": 1, \"offset\": {\"_data\": \"123\"}}";
 
   private static final MongoOffset DEFAULT_TIMESTAMP_OFFSET =
-      new BsonTimestampOffset(new BsonTimestamp(-1, 0));
+      new BsonTimestampOffset(new BsonTimestamp(-1));
 
   private static final MongoOffset TIMESTAMP_OFFSET =
       new BsonTimestampOffset(new BsonTimestamp(5000, 0));
@@ -56,9 +56,10 @@ public class MongoOffsetTest {
         TIMESTAMP_OFFSET,
         MongoOffset.getInitialOffset(
             readConfig
-                .withOption(ReadConfig.STARTUP_MODE_CONFIG, "timestamp")
+                .withOption(ReadConfig.STREAMING_STARTUP_MODE_CONFIG, "timestamp")
                 .withOption(
-                    ReadConfig.STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_CONFIG, "5000")));
+                    ReadConfig.STREAMING_STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_CONFIG,
+                    "5000")));
     assertEquals(MongoOffset.fromJson(RESUME_TOKEN_OFFSET_JSON), RESUME_TOKEN_OFFSET);
   }
 

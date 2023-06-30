@@ -199,7 +199,7 @@ public final class ReadConfig extends AbstractMongoConfig {
 
   private static final String STREAM_LOOKUP_FULL_DOCUMENT_DEFAULT = FullDocument.DEFAULT.getValue();
 
-  enum StartupMode {
+  enum StreamingStartupMode {
     /**
      * Is equivalent to {@link #LATEST}, and is used to discriminate a situation when the default
      * behavior is configured explicitly.
@@ -209,11 +209,11 @@ public final class ReadConfig extends AbstractMongoConfig {
     LATEST,
     TIMESTAMP;
 
-    static StartupMode fromString(final String userStartupMode) {
+    static StreamingStartupMode fromString(final String userStartupMode) {
       try {
-        return userStartupMode.equals(STARTUP_MODE_DEFAULT)
+        return userStartupMode.equals(STREAMING_STARTUP_MODE_DEFAULT)
             ? DEFAULT_INTERNAL
-            : StartupMode.valueOf(userStartupMode.toUpperCase());
+            : StreamingStartupMode.valueOf(userStartupMode.toUpperCase());
       } catch (IllegalArgumentException e) {
         throw new ConfigException(format("'%s' is not a valid Startup mode", userStartupMode));
       }
@@ -239,9 +239,9 @@ public final class ReadConfig extends AbstractMongoConfig {
    *       configured, then 'timestamp' is equivalent to 'latest'.
    * </ul>
    */
-  public static final String STARTUP_MODE_CONFIG = "startup.mode";
+  public static final String STREAMING_STARTUP_MODE_CONFIG = "change.stream.startup.mode";
 
-  static final String STARTUP_MODE_DEFAULT = EMPTY_STRING;
+  static final String STREAMING_STARTUP_MODE_DEFAULT = EMPTY_STRING;
 
   /**
    * The `startAtOperationTime` configuration.
@@ -261,11 +261,11 @@ public final class ReadConfig extends AbstractMongoConfig {
    * <p>See <a
    * href="https://www.mongodb.com/docs/current/reference/operator/aggregation/changeStream">changeStreams</a>.
    */
-  public static final String STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_CONFIG =
-      "startup.mode.timestamp.start.at.operation.time";
+  public static final String STREAMING_STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_CONFIG =
+      "change.stream.startup.mode.timestamp.start.at.operation.time";
 
-  static final String STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_DEFAULT = "-1";
-  private static final BsonTimestamp LATEST_TIMESTAMP = new BsonTimestamp(-1, 0);
+  static final String STREAMING_STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_DEFAULT = "-1";
+  private static final BsonTimestamp STREAMING_LATEST_TIMESTAMP = new BsonTimestamp(-1);
 
   /**
    * Output extended JSON for any String types.
@@ -378,22 +378,24 @@ public final class ReadConfig extends AbstractMongoConfig {
    * @return the start at operation time for a stream
    * @since 10.2
    */
-  public BsonTimestamp getInitialBsonTimestamp() {
-    StartupMode startupMode =
-        StartupMode.fromString(getOrDefault(STARTUP_MODE_CONFIG, STARTUP_MODE_DEFAULT));
-    switch (startupMode) {
+  public BsonTimestamp getStreamInitialBsonTimestamp() {
+    StreamingStartupMode streamingStartupMode =
+        StreamingStartupMode.fromString(
+            getOrDefault(STREAMING_STARTUP_MODE_CONFIG, STREAMING_STARTUP_MODE_DEFAULT));
+    switch (streamingStartupMode) {
       case DEFAULT_INTERNAL:
       case LATEST:
-        return LATEST_TIMESTAMP;
+        return STREAMING_LATEST_TIMESTAMP;
       case TIMESTAMP:
         return BsonTimestampParser.parse(
-            STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_CONFIG,
+            STREAMING_STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_CONFIG,
             getOrDefault(
-                STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_CONFIG,
-                STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_DEFAULT),
+                STREAMING_STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_CONFIG,
+                STREAMING_STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_DEFAULT),
             LOGGER);
       default:
-        throw new AssertionError(format("Unexpected startup mode %s", startupMode));
+        throw new AssertionError(
+            format("Unexpected change stream startup mode %s", streamingStartupMode));
     }
   }
 

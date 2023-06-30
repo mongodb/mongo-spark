@@ -50,7 +50,7 @@ abstract class MongoOffset extends Offset implements Serializable {
       };
 
   static BsonTimestampOffset getInitialOffset(final ReadConfig readConfig) {
-    return new BsonTimestampOffset(readConfig.getInitialBsonTimestamp());
+    return new BsonTimestampOffset(readConfig.getStreamInitialBsonTimestamp());
   }
 
   static MongoOffset fromJson(final String json) {
