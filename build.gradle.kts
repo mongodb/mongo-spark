@@ -31,7 +31,7 @@ plugins {
     checkstyle
     id("com.github.gmazzo.buildconfig") version "3.0.2"
     id("com.github.spotbugs") version "4.7.9"
-    id("com.diffplug.spotless") version "6.0.0"
+    id("com.diffplug.spotless") version "6.19.0"
     id("com.github.johnrengelman.shadow") version "7.0.0"
 }
 
@@ -176,7 +176,7 @@ tasks.withType<Test> {
     javaLauncher.set(
         javaToolchains.launcherFor {
             languageVersion.set(JavaLanguageVersion.of(javaVersion))
-        }
+        },
     )
 
     systemProperties(mapOf("org.mongodb.test.uri" to System.getProperty("org.mongodb.test.uri", "")))
@@ -201,7 +201,8 @@ tasks.withType<Test> {
                     | ${r.testCount} tests,
                     | ${r.successfulTestCount} succeeded,
                     | ${r.failedTestCount} failed,
-                    | ${r.skippedTestCount} skipped""".trimMargin().replace("\n", "")
+                    | ${r.skippedTestCount} skipped
+                """.trimMargin().replace("\n", "")
 
                 val border = "=".repeat(resultsSummary.length)
                 logger.lifecycle("\n$border")
@@ -236,16 +237,17 @@ tasks.withType<com.github.spotbugs.snom.SpotBugsTask> {
 // Spotless is used to lint and reformat source files.
 spotless {
     java {
-        googleJavaFormat()
         importOrder("java", "io", "org", "org.bson", "com.mongodb", "com.mongodb.spark", "")
         removeUnusedImports() // removes any unused imports
         trimTrailingWhitespace()
         endWithNewline()
         indentWithSpaces()
+
+        palantirJavaFormat().style("GOOGLE")
     }
 
     kotlinGradle {
-        ktlint("0.43.0")
+        ktlint()
         trimTrailingWhitespace()
         indentWithSpaces()
         endWithNewline()
@@ -372,7 +374,8 @@ tasks.register("publishArchives") {
                 |$gitDiffNameOnly
                 |
                 | The project version does not match the git tag.
-                |""".trimMargin()
+                |
+            """.trimMargin()
             throw GradleException(cause)
         } else {
             println("Publishing: ${project.name} : $gitVersion")
