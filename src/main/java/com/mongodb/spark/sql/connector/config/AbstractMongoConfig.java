@@ -21,6 +21,12 @@ import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.stream.Collectors.toMap;
 
+import com.mongodb.ConnectionString;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.spark.sql.connector.assertions.Assertions;
+import com.mongodb.spark.sql.connector.connection.LazyMongoClientCache;
+import com.mongodb.spark.sql.connector.connection.MongoClientFactory;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -30,21 +36,10 @@ import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
-import org.jetbrains.annotations.TestOnly;
-
 import org.bson.BsonDocument;
-
-import com.mongodb.ConnectionString;
-import com.mongodb.client.MongoClient;
-import com.mongodb.client.MongoCollection;
-
-import com.mongodb.spark.sql.connector.assertions.Assertions;
-import com.mongodb.spark.sql.connector.connection.LazyMongoClientCache;
-import com.mongodb.spark.sql.connector.connection.MongoClientFactory;
-
+import org.jetbrains.annotations.TestOnly;
 import scala.Tuple2;
 
 /**
@@ -81,14 +76,11 @@ abstract class AbstractMongoConfig implements MongoConfig {
     this.originals = unmodifiableMap(originals);
     this.usageMode = usageMode;
 
-    Map<String, String> configOptions =
-        SparkSession.getActiveSession()
-            .map(
-                s ->
-                    Arrays.stream(s.sparkContext().getConf().getAll())
-                        .collect(toMap(Tuple2::_1, Tuple2::_2)))
-            .map(m -> createUsageOptions(m, usageMode))
-            .getOrElse(HashMap::new);
+    Map<String, String> configOptions = SparkSession.getActiveSession()
+        .map(s -> Arrays.stream(s.sparkContext().getConf().getAll())
+            .collect(toMap(Tuple2::_1, Tuple2::_2)))
+        .map(m -> createUsageOptions(m, usageMode))
+        .getOrElse(HashMap::new);
     configOptions.putAll(createUsageOptions(originals, usageMode));
     this.options = unmodifiableMap(configOptions);
   }
@@ -154,11 +146,10 @@ abstract class AbstractMongoConfig implements MongoConfig {
    * @param consumer the consumer of the {@code MongoClient}
    */
   public void doWithClient(final Consumer<MongoClient> consumer) {
-    withClient(
-        client -> {
-          consumer.accept(client);
-          return null;
-        });
+    withClient(client -> {
+      consumer.accept(client);
+      return null;
+    });
   }
 
   /**
@@ -170,10 +161,9 @@ abstract class AbstractMongoConfig implements MongoConfig {
    */
   public <T> T withCollection(final Function<MongoCollection<BsonDocument>, T> function) {
     try (MongoClient client = getMongoClient()) {
-      return function.apply(
-          client
-              .getDatabase(getDatabaseName())
-              .getCollection(getCollectionName(), BsonDocument.class));
+      return function.apply(client
+          .getDatabase(getDatabaseName())
+          .getCollection(getCollectionName(), BsonDocument.class));
     }
   }
 
@@ -183,26 +173,23 @@ abstract class AbstractMongoConfig implements MongoConfig {
    * @param consumer the consumer of the {@code MongoCollection<BsonDocument>}
    */
   public void doWithCollection(final Consumer<MongoCollection<BsonDocument>> consumer) {
-    withCollection(
-        collection -> {
-          consumer.accept(collection);
-          return null;
-        });
+    withCollection(collection -> {
+      consumer.accept(collection);
+      return null;
+    });
   }
 
   @Override
   public String toString() {
-    String cleanedOptions =
-        getOptions().entrySet().stream()
-            .map(
-                e -> {
-                  String value = e.getValue();
-                  if (e.getKey().contains(CONNECTION_STRING_CONFIG)) {
-                    value = "<hidden>";
-                  }
-                  return e.getKey() + "=" + value;
-                })
-            .collect(Collectors.joining(", "));
+    String cleanedOptions = getOptions().entrySet().stream()
+        .map(e -> {
+          String value = e.getValue();
+          if (e.getKey().contains(CONNECTION_STRING_CONFIG)) {
+            value = "<hidden>";
+          }
+          return e.getKey() + "=" + value;
+        })
+        .collect(Collectors.joining(", "));
     return "MongoConfig{options=" + cleanedOptions + ", usageMode=" + usageMode + '}';
   }
 
@@ -226,14 +213,13 @@ abstract class AbstractMongoConfig implements MongoConfig {
 
   Map<String, String> withOverrides(final String context, final Map<String, String> overrides) {
     Map<String, String> newOptions = new HashMap<>(originals);
-    overrides.forEach(
-        (k, v) -> {
-          if (!k.startsWith(context)) {
-            newOptions.put(context + k, v);
-          } else {
-            newOptions.put(k, v);
-          }
-        });
+    overrides.forEach((k, v) -> {
+      if (!k.startsWith(context)) {
+        newOptions.put(context + k, v);
+      } else {
+        newOptions.put(k, v);
+      }
+    });
     newOptions.putAll(overrides);
     return newOptions;
   }
@@ -243,9 +229,8 @@ abstract class AbstractMongoConfig implements MongoConfig {
     if (mongoClientFactory == null) {
       String mongoClientFactoryName =
           getOptions().getOrDefault(CLIENT_FACTORY_CONFIG, CLIENT_FACTORY_DEFAULT);
-      mongoClientFactory =
-          ClassHelper.createInstance(
-              CLIENT_FACTORY_CONFIG, mongoClientFactoryName, MongoClientFactory.class, this);
+      mongoClientFactory = ClassHelper.createInstance(
+          CLIENT_FACTORY_CONFIG, mongoClientFactoryName, MongoClientFactory.class, this);
     }
     return mongoClientFactory;
   }
@@ -285,32 +270,27 @@ abstract class AbstractMongoConfig implements MongoConfig {
     List<String> overrides = new ArrayList<>();
     localCaseInsensitiveOptions.keySet().stream()
         .filter(k -> k.startsWith(PREFIX))
-        .forEach(
-            k -> {
-              if (k.startsWith(overridePrefix)) {
-                overrides.add(k);
-              } else if (!k.startsWith(ignorePrefix)) {
-                defaults.add(k);
-              }
-            });
+        .forEach(k -> {
+          if (k.startsWith(overridePrefix)) {
+            overrides.add(k);
+          } else if (!k.startsWith(ignorePrefix)) {
+            defaults.add(k);
+          }
+        });
 
     Map<String, String> usageSpecificOptions = new HashMap<>();
     // Add any globally scoped options
     addConnectionStringDatabaseAndCollection(
         PREFIX, localCaseInsensitiveOptions, usageSpecificOptions);
 
-    defaults.forEach(
-        k ->
-            usageSpecificOptions.put(
-                k.substring(PREFIX.length()), localCaseInsensitiveOptions.get(k)));
+    defaults.forEach(k ->
+        usageSpecificOptions.put(k.substring(PREFIX.length()), localCaseInsensitiveOptions.get(k)));
 
     // Add usage specifically scoped options
     addConnectionStringDatabaseAndCollection(
         overridePrefix, localCaseInsensitiveOptions, usageSpecificOptions);
-    overrides.forEach(
-        k ->
-            usageSpecificOptions.put(
-                k.substring(overridePrefix.length()), localCaseInsensitiveOptions.get(k)));
+    overrides.forEach(k -> usageSpecificOptions.put(
+        k.substring(overridePrefix.length()), localCaseInsensitiveOptions.get(k)));
     return usageSpecificOptions;
   }
 
@@ -329,10 +309,9 @@ abstract class AbstractMongoConfig implements MongoConfig {
       final Map<String, String> usageSpecificOptions) {
     if (options.containsKey(prefix + MongoConfig.CONNECTION_STRING_CONFIG)) {
       String rawConnectionString = options.get(prefix + MongoConfig.CONNECTION_STRING_CONFIG);
-      ConnectionString connectionString =
-          Assertions.validateConfig(
-              () -> new ConnectionString(rawConnectionString),
-              () -> format("Invalid connection string: '%s'", rawConnectionString));
+      ConnectionString connectionString = Assertions.validateConfig(
+          () -> new ConnectionString(rawConnectionString),
+          () -> format("Invalid connection string: '%s'", rawConnectionString));
       String databaseName = connectionString.getDatabase();
       if (databaseName != null) {
         usageSpecificOptions.put(DATABASE_NAME_CONFIG, databaseName);

@@ -17,7 +17,6 @@
 package com.mongodb.spark.sql.connector.write;
 
 import java.util.Objects;
-
 import org.apache.spark.sql.connector.write.WriterCommitMessage;
 
 /** Represents a successful write to MongoDB */

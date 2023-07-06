@@ -17,10 +17,9 @@
 
 package com.mongodb.spark.sql.connector.assertions;
 
+import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-
-import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 
 /** Assertions to validate inputs */
 public final class Assertions {

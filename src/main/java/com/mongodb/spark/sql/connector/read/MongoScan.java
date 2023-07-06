@@ -17,13 +17,12 @@
 
 package com.mongodb.spark.sql.connector.read;
 
+import com.mongodb.spark.sql.connector.config.ReadConfig;
 import org.apache.spark.sql.connector.read.Batch;
 import org.apache.spark.sql.connector.read.Scan;
 import org.apache.spark.sql.connector.read.streaming.ContinuousStream;
 import org.apache.spark.sql.connector.read.streaming.MicroBatchStream;
 import org.apache.spark.sql.types.StructType;
-
-import com.mongodb.spark.sql.connector.config.ReadConfig;
 
 /** A logical representation of MongoDB data source scan. */
 final class MongoScan implements Scan {

@@ -17,19 +17,16 @@
 
 package com.mongodb.spark.sql.connector.read;
 
-import org.apache.spark.sql.catalyst.InternalRow;
-import org.apache.spark.sql.connector.read.PartitionReader;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import org.bson.BsonDocument;
-
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCursor;
-
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
+import org.apache.spark.sql.catalyst.InternalRow;
+import org.apache.spark.sql.connector.read.PartitionReader;
+import org.bson.BsonDocument;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A partition reader returned by {@link
@@ -102,14 +99,13 @@ class MongoBatchPartitionReader implements PartitionReader<InternalRow> {
     if (mongoCursor == null) {
       LOGGER.debug("Opened cursor for partitionId: {}", partition.getPartitionId());
       mongoClient = readConfig.getMongoClient();
-      mongoCursor =
-          mongoClient
-              .getDatabase(readConfig.getDatabaseName())
-              .getCollection(readConfig.getCollectionName(), BsonDocument.class)
-              .aggregate(partition.getPipeline())
-              .allowDiskUse(readConfig.getAggregationAllowDiskUse())
-              .comment(readConfig.getComment())
-              .cursor();
+      mongoCursor = mongoClient
+          .getDatabase(readConfig.getDatabaseName())
+          .getCollection(readConfig.getCollectionName(), BsonDocument.class)
+          .aggregate(partition.getPipeline())
+          .allowDiskUse(readConfig.getAggregationAllowDiskUse())
+          .comment(readConfig.getComment())
+          .cursor();
     }
     return mongoCursor;
   }

@@ -20,18 +20,14 @@ package com.mongodb.spark.sql.connector.read.partitioner;
 import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper.SINGLE_PARTITIONER;
 import static java.lang.String.format;
 
-import java.util.List;
-
-import org.jetbrains.annotations.ApiStatus;
-
-import org.bson.BsonDocument;
-
 import com.mongodb.client.model.CountOptions;
-
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
+import java.util.List;
+import org.bson.BsonDocument;
+import org.jetbrains.annotations.ApiStatus;
 
 /**
  * Paginate into partitions partitioner.
@@ -58,22 +54,16 @@ public final class PaginateIntoPartitionsPartitioner extends PaginatePartitioner
   @Override
   public List<MongoInputPartition> generatePartitions(final ReadConfig readConfig) {
     MongoConfig partitionerOptions = readConfig.getPartitionerOptions();
-    int maxNumberOfPartitions =
-        Assertions.validateConfig(
-            partitionerOptions.getInt(
-                MAX_NUMBER_OF_PARTITIONS_CONFIG, MAX_NUMBER_OF_PARTITIONS_DEFAULT),
-            i -> i > 0,
-            () ->
-                format(
-                    "Invalid config: %s should be greater than zero.",
-                    MAX_NUMBER_OF_PARTITIONS_CONFIG));
+    int maxNumberOfPartitions = Assertions.validateConfig(
+        partitionerOptions.getInt(
+            MAX_NUMBER_OF_PARTITIONS_CONFIG, MAX_NUMBER_OF_PARTITIONS_DEFAULT),
+        i -> i > 0,
+        () -> format(
+            "Invalid config: %s should be greater than zero.", MAX_NUMBER_OF_PARTITIONS_CONFIG));
 
     BsonDocument matchQuery = PartitionerHelper.matchQuery(readConfig.getAggregationPipeline());
-    long count =
-        readConfig.withCollection(
-            coll ->
-                coll.countDocuments(
-                    matchQuery, new CountOptions().comment(readConfig.getComment())));
+    long count = readConfig.withCollection(coll ->
+        coll.countDocuments(matchQuery, new CountOptions().comment(readConfig.getComment())));
     if (count <= 1) {
       LOGGER.warn("Returning a single partition.");
       return SINGLE_PARTITIONER.generatePartitions(readConfig);

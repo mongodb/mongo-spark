@@ -17,13 +17,11 @@
 
 package com.mongodb.spark.sql.connector.read.partitioner;
 
-import java.util.List;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
+import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The Partitioner provides the logic to partition a collection individual processable partitions.

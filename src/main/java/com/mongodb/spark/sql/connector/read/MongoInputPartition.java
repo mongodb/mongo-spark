@@ -22,9 +22,7 @@ import static java.util.Collections.emptyList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
-
 import org.apache.spark.sql.connector.read.InputPartition;
-
 import org.bson.BsonDocument;
 
 /**

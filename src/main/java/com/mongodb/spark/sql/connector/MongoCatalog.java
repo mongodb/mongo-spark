@@ -20,11 +20,18 @@ package com.mongodb.spark.sql.connector;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 
+import com.mongodb.MongoCommandException;
+import com.mongodb.MongoNamespace;
+import com.mongodb.client.model.Filters;
+import com.mongodb.spark.sql.connector.assertions.Assertions;
+import com.mongodb.spark.sql.connector.config.MongoConfig;
+import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.config.WriteConfig;
+import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.apache.spark.sql.catalyst.analysis.NamespaceAlreadyExistsException;
 import org.apache.spark.sql.catalyst.analysis.NoSuchNamespaceException;
 import org.apache.spark.sql.catalyst.analysis.NoSuchTableException;
@@ -38,20 +45,9 @@ import org.apache.spark.sql.connector.catalog.TableChange;
 import org.apache.spark.sql.connector.expressions.Transform;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
+import org.bson.conversions.Bson;
 import org.jetbrains.annotations.TestOnly;
 import org.jetbrains.annotations.VisibleForTesting;
-
-import org.bson.conversions.Bson;
-
-import com.mongodb.MongoCommandException;
-import com.mongodb.MongoNamespace;
-import com.mongodb.client.model.Filters;
-
-import com.mongodb.spark.sql.connector.assertions.Assertions;
-import com.mongodb.spark.sql.connector.config.MongoConfig;
-import com.mongodb.spark.sql.connector.config.ReadConfig;
-import com.mongodb.spark.sql.connector.config.WriteConfig;
-import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 
 /** Spark Catalog methods for working with namespaces (databases) and tables (collections). */
 public class MongoCatalog implements TableCatalog, SupportsNamespaces {
@@ -192,7 +188,8 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   public boolean dropNamespace(final String[] namespace) {
     assertInitialized();
     if (namespaceExists(namespace)) {
-      MongoConfig.writeConfig(options).doWithClient(c -> c.getDatabase(namespace[0]).drop());
+      MongoConfig.writeConfig(options)
+          .doWithClient(c -> c.getDatabase(namespace[0]).drop());
       return true;
     }
     return false;
@@ -275,15 +272,13 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
       throw new UnsupportedOperationException("Cannot create MongoDB collection with partitions");
     } else if (!properties.isEmpty()) {
       // TODO - SPARK-309 support create collection options (prefixed by TableCatalog.OPTION_PREFIX)
-      throw new UnsupportedOperationException(
-          format(
-              "MongoCatalog.createTable does not support the following options: %s",
-              String.join(",", properties.keySet())));
+      throw new UnsupportedOperationException(format(
+          "MongoCatalog.createTable does not support the following options: %s",
+          String.join(",", properties.keySet())));
     }
 
-    getWriteConfig()
-        .doWithClient(
-            c -> c.getDatabase(identifier.namespace()[0]).createCollection(identifier.name()));
+    getWriteConfig().doWithClient(c -> c.getDatabase(identifier.namespace()[0])
+        .createCollection(identifier.name()));
     return new MongoTable(schema, getWriteConfig());
   }
 
@@ -317,10 +312,9 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
   public boolean dropTable(final Identifier identifier) {
     assertInitialized();
     if (identifier.namespace().length == 1 && filterCollections(identifier).length != 0) {
-      getWriteConfig()
-          .doWithClient(
-              c ->
-                  c.getDatabase(identifier.namespace()[0]).getCollection(identifier.name()).drop());
+      getWriteConfig().doWithClient(c -> c.getDatabase(identifier.namespace()[0])
+          .getCollection(identifier.name())
+          .drop());
       return true;
     }
     return false;
@@ -344,13 +338,10 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
     }
 
     try {
-      getWriteConfig()
-          .doWithClient(
-              c ->
-                  c.getDatabase(oldIdentifier.namespace()[0])
-                      .getCollection(oldIdentifier.name())
-                      .renameCollection(
-                          new MongoNamespace(newIdentifier.namespace()[0], newIdentifier.name())));
+      getWriteConfig().doWithClient(c -> c.getDatabase(oldIdentifier.namespace()[0])
+          .getCollection(oldIdentifier.name())
+          .renameCollection(
+              new MongoNamespace(newIdentifier.namespace()[0], newIdentifier.name())));
     } catch (MongoCommandException ex) {
       throw new MongoSparkException("Unable to rename table due to: " + ex.getErrorMessage(), ex);
     }
@@ -365,21 +356,17 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
     if (databaseName.length > 1) {
       return new String[0][];
     }
-    Bson filter =
-        databaseName.length == 0
-            ? NOT_SYSTEM_NAMESPACE
-            : Filters.and(Filters.eq("name", databaseName[0]), NOT_SYSTEM_NAMESPACE);
+    Bson filter = databaseName.length == 0
+        ? NOT_SYSTEM_NAMESPACE
+        : Filters.and(Filters.eq("name", databaseName[0]), NOT_SYSTEM_NAMESPACE);
 
-    return getReadConfig()
-        .withClient(
-            client ->
-                client
-                    .listDatabases()
-                    .filter(filter)
-                    .nameOnly(true)
-                    .map(d -> new String[] {d.getString("name")})
-                    .into(new ArrayList<>())
-                    .toArray(new String[0][]));
+    return getReadConfig().withClient(client -> client
+        .listDatabases()
+        .filter(filter)
+        .nameOnly(true)
+        .map(d -> new String[] {d.getString("name")})
+        .into(new ArrayList<>())
+        .toArray(new String[0][]));
   }
 
   private Identifier[] filterCollections(final Identifier identifier) {
@@ -387,20 +374,16 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
     Assertions.ensureArgument(
         () -> identifier.namespace().length == 1, () -> "Namespace size must equal 1");
 
-    Bson filter =
-        identifier.name().isEmpty()
-            ? IS_COLLECTION
-            : Filters.and(Filters.eq("name", identifier.name()), IS_COLLECTION);
+    Bson filter = identifier.name().isEmpty()
+        ? IS_COLLECTION
+        : Filters.and(Filters.eq("name", identifier.name()), IS_COLLECTION);
 
-    return getReadConfig()
-        .withClient(
-            c ->
-                c.getDatabase(identifier.namespace()[0])
-                    .listCollections()
-                    .filter(filter)
-                    .map(d -> Identifier.of(identifier.namespace(), d.getString("name")))
-                    .into(new ArrayList<>())
-                    .toArray(new Identifier[0]));
+    return getReadConfig().withClient(c -> c.getDatabase(identifier.namespace()[0])
+        .listCollections()
+        .filter(filter)
+        .map(d -> Identifier.of(identifier.namespace(), d.getString("name")))
+        .into(new ArrayList<>())
+        .toArray(new Identifier[0]));
   }
 
   private ReadConfig getReadConfig() {

@@ -22,18 +22,20 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.mongodb.client.MongoClient;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.mongodb.client.MongoClient;
-
 @ExtendWith(MockitoExtension.class)
 public class MongoClientCacheTest {
 
-  @Mock private MongoClientFactory mongoClientFactory;
-  @Mock private MongoClient mongoClient;
+  @Mock
+  private MongoClientFactory mongoClientFactory;
+
+  @Mock
+  private MongoClient mongoClient;
 
   @Test
   void testNormalUsecase() {

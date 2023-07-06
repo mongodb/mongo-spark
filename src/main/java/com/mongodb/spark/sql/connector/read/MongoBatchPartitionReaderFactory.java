@@ -19,16 +19,14 @@ package com.mongodb.spark.sql.connector.read;
 
 import static java.lang.String.format;
 
+import com.mongodb.spark.sql.connector.assertions.Assertions;
+import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 import java.io.Serializable;
-
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.read.InputPartition;
 import org.apache.spark.sql.connector.read.PartitionReader;
 import org.apache.spark.sql.connector.read.PartitionReaderFactory;
-
-import com.mongodb.spark.sql.connector.assertions.Assertions;
-import com.mongodb.spark.sql.connector.config.ReadConfig;
-import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 
 /** A factory used to create {@link MongoBatchPartitionReader} instances. */
 final class MongoBatchPartitionReaderFactory implements PartitionReaderFactory, Serializable {
@@ -57,10 +55,9 @@ final class MongoBatchPartitionReaderFactory implements PartitionReaderFactory, 
   public PartitionReader<InternalRow> createReader(final InputPartition partition) {
     Assertions.ensureState(
         () -> partition instanceof MongoInputPartition,
-        () ->
-            format(
-                "Unsupported InputPartition type, a MongoInputPartition instance is required. Got: %s",
-                partition.getClass()));
+        () -> format(
+            "Unsupported InputPartition type, a MongoInputPartition instance is required. Got: %s",
+            partition.getClass()));
     return new MongoBatchPartitionReader(
         (MongoInputPartition) partition, bsonDocumentToRowConverter, readConfig);
   }

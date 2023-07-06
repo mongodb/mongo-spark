@@ -21,27 +21,23 @@ import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
-import org.jetbrains.annotations.ApiStatus;
-import org.jetbrains.annotations.NotNull;
-
-import org.bson.BsonDocument;
-import org.bson.BsonInt32;
-import org.bson.conversions.Bson;
-
 import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.CountOptions;
 import com.mongodb.client.model.Projections;
 import com.mongodb.client.model.Sorts;
-
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.bson.BsonDocument;
+import org.bson.BsonInt32;
+import org.bson.conversions.Bson;
+import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Sample Partitioner
@@ -82,24 +78,18 @@ public final class SamplePartitioner extends FieldPartitioner {
     MongoConfig partitionerOptions = readConfig.getPartitionerOptions();
     String partitionField = getPartitionField(readConfig);
 
-    long partitionSizeInBytes =
-        Assertions.validateConfig(
-                partitionerOptions.getInt(PARTITION_SIZE_MB_CONFIG, PARTITION_SIZE_MB_DEFAULT),
-                i -> i > 0,
-                () ->
-                    format(
-                        "Invalid config: %s should be greater than zero.",
-                        PARTITION_SIZE_MB_CONFIG))
-            * 1000
-            * 1000;
-    int samplesPerPartition =
-        Assertions.validateConfig(
-            partitionerOptions.getInt(SAMPLES_PER_PARTITION_CONFIG, SAMPLES_PER_PARTITION_DEFAULT),
-            i -> i > 1,
+    long partitionSizeInBytes = Assertions.validateConfig(
+            partitionerOptions.getInt(PARTITION_SIZE_MB_CONFIG, PARTITION_SIZE_MB_DEFAULT),
+            i -> i > 0,
             () ->
-                format(
-                    "Invalid config: %s should be greater than one.",
-                    SAMPLES_PER_PARTITION_CONFIG));
+                format("Invalid config: %s should be greater than zero.", PARTITION_SIZE_MB_CONFIG))
+        * 1000
+        * 1000;
+    int samplesPerPartition = Assertions.validateConfig(
+        partitionerOptions.getInt(SAMPLES_PER_PARTITION_CONFIG, SAMPLES_PER_PARTITION_DEFAULT),
+        i -> i > 1,
+        () ->
+            format("Invalid config: %s should be greater than one.", SAMPLES_PER_PARTITION_CONFIG));
 
     BsonDocument storageStats = PartitionerHelper.storageStats(readConfig);
     if (storageStats.isEmpty()) {
@@ -112,11 +102,8 @@ public final class SamplePartitioner extends FieldPartitioner {
     if (matchQuery.isEmpty() && storageStats.containsKey("count")) {
       count = storageStats.getNumber("count").longValue();
     } else {
-      count =
-          readConfig.withCollection(
-              coll ->
-                  coll.countDocuments(
-                      matchQuery, new CountOptions().comment(readConfig.getComment())));
+      count = readConfig.withCollection(coll ->
+          coll.countDocuments(matchQuery, new CountOptions().comment(readConfig.getComment())));
     }
     double avgObjSizeInBytes =
         storageStats.get("avgObjSize", new BsonInt32(0)).asNumber().doubleValue();
@@ -131,22 +118,17 @@ public final class SamplePartitioner extends FieldPartitioner {
     }
 
     int numberOfSamples = (int) Math.ceil((samplesPerPartition * count) / numDocumentsPerPartition);
-    Bson projection =
-        partitionField.equals(ID_FIELD)
-            ? Projections.include(partitionField)
-            : Projections.fields(Projections.include(partitionField), Projections.excludeId());
-    List<BsonDocument> samples =
-        readConfig.withCollection(
-            coll ->
-                coll.aggregate(
-                        asList(
-                            Aggregates.match(matchQuery),
-                            Aggregates.sample(numberOfSamples),
-                            Aggregates.project(projection),
-                            Aggregates.sort(Sorts.ascending(partitionField))))
-                    .allowDiskUse(readConfig.getAggregationAllowDiskUse())
-                    .comment(readConfig.getComment())
-                    .into(new ArrayList<>()));
+    Bson projection = partitionField.equals(ID_FIELD)
+        ? Projections.include(partitionField)
+        : Projections.fields(Projections.include(partitionField), Projections.excludeId());
+    List<BsonDocument> samples = readConfig.withCollection(coll -> coll.aggregate(asList(
+            Aggregates.match(matchQuery),
+            Aggregates.sample(numberOfSamples),
+            Aggregates.project(projection),
+            Aggregates.sort(Sorts.ascending(partitionField))))
+        .allowDiskUse(readConfig.getAggregationAllowDiskUse())
+        .comment(readConfig.getComment())
+        .into(new ArrayList<>()));
     return createMongoInputPartitions(
         partitionField, getRightHandBoundaries(samples, samplesPerPartition), readConfig);
   }

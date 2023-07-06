@@ -17,17 +17,6 @@
 
 package com.mongodb.spark.sql.connector.connection;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-
-import org.jetbrains.annotations.VisibleForTesting;
-
-import org.bson.Document;
-import org.bson.conversions.Bson;
-
 import com.mongodb.ClientSessionOptions;
 import com.mongodb.client.ChangeStreamIterable;
 import com.mongodb.client.ClientSession;
@@ -36,9 +25,16 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.MongoIterable;
 import com.mongodb.connection.ClusterDescription;
-
 import com.mongodb.spark.sql.connector.annotations.ThreadSafe;
 import com.mongodb.spark.sql.connector.assertions.Assertions;
+import java.util.HashMap;
+import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import org.bson.Document;
+import org.bson.conversions.Bson;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * A simple cache that handles the acquisition and release of {@code MongoClients}.

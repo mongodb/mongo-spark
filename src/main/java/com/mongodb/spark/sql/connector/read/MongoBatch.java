@@ -19,14 +19,13 @@ package com.mongodb.spark.sql.connector.read;
 
 import static com.mongodb.spark.sql.connector.read.MongoInputPartitionHelper.generateMongoBatchPartitions;
 
+import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 import org.apache.spark.sql.connector.read.Batch;
 import org.apache.spark.sql.connector.read.InputPartition;
 import org.apache.spark.sql.connector.read.PartitionReader;
 import org.apache.spark.sql.connector.read.PartitionReaderFactory;
 import org.apache.spark.sql.types.StructType;
-
-import com.mongodb.spark.sql.connector.config.ReadConfig;
-import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 
 /** MongoBatch defines how to read data from MongoDB. */
 final class MongoBatch implements Batch {

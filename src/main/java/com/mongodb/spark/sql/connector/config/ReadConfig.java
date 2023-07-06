@@ -22,20 +22,17 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableList;
 
+import com.mongodb.client.model.changestream.FullDocument;
+import com.mongodb.spark.sql.connector.exceptions.ConfigException;
+import com.mongodb.spark.sql.connector.read.partitioner.Partitioner;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
 import org.bson.BsonArray;
 import org.bson.BsonDocument;
 import org.bson.BsonType;
 import org.bson.BsonValue;
-
-import com.mongodb.client.model.changestream.FullDocument;
-
-import com.mongodb.spark.sql.connector.exceptions.ConfigException;
-import com.mongodb.spark.sql.connector.read.partitioner.Partitioner;
 
 /**
  * The Read Configuration
@@ -313,7 +310,8 @@ public final class ReadConfig extends AbstractMongoConfig {
     if (pipelineJson.isEmpty()) {
       return emptyList();
     }
-    BsonValue pipeline = BsonDocument.parse(format("{pipeline: %s}", pipelineJson)).get("pipeline");
+    BsonValue pipeline =
+        BsonDocument.parse(format("{pipeline: %s}", pipelineJson)).get("pipeline");
     switch (pipeline.getBsonType()) {
       case ARRAY:
         BsonArray bsonValues = pipeline.asArray();

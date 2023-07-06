@@ -24,29 +24,24 @@ import static org.apache.spark.sql.types.DataTypes.createStructType;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import org.apache.spark.sql.types.DataTypes;
-import org.apache.spark.sql.types.StructType;
-import org.junit.jupiter.api.Test;
-
-import org.bson.BsonDocument;
-
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.read.partitioner.Partitioner;
 import com.mongodb.spark.sql.connector.read.partitioner.SinglePartitionPartitioner;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.apache.spark.sql.types.DataTypes;
+import org.apache.spark.sql.types.StructType;
+import org.bson.BsonDocument;
+import org.junit.jupiter.api.Test;
 
 public class MongoInputPartitionHelperTest {
 
-  private static final StructType SCHEMA =
-      createStructType(
-          asList(
-              createStructField("a", DataTypes.IntegerType, false),
-              createStructField("b", DataTypes.StringType, false),
-              createStructField("c", DataTypes.createArrayType(DataTypes.StringType), true)));
+  private static final StructType SCHEMA = createStructType(asList(
+      createStructField("a", DataTypes.IntegerType, false),
+      createStructField("b", DataTypes.StringType, false),
+      createStructField("c", DataTypes.createArrayType(DataTypes.StringType), true)));
   private static final StructType EMPTY_SCHEMA = createStructType(emptyList());
   private static final List<BsonDocument> EMPTY_PIPELINE = emptyList();
 
@@ -59,9 +54,8 @@ public class MongoInputPartitionHelperTest {
   private static final List<BsonDocument> EXPECTED_MERGED_PROJECT_PIPELINE =
       asList(READ_CONFIG_PIPELINE.get(0), EXPECTED_PROJECT_PIPELINE.get(0));
   private static final List<BsonDocument> EXPECTED_FULL_DOCUMENT_PROJECT_PIPELINE =
-      singletonList(
-          BsonDocument.parse(
-              "{$project: {'fullDocument.a': 1, 'fullDocument.b': 1, 'fullDocument.c': 1}}"));
+      singletonList(BsonDocument.parse(
+          "{$project: {'fullDocument.a': 1, 'fullDocument.b': 1, 'fullDocument.c': 1}}"));
 
   private static final List<BsonDocument>
       EXPECTED_MERGED_FULL_DOCUMENT_FILTER_AND_PROJECT_PIPELINE =
@@ -81,50 +75,41 @@ public class MongoInputPartitionHelperTest {
         SinglePartitionPartitioner.class.getName());
 
     READ_CONFIG = MongoConfig.readConfig(configMap);
-    READ_CONFIG_WITH_PIPELINE =
-        READ_CONFIG.withOption(
-            ReadConfig.AGGREGATION_PIPELINE_CONFIG, "[{$match: {isValid: true}}]");
+    READ_CONFIG_WITH_PIPELINE = READ_CONFIG.withOption(
+        ReadConfig.AGGREGATION_PIPELINE_CONFIG, "[{$match: {isValid: true}}]");
   }
 
   @Test
   public void generatePipelineTest() {
     assertAll(
-        () ->
-            assertEquals(
-                EXPECTED_PROJECT_PIPELINE,
-                MongoInputPartitionHelper.generatePipeline(SCHEMA, READ_CONFIG)),
-        () ->
-            assertEquals(
-                EXPECTED_MERGED_PROJECT_PIPELINE,
-                MongoInputPartitionHelper.generatePipeline(SCHEMA, READ_CONFIG_WITH_PIPELINE)),
-        () ->
-            assertEquals(
-                EMPTY_PIPELINE,
-                MongoInputPartitionHelper.generatePipeline(EMPTY_SCHEMA, READ_CONFIG)),
-        () ->
-            assertEquals(
-                READ_CONFIG_PIPELINE,
-                MongoInputPartitionHelper.generatePipeline(
-                    EMPTY_SCHEMA, READ_CONFIG_WITH_PIPELINE)));
+        () -> assertEquals(
+            EXPECTED_PROJECT_PIPELINE,
+            MongoInputPartitionHelper.generatePipeline(SCHEMA, READ_CONFIG)),
+        () -> assertEquals(
+            EXPECTED_MERGED_PROJECT_PIPELINE,
+            MongoInputPartitionHelper.generatePipeline(SCHEMA, READ_CONFIG_WITH_PIPELINE)),
+        () -> assertEquals(
+            EMPTY_PIPELINE, MongoInputPartitionHelper.generatePipeline(EMPTY_SCHEMA, READ_CONFIG)),
+        () -> assertEquals(
+            READ_CONFIG_PIPELINE,
+            MongoInputPartitionHelper.generatePipeline(EMPTY_SCHEMA, READ_CONFIG_WITH_PIPELINE)));
   }
 
   @Test
   public void generatePipelinePublishFullDocumentTest() {
     assertAll(
-        () ->
-            assertEquals(
-                EXPECTED_FULL_DOCUMENT_PROJECT_PIPELINE,
-                MongoInputPartitionHelper.generatePipeline(
-                    SCHEMA,
-                    READ_CONFIG.withOption(
-                        ReadConfig.STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG, "true"))),
-        () ->
-            assertEquals(
-                EXPECTED_MERGED_FULL_DOCUMENT_FILTER_AND_PROJECT_PIPELINE,
-                MongoInputPartitionHelper.generatePipeline(
-                    SCHEMA,
-                    READ_CONFIG_WITH_PIPELINE.withOption(
-                        ReadConfig.STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG, "true"))));
+        () -> assertEquals(
+            EXPECTED_FULL_DOCUMENT_PROJECT_PIPELINE,
+            MongoInputPartitionHelper.generatePipeline(
+                SCHEMA,
+                READ_CONFIG.withOption(
+                    ReadConfig.STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG, "true"))),
+        () -> assertEquals(
+            EXPECTED_MERGED_FULL_DOCUMENT_FILTER_AND_PROJECT_PIPELINE,
+            MongoInputPartitionHelper.generatePipeline(
+                SCHEMA,
+                READ_CONFIG_WITH_PIPELINE.withOption(
+                    ReadConfig.STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG, "true"))));
   }
 
   @Test
@@ -134,30 +119,26 @@ public class MongoInputPartitionHelperTest {
         ReadConfig.PARTITIONER_CONFIG, SingleNoPreferredLocationsPartitioner.class.getName());
 
     assertAll(
-        () ->
-            assertEquals(
-                EXPECTED_PROJECT_PIPELINE,
-                MongoInputPartitionHelper.generateMongoBatchPartitions(
-                    SCHEMA, READ_CONFIG.withOptions(partitionerOptions))[0]
-                    .getPipeline()),
-        () ->
-            assertEquals(
-                EXPECTED_MERGED_PROJECT_PIPELINE,
-                MongoInputPartitionHelper.generateMongoBatchPartitions(
-                    SCHEMA, READ_CONFIG_WITH_PIPELINE.withOptions(partitionerOptions))[0]
-                    .getPipeline()),
-        () ->
-            assertEquals(
-                EMPTY_PIPELINE,
-                MongoInputPartitionHelper.generateMongoBatchPartitions(
-                    EMPTY_SCHEMA, READ_CONFIG.withOptions(partitionerOptions))[0]
-                    .getPipeline()),
-        () ->
-            assertEquals(
-                READ_CONFIG_PIPELINE,
-                MongoInputPartitionHelper.generateMongoBatchPartitions(
-                    EMPTY_SCHEMA, READ_CONFIG_WITH_PIPELINE.withOptions(partitionerOptions))[0]
-                    .getPipeline()));
+        () -> assertEquals(
+            EXPECTED_PROJECT_PIPELINE,
+            MongoInputPartitionHelper.generateMongoBatchPartitions(
+                SCHEMA, READ_CONFIG.withOptions(partitionerOptions))[0]
+                .getPipeline()),
+        () -> assertEquals(
+            EXPECTED_MERGED_PROJECT_PIPELINE,
+            MongoInputPartitionHelper.generateMongoBatchPartitions(
+                SCHEMA, READ_CONFIG_WITH_PIPELINE.withOptions(partitionerOptions))[0]
+                .getPipeline()),
+        () -> assertEquals(
+            EMPTY_PIPELINE,
+            MongoInputPartitionHelper.generateMongoBatchPartitions(
+                EMPTY_SCHEMA, READ_CONFIG.withOptions(partitionerOptions))[0]
+                .getPipeline()),
+        () -> assertEquals(
+            READ_CONFIG_PIPELINE,
+            MongoInputPartitionHelper.generateMongoBatchPartitions(
+                EMPTY_SCHEMA, READ_CONFIG_WITH_PIPELINE.withOptions(partitionerOptions))[0]
+                .getPipeline()));
   }
 
   public static class SingleNoPreferredLocationsPartitioner implements Partitioner {

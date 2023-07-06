@@ -21,6 +21,10 @@ import static com.mongodb.spark.sql.connector.read.MongoInputPartitionHelper.gen
 import static com.mongodb.spark.sql.connector.read.ResumeTokenBasedOffset.INITIAL_RESUME_TOKEN_OFFSET;
 import static java.lang.String.format;
 
+import com.mongodb.spark.sql.connector.assertions.Assertions;
+import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
+import com.mongodb.spark.sql.connector.schema.InferSchema;
 import org.apache.spark.sql.connector.read.InputPartition;
 import org.apache.spark.sql.connector.read.streaming.ContinuousPartitionReaderFactory;
 import org.apache.spark.sql.connector.read.streaming.ContinuousStream;
@@ -29,11 +33,6 @@ import org.apache.spark.sql.connector.read.streaming.PartitionOffset;
 import org.apache.spark.sql.types.StructType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.mongodb.spark.sql.connector.assertions.Assertions;
-import com.mongodb.spark.sql.connector.config.ReadConfig;
-import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
-import com.mongodb.spark.sql.connector.schema.InferSchema;
 
 /**
  * MongoContinuousStream defines how to read a stream of data from MongoDB.
@@ -59,9 +58,8 @@ final class MongoContinuousStream implements ContinuousStream {
   MongoContinuousStream(final StructType schema, final ReadConfig readConfig) {
     Assertions.validateConfig(
         schema,
-        (s) ->
-            !s.isEmpty()
-                && (!InferSchema.isInferred(s) || readConfig.streamPublishFullDocumentOnly()),
+        (s) -> !s.isEmpty()
+            && (!InferSchema.isInferred(s) || readConfig.streamPublishFullDocumentOnly()),
         () ->
             "Mongo Continuous streams require a schema to be explicitly defined, unless using publish full document only.");
     this.schema = schema;
@@ -91,11 +89,10 @@ final class MongoContinuousStream implements ContinuousStream {
         () -> offsets.length == 1, () -> "Multiple offsets found when there should only be one.");
     Assertions.ensureState(
         () -> offsets[0] instanceof MongoContinuousInputPartitionOffset,
-        () ->
-            format(
-                "Unexpected partition offset type. "
-                    + "Expected ResumeTokenPartitionOffset` found `%s`",
-                offsets[0].getClass()));
+        () -> format(
+            "Unexpected partition offset type. "
+                + "Expected ResumeTokenPartitionOffset` found `%s`",
+            offsets[0].getClass()));
     return new ResumeTokenBasedOffset(
         ((MongoContinuousInputPartitionOffset) offsets[0]).getResumeToken());
   }

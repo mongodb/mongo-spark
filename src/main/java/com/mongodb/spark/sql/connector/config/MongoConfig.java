@@ -20,24 +20,20 @@ package com.mongodb.spark.sql.connector.config;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 
+import com.mongodb.ConnectionString;
+import com.mongodb.MongoNamespace;
+import com.mongodb.spark.sql.connector.assertions.Assertions;
+import com.mongodb.spark.sql.connector.connection.DefaultMongoClientFactory;
+import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
-
+import org.bson.BsonString;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
-
-import org.bson.BsonString;
-
-import com.mongodb.ConnectionString;
-import com.mongodb.MongoNamespace;
-
-import com.mongodb.spark.sql.connector.assertions.Assertions;
-import com.mongodb.spark.sql.connector.connection.DefaultMongoClientFactory;
-import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 
 /**
  * The MongoConfig interface.
@@ -255,13 +251,11 @@ public interface MongoConfig extends Serializable {
     Assertions.ensureState(
         () -> prefix.endsWith("."),
         () -> format("Invalid configuration prefix `%s`, it must end with a '.'", prefix));
-    return MongoConfig.createConfig(
-        getOptions().entrySet().stream()
-            .filter(
-                e ->
-                    e.getKey().toLowerCase(Locale.ROOT).startsWith(prefix.toLowerCase(Locale.ROOT)))
-            .collect(
-                Collectors.toMap(e -> e.getKey().substring(prefix.length()), Map.Entry::getValue)));
+    return MongoConfig.createConfig(getOptions().entrySet().stream()
+        .filter(
+            e -> e.getKey().toLowerCase(Locale.ROOT).startsWith(prefix.toLowerCase(Locale.ROOT)))
+        .collect(
+            Collectors.toMap(e -> e.getKey().substring(prefix.length()), Map.Entry::getValue)));
   }
 
   /**

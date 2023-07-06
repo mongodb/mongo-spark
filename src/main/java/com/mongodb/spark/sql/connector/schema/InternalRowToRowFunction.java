@@ -19,7 +19,6 @@ package com.mongodb.spark.sql.connector.schema;
 
 import java.io.Serializable;
 import java.util.function.Function;
-
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.catalyst.analysis.SimpleAnalyzer$;
@@ -27,7 +26,6 @@ import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder;
 import org.apache.spark.sql.catalyst.encoders.RowEncoder$;
 import org.apache.spark.sql.catalyst.expressions.Attribute;
 import org.apache.spark.sql.types.StructType;
-
 import scala.collection.immutable.Seq;
 
 /**

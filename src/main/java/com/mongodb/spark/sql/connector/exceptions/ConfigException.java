@@ -32,12 +32,11 @@ public final class ConfigException extends MongoSparkException {
    * @param message an optional helpful error message
    */
   public ConfigException(final String name, final Object value, @Nullable final String message) {
-    this(
-        "Invalid value "
-            + value
-            + " for configuration "
-            + name
-            + (message == null ? "" : ": " + message));
+    this("Invalid value "
+        + value
+        + " for configuration "
+        + name
+        + (message == null ? "" : ": " + message));
   }
 
   /**

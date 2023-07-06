@@ -19,7 +19,6 @@ package com.mongodb.spark.sql.connector.interop;
 
 import java.util.List;
 import java.util.Map;
-
 import scala.jdk.CollectionConverters;
 
 /** Utils object to convert Java To Scala to enable cross build */

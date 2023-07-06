@@ -21,9 +21,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
-
 import org.apache.spark.sql.execution.streaming.LongOffset;
-
 import org.bson.BsonDocument;
 import org.bson.BsonTimestamp;
 

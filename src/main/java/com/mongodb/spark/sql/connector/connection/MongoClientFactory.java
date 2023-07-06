@@ -18,7 +18,6 @@
 package com.mongodb.spark.sql.connector.connection;
 
 import com.mongodb.client.MongoClient;
-
 import com.mongodb.spark.sql.connector.annotations.ThreadSafe;
 
 /**

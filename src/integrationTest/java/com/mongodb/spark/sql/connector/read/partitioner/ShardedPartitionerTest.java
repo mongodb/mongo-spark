@@ -28,18 +28,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-import java.util.List;
-import java.util.stream.Collectors;
-
-import org.junit.jupiter.api.Test;
-
-import org.bson.BsonDocument;
-
 import com.mongodb.client.MongoCollection;
-
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.bson.BsonDocument;
+import org.junit.jupiter.api.Test;
 
 public class ShardedPartitionerTest extends PartitionerTestCase {
   private static final ShardedPartitioner PARTITIONER = new ShardedPartitioner();
@@ -89,11 +85,10 @@ public class ShardedPartitionerTest extends PartitionerTestCase {
   @Test
   void testCreatesExpectedPartitionsWithUsersPipeline() {
     assumeTrue(isSharded());
-    ReadConfig readConfig =
-        createReadConfig("partitionsWithUsersPipeline")
-            .withOption(
-                ReadConfig.AGGREGATION_PIPELINE_CONFIG,
-                "{'$match': {'_id': {'$gte': '00010', '$lte': '00040'}}}");
+    ReadConfig readConfig = createReadConfig("partitionsWithUsersPipeline")
+        .withOption(
+            ReadConfig.AGGREGATION_PIPELINE_CONFIG,
+            "{'$match': {'_id': {'$gte': '00010', '$lte': '00040'}}}");
 
     shardCollection(readConfig.getNamespace(), "{_id: 1}");
     loadSampleData(100, 10, readConfig);
@@ -149,16 +144,13 @@ public class ShardedPartitionerTest extends PartitionerTestCase {
 
     List<BsonDocument> aggregationPipeline = readConfig.getAggregationPipeline();
     if (!aggregationPipeline.isEmpty()) {
-      mongoInputPartitions.forEach(
-          mongoInputPartition ->
-              assertTrue(
-                  mongoInputPartition.getPipeline().containsAll(aggregationPipeline),
-                  () ->
-                      format(
-                          "Pipeline missing aggregation pipeline: %s",
-                          mongoInputPartition.getPipeline().stream()
-                              .map(BsonDocument::toJson)
-                              .collect(Collectors.joining(",", "[", "]")))));
+      mongoInputPartitions.forEach(mongoInputPartition -> assertTrue(
+          mongoInputPartition.getPipeline().containsAll(aggregationPipeline),
+          () -> format(
+              "Pipeline missing aggregation pipeline: %s",
+              mongoInputPartition.getPipeline().stream()
+                  .map(BsonDocument::toJson)
+                  .collect(Collectors.joining(",", "[", "]")))));
     }
 
     assertPartitionerCoversAllData(PARTITIONER, readConfig);
@@ -198,40 +190,35 @@ public class ShardedPartitionerTest extends PartitionerTestCase {
       final BsonDocument matchStage, final String queryComparisonOperator) {
     matchStage
         .keySet()
-        .forEach(
-            shardKey ->
-                assertTrue(
-                    matchStage
-                        .getDocument(shardKey, new BsonDocument())
-                        .containsKey(queryComparisonOperator),
-                    format(
-                        "Missing query comparison operator (%s) for %s in %s",
-                        queryComparisonOperator, shardKey, matchStage.toJson())));
+        .forEach(shardKey -> assertTrue(
+            matchStage
+                .getDocument(shardKey, new BsonDocument())
+                .containsKey(queryComparisonOperator),
+            format(
+                "Missing query comparison operator (%s) for %s in %s",
+                queryComparisonOperator, shardKey, matchStage.toJson())));
   }
 
   private void assertMongoPartitionBounds(final BsonDocument ltMatch, final BsonDocument gteMatch) {
     assertEquals(ltMatch.keySet(), gteMatch.keySet());
 
-    ltMatch
-        .keySet()
-        .forEach(
-            shardKey -> {
-              BsonDocument ltMatchForShardKey = ltMatch.getDocument(shardKey, new BsonDocument());
-              BsonDocument gteMatchForShardKey = gteMatch.getDocument(shardKey, new BsonDocument());
+    ltMatch.keySet().forEach(shardKey -> {
+      BsonDocument ltMatchForShardKey = ltMatch.getDocument(shardKey, new BsonDocument());
+      BsonDocument gteMatchForShardKey = gteMatch.getDocument(shardKey, new BsonDocument());
 
-              assertTrue(
-                  ltMatchForShardKey.containsKey("$lt"),
-                  format("Missing $lt match for shardKey '%s': %s", shardKey, ltMatch));
-              assertTrue(
-                  gteMatchForShardKey.containsKey("$gte"),
-                  format("Missing $gte match for shardKey '%s': %s", shardKey, gteMatch));
-              assertEquals(
-                  ltMatchForShardKey.get("$lt"),
-                  gteMatchForShardKey.get("$gte"),
-                  format(
-                      "Match queries are not bounded correctly: "
-                          + "%s does not have the upper bound of %s",
-                      ltMatch, gteMatch));
-            });
+      assertTrue(
+          ltMatchForShardKey.containsKey("$lt"),
+          format("Missing $lt match for shardKey '%s': %s", shardKey, ltMatch));
+      assertTrue(
+          gteMatchForShardKey.containsKey("$gte"),
+          format("Missing $gte match for shardKey '%s': %s", shardKey, gteMatch));
+      assertEquals(
+          ltMatchForShardKey.get("$lt"),
+          gteMatchForShardKey.get("$gte"),
+          format(
+              "Match queries are not bounded correctly: "
+                  + "%s does not have the upper bound of %s",
+              ltMatch, gteMatch));
+    });
   }
 }

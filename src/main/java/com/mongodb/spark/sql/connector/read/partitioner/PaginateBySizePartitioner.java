@@ -20,19 +20,15 @@ package com.mongodb.spark.sql.connector.read.partitioner;
 import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper.SINGLE_PARTITIONER;
 import static java.lang.String.format;
 
-import java.util.List;
-
-import org.jetbrains.annotations.ApiStatus;
-
-import org.bson.BsonDocument;
-import org.bson.BsonInt32;
-
 import com.mongodb.client.model.CountOptions;
-
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
+import java.util.List;
+import org.bson.BsonDocument;
+import org.bson.BsonInt32;
+import org.jetbrains.annotations.ApiStatus;
 
 /**
  * Paginate by size partitioner.
@@ -59,16 +55,13 @@ public final class PaginateBySizePartitioner extends PaginatePartitioner {
   @Override
   public List<MongoInputPartition> generatePartitions(final ReadConfig readConfig) {
     MongoConfig partitionerOptions = readConfig.getPartitionerOptions();
-    int partitionSizeBytes =
-        Assertions.validateConfig(
-                partitionerOptions.getInt(PARTITION_SIZE_MB_CONFIG, PARTITION_SIZE_MB_DEFAULT),
-                i -> i > 0,
-                () ->
-                    format(
-                        "Invalid config: %s should be greater than zero.",
-                        PARTITION_SIZE_MB_CONFIG))
-            * 1000
-            * 1000;
+    int partitionSizeBytes = Assertions.validateConfig(
+            partitionerOptions.getInt(PARTITION_SIZE_MB_CONFIG, PARTITION_SIZE_MB_DEFAULT),
+            i -> i > 0,
+            () ->
+                format("Invalid config: %s should be greater than zero.", PARTITION_SIZE_MB_CONFIG))
+        * 1000
+        * 1000;
 
     BsonDocument storageStats = PartitionerHelper.storageStats(readConfig);
     if (storageStats.isEmpty()) {
@@ -93,11 +86,8 @@ public final class PaginateBySizePartitioner extends PaginatePartitioner {
     if (matchQuery.isEmpty() && storageStats.containsKey("count")) {
       count = storageStats.getNumber("count").longValue();
     } else {
-      count =
-          readConfig.withCollection(
-              coll ->
-                  coll.countDocuments(
-                      matchQuery, new CountOptions().comment(readConfig.getComment())));
+      count = readConfig.withCollection(coll ->
+          coll.countDocuments(matchQuery, new CountOptions().comment(readConfig.getComment())));
     }
 
     if (count <= numDocumentsPerPartition) {

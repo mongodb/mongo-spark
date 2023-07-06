@@ -19,12 +19,17 @@ package com.mongodb.spark.sql.connector;
 
 import static java.util.Arrays.asList;
 
+import com.mongodb.spark.connector.Versions;
+import com.mongodb.spark.sql.connector.config.MongoConfig;
+import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.config.WriteConfig;
+import com.mongodb.spark.sql.connector.read.MongoScanBuilder;
+import com.mongodb.spark.sql.connector.write.MongoWriteBuilder;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-
 import org.apache.spark.sql.connector.catalog.SupportsRead;
 import org.apache.spark.sql.connector.catalog.SupportsWrite;
 import org.apache.spark.sql.connector.catalog.Table;
@@ -38,26 +43,17 @@ import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.mongodb.spark.connector.Versions;
-import com.mongodb.spark.sql.connector.config.MongoConfig;
-import com.mongodb.spark.sql.connector.config.ReadConfig;
-import com.mongodb.spark.sql.connector.config.WriteConfig;
-import com.mongodb.spark.sql.connector.read.MongoScanBuilder;
-import com.mongodb.spark.sql.connector.write.MongoWriteBuilder;
-
 /** Represents a MongoDB Collection. */
 final class MongoTable implements Table, SupportsWrite, SupportsRead {
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoTable.class);
-  private static final Set<TableCapability> TABLE_CAPABILITY_SET =
-      new HashSet<>(
-          asList(
-              TableCapability.BATCH_WRITE,
-              TableCapability.TRUNCATE,
-              TableCapability.STREAMING_WRITE,
-              TableCapability.ACCEPT_ANY_SCHEMA,
-              TableCapability.BATCH_READ,
-              TableCapability.MICRO_BATCH_READ,
-              TableCapability.CONTINUOUS_READ));
+  private static final Set<TableCapability> TABLE_CAPABILITY_SET = new HashSet<>(asList(
+      TableCapability.BATCH_WRITE,
+      TableCapability.TRUNCATE,
+      TableCapability.STREAMING_WRITE,
+      TableCapability.ACCEPT_ANY_SCHEMA,
+      TableCapability.BATCH_READ,
+      TableCapability.MICRO_BATCH_READ,
+      TableCapability.CONTINUOUS_READ));
   private final StructType schema;
   private final Transform[] partitioning;
   private final MongoConfig mongoConfig;

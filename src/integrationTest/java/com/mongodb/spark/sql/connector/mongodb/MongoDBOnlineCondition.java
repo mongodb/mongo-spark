@@ -44,11 +44,9 @@ public class MongoDBOnlineCondition implements ExecutionCondition {
     return context
         .getElement()
         .flatMap(annotatedElement -> findAnnotation(annotatedElement, MongoDBOnline.class))
-        .map(
-            i ->
-                isOnline()
-                    ? enabled("Enabled MongoDB is online")
-                    : disabled("Disabled MongoDB is offline"))
+        .map(i -> isOnline()
+            ? enabled("Enabled MongoDB is online")
+            : disabled("Disabled MongoDB is offline"))
         .orElse(DEFAULT);
   }
 }

@@ -25,22 +25,20 @@ import static org.apache.spark.sql.types.DataTypes.createStructType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 
+import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
+import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-
 import org.apache.spark.api.java.function.MapFunction;
 import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
-
-import com.mongodb.spark.sql.connector.config.ReadConfig;
-import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
-import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 
 abstract class PartitionerTestCase extends MongoSparkConnectorTestCase {
 
@@ -103,37 +101,32 @@ abstract class PartitionerTestCase extends MongoSparkConnectorTestCase {
    */
   void assertPartitionerCoversAllData(final Partitioner partitioner, final ReadConfig readConfig) {
     SparkSession spark = getOrCreateSparkSession();
-    List<String> actualIds =
-        spark
-            .read()
-            .options(readConfig.getOptions())
-            .option(ReadConfig.PARTITIONER_CONFIG, partitioner.getClass().getName())
-            .schema(ID_ONLY_STRUCT)
-            .format("mongodb")
-            .load()
-            .select("_id")
-            .map((MapFunction<Row, String>) r -> r.getString(0), Encoders.STRING())
-            .collectAsList();
+    List<String> actualIds = spark
+        .read()
+        .options(readConfig.getOptions())
+        .option(ReadConfig.PARTITIONER_CONFIG, partitioner.getClass().getName())
+        .schema(ID_ONLY_STRUCT)
+        .format("mongodb")
+        .load()
+        .select("_id")
+        .map((MapFunction<Row, String>) r -> r.getString(0), Encoders.STRING())
+        .collectAsList();
 
     assertEquals(
         new HashSet<>(actualIds).size(), actualIds.size(), "Partitioner returns duplicated ids");
 
-    List<String> expectedDocumentsIds =
-        readConfig
-            .withCollection(coll -> coll.aggregate(readConfig.getAggregationPipeline()))
-            .map(d -> d.getString("_id").getValue())
-            .into(new ArrayList<>());
+    List<String> expectedDocumentsIds = readConfig
+        .withCollection(coll -> coll.aggregate(readConfig.getAggregationPipeline()))
+        .map(d -> d.getString("_id").getValue())
+        .into(new ArrayList<>());
 
-    assertIterableEquals(
-        expectedDocumentsIds,
-        actualIds,
-        () -> {
-          List<String> missing = new ArrayList<>(expectedDocumentsIds);
-          missing.removeAll(actualIds);
-          if (missing.isEmpty()) {
-            return null;
-          }
-          return "Missing ids: " + missing;
-        });
+    assertIterableEquals(expectedDocumentsIds, actualIds, () -> {
+      List<String> missing = new ArrayList<>(expectedDocumentsIds);
+      missing.removeAll(actualIds);
+      if (missing.isEmpty()) {
+        return null;
+      }
+      return "Missing ids: " + missing;
+    });
   }
 }

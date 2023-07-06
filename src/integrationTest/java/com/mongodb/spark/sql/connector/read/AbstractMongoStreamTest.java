@@ -31,6 +31,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.InsertManyOptions;
+import com.mongodb.client.model.Updates;
+import com.mongodb.spark.sql.connector.config.MongoConfig;
+import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.config.WriteConfig;
+import com.mongodb.spark.sql.connector.exceptions.ConfigException;
+import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -42,7 +51,6 @@ import java.util.function.Consumer;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
 import org.apache.spark.sql.Column;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -53,22 +61,10 @@ import org.apache.spark.sql.streaming.StreamingQueryException;
 import org.apache.spark.sql.streaming.Trigger;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
-import org.junit.jupiter.api.Test;
-import org.opentest4j.AssertionFailedError;
-
 import org.bson.BsonDocument;
 import org.bson.BsonString;
-
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.model.Filters;
-import com.mongodb.client.model.InsertManyOptions;
-import com.mongodb.client.model.Updates;
-
-import com.mongodb.spark.sql.connector.config.MongoConfig;
-import com.mongodb.spark.sql.connector.config.ReadConfig;
-import com.mongodb.spark.sql.connector.config.WriteConfig;
-import com.mongodb.spark.sql.connector.exceptions.ConfigException;
-import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
+import org.junit.jupiter.api.Test;
+import org.opentest4j.AssertionFailedError;
 
 /**
  * The abstract streaming test class.
@@ -126,22 +122,20 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
         withSource("Dropping Collection", (msg, coll) -> coll.drop()),
         withMemorySink(
             "Expected to see 1 drop document",
-            (msg, ds) ->
-                assertEquals(
-                    1,
-                    ds.collectAsList().stream()
-                        .filter(c -> c.get(c.fieldIndex("operationType")).equals("drop"))
-                        .count(),
-                    msg)),
+            (msg, ds) -> assertEquals(
+                1,
+                ds.collectAsList().stream()
+                    .filter(c -> c.get(c.fieldIndex("operationType")).equals("drop"))
+                    .count(),
+                msg)),
         withMemorySink(
             "Expected to see 1 invalidate document",
-            (msg, ds) ->
-                assertEquals(
-                    1,
-                    ds.collectAsList().stream()
-                        .filter(c -> c.get(c.fieldIndex("operationType")).equals("invalidate"))
-                        .count(),
-                    msg)));
+            (msg, ds) -> assertEquals(
+                1,
+                ds.collectAsList().stream()
+                    .filter(c -> c.get(c.fieldIndex("operationType")).equals("invalidate"))
+                    .count(),
+                msg)));
   }
 
   @Test
@@ -163,14 +157,12 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
             (msg, ds) -> assertEquals(50, ds.collectAsList().size(), msg)),
         withSource(
             "Deleting documents",
-            (msg, coll) ->
-                coll.deleteMany(
-                    Filters.in(
-                        "_id",
-                        IntStream.range(0, 50)
-                            .filter(i -> i % 2 == 0)
-                            .mapToObj(idFieldMapper())
-                            .collect(Collectors.toList())))),
+            (msg, coll) -> coll.deleteMany(Filters.in(
+                "_id",
+                IntStream.range(0, 50)
+                    .filter(i -> i % 2 == 0)
+                    .mapToObj(idFieldMapper())
+                    .collect(Collectors.toList())))),
         withSource("Inserting 100-125", (msg, coll) -> coll.insertMany(createDocuments(100, 125))),
         withMemorySink(
             "Expected to see 75 documents",
@@ -193,43 +185,35 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
                 ReadConfig.READ_PREFIX + ReadConfig.STREAM_LOOKUP_FULL_DOCUMENT_CONFIG,
                 "overwritten / ignored")
             .withOption(WriteConfig.WRITE_PREFIX + WriteConfig.OPERATION_TYPE_CONFIG, "Update"),
-        createStructType(
-            asList(
-                createStructField("_id", DataTypes.StringType, false),
-                createStructField("a", DataTypes.StringType, false))),
+        createStructType(asList(
+            createStructField("_id", DataTypes.StringType, false),
+            createStructField("a", DataTypes.StringType, false))),
         withSource(
             "Inserting 0-50",
-            (msg, coll) ->
-                coll.insertMany(
-                    createDocuments(
-                        0,
-                        50,
-                        i ->
-                            new BsonDocument("_id", new BsonString(testIdentifier + "-" + i))
-                                .append("a", new BsonString("a"))))),
+            (msg, coll) -> coll.insertMany(createDocuments(
+                0, 50, i -> new BsonDocument("_id", new BsonString(testIdentifier + "-" + i))
+                    .append("a", new BsonString("a"))))),
         withMemorySink(
             "Expected to see 50 documents",
             (msg, ds) -> assertEquals(50, ds.collectAsList().size(), msg)),
         withSource(
             "Updating evens",
-            (msg, coll) ->
-                coll.updateMany(
-                    Filters.in(
-                        "_id",
-                        IntStream.range(0, 50)
-                            .filter(i -> i % 2 == 0)
-                            .mapToObj(idFieldMapper())
-                            .collect(Collectors.toList())),
-                    Updates.set("a", new BsonString("b")))),
+            (msg, coll) -> coll.updateMany(
+                Filters.in(
+                    "_id",
+                    IntStream.range(0, 50)
+                        .filter(i -> i % 2 == 0)
+                        .mapToObj(idFieldMapper())
+                        .collect(Collectors.toList())),
+                Updates.set("a", new BsonString("b")))),
         withMemorySink(
             "Expected to see 25 documents",
-            (msg, ds) ->
-                assertEquals(
-                    25,
-                    ds.collectAsList().stream()
-                        .filter(c -> c.get(c.fieldIndex("a")).equals("b"))
-                        .count(),
-                    msg)));
+            (msg, ds) -> assertEquals(
+                25,
+                ds.collectAsList().stream()
+                    .filter(c -> c.get(c.fieldIndex("a")).equals("b"))
+                    .count(),
+                msg)));
   }
 
   @Test
@@ -280,21 +264,17 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     testIdentifier = "inferSchemaNoData";
     SparkSession spark = getOrCreateSparkSession();
 
-    Throwable cause =
-        assertThrows(
-            Exception.class,
-            () ->
-                spark
-                    .readStream()
-                    .format(MONGODB)
-                    .load()
-                    .writeStream()
-                    .trigger(getTrigger())
-                    .format(MONGODB)
-                    .queryName("test")
-                    .outputMode("append")
-                    .start()
-                    .processAllAvailable());
+    Throwable cause = assertThrows(Exception.class, () -> spark
+        .readStream()
+        .format(MONGODB)
+        .load()
+        .writeStream()
+        .trigger(getTrigger())
+        .format(MONGODB)
+        .queryName("test")
+        .outputMode("append")
+        .start()
+        .processAllAvailable());
 
     if (cause instanceof StreamingQueryException) {
       cause = ((StreamingQueryException) cause).cause();
@@ -309,22 +289,18 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     SparkSession spark = getOrCreateSparkSession();
 
     getCollection().insertMany(createDocuments(0, 25));
-    Throwable cause =
-        assertThrows(
-            Exception.class,
-            () ->
-                spark
-                    .readStream()
-                    .format(MONGODB)
-                    .load()
-                    .writeStream()
-                    .option("checkpointLocation", HELPER.getTempDirectory(true))
-                    .trigger(getTrigger())
-                    .format(MEMORY)
-                    .queryName("test")
-                    .outputMode("append")
-                    .start()
-                    .processAllAvailable());
+    Throwable cause = assertThrows(Exception.class, () -> spark
+        .readStream()
+        .format(MONGODB)
+        .load()
+        .writeStream()
+        .option("checkpointLocation", HELPER.getTempDirectory(true))
+        .trigger(getTrigger())
+        .format(MEMORY)
+        .queryName("test")
+        .outputMode("append")
+        .start()
+        .processAllAvailable());
 
     if (cause instanceof StreamingQueryException) {
       cause = ((StreamingQueryException) cause).cause();
@@ -338,10 +314,9 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     assumeTrue(supportsChangeStreams());
     testIdentifier = "inferSchemaWithDataPublishFullOnly";
 
-    ReadConfig readConfig =
-        createMongoConfig()
-            .toReadConfig()
-            .withOption(ReadConfig.STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG, "true");
+    ReadConfig readConfig = createMongoConfig()
+        .toReadConfig()
+        .withOption(ReadConfig.STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG, "true");
 
     getCollection(readConfig.getCollectionName()).insertMany(createDocuments(0, 1));
     HELPER.sleep(1000);
@@ -383,29 +358,24 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     testIdentifier = "logsComments";
 
     assertCommentsInProfile(
-        () ->
-            testStreamingQuery(
-                mongoConfig,
-                withSource(
-                    "inserting 0-25",
-                    (msg, coll) ->
-                        coll.insertMany(
-                            createDocuments(0, 25),
-                            new InsertManyOptions().comment(IGNORE_COMMENT))),
-                withMemorySink(
-                    "Expected to see 25 documents",
-                    (msg, ds) -> assertEquals(25, ds.collectAsList().size(), msg))),
+        () -> testStreamingQuery(
+            mongoConfig,
+            withSource(
+                "inserting 0-25",
+                (msg, coll) -> coll.insertMany(
+                    createDocuments(0, 25), new InsertManyOptions().comment(IGNORE_COMMENT))),
+            withMemorySink(
+                "Expected to see 25 documents",
+                (msg, ds) -> assertEquals(25, ds.collectAsList().size(), msg))),
         mongoConfig.toReadConfig());
   }
 
   private static final StructType IGNORE_SCHEMA = createStructType(emptyList());
 
-  private static final StructType DEFAULT_SCHEMA =
-      createStructType(
-          asList(
-              createStructField("operationType", DataTypes.StringType, false),
-              createStructField("clusterTime", DataTypes.StringType, false),
-              createStructField("fullDocument", DataTypes.StringType, true)));
+  private static final StructType DEFAULT_SCHEMA = createStructType(asList(
+      createStructField("operationType", DataTypes.StringType, false),
+      createStructField("clusterTime", DataTypes.StringType, false),
+      createStructField("fullDocument", DataTypes.StringType, true)));
 
   @SafeVarargs
   private final void testStreamingQuery(
@@ -454,11 +424,8 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     StreamingQuery streamingQuery =
         createStreamingQuery(writeFormat, mongoConfig, schema, condition);
     try {
-      retryAssertion(
-          () ->
-              assertFalse(
-                  streamingQuery.status().message().contains("Initializing"),
-                  "Stream is not initialized"));
+      retryAssertion(() -> assertFalse(
+          streamingQuery.status().message().contains("Initializing"), "Stream is not initialized"));
 
       // Give some time for the stream to be fully initialized and to be running.
       HELPER.sleep(2000);
@@ -470,46 +437,38 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
       }
 
       for (Consumer<MongoConfig> consumer : consumers) {
-        retryAssertion(
-            () -> consumer.accept(mongoConfig),
-            () -> {
-              mongoConfig
-                  .toReadConfig()
-                  .doWithCollection(
-                      coll ->
-                          LOGGER.info(
-                              "Source Collection Status: {}.",
-                              coll.find()
-                                  .comment(IGNORE_COMMENT)
-                                  .map(BsonDocument::toJson)
-                                  .into(new ArrayList<>())));
+        retryAssertion(() -> consumer.accept(mongoConfig), () -> {
+          mongoConfig
+              .toReadConfig()
+              .doWithCollection(coll -> LOGGER.info(
+                  "Source Collection Status: {}.",
+                  coll.find()
+                      .comment(IGNORE_COMMENT)
+                      .map(BsonDocument::toJson)
+                      .into(new ArrayList<>())));
 
-              if (writeFormat.equals(MONGODB)) {
-                mongoConfig
-                    .toWriteConfig()
-                    .doWithCollection(
-                        coll ->
-                            LOGGER.info(
-                                "Sink Collection Status: {}.",
-                                coll.find()
-                                    .comment(IGNORE_COMMENT)
-                                    .map(BsonDocument::toJson)
-                                    .into(new ArrayList<>())));
-              } else {
-                LOGGER.info(
-                    "Sink Memory Status: {}.",
-                    getOrCreateSparkSession()
-                        .sql("select * from " + testIdentifier)
-                        .collectAsList()
-                        .stream()
-                        .map(
-                            r ->
-                                Arrays.stream(r.schema().fields())
-                                    .map(f -> f.name() + ": " + r.get(r.fieldIndex(f.name())))
-                                    .collect(Collectors.joining(", ", "{", "}")))
-                        .collect(Collectors.joining(", ", "[", "]")));
-              }
-            });
+          if (writeFormat.equals(MONGODB)) {
+            mongoConfig
+                .toWriteConfig()
+                .doWithCollection(coll -> LOGGER.info(
+                    "Sink Collection Status: {}.",
+                    coll.find()
+                        .comment(IGNORE_COMMENT)
+                        .map(BsonDocument::toJson)
+                        .into(new ArrayList<>())));
+          } else {
+            LOGGER.info(
+                "Sink Memory Status: {}.",
+                getOrCreateSparkSession()
+                    .sql("select * from " + testIdentifier)
+                    .collectAsList()
+                    .stream()
+                    .map(r -> Arrays.stream(r.schema().fields())
+                        .map(f -> f.name() + ": " + r.get(r.fieldIndex(f.name())))
+                        .collect(Collectors.joining(", ", "{", "}")))
+                    .collect(Collectors.joining(", ", "[", "]")));
+          }
+        });
       }
     } catch (RuntimeException e) {
       fail("Assertions caused an exception", e);
@@ -528,11 +487,10 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
       final StructType schema,
       final Column condition) {
 
-    DataStreamReader dfr =
-        getOrCreateSparkSession(getSparkConf().set("numPartitions", "1"))
-            .readStream()
-            .format(MONGODB)
-            .options(mongoConfig.toReadConfig().getOptions());
+    DataStreamReader dfr = getOrCreateSparkSession(getSparkConf().set("numPartitions", "1"))
+        .readStream()
+        .format(MONGODB)
+        .options(mongoConfig.toReadConfig().getOptions());
 
     if (schema != IGNORE_SCHEMA) {
       dfr = dfr.schema(schema);
@@ -592,7 +550,9 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
 
   private List<BsonDocument> createDocuments(final int startInclusive, final int endExclusive) {
     return createDocuments(
-        startInclusive, endExclusive, i -> new BsonDocument("_id", idFieldMapper().apply(i)));
+        startInclusive,
+        endExclusive,
+        i -> new BsonDocument("_id", idFieldMapper().apply(i)));
   }
 
   private List<BsonDocument> createDocuments(

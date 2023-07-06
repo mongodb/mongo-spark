@@ -17,14 +17,13 @@
 
 package com.mongodb.spark.sql.connector.write;
 
+import com.mongodb.spark.sql.connector.config.WriteConfig;
 import org.apache.spark.sql.connector.write.BatchWrite;
 import org.apache.spark.sql.connector.write.LogicalWriteInfo;
 import org.apache.spark.sql.connector.write.SupportsTruncate;
 import org.apache.spark.sql.connector.write.WriteBuilder;
 import org.apache.spark.sql.connector.write.streaming.StreamingWrite;
 import org.jetbrains.annotations.ApiStatus;
-
-import com.mongodb.spark.sql.connector.config.WriteConfig;
 
 /** MongoWriteBuilder handles the creation of batch writer or streaming writers. */
 @ApiStatus.Internal

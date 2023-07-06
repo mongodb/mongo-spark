@@ -31,15 +31,12 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.List;
-
-import org.junit.jupiter.api.Test;
-
-import org.bson.BsonDocument;
-
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
+import java.util.List;
+import org.bson.BsonDocument;
+import org.junit.jupiter.api.Test;
 
 public class SamplePartitionerTest extends PartitionerTestCase {
 
@@ -63,17 +60,15 @@ public class SamplePartitionerTest extends PartitionerTestCase {
 
   @Test
   void testFewerRecordsThanData() {
-    ReadConfig readConfig =
-        createReadConfig(
-            "few", ReadConfig.PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG, "4");
+    ReadConfig readConfig = createReadConfig(
+        "few", ReadConfig.PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG, "4");
     loadSampleData(10, 2, readConfig);
 
     List<MongoInputPartition> partitions = PARTITIONER.generatePartitions(readConfig);
     assertIterableEquals(SINGLE_PARTITIONER.generatePartitions(readConfig), partitions);
 
-    readConfig =
-        createReadConfig(
-            "few", ReadConfig.PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG, "2");
+    readConfig = createReadConfig(
+        "few", ReadConfig.PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG, "2");
     partitions = PARTITIONER.generatePartitions(readConfig);
     assertIterableEquals(SINGLE_PARTITIONER.generatePartitions(readConfig), partitions);
   }
@@ -83,79 +78,76 @@ public class SamplePartitionerTest extends PartitionerTestCase {
     ReadConfig readConfig = createReadConfig("expected");
     loadSampleData(51, 5, readConfig);
 
-    List<MongoInputPartition> expectedPartitions =
-        asList(
-            new MongoInputPartition(
-                0,
-                createPartitionPipeline(BsonDocument.parse("{_id: {$lt: '00010'}}"), emptyList()),
-                getPreferredLocations()),
-            new MongoInputPartition(
-                1,
-                createPartitionPipeline(
-                    BsonDocument.parse("{_id: {$gte: '00010', $lt: '00020'}}"), emptyList()),
-                getPreferredLocations()),
-            new MongoInputPartition(
-                2,
-                createPartitionPipeline(
-                    BsonDocument.parse("{_id: {$gte: '00020', $lt: '00030'}}"), emptyList()),
-                getPreferredLocations()),
-            new MongoInputPartition(
-                3,
-                createPartitionPipeline(
-                    BsonDocument.parse("{_id: {$gte: '00030', $lt: '00040'}}"), emptyList()),
-                getPreferredLocations()),
-            new MongoInputPartition(
-                4,
-                createPartitionPipeline(
-                    BsonDocument.parse("{_id: {$gte: '00040', $lt: '00050'}}"), emptyList()),
-                getPreferredLocations()),
-            new MongoInputPartition(
-                5,
-                createPartitionPipeline(BsonDocument.parse("{_id: {$gte: '00050'}}"), emptyList()),
-                getPreferredLocations()));
+    List<MongoInputPartition> expectedPartitions = asList(
+        new MongoInputPartition(
+            0,
+            createPartitionPipeline(BsonDocument.parse("{_id: {$lt: '00010'}}"), emptyList()),
+            getPreferredLocations()),
+        new MongoInputPartition(
+            1,
+            createPartitionPipeline(
+                BsonDocument.parse("{_id: {$gte: '00010', $lt: '00020'}}"), emptyList()),
+            getPreferredLocations()),
+        new MongoInputPartition(
+            2,
+            createPartitionPipeline(
+                BsonDocument.parse("{_id: {$gte: '00020', $lt: '00030'}}"), emptyList()),
+            getPreferredLocations()),
+        new MongoInputPartition(
+            3,
+            createPartitionPipeline(
+                BsonDocument.parse("{_id: {$gte: '00030', $lt: '00040'}}"), emptyList()),
+            getPreferredLocations()),
+        new MongoInputPartition(
+            4,
+            createPartitionPipeline(
+                BsonDocument.parse("{_id: {$gte: '00040', $lt: '00050'}}"), emptyList()),
+            getPreferredLocations()),
+        new MongoInputPartition(
+            5,
+            createPartitionPipeline(BsonDocument.parse("{_id: {$gte: '00050'}}"), emptyList()),
+            getPreferredLocations()));
 
     assertIterableEquals(expectedPartitions, PARTITIONER.generatePartitions(readConfig));
   }
 
   @Test
   void testUsingAlternativePartitionField() {
-    ReadConfig readConfig =
-        createReadConfig(
-            "alt",
-            ReadConfig.PARTITIONER_OPTIONS_PREFIX + SamplePartitioner.PARTITION_FIELD_CONFIG,
-            "pk");
+    ReadConfig readConfig = createReadConfig(
+        "alt",
+        ReadConfig.PARTITIONER_OPTIONS_PREFIX + SamplePartitioner.PARTITION_FIELD_CONFIG,
+        "pk");
     loadSampleData(51, 5, readConfig);
 
-    List<MongoInputPartition> expectedPartitions =
-        asList(
-            new MongoInputPartition(
-                0,
-                createPartitionPipeline(BsonDocument.parse("{pk: {$lt: '_10010'}}"), emptyList()),
-                getPreferredLocations()),
-            new MongoInputPartition(
-                1,
-                createPartitionPipeline(
-                    BsonDocument.parse("{pk: {$gte: '_10010', $lt: '_10020'}}"), emptyList()),
-                getPreferredLocations()),
-            new MongoInputPartition(
-                2,
-                createPartitionPipeline(
-                    BsonDocument.parse("{pk: {$gte: '_10020', $lt: '_10030'}}"), emptyList()),
-                getPreferredLocations()),
-            new MongoInputPartition(
-                3,
-                createPartitionPipeline(
-                    BsonDocument.parse("{pk: {$gte: '_10030', $lt: '_10040'}}"), emptyList()),
-                getPreferredLocations()),
-            new MongoInputPartition(
-                4,
-                createPartitionPipeline(
-                    BsonDocument.parse("{pk: {$gte: '_10040', $lt: '_10050'}}"), emptyList()),
-                getPreferredLocations()),
-            new MongoInputPartition(
-                5,
-                createPartitionPipeline(BsonDocument.parse("{pk: {$gte: '_10050'}}"), emptyList()),
-                getPreferredLocations()));
+    List<MongoInputPartition> expectedPartitions = asList(
+        new MongoInputPartition(
+            0,
+            createPartitionPipeline(BsonDocument.parse("{pk: {$lt: '_10010'}}"), emptyList()),
+            getPreferredLocations()),
+        new MongoInputPartition(
+            1,
+            createPartitionPipeline(
+                BsonDocument.parse("{pk: {$gte: '_10010', $lt: '_10020'}}"), emptyList()),
+            getPreferredLocations()),
+        new MongoInputPartition(
+            2,
+            createPartitionPipeline(
+                BsonDocument.parse("{pk: {$gte: '_10020', $lt: '_10030'}}"), emptyList()),
+            getPreferredLocations()),
+        new MongoInputPartition(
+            3,
+            createPartitionPipeline(
+                BsonDocument.parse("{pk: {$gte: '_10030', $lt: '_10040'}}"), emptyList()),
+            getPreferredLocations()),
+        new MongoInputPartition(
+            4,
+            createPartitionPipeline(
+                BsonDocument.parse("{pk: {$gte: '_10040', $lt: '_10050'}}"), emptyList()),
+            getPreferredLocations()),
+        new MongoInputPartition(
+            5,
+            createPartitionPipeline(BsonDocument.parse("{pk: {$gte: '_10050'}}"), emptyList()),
+            getPreferredLocations()));
 
     assertIterableEquals(expectedPartitions, PARTITIONER.generatePartitions(readConfig));
   }
@@ -171,14 +163,12 @@ public class SamplePartitionerTest extends PartitionerTestCase {
 
   @Test
   void testCreatesExpectedPartitionsWithUsersPipeline() {
-    ReadConfig readConfig =
-        createReadConfig(
-            "pipeline",
-            ReadConfig.AGGREGATION_PIPELINE_CONFIG,
-            "{'$match': {'_id': {'$gte': '00010', '$lte': '00040'}}}");
-    List<BsonDocument> userSuppliedPipeline =
-        singletonList(
-            BsonDocument.parse("{'$match': {'_id': {'$gte': '00010', " + "'$lte': '00040'}}}"));
+    ReadConfig readConfig = createReadConfig(
+        "pipeline",
+        ReadConfig.AGGREGATION_PIPELINE_CONFIG,
+        "{'$match': {'_id': {'$gte': '00010', '$lte': '00040'}}}");
+    List<BsonDocument> userSuppliedPipeline = singletonList(
+        BsonDocument.parse("{'$match': {'_id': {'$gte': '00010', " + "'$lte': '00040'}}}"));
 
     // No data
     assertIterableEquals(
@@ -186,30 +176,27 @@ public class SamplePartitionerTest extends PartitionerTestCase {
         PARTITIONER.generatePartitions(readConfig));
 
     loadSampleData(50, 10, readConfig);
-    List<MongoInputPartition> expectedPartitions =
-        asList(
-            new MongoInputPartition(
-                0,
-                createPartitionPipeline(
-                    BsonDocument.parse("{_id: {$lt: '00020'}}"), userSuppliedPipeline),
-                getPreferredLocations()),
-            new MongoInputPartition(
-                1,
-                createPartitionPipeline(
-                    BsonDocument.parse("{_id: {$gte: '00020', $lt: '00030'}}"),
-                    userSuppliedPipeline),
-                getPreferredLocations()),
-            new MongoInputPartition(
-                2,
-                createPartitionPipeline(
-                    BsonDocument.parse("{_id: {$gte: '00030', $lt: '00040'}}"),
-                    userSuppliedPipeline),
-                getPreferredLocations()),
-            new MongoInputPartition(
-                3,
-                createPartitionPipeline(
-                    BsonDocument.parse("{_id: {$gte: '00040'}}"), userSuppliedPipeline),
-                getPreferredLocations()));
+    List<MongoInputPartition> expectedPartitions = asList(
+        new MongoInputPartition(
+            0,
+            createPartitionPipeline(
+                BsonDocument.parse("{_id: {$lt: '00020'}}"), userSuppliedPipeline),
+            getPreferredLocations()),
+        new MongoInputPartition(
+            1,
+            createPartitionPipeline(
+                BsonDocument.parse("{_id: {$gte: '00020', $lt: '00030'}}"), userSuppliedPipeline),
+            getPreferredLocations()),
+        new MongoInputPartition(
+            2,
+            createPartitionPipeline(
+                BsonDocument.parse("{_id: {$gte: '00030', $lt: '00040'}}"), userSuppliedPipeline),
+            getPreferredLocations()),
+        new MongoInputPartition(
+            3,
+            createPartitionPipeline(
+                BsonDocument.parse("{_id: {$gte: '00040'}}"), userSuppliedPipeline),
+            getPreferredLocations()));
 
     assertIterableEquals(expectedPartitions, PARTITIONER.generatePartitions(readConfig));
   }
@@ -219,56 +206,31 @@ public class SamplePartitionerTest extends PartitionerTestCase {
     loadSampleData(50, 2, createReadConfig("validate"));
 
     assertAll(
-        () ->
-            assertThrows(
-                ConfigException.class,
-                () ->
-                    PARTITIONER.generatePartitions(
-                        createReadConfig(
-                            "validate",
-                            PARTITIONER_OPTIONS_PREFIX + SAMPLES_PER_PARTITION_CONFIG,
-                            "-1")),
-                SAMPLES_PER_PARTITION_CONFIG + " is negative"),
-        () ->
-            assertThrows(
-                ConfigException.class,
-                () ->
-                    PARTITIONER.generatePartitions(
-                        createReadConfig(
-                            "validate",
-                            PARTITIONER_OPTIONS_PREFIX + SAMPLES_PER_PARTITION_CONFIG,
-                            "0")),
-                SAMPLES_PER_PARTITION_CONFIG + " is zero"),
-        () ->
-            assertThrows(
-                ConfigException.class,
-                () ->
-                    PARTITIONER.generatePartitions(
-                        createReadConfig(
-                            "validate",
-                            PARTITIONER_OPTIONS_PREFIX + SAMPLES_PER_PARTITION_CONFIG,
-                            "1")),
-                SAMPLES_PER_PARTITION_CONFIG + " is one"),
-        () ->
-            assertThrows(
-                ConfigException.class,
-                () ->
-                    PARTITIONER.generatePartitions(
-                        createReadConfig(
-                            "validate",
-                            PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG,
-                            "-1")),
-                PARTITION_SIZE_MB_CONFIG + " is negative"),
-        () ->
-            assertThrows(
-                ConfigException.class,
-                () ->
-                    PARTITIONER.generatePartitions(
-                        createReadConfig(
-                            "validate",
-                            PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG,
-                            "0")),
-                PARTITION_SIZE_MB_CONFIG + " is zero"));
+        () -> assertThrows(
+            ConfigException.class,
+            () -> PARTITIONER.generatePartitions(createReadConfig(
+                "validate", PARTITIONER_OPTIONS_PREFIX + SAMPLES_PER_PARTITION_CONFIG, "-1")),
+            SAMPLES_PER_PARTITION_CONFIG + " is negative"),
+        () -> assertThrows(
+            ConfigException.class,
+            () -> PARTITIONER.generatePartitions(createReadConfig(
+                "validate", PARTITIONER_OPTIONS_PREFIX + SAMPLES_PER_PARTITION_CONFIG, "0")),
+            SAMPLES_PER_PARTITION_CONFIG + " is zero"),
+        () -> assertThrows(
+            ConfigException.class,
+            () -> PARTITIONER.generatePartitions(createReadConfig(
+                "validate", PARTITIONER_OPTIONS_PREFIX + SAMPLES_PER_PARTITION_CONFIG, "1")),
+            SAMPLES_PER_PARTITION_CONFIG + " is one"),
+        () -> assertThrows(
+            ConfigException.class,
+            () -> PARTITIONER.generatePartitions(createReadConfig(
+                "validate", PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG, "-1")),
+            PARTITION_SIZE_MB_CONFIG + " is negative"),
+        () -> assertThrows(
+            ConfigException.class,
+            () -> PARTITIONER.generatePartitions(createReadConfig(
+                "validate", PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG, "0")),
+            PARTITION_SIZE_MB_CONFIG + " is zero"));
   }
 
   @Test

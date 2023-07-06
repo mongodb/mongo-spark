@@ -20,18 +20,15 @@ package com.mongodb.spark.sql.connector.config;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 
+import com.mongodb.WriteConcern;
+import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.mongodb.WriteConcern;
-
-import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 
 /**
  * The Write Configuration
@@ -326,9 +323,8 @@ public final class WriteConfig extends AbstractMongoConfig {
       }
 
       if (containsKey(WRITE_CONCERN_W_TIMEOUT_MS_CONFIG)) {
-        writeConcern =
-            writeConcern.withWTimeout(
-                getInt(WRITE_CONCERN_W_TIMEOUT_MS_CONFIG, -1), TimeUnit.MILLISECONDS);
+        writeConcern = writeConcern.withWTimeout(
+            getInt(WRITE_CONCERN_W_TIMEOUT_MS_CONFIG, -1), TimeUnit.MILLISECONDS);
       }
     } catch (RuntimeException e) {
       throw new ConfigException("Invalid write concern configuration.", e);

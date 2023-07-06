@@ -18,31 +18,6 @@ package com.mongodb.spark.sql.connector.mongodb;
 import static java.lang.String.format;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang3.RandomStringUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.spark.SparkConf;
-import org.apache.spark.SparkContext;
-import org.apache.spark.sql.SparkSession;
-import org.junit.jupiter.api.extension.AfterAllCallback;
-import org.junit.jupiter.api.extension.AfterEachCallback;
-import org.junit.jupiter.api.extension.BeforeAllCallback;
-import org.junit.jupiter.api.extension.BeforeEachCallback;
-import org.junit.jupiter.api.extension.ExtensionContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import org.bson.BsonDocument;
-import org.bson.Document;
-import org.bson.RawBsonDocument;
-
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoNamespace;
 import com.mongodb.client.MongoClient;
@@ -53,8 +28,29 @@ import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.model.Updates;
 import com.mongodb.connection.ClusterType;
-
 import com.mongodb.spark.sql.connector.config.MongoConfig;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.spark.SparkConf;
+import org.apache.spark.SparkContext;
+import org.apache.spark.sql.SparkSession;
+import org.bson.BsonDocument;
+import org.bson.Document;
+import org.bson.RawBsonDocument;
+import org.junit.jupiter.api.extension.AfterAllCallback;
+import org.junit.jupiter.api.extension.AfterEachCallback;
+import org.junit.jupiter.api.extension.BeforeAllCallback;
+import org.junit.jupiter.api.extension.BeforeEachCallback;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class MongoSparkConnectorHelper
     implements BeforeAllCallback, BeforeEachCallback, AfterEachCallback, AfterAllCallback {
@@ -203,29 +199,26 @@ public class MongoSparkConnectorHelper
     }
     int sizeBytes = sizeInMB * 1000 * 1000;
     int totalDocumentSize = sizeBytes / numberOfDocuments;
-    int sampleDataWithEmptySampleStringSize =
-        RawBsonDocument.parse(format(SAMPLE_DATA_TEMPLATE, "00000", "_10000", "00000", ""))
-            .getByteBuffer()
-            .limit();
+    int sampleDataWithEmptySampleStringSize = RawBsonDocument.parse(
+            format(SAMPLE_DATA_TEMPLATE, "00000", "_10000", "00000", ""))
+        .getByteBuffer()
+        .limit();
     String sampleString =
         RandomStringUtils.randomAlphabetic(totalDocumentSize - sampleDataWithEmptySampleStringSize);
 
-    List<BsonDocument> sampleDocuments =
-        IntStream.range(0, numberOfDocuments)
-            .boxed()
-            .map(
-                i -> {
-                  String idString = StringUtils.leftPad(i.toString(), 5, "0");
-                  String pkString = format("_%s", i + 10000);
-                  String dupsString = StringUtils.leftPad(format("%s", i % 3 == 0 ? 0 : i), 5, "0");
-                  return RawBsonDocument.parse(
-                      format(SAMPLE_DATA_TEMPLATE, idString, pkString, dupsString, sampleString));
-                })
-            .collect(Collectors.toList());
-    MongoCollection<BsonDocument> coll =
-        getMongoClient()
-            .getDatabase(config.getDatabaseName())
-            .getCollection(config.getCollectionName(), BsonDocument.class);
+    List<BsonDocument> sampleDocuments = IntStream.range(0, numberOfDocuments)
+        .boxed()
+        .map(i -> {
+          String idString = StringUtils.leftPad(i.toString(), 5, "0");
+          String pkString = format("_%s", i + 10000);
+          String dupsString = StringUtils.leftPad(format("%s", i % 3 == 0 ? 0 : i), 5, "0");
+          return RawBsonDocument.parse(
+              format(SAMPLE_DATA_TEMPLATE, idString, pkString, dupsString, sampleString));
+        })
+        .collect(Collectors.toList());
+    MongoCollection<BsonDocument> coll = getMongoClient()
+        .getDatabase(config.getDatabaseName())
+        .getCollection(config.getCollectionName(), BsonDocument.class);
     coll.insertMany(sampleDocuments);
   }
 
@@ -251,9 +244,8 @@ public class MongoSparkConnectorHelper
       LOGGER.info("Enabling sharding");
       getMongoClient()
           .getDatabase("admin")
-          .runCommand(
-              BsonDocument.parse(
-                  format("{enableSharding: '%s'}", mongoNamespace.getDatabaseName())));
+          .runCommand(BsonDocument.parse(
+              format("{enableSharding: '%s'}", mongoNamespace.getDatabaseName())));
 
       LOGGER.info("Settings chunkSize to 1MB");
       configDatabase
@@ -266,9 +258,8 @@ public class MongoSparkConnectorHelper
 
     if (configDatabase
             .getCollection("collections")
-            .find(
-                Filters.and(
-                    Filters.eq("_id", mongoNamespace.getFullName()), Filters.eq("dropped", false)))
+            .find(Filters.and(
+                Filters.eq("_id", mongoNamespace.getFullName()), Filters.eq("dropped", false)))
             .first()
         == null) {
       LOGGER.info("Sharding: {}", mongoNamespace.getFullName());
@@ -279,11 +270,8 @@ public class MongoSparkConnectorHelper
 
       getMongoClient()
           .getDatabase("admin")
-          .runCommand(
-              BsonDocument.parse(
-                  format(
-                      "{shardCollection: '%s', key: %s}",
-                      mongoNamespace.getFullName(), shardKeyJson)));
+          .runCommand(BsonDocument.parse(format(
+              "{shardCollection: '%s', key: %s}", mongoNamespace.getFullName(), shardKeyJson)));
 
       sleep(1000);
     }

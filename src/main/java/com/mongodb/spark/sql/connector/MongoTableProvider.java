@@ -17,17 +17,15 @@
 
 package com.mongodb.spark.sql.connector;
 
+import com.mongodb.spark.sql.connector.config.MongoConfig;
+import com.mongodb.spark.sql.connector.schema.InferSchema;
 import java.util.Map;
-
 import org.apache.spark.sql.connector.catalog.Table;
 import org.apache.spark.sql.connector.catalog.TableProvider;
 import org.apache.spark.sql.connector.expressions.Transform;
 import org.apache.spark.sql.sources.DataSourceRegister;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
-
-import com.mongodb.spark.sql.connector.config.MongoConfig;
-import com.mongodb.spark.sql.connector.schema.InferSchema;
 
 /**
  * The MongoDB collection provider

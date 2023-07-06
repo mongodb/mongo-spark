@@ -21,6 +21,13 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 
+import com.mongodb.client.model.Aggregates;
+import com.mongodb.client.model.Filters;
+import com.mongodb.spark.sql.connector.assertions.Assertions;
+import com.mongodb.spark.sql.connector.config.MongoConfig;
+import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.config.WriteConfig;
+import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -28,7 +35,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.connector.read.Scan;
 import org.apache.spark.sql.connector.read.ScanBuilder;
@@ -53,21 +59,11 @@ import org.apache.spark.sql.sources.StringStartsWith;
 import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
-import org.jetbrains.annotations.ApiStatus;
-import org.jetbrains.annotations.Nullable;
-
 import org.bson.BsonDocument;
 import org.bson.BsonValue;
 import org.bson.conversions.Bson;
-
-import com.mongodb.client.model.Aggregates;
-import com.mongodb.client.model.Filters;
-
-import com.mongodb.spark.sql.connector.assertions.Assertions;
-import com.mongodb.spark.sql.connector.config.MongoConfig;
-import com.mongodb.spark.sql.connector.config.ReadConfig;
-import com.mongodb.spark.sql.connector.config.WriteConfig;
-import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
+import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.Nullable;
 
 /** A builder for a {@link MongoScan}. */
 @ApiStatus.Internal
@@ -92,10 +88,9 @@ public final class MongoScanBuilder
     this.schema = schema;
     this.readConfig = readConfig;
     this.prunedSchema = schema;
-    this.isCaseSensitive =
-        SparkSession.getActiveSession()
-            .map(s -> s.sessionState().conf().caseSensitiveAnalysis())
-            .getOrElse(() -> false);
+    this.isCaseSensitive = SparkSession.getActiveSession()
+        .map(s -> s.sessionState().conf().caseSensitiveAnalysis())
+        .getOrElse(() -> false);
     this.datasetAggregationPipeline = emptyList();
     this.pushedFilters = new Filter[0];
   }
@@ -107,12 +102,11 @@ public final class MongoScanBuilder
     scanAggregationPipeline.addAll(readConfig.getAggregationPipeline());
     scanAggregationPipeline.addAll(datasetAggregationPipeline);
 
-    ReadConfig scanReadConfig =
-        readConfig.withOption(
-            MongoConfig.READ_PREFIX + ReadConfig.AGGREGATION_PIPELINE_CONFIG,
-            scanAggregationPipeline.stream()
-                .map(BsonDocument::toJson)
-                .collect(Collectors.joining(",", "[", "]")));
+    ReadConfig scanReadConfig = readConfig.withOption(
+        MongoConfig.READ_PREFIX + ReadConfig.AGGREGATION_PIPELINE_CONFIG,
+        scanAggregationPipeline.stream()
+            .map(BsonDocument::toJson)
+            .collect(Collectors.joining(",", "[", "]")));
     return new MongoScan(prunedSchema, scanReadConfig);
   }
 
@@ -129,21 +123,16 @@ public final class MongoScanBuilder
     List<FilterAndPipelineStage> processed =
         Arrays.stream(filters).map(this::processFilter).collect(Collectors.toList());
 
-    List<FilterAndPipelineStage> withPipelines =
-        processed.stream()
-            .filter(FilterAndPipelineStage::hasPipelineStage)
-            .collect(Collectors.toList());
+    List<FilterAndPipelineStage> withPipelines = processed.stream()
+        .filter(FilterAndPipelineStage::hasPipelineStage)
+        .collect(Collectors.toList());
 
-    datasetAggregationPipeline =
-        withPipelines.isEmpty()
-            ? emptyList()
-            : singletonList(
-                Aggregates.match(
-                        Filters.and(
-                            withPipelines.stream()
-                                .map(FilterAndPipelineStage::getPipelineStage)
-                                .collect(Collectors.toList())))
-                    .toBsonDocument());
+    datasetAggregationPipeline = withPipelines.isEmpty()
+        ? emptyList()
+        : singletonList(Aggregates.match(Filters.and(withPipelines.stream()
+                .map(FilterAndPipelineStage::getPipelineStage)
+                .collect(Collectors.toList())))
+            .toBsonDocument());
     pushedFilters =
         withPipelines.stream().map(FilterAndPipelineStage::getFilter).toArray(Filter[]::new);
 
@@ -163,10 +152,9 @@ public final class MongoScanBuilder
   public void pruneColumns(final StructType requiredSchema) {
     Set<String> requiredColumns =
         Arrays.stream(requiredSchema.fields()).map(this::getColumnName).collect(Collectors.toSet());
-    StructField[] fields =
-        Arrays.stream(schema.fields())
-            .filter(f -> requiredColumns.contains(getColumnName(f)))
-            .toArray(StructField[]::new);
+    StructField[] fields = Arrays.stream(schema.fields())
+        .filter(f -> requiredColumns.contains(getColumnName(f)))
+        .toArray(StructField[]::new);
     prunedSchema = new StructType(fields);
   }
 
@@ -229,12 +217,11 @@ public final class MongoScanBuilder
     } else if (filter instanceof In) {
       In inFilter = (In) filter;
       String fieldName = getFieldName(inFilter.attribute());
-      List<BsonValue> values =
-          Arrays.stream(inFilter.values())
-              .map(v -> getBsonValue(fieldName, v))
-              .filter(Optional::isPresent)
-              .map(Optional::get)
-              .collect(Collectors.toList());
+      List<BsonValue> values = Arrays.stream(inFilter.values())
+          .map(v -> getBsonValue(fieldName, v))
+          .filter(Optional::isPresent)
+          .map(Optional::get)
+          .collect(Collectors.toList());
 
       // Ensure all values were matched otherwise leave to Spark to filter.
       Bson pipelineStage = null;

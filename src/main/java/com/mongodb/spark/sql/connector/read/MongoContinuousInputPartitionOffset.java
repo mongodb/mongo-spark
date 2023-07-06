@@ -17,13 +17,10 @@
 
 package com.mongodb.spark.sql.connector.read;
 
-import java.util.Objects;
-
-import org.apache.spark.sql.connector.read.streaming.PartitionOffset;
-
-import org.bson.BsonDocument;
-
 import com.mongodb.spark.sql.connector.assertions.Assertions;
+import java.util.Objects;
+import org.apache.spark.sql.connector.read.streaming.PartitionOffset;
+import org.bson.BsonDocument;
 
 /** A resume token partition offset */
 final class MongoContinuousInputPartitionOffset implements PartitionOffset {

@@ -21,16 +21,12 @@ import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 
-import java.util.List;
-
-import org.junit.jupiter.api.Test;
-
-import org.bson.BsonDocument;
-
 import com.mongodb.client.MongoCollection;
-
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
+import java.util.List;
+import org.bson.BsonDocument;
+import org.junit.jupiter.api.Test;
 
 public class SinglePartitionerTest extends PartitionerTestCase {
 
@@ -60,20 +56,18 @@ public class SinglePartitionerTest extends PartitionerTestCase {
 
   @Test
   void testUsingAlternativePartitionFieldList() {
-    ReadConfig readConfig =
-        createReadConfig(
-            "alt",
-            ReadConfig.PARTITIONER_OPTIONS_PREFIX + SamplePartitioner.PARTITION_FIELD_CONFIG,
-            "pk");
+    ReadConfig readConfig = createReadConfig(
+        "alt",
+        ReadConfig.PARTITIONER_OPTIONS_PREFIX + SamplePartitioner.PARTITION_FIELD_CONFIG,
+        "pk");
     assertPartitioner(SINGLE_PARTITIONER, singlePartitionsList, readConfig);
   }
 
   @Test
   void testCreatesExpectedPartitionsWithUsersPipeline() {
     String matchStage = "{'$match': {'_id': {'$gte': '00010', '$lte': '00040'}}}";
-    ReadConfig readConfig =
-        createReadConfig(
-            "pipeline", ReadConfig.AGGREGATION_PIPELINE_CONFIG, "[" + matchStage + "]");
+    ReadConfig readConfig = createReadConfig(
+        "pipeline", ReadConfig.AGGREGATION_PIPELINE_CONFIG, "[" + matchStage + "]");
     List<BsonDocument> userSuppliedPipeline = singletonList(BsonDocument.parse(matchStage));
     List<MongoInputPartition> expectedPartitions =
         singletonList(new MongoInputPartition(0, userSuppliedPipeline, getPreferredLocations()));

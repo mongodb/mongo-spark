@@ -19,13 +19,11 @@ package com.mongodb.spark.sql.connector.config;
 
 import static java.lang.String.format;
 
+import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import java.lang.reflect.Constructor;
 import java.util.Arrays;
 import java.util.Optional;
-
 import org.jetbrains.annotations.ApiStatus;
-
-import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 
 @ApiStatus.Internal
 final class ClassHelper {
@@ -38,22 +36,18 @@ final class ClassHelper {
       final String className,
       final Class<T> clazz,
       final MongoConfig mongoConfig) {
-    return createInstance(
-        configKey,
-        className,
-        clazz,
-        () -> {
-          Class<?> concreteClass = Class.forName(className);
-          Optional<Constructor<?>> mongoConfigConstructor =
-              Arrays.stream(concreteClass.getConstructors())
-                  .filter(c -> Arrays.equals(c.getParameterTypes(), MONGO_CONFIG_PARAMETER_TYPES))
-                  .findFirst();
-          if (mongoConfigConstructor.isPresent()) {
-            return (T) mongoConfigConstructor.get().newInstance(mongoConfig);
-          } else {
-            return (T) concreteClass.getConstructor().newInstance();
-          }
-        });
+    return createInstance(configKey, className, clazz, () -> {
+      Class<?> concreteClass = Class.forName(className);
+      Optional<Constructor<?>> mongoConfigConstructor = Arrays.stream(
+              concreteClass.getConstructors())
+          .filter(c -> Arrays.equals(c.getParameterTypes(), MONGO_CONFIG_PARAMETER_TYPES))
+          .findFirst();
+      if (mongoConfigConstructor.isPresent()) {
+        return (T) mongoConfigConstructor.get().newInstance(mongoConfig);
+      } else {
+        return (T) concreteClass.getConstructor().newInstance();
+      }
+    });
   }
 
   private static <T> T createInstance(

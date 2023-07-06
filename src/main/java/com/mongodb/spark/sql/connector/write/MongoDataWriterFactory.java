@@ -16,14 +16,13 @@
  */
 package com.mongodb.spark.sql.connector.write;
 
+import com.mongodb.spark.sql.connector.config.WriteConfig;
 import org.apache.spark.TaskContext;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.write.DataWriter;
 import org.apache.spark.sql.connector.write.DataWriterFactory;
 import org.apache.spark.sql.connector.write.streaming.StreamingDataWriterFactory;
 import org.apache.spark.sql.types.StructType;
-
-import com.mongodb.spark.sql.connector.config.WriteConfig;
 
 /** The factory responsible for creating the write operations for the batch or streaming write. */
 final class MongoDataWriterFactory implements DataWriterFactory, StreamingDataWriterFactory {

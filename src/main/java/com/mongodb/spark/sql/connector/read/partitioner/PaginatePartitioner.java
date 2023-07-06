@@ -17,20 +17,16 @@
 
 package com.mongodb.spark.sql.connector.read.partitioner;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.jetbrains.annotations.ApiStatus;
-
-import org.bson.BsonDocument;
-import org.bson.conversions.Bson;
-
 import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.Projections;
 import com.mongodb.client.model.Sorts;
-
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
+import java.util.ArrayList;
+import java.util.List;
+import org.bson.BsonDocument;
+import org.bson.conversions.Bson;
+import org.jetbrains.annotations.ApiStatus;
 
 /**
  * Paginates a collection into partitions.
@@ -88,39 +84,35 @@ abstract class PaginatePartitioner extends FieldPartitioner {
 
     List<BsonDocument> upperBounds = new ArrayList<>();
     for (int i = 0; i < numberOfPartitions; i++) {
-      Bson projection =
-          partitionField.equals(ID_FIELD)
-              ? Projections.include(partitionField)
-              : Projections.fields(Projections.include(partitionField), Projections.excludeId());
+      Bson projection = partitionField.equals(ID_FIELD)
+          ? Projections.include(partitionField)
+          : Projections.fields(Projections.include(partitionField), Projections.excludeId());
 
       List<Bson> aggregationPipeline = new ArrayList<>(readConfig.getAggregationPipeline());
       aggregationPipeline.add(Aggregates.project(projection));
       aggregationPipeline.add(Aggregates.sort(Sorts.ascending(partitionField)));
 
-      BsonDocument boundary =
-          readConfig.withCollection(
-              coll -> {
-                List<Bson> boundaryPipeline = new ArrayList<>();
+      BsonDocument boundary = readConfig.withCollection(coll -> {
+        List<Bson> boundaryPipeline = new ArrayList<>();
 
-                // Uses the previous boundary as the $gte match to efficiently skip to the next
-                // bounds.
-                if (!upperBounds.isEmpty()) {
-                  BsonDocument previous = upperBounds.get(upperBounds.size() - 1);
-                  BsonDocument matchFilter = new BsonDocument();
-                  if (previous.containsKey(partitionField)) {
-                    matchFilter.put(
-                        partitionField, new BsonDocument("$gte", previous.get(partitionField)));
-                  }
-                  boundaryPipeline.add(Aggregates.match(matchFilter));
-                }
-                boundaryPipeline.addAll(aggregationPipeline);
-                boundaryPipeline.add(Aggregates.skip(numDocumentsPerPartition));
-                boundaryPipeline.add(Aggregates.limit(1));
-                return coll.aggregate(boundaryPipeline)
-                    .allowDiskUse(readConfig.getAggregationAllowDiskUse())
-                    .comment(readConfig.getComment())
-                    .first();
-              });
+        // Uses the previous boundary as the $gte match to efficiently skip to the next
+        // bounds.
+        if (!upperBounds.isEmpty()) {
+          BsonDocument previous = upperBounds.get(upperBounds.size() - 1);
+          BsonDocument matchFilter = new BsonDocument();
+          if (previous.containsKey(partitionField)) {
+            matchFilter.put(partitionField, new BsonDocument("$gte", previous.get(partitionField)));
+          }
+          boundaryPipeline.add(Aggregates.match(matchFilter));
+        }
+        boundaryPipeline.addAll(aggregationPipeline);
+        boundaryPipeline.add(Aggregates.skip(numDocumentsPerPartition));
+        boundaryPipeline.add(Aggregates.limit(1));
+        return coll.aggregate(boundaryPipeline)
+            .allowDiskUse(readConfig.getAggregationAllowDiskUse())
+            .comment(readConfig.getComment())
+            .first();
+      });
 
       if (boundary == null) {
         break;

@@ -20,13 +20,15 @@ package com.mongodb.spark.sql.connector.schema;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 
+import com.mongodb.spark.sql.connector.config.WriteConfig;
+import com.mongodb.spark.sql.connector.exceptions.DataException;
+import com.mongodb.spark.sql.connector.interop.JavaScala;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.types.ArrayType;
@@ -38,8 +40,6 @@ import org.apache.spark.sql.types.MapType;
 import org.apache.spark.sql.types.StringType;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
-import org.jetbrains.annotations.NotNull;
-
 import org.bson.BsonArray;
 import org.bson.BsonBinary;
 import org.bson.BsonBoolean;
@@ -54,10 +54,7 @@ import org.bson.BsonString;
 import org.bson.BsonValue;
 import org.bson.json.JsonParseException;
 import org.bson.types.Decimal128;
-
-import com.mongodb.spark.sql.connector.config.WriteConfig;
-import com.mongodb.spark.sql.connector.exceptions.DataException;
-import com.mongodb.spark.sql.connector.interop.JavaScala;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * The helper for conversion of GenericRowWithSchema instances to BsonDocuments.
@@ -150,10 +147,9 @@ public final class RowToBsonDocumentConverter implements Serializable {
       } else if (DataTypes.NullType.acceptsType(dataType)) {
         return BsonNull.VALUE;
       } else if (dataType instanceof DecimalType) {
-        BigDecimal bigDecimal =
-            data instanceof BigDecimal
-                ? (BigDecimal) data
-                : ((Decimal) data).toBigDecimal().bigDecimal();
+        BigDecimal bigDecimal = data instanceof BigDecimal
+            ? (BigDecimal) data
+            : ((Decimal) data).toBigDecimal().bigDecimal();
         return new BsonDecimal128(new Decimal128(bigDecimal));
       } else if (dataType instanceof ArrayType) {
         DataType elementType = ((ArrayType) dataType).elementType();
@@ -205,16 +201,14 @@ public final class RowToBsonDocumentConverter implements Serializable {
         return bsonDocument;
       }
     } catch (Exception e) {
-      throw new DataException(
-          format(
-              "Cannot cast %s into a BsonValue. %s has no matching BsonValue. Error: %s",
-              data, dataType, e.getMessage()));
+      throw new DataException(format(
+          "Cannot cast %s into a BsonValue. %s has no matching BsonValue. Error: %s",
+          data, dataType, e.getMessage()));
     }
 
-    throw new DataException(
-        format(
-            "Cannot cast %s into a BsonValue. %s data type has no matching BsonValue.",
-            data, dataType));
+    throw new DataException(format(
+        "Cannot cast %s into a BsonValue. %s data type has no matching BsonValue.",
+        data, dataType));
   }
 
   private static final String BSON_TEMPLATE = "{v: %s}";

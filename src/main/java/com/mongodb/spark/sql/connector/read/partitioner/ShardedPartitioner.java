@@ -19,6 +19,14 @@ package com.mongodb.spark.sql.connector.read.partitioner;
 
 import static java.lang.String.format;
 
+import com.mongodb.ServerAddress;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.Projections;
+import com.mongodb.client.model.Sorts;
+import com.mongodb.spark.sql.connector.assertions.Assertions;
+import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
+import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -26,11 +34,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
-import org.jetbrains.annotations.ApiStatus;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.VisibleForTesting;
-
 import org.bson.BsonBoolean;
 import org.bson.BsonDocument;
 import org.bson.BsonMaxKey;
@@ -38,16 +41,9 @@ import org.bson.BsonMinKey;
 import org.bson.BsonString;
 import org.bson.BsonValue;
 import org.bson.conversions.Bson;
-
-import com.mongodb.ServerAddress;
-import com.mongodb.client.model.Filters;
-import com.mongodb.client.model.Projections;
-import com.mongodb.client.model.Sorts;
-
-import com.mongodb.spark.sql.connector.assertions.Assertions;
-import com.mongodb.spark.sql.connector.config.ReadConfig;
-import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
-import com.mongodb.spark.sql.connector.read.MongoInputPartition;
+import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Sharded Partitioner
@@ -82,15 +78,12 @@ public final class ShardedPartitioner implements Partitioner {
   public List<MongoInputPartition> generatePartitions(final ReadConfig readConfig) {
     LOGGER.info("Getting shard chunk bounds for '{}'", readConfig.getNamespace().getFullName());
 
-    BsonDocument configCollectionMetadata =
-        readConfig.withClient(
-            client ->
-                client
-                    .getDatabase(CONFIG_DATABASE)
-                    .getCollection(CONFIG_COLLECTIONS, BsonDocument.class)
-                    .find(Filters.eq(ID_FIELD, readConfig.getNamespace().getFullName()))
-                    .projection(Projections.include("_id", "timestamp", "uuid", "dropped", "key"))
-                    .first());
+    BsonDocument configCollectionMetadata = readConfig.withClient(client -> client
+        .getDatabase(CONFIG_DATABASE)
+        .getCollection(CONFIG_COLLECTIONS, BsonDocument.class)
+        .find(Filters.eq(ID_FIELD, readConfig.getNamespace().getFullName()))
+        .projection(Projections.include("_id", "timestamp", "uuid", "dropped", "key"))
+        .first());
 
     if (configCollectionMetadata == null) {
       LOGGER.warn(
@@ -118,22 +111,18 @@ public final class ShardedPartitioner implements Partitioner {
 
     // Depending on MongoDB version the chunks collection will either use the collection namespace
     // or the metadata uuid as the identifier for the chunks data.
-    Bson chunksMatchPredicate =
-        Filters.or(
-            new BsonDocument(NAMESPACE_FIELD, configCollectionMetadata.get(ID_FIELD)),
-            new BsonDocument(UUID_FIELD, configCollectionMetadata.get(UUID_FIELD)));
+    Bson chunksMatchPredicate = Filters.or(
+        new BsonDocument(NAMESPACE_FIELD, configCollectionMetadata.get(ID_FIELD)),
+        new BsonDocument(UUID_FIELD, configCollectionMetadata.get(UUID_FIELD)));
 
-    List<BsonDocument> chunks =
-        readConfig.withClient(
-            client ->
-                client
-                    .getDatabase(CONFIG_DATABASE)
-                    .getCollection(CONFIG_CHUNKS, BsonDocument.class)
-                    .find(chunksMatchPredicate)
-                    .projection(CHUNKS_PROJECTIONS)
-                    .sort(SORTS)
-                    .allowDiskUse(readConfig.getAggregationAllowDiskUse())
-                    .into(new ArrayList<>()));
+    List<BsonDocument> chunks = readConfig.withClient(client -> client
+        .getDatabase(CONFIG_DATABASE)
+        .getCollection(CONFIG_CHUNKS, BsonDocument.class)
+        .find(chunksMatchPredicate)
+        .projection(CHUNKS_PROJECTIONS)
+        .sort(SORTS)
+        .allowDiskUse(readConfig.getAggregationAllowDiskUse())
+        .into(new ArrayList<>()));
 
     List<MongoInputPartition> partitions = createMongoInputPartitions(chunks, readConfig);
 
@@ -152,58 +141,50 @@ public final class ShardedPartitioner implements Partitioner {
     Map<String, List<String>> shardMap = createShardMap(readConfig);
 
     return IntStream.range(0, chunks.size())
-        .mapToObj(
-            i -> {
-              BsonDocument chunkDocument = chunks.get(i);
-              BsonDocument min = chunkDocument.getDocument("min");
-              BsonDocument max = chunkDocument.getDocument("max");
-              BsonDocument partitionBounds = new BsonDocument();
+        .mapToObj(i -> {
+          BsonDocument chunkDocument = chunks.get(i);
+          BsonDocument min = chunkDocument.getDocument("min");
+          BsonDocument max = chunkDocument.getDocument("max");
+          BsonDocument partitionBounds = new BsonDocument();
 
-              Assertions.ensureState(
-                  () -> min.keySet().equals(max.keySet()),
-                  () ->
-                      format(
-                          "Unexpected chunk data information. Differing keys for min / max ranges. %s",
-                          chunkDocument.toJson()));
-              min.keySet()
-                  .forEach(
-                      shardKey -> {
-                        BsonDocument shardKeyBoundary =
-                            PartitionerHelper.createPartitionBounds(
-                                min.getOrDefault(shardKey, BSON_MIN), max.get(shardKey, BSON_MAX));
-                        if (!shardKeyBoundary.isEmpty()) {
-                          partitionBounds.put(shardKey, shardKeyBoundary);
-                        }
-                      });
-              if (partitionBounds.isEmpty()) {
-                return null;
-              }
+          Assertions.ensureState(
+              () -> min.keySet().equals(max.keySet()),
+              () -> format(
+                  "Unexpected chunk data information. Differing keys for min / max ranges. %s",
+                  chunkDocument.toJson()));
+          min.keySet().forEach(shardKey -> {
+            BsonDocument shardKeyBoundary = PartitionerHelper.createPartitionBounds(
+                min.getOrDefault(shardKey, BSON_MIN), max.get(shardKey, BSON_MAX));
+            if (!shardKeyBoundary.isEmpty()) {
+              partitionBounds.put(shardKey, shardKeyBoundary);
+            }
+          });
+          if (partitionBounds.isEmpty()) {
+            return null;
+          }
 
-              return new MongoInputPartition(
-                  i,
-                  PartitionerHelper.createPartitionPipeline(
-                      partitionBounds, readConfig.getAggregationPipeline()),
-                  shardMap.get(chunkDocument.getString("shard", new BsonString("")).getValue()));
-            })
+          return new MongoInputPartition(
+              i,
+              PartitionerHelper.createPartitionPipeline(
+                  partitionBounds, readConfig.getAggregationPipeline()),
+              shardMap.get(chunkDocument.getString("shard", new BsonString("")).getValue()));
+        })
         .filter(Objects::nonNull)
         .collect(Collectors.toList());
   }
 
   @NotNull
   private Map<String, List<String>> createShardMap(final ReadConfig readConfig) {
-    return readConfig.withClient(
-        client ->
-            client
-                .getDatabase(CONFIG_DATABASE)
-                .getCollection(CONFIG_SHARDS, BsonDocument.class)
-                .find()
-                .projection(SHARDS_PROJECTIONS)
-                .into(new ArrayList<>())
-                .stream()
-                .collect(
-                    Collectors.toMap(
-                        s -> s.getString(ID_FIELD).getValue(),
-                        s -> getHosts(s.getString(HOST_FIELD).getValue()))));
+    return readConfig.withClient(client -> client
+        .getDatabase(CONFIG_DATABASE)
+        .getCollection(CONFIG_SHARDS, BsonDocument.class)
+        .find()
+        .projection(SHARDS_PROJECTIONS)
+        .into(new ArrayList<>())
+        .stream()
+        .collect(Collectors.toMap(
+            s -> s.getString(ID_FIELD).getValue(),
+            s -> getHosts(s.getString(HOST_FIELD).getValue()))));
   }
 
   /**
@@ -215,11 +196,10 @@ public final class ShardedPartitioner implements Partitioner {
   List<String> getHosts(final String hosts) {
     return Arrays.stream(hosts.split(","))
         .map(String::trim)
-        .map(
-            hostAndPort -> {
-              String[] splitHostAndPort = hostAndPort.split("/");
-              return new ServerAddress(splitHostAndPort[splitHostAndPort.length - 1]).getHost();
-            })
+        .map(hostAndPort -> {
+          String[] splitHostAndPort = hostAndPort.split("/");
+          return new ServerAddress(splitHostAndPort[splitHostAndPort.length - 1]).getHost();
+        })
         .distinct()
         .collect(Collectors.toList());
   }

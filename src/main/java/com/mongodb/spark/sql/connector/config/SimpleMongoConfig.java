@@ -57,17 +57,15 @@ class SimpleMongoConfig implements MongoConfig {
 
   @Override
   public String toString() {
-    String cleanedOptions =
-        options.entrySet().stream()
-            .map(
-                e -> {
-                  String value = e.getValue();
-                  if (e.getKey().contains(CONNECTION_STRING_CONFIG)) {
-                    value = "<hidden>";
-                  }
-                  return e.getKey() + "=" + value;
-                })
-            .collect(Collectors.joining(", "));
+    String cleanedOptions = options.entrySet().stream()
+        .map(e -> {
+          String value = e.getValue();
+          if (e.getKey().contains(CONNECTION_STRING_CONFIG)) {
+            value = "<hidden>";
+          }
+          return e.getKey() + "=" + value;
+        })
+        .collect(Collectors.joining(", "));
     return "MongoConfig{options=" + cleanedOptions + ", usageMode=NotSet}";
   }
 }

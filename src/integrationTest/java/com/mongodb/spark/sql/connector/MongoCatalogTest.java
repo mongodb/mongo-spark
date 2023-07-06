@@ -33,6 +33,12 @@ import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.Aggregates;
+import com.mongodb.client.model.Filters;
+import com.mongodb.spark.sql.connector.config.MongoConfig;
+import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
+import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -40,7 +46,6 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
 import org.apache.spark.sql.catalyst.analysis.NamespaceAlreadyExistsException;
 import org.apache.spark.sql.catalyst.analysis.NoSuchNamespaceException;
 import org.apache.spark.sql.catalyst.analysis.NoSuchTableException;
@@ -56,14 +61,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.commons.function.Try;
 
-import com.mongodb.client.MongoDatabase;
-import com.mongodb.client.model.Aggregates;
-import com.mongodb.client.model.Filters;
-
-import com.mongodb.spark.sql.connector.config.MongoConfig;
-import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
-import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
-
 public class MongoCatalogTest extends MongoSparkConnectorTestCase {
   private static final MongoCatalog MONGO_CATALOG = new MongoCatalog();
   private static final String DATABASE_NAME = "SPARK_CONNECTOR_TEST";
@@ -76,19 +73,12 @@ public class MongoCatalogTest extends MongoSparkConnectorTestCase {
 
   @AfterEach
   void afterEach() {
-    MONGO_CATALOG.reset(
-        () ->
-            MONGO_CATALOG
-                .getWriteConfig()
-                .doWithClient(
-                    c ->
-                        c.listDatabaseNames()
-                            .forEach(
-                                n -> {
-                                  if (n.startsWith(DATABASE_NAME)) {
-                                    c.getDatabase(n).drop();
-                                  }
-                                })));
+    MONGO_CATALOG.reset(() -> MONGO_CATALOG.getWriteConfig().doWithClient(c -> c.listDatabaseNames()
+        .forEach(n -> {
+          if (n.startsWith(DATABASE_NAME)) {
+            c.getDatabase(n).drop();
+          }
+        })));
   }
 
   @Test
@@ -122,9 +112,8 @@ public class MongoCatalogTest extends MongoSparkConnectorTestCase {
     MONGO_CATALOG.initialize(identifier.namespace()[0], getConnectionProviderOptions());
     createCollection(identifier);
 
-    assertTrue(
-        Arrays.stream(MONGO_CATALOG.listNamespaces())
-            .anyMatch(s -> Arrays.equals(s, identifier.namespace())));
+    assertTrue(Arrays.stream(MONGO_CATALOG.listNamespaces())
+        .anyMatch(s -> Arrays.equals(s, identifier.namespace())));
 
     assertThrows(
         NoSuchNamespaceException.class,
@@ -202,16 +191,14 @@ public class MongoCatalogTest extends MongoSparkConnectorTestCase {
     Identifier identifier = createIdentifier(DATABASE_NAME, COLLECTION_NAME);
     assertThrows(
         IllegalStateException.class,
-        () ->
-            MONGO_CATALOG.alterNamespace(
-                identifier.namespace(), NamespaceChange.setProperty("prop", "value")),
+        () -> MONGO_CATALOG.alterNamespace(
+            identifier.namespace(), NamespaceChange.setProperty("prop", "value")),
         NOT_INITIALIZED);
     MONGO_CATALOG.initialize(identifier.namespace()[0], getConnectionProviderOptions());
     assertThrows(
         UnsupportedOperationException.class,
-        () ->
-            MONGO_CATALOG.alterNamespace(
-                identifier.namespace(), NamespaceChange.setProperty("prop", "value")));
+        () -> MONGO_CATALOG.alterNamespace(
+            identifier.namespace(), NamespaceChange.setProperty("prop", "value")));
   }
 
   @Test
@@ -299,22 +286,18 @@ public class MongoCatalogTest extends MongoSparkConnectorTestCase {
     assertThrows(
         TableAlreadyExistsException.class, () -> MONGO_CATALOG.renameTable(identifier, identifier));
 
-    Try.call(
-            () -> {
-              MONGO_CATALOG.renameTable(identifier, identifierAltCollection);
-              return null;
-            })
-        .ifSuccess(
-            (x) ->
-                assertIterableEquals(
-                    singletonList(identifierAltCollection),
-                    asList(MONGO_CATALOG.listTables(identifierAltCollection.namespace()))))
-        .ifFailure(
-            ex -> {
-              // Not all server versions support renaming across databases.
-              // If they don't provide a MongoSparkException
-              assertInstanceOf(MongoSparkException.class, ex);
-            });
+    Try.call(() -> {
+          MONGO_CATALOG.renameTable(identifier, identifierAltCollection);
+          return null;
+        })
+        .ifSuccess((x) -> assertIterableEquals(
+            singletonList(identifierAltCollection),
+            asList(MONGO_CATALOG.listTables(identifierAltCollection.namespace()))))
+        .ifFailure(ex -> {
+          // Not all server versions support renaming across databases.
+          // If they don't provide a MongoSparkException
+          assertInstanceOf(MongoSparkException.class, ex);
+        });
   }
 
   @Test
@@ -361,11 +344,10 @@ public class MongoCatalogTest extends MongoSparkConnectorTestCase {
   void createTableTest() throws TableAlreadyExistsException {
     Identifier identifier = createIdentifier(DATABASE_NAME, COLLECTION_NAME);
     Identifier identifierAltDatabase = createIdentifier(DATABASE_NAME_ALT, COLLECTION_NAME);
-    StructType schema =
-        new StructType()
-            .add("f1", IntegerType, true)
-            .add("f2", LongType, false)
-            .add("f3", BooleanType, false);
+    StructType schema = new StructType()
+        .add("f1", IntegerType, true)
+        .add("f2", LongType, false)
+        .add("f3", BooleanType, false);
 
     assertThrows(
         IllegalStateException.class, () -> MONGO_CATALOG.loadTable(identifier), NOT_INITIALIZED);
@@ -373,20 +355,15 @@ public class MongoCatalogTest extends MongoSparkConnectorTestCase {
     MONGO_CATALOG.initialize(identifier.namespace()[0], getConnectionProviderOptions());
     assertThrows(
         UnsupportedOperationException.class,
-        () ->
-            MONGO_CATALOG.createTable(
-                Identifier.of(new String[0], COLLECTION_NAME),
-                schema,
-                new Transform[0],
-                emptyMap()));
+        () -> MONGO_CATALOG.createTable(
+            Identifier.of(new String[0], COLLECTION_NAME), schema, new Transform[0], emptyMap()));
     assertThrows(
         UnsupportedOperationException.class,
-        () ->
-            MONGO_CATALOG.createTable(
-                Identifier.of(new String[] {"a", "b"}, COLLECTION_NAME),
-                schema,
-                new Transform[0],
-                emptyMap()));
+        () -> MONGO_CATALOG.createTable(
+            Identifier.of(new String[] {"a", "b"}, COLLECTION_NAME),
+            schema,
+            new Transform[0],
+            emptyMap()));
 
     createCollection(identifierAltDatabase);
     assertThrows(
@@ -395,14 +372,12 @@ public class MongoCatalogTest extends MongoSparkConnectorTestCase {
             MONGO_CATALOG.createTable(identifierAltDatabase, schema, new Transform[0], emptyMap()));
     assertThrows(
         UnsupportedOperationException.class,
-        () ->
-            MONGO_CATALOG.createTable(
-                identifier, schema, new Transform[] {new CustomTransform()}, emptyMap()));
+        () -> MONGO_CATALOG.createTable(
+            identifier, schema, new Transform[] {new CustomTransform()}, emptyMap()));
     assertThrows(
         UnsupportedOperationException.class,
-        () ->
-            MONGO_CATALOG.createTable(
-                identifier, schema, new Transform[0], getConnectionProviderOptions()));
+        () -> MONGO_CATALOG.createTable(
+            identifier, schema, new Transform[0], getConnectionProviderOptions()));
 
     assertEquals(
         new MongoTable(schema, MongoConfig.writeConfig(getConnectionProviderOptions())),
@@ -414,27 +389,18 @@ public class MongoCatalogTest extends MongoSparkConnectorTestCase {
   }
 
   private void createCollections(final String databaseName, final List<String> collectionNames) {
-    MONGO_CATALOG
-        .getWriteConfig()
-        .doWithClient(
-            c -> {
-              MongoDatabase db = c.getDatabase(databaseName);
-              for (String collectionName : collectionNames) {
-                db.createCollection(collectionName);
-              }
-            });
+    MONGO_CATALOG.getWriteConfig().doWithClient(c -> {
+      MongoDatabase db = c.getDatabase(databaseName);
+      for (String collectionName : collectionNames) {
+        db.createCollection(collectionName);
+      }
+    });
   }
 
   private void createView(final Identifier identifier) {
-    MONGO_CATALOG
-        .getWriteConfig()
-        .doWithClient(
-            c ->
-                c.getDatabase(identifier.namespace()[0])
-                    .createView(
-                        "VIEW",
-                        identifier.name(),
-                        singletonList(Aggregates.match(Filters.eq("a", 1)))));
+    MONGO_CATALOG.getWriteConfig().doWithClient(c -> c.getDatabase(identifier.namespace()[0])
+        .createView(
+            "VIEW", identifier.name(), singletonList(Aggregates.match(Filters.eq("a", 1)))));
   }
 
   private static Identifier createIdentifier(

@@ -22,24 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-import org.apache.spark.SparkConf;
-import org.apache.spark.SparkContext;
-import org.apache.spark.sql.SparkSession;
-import org.apache.spark.sql.util.CaseInsensitiveStringMap;
-import org.junit.jupiter.api.extension.RegisterExtension;
-import org.opentest4j.AssertionFailedError;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import org.bson.BsonDocument;
-import org.bson.Document;
-
 import com.mongodb.MongoNamespace;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
@@ -47,10 +29,24 @@ import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
 import com.mongodb.connection.ClusterType;
 import com.mongodb.connection.ServerDescription;
-
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.config.WriteConfig;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import org.apache.spark.SparkConf;
+import org.apache.spark.SparkContext;
+import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.util.CaseInsensitiveStringMap;
+import org.bson.BsonDocument;
+import org.bson.Document;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.opentest4j.AssertionFailedError;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @MongoDBOnline()
 public class MongoSparkConnectorTestCase {
@@ -180,25 +176,20 @@ public class MongoSparkConnectorTestCase {
     MongoCollection<Document> profileCollection = database.getCollection("system.profile");
     try {
       profileCollection.drop();
-      database.runCommand(
-          BsonDocument.parse(
-              format("{profile: 2, filter: {ns: '%s.%s'}}", databaseName, collectionName)));
+      database.runCommand(BsonDocument.parse(
+          format("{profile: 2, filter: {ns: '%s.%s'}}", databaseName, collectionName)));
 
       runnable.run();
 
-      List<Document> profileDocs =
-          profileCollection
-              .find(
-                  Filters.nor(
-                      Filters.exists("command.killCursors"),
-                      Filters.eq("command.comment", IGNORE_COMMENT)))
-              .into(new ArrayList<>());
+      List<Document> profileDocs = profileCollection
+          .find(Filters.nor(
+              Filters.exists("command.killCursors"), Filters.eq("command.comment", IGNORE_COMMENT)))
+          .into(new ArrayList<>());
 
-      List<String> withoutComment =
-          profileDocs.stream()
-              .filter(d -> !d.getEmbedded(asList("command", "comment"), "").equals(TEST_COMMENT))
-              .map(Document::toJson)
-              .collect(Collectors.toList());
+      List<String> withoutComment = profileDocs.stream()
+          .filter(d -> !d.getEmbedded(asList("command", "comment"), "").equals(TEST_COMMENT))
+          .map(Document::toJson)
+          .collect(Collectors.toList());
 
       assertTrue(
           withoutComment.isEmpty(),
@@ -219,7 +210,9 @@ public class MongoSparkConnectorTestCase {
   }
 
   public SparkSession getOrCreateSparkSession(final SparkConf sparkConfig) {
-    return SparkSession.builder().sparkContext(getOrCreateSparkContext(sparkConfig)).getOrCreate();
+    return SparkSession.builder()
+        .sparkContext(getOrCreateSparkContext(sparkConfig))
+        .getOrCreate();
   }
 
   public SparkContext getOrCreateSparkContext(final SparkConf sparkConfig) {

@@ -20,12 +20,10 @@ import static com.mongodb.spark.sql.connector.read.ResumeTokenTimestampHelper.ge
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import org.junit.jupiter.api.Test;
-
+import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import org.bson.BsonDocument;
 import org.bson.BsonTimestamp;
-
-import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
+import org.junit.jupiter.api.Test;
 
 public class ResumeTokenTimestampHelperTest {
 
@@ -39,9 +37,8 @@ public class ResumeTokenTimestampHelperTest {
 
   @Test
   public void testValidResumeTokenVersion2() {
-    BsonDocument resumeToken =
-        BsonDocument.parse(
-            "{\"_data\": \"82612E8513000000012B022C0100296E5A1004A5093ABB38FE4B9EA67F01BB1A96D812463C5F6964003C5F5F5F78000004\"}");
+    BsonDocument resumeToken = BsonDocument.parse(
+        "{\"_data\": \"82612E8513000000012B022C0100296E5A1004A5093ABB38FE4B9EA67F01BB1A96D812463C5F6964003C5F5F5F78000004\"}");
 
     assertEquals(new BsonTimestamp(1630438675, 1), getTimestamp(resumeToken));
   }

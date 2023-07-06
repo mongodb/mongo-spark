@@ -19,11 +19,10 @@ package com.mongodb.spark.sql.connector.read.partitioner;
 
 import static java.util.Collections.singletonList;
 
-import java.util.List;
-
 import com.mongodb.spark.sql.connector.annotations.ThreadSafe;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
+import java.util.List;
 
 /**
  * Single Partition Partitioner
@@ -37,10 +36,9 @@ public final class SinglePartitionPartitioner implements Partitioner {
 
   @Override
   public List<MongoInputPartition> generatePartitions(final ReadConfig readConfig) {
-    return singletonList(
-        new MongoInputPartition(
-            0,
-            readConfig.getAggregationPipeline(),
-            PartitionerHelper.getPreferredLocations(readConfig)));
+    return singletonList(new MongoInputPartition(
+        0,
+        readConfig.getAggregationPipeline(),
+        PartitionerHelper.getPreferredLocations(readConfig)));
   }
 }

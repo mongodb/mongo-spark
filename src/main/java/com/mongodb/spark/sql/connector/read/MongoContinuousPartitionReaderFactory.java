@@ -19,16 +19,15 @@ package com.mongodb.spark.sql.connector.read;
 
 import static java.lang.String.format;
 
+import com.mongodb.spark.sql.connector.assertions.Assertions;
+import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.read.InputPartition;
 import org.apache.spark.sql.connector.read.streaming.ContinuousPartitionReader;
 import org.apache.spark.sql.connector.read.streaming.ContinuousPartitionReaderFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.mongodb.spark.sql.connector.assertions.Assertions;
-import com.mongodb.spark.sql.connector.config.ReadConfig;
-import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 
 /**
  * A factory used to create {@link MongoContinuousPartitionReader} instances.
@@ -59,10 +58,9 @@ final class MongoContinuousPartitionReaderFactory implements ContinuousPartition
   public ContinuousPartitionReader<InternalRow> createReader(final InputPartition partition) {
     Assertions.ensureState(
         () -> partition instanceof MongoContinuousInputPartition,
-        () ->
-            format(
-                "Unsupported InputPartition type, a MongoContinuousInputPartition instance is required. Got: %s",
-                partition.getClass()));
+        () -> format(
+            "Unsupported InputPartition type, a MongoContinuousInputPartition instance is required. Got: %s",
+            partition.getClass()));
     LOGGER.debug("Creating MongoStreamPartitionReader for {}", partition);
     return new MongoContinuousPartitionReader(
         (MongoContinuousInputPartition) partition, bsonDocumentToRowConverter, readConfig);

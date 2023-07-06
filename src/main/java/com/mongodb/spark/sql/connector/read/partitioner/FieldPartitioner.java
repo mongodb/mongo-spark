@@ -20,19 +20,16 @@ package com.mongodb.spark.sql.connector.read.partitioner;
 import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper.getPreferredLocations;
 import static java.lang.String.format;
 
+import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.exceptions.ConfigException;
+import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
-import org.jetbrains.annotations.ApiStatus;
-
 import org.bson.BsonDocument;
-
-import com.mongodb.spark.sql.connector.config.ReadConfig;
-import com.mongodb.spark.sql.connector.exceptions.ConfigException;
-import com.mongodb.spark.sql.connector.read.MongoInputPartition;
+import org.jetbrains.annotations.ApiStatus;
 
 /**
  * Partitions collections using a single field.
@@ -70,41 +67,38 @@ abstract class FieldPartitioner implements Partitioner {
 
     Set<BsonDocument> upperBoundSet = new HashSet<>(upperBounds);
     if (upperBounds.size() != upperBoundSet.size()) {
-      throw new ConfigException(
-          format(
-              "Invalid partitioner configuration. The partitions generated contain duplicates: `%s`",
-              upperBounds.stream()
-                  .map(BsonDocument::toJson)
-                  .collect(Collectors.joining(",", "[", "]"))));
+      throw new ConfigException(format(
+          "Invalid partitioner configuration. The partitions generated contain duplicates: `%s`",
+          upperBounds.stream()
+              .map(BsonDocument::toJson)
+              .collect(Collectors.joining(",", "[", "]"))));
     }
 
     List<String> preferredLocations = getPreferredLocations(readConfig);
     return IntStream.range(0, upperBounds.size() + 1)
-        .mapToObj(
-            i -> {
-              BsonDocument previous = i > 0 ? upperBounds.get(i - 1) : null;
-              BsonDocument current = i >= upperBounds.size() ? null : upperBounds.get(i);
+        .mapToObj(i -> {
+          BsonDocument previous = i > 0 ? upperBounds.get(i - 1) : null;
+          BsonDocument current = i >= upperBounds.size() ? null : upperBounds.get(i);
 
-              BsonDocument matchFilter = new BsonDocument();
-              if (previous != null) {
-                matchFilter.put(
-                    partitionField, new BsonDocument("$gte", previous.get(partitionField)));
-              }
+          BsonDocument matchFilter = new BsonDocument();
+          if (previous != null) {
+            matchFilter.put(partitionField, new BsonDocument("$gte", previous.get(partitionField)));
+          }
 
-              if (current != null) {
-                matchFilter.put(
-                    partitionField,
-                    matchFilter
-                        .getDocument(partitionField, new BsonDocument())
-                        .append("$lt", current.get(partitionField)));
-              }
+          if (current != null) {
+            matchFilter.put(
+                partitionField,
+                matchFilter
+                    .getDocument(partitionField, new BsonDocument())
+                    .append("$lt", current.get(partitionField)));
+          }
 
-              return new MongoInputPartition(
-                  i,
-                  PartitionerHelper.createPartitionPipeline(
-                      matchFilter, readConfig.getAggregationPipeline()),
-                  preferredLocations);
-            })
+          return new MongoInputPartition(
+              i,
+              PartitionerHelper.createPartitionPipeline(
+                  matchFilter, readConfig.getAggregationPipeline()),
+              preferredLocations);
+        })
         .collect(Collectors.toList());
   }
 }

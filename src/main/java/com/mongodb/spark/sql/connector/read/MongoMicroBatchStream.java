@@ -18,8 +18,11 @@ package com.mongodb.spark.sql.connector.read;
 
 import static com.mongodb.spark.sql.connector.read.MongoInputPartitionHelper.generatePipeline;
 
+import com.mongodb.spark.sql.connector.assertions.Assertions;
+import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
+import com.mongodb.spark.sql.connector.schema.InferSchema;
 import java.time.Instant;
-
 import org.apache.spark.sql.connector.read.InputPartition;
 import org.apache.spark.sql.connector.read.PartitionReaderFactory;
 import org.apache.spark.sql.connector.read.streaming.MicroBatchStream;
@@ -28,11 +31,6 @@ import org.apache.spark.sql.execution.streaming.LongOffset;
 import org.apache.spark.sql.types.StructType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.mongodb.spark.sql.connector.assertions.Assertions;
-import com.mongodb.spark.sql.connector.config.ReadConfig;
-import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
-import com.mongodb.spark.sql.connector.schema.InferSchema;
 
 /**
  * MongoMicroBatchStream defines how to read a stream of data from MongoDB.
@@ -64,9 +62,8 @@ final class MongoMicroBatchStream implements MicroBatchStream {
   MongoMicroBatchStream(final StructType schema, final ReadConfig readConfig) {
     Assertions.validateConfig(
         schema,
-        (s) ->
-            !s.isEmpty()
-                && (!InferSchema.isInferred(s) || readConfig.streamPublishFullDocumentOnly()),
+        (s) -> !s.isEmpty()
+            && (!InferSchema.isInferred(s) || readConfig.streamPublishFullDocumentOnly()),
         () ->
             "Mongo micro batch streams require a schema to be explicitly defined, unless using publish full document only.");
     this.schema = schema;

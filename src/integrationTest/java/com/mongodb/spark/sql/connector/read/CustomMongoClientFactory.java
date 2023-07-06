@@ -16,14 +16,12 @@
  */
 package com.mongodb.spark.sql.connector.read;
 
-import java.io.Serializable;
-import java.util.concurrent.atomic.AtomicBoolean;
-
 import com.mongodb.client.MongoClient;
-
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.connection.DefaultMongoClientFactory;
 import com.mongodb.spark.sql.connector.connection.MongoClientFactory;
+import java.io.Serializable;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class CustomMongoClientFactory implements MongoClientFactory, Serializable {
   public static final AtomicBoolean CALLED = new AtomicBoolean(false);

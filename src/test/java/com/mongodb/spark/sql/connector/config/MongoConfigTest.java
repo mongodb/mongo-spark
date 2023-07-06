@@ -26,18 +26,15 @@ import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.mongodb.WriteConcern;
+import com.mongodb.client.model.changestream.FullDocument;
+import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Stream;
-
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-
-import com.mongodb.WriteConcern;
-import com.mongodb.client.model.changestream.FullDocument;
-
-import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 
 public class MongoConfigTest {
 
@@ -108,10 +105,9 @@ public class MongoConfigTest {
 
   @Test
   void testMongoConfigWriteConcern() {
-    WriteConfig writeConfig =
-        MongoConfig.createConfig(CONFIG_MAP)
-            .withOption(WriteConfig.WRITE_PREFIX + WriteConfig.WRITE_CONCERN_W_CONFIG, "1")
-            .toWriteConfig();
+    WriteConfig writeConfig = MongoConfig.createConfig(CONFIG_MAP)
+        .withOption(WriteConfig.WRITE_PREFIX + WriteConfig.WRITE_CONCERN_W_CONFIG, "1")
+        .toWriteConfig();
     assertEquals(1, writeConfig.getWriteConcern().getW());
 
     writeConfig =
@@ -122,14 +118,12 @@ public class MongoConfigTest {
         writeConfig.withOption(WriteConfig.WRITE_PREFIX + WriteConfig.WRITE_CONCERN_W_CONFIG, "3");
     assertEquals(3, writeConfig.getWriteConcern().getW());
 
-    writeConfig =
-        writeConfig.withOption(
-            WriteConfig.WRITE_PREFIX + WriteConfig.WRITE_CONCERN_W_CONFIG, "majority");
+    writeConfig = writeConfig.withOption(
+        WriteConfig.WRITE_PREFIX + WriteConfig.WRITE_CONCERN_W_CONFIG, "majority");
     assertEquals(WriteConcern.MAJORITY, writeConfig.getWriteConcern());
 
-    writeConfig =
-        writeConfig.withOption(
-            WriteConfig.WRITE_PREFIX + WriteConfig.WRITE_CONCERN_W_CONFIG, "region1");
+    writeConfig = writeConfig.withOption(
+        WriteConfig.WRITE_PREFIX + WriteConfig.WRITE_CONCERN_W_CONFIG, "region1");
     assertEquals(new WriteConcern("region1"), writeConfig.getWriteConcern());
   }
 

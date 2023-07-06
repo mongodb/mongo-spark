@@ -19,9 +19,11 @@ package com.mongodb.spark.sql.connector.write;
 
 import static java.lang.String.format;
 
+import com.mongodb.client.MongoCollection;
+import com.mongodb.spark.sql.connector.config.WriteConfig;
+import com.mongodb.spark.sql.connector.exceptions.DataException;
 import java.util.Arrays;
 import java.util.Objects;
-
 import org.apache.spark.sql.connector.write.BatchWrite;
 import org.apache.spark.sql.connector.write.DataWriterFactory;
 import org.apache.spark.sql.connector.write.LogicalWriteInfo;
@@ -29,11 +31,6 @@ import org.apache.spark.sql.connector.write.PhysicalWriteInfo;
 import org.apache.spark.sql.connector.write.WriterCommitMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.mongodb.client.MongoCollection;
-
-import com.mongodb.spark.sql.connector.config.WriteConfig;
-import com.mongodb.spark.sql.connector.exceptions.DataException;
 
 /** MongoBatchWrite defines how to write the data to MongoDB when batch processing. */
 final class MongoBatchWrite implements BatchWrite {
@@ -91,9 +88,8 @@ final class MongoBatchWrite implements BatchWrite {
   @Override
   public void abort(final WriterCommitMessage[] messages) {
     long tasksCompleted = Arrays.stream(messages).filter(Objects::nonNull).count();
-    throw new DataException(
-        format(
-            "Write aborted for: %s. %s/%s tasks completed.",
-            info.queryId(), tasksCompleted, messages.length));
+    throw new DataException(format(
+        "Write aborted for: %s. %s/%s tasks completed.",
+        info.queryId(), tasksCompleted, messages.length));
   }
 }

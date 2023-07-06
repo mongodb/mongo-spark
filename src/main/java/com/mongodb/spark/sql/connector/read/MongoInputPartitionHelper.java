@@ -19,20 +19,17 @@ package com.mongodb.spark.sql.connector.read;
 import static com.mongodb.spark.sql.connector.read.partitioner.Partitioner.LOGGER;
 import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper.SINGLE_PARTITIONER;
 
+import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
+import com.mongodb.spark.sql.connector.read.partitioner.Partitioner;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
-
 import org.apache.spark.sql.types.StructType;
-
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
-
-import com.mongodb.spark.sql.connector.config.ReadConfig;
-import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
-import com.mongodb.spark.sql.connector.read.partitioner.Partitioner;
 
 final class MongoInputPartitionHelper {
 
@@ -58,19 +55,14 @@ final class MongoInputPartitionHelper {
 
       List<MongoInputPartition> partitions = mongoInputPartitions;
       return schemaProjections(schema, readConfig.streamPublishFullDocumentOnly())
-          .map(
-              schemaProjection -> {
-                List<MongoInputPartition> partitionsWithProjection =
-                    new ArrayList<>(partitions.size());
-                partitions.forEach(
-                    p ->
-                        partitionsWithProjection.add(
-                            new MongoInputPartition(
-                                p.getPartitionId(),
-                                mergePipelineFunction(p.getPipeline()).apply(schemaProjection),
-                                p.getPreferredLocations())));
-                return partitionsWithProjection;
-              })
+          .map(schemaProjection -> {
+            List<MongoInputPartition> partitionsWithProjection = new ArrayList<>(partitions.size());
+            partitions.forEach(p -> partitionsWithProjection.add(new MongoInputPartition(
+                p.getPartitionId(),
+                mergePipelineFunction(p.getPipeline()).apply(schemaProjection),
+                p.getPreferredLocations())));
+            return partitionsWithProjection;
+          })
           .orElse(mongoInputPartitions)
           .toArray(new MongoInputPartition[0]);
     } catch (RuntimeException ex) {

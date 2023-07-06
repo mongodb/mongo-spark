@@ -18,19 +18,6 @@ package com.mongodb.spark.sql.connector.write;
 
 import static java.lang.String.format;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.apache.spark.sql.catalyst.InternalRow;
-import org.apache.spark.sql.connector.write.DataWriter;
-import org.apache.spark.sql.connector.write.WriterCommitMessage;
-import org.apache.spark.sql.types.StructType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import org.bson.BsonDocument;
-import org.bson.BsonValue;
-
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.model.BulkWriteOptions;
 import com.mongodb.client.model.InsertOneModel;
@@ -39,10 +26,19 @@ import com.mongodb.client.model.ReplaceOptions;
 import com.mongodb.client.model.UpdateOneModel;
 import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.model.WriteModel;
-
 import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.exceptions.DataException;
 import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.spark.sql.catalyst.InternalRow;
+import org.apache.spark.sql.connector.write.DataWriter;
+import org.apache.spark.sql.connector.write.WriterCommitMessage;
+import org.apache.spark.sql.types.StructType;
+import org.bson.BsonDocument;
+import org.bson.BsonValue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** The MongoDB writer that writes the input RDD partition into MongoDB. */
 final class MongoDataWriter implements DataWriter<InternalRow> {
@@ -74,9 +70,8 @@ final class MongoDataWriter implements DataWriter<InternalRow> {
       final long epochId) {
     this.partitionId = partitionId;
     this.taskId = taskId;
-    this.rowToBsonDocumentConverter =
-        new RowToBsonDocumentConverter(
-            schema, writeConfig.convertJson(), writeConfig.ignoreNullValues());
+    this.rowToBsonDocumentConverter = new RowToBsonDocumentConverter(
+        schema, writeConfig.convertJson(), writeConfig.ignoreNullValues());
     this.writeConfig = writeConfig;
     this.epochId = epochId;
     this.bulkWriteOptions =
@@ -123,11 +118,10 @@ final class MongoDataWriter implements DataWriter<InternalRow> {
   public void abort() {
     LOGGER.debug("Aborting write for: PartitionId: {}, TaskId: {}.", partitionId, taskId);
     releaseClient();
-    throw new DataException(
-        format(
-            "Write aborted for: PartitionId: %s, TaskId: %s. "
-                + "Manual data clean up may be required.",
-            partitionId, taskId));
+    throw new DataException(format(
+        "Write aborted for: PartitionId: %s, TaskId: %s. "
+            + "Manual data clean up may be required.",
+        partitionId, taskId));
   }
 
   @Override
@@ -166,17 +160,14 @@ final class MongoDataWriter implements DataWriter<InternalRow> {
 
   private BsonDocument getIdFieldDocument(final BsonDocument bsonDocument) {
     BsonDocument idFields = new BsonDocument();
-    writeConfig
-        .getIdFields()
-        .forEach(
-            k -> {
-              BsonValue v = bsonDocument.get(k);
-              if (v == null) {
-                throw new DataException(
-                    format("Missing id field: '%s' from: %s", k, bsonDocument.toJson()));
-              }
-              idFields.append(k, v);
-            });
+    writeConfig.getIdFields().forEach(k -> {
+      BsonValue v = bsonDocument.get(k);
+      if (v == null) {
+        throw new DataException(
+            format("Missing id field: '%s' from: %s", k, bsonDocument.toJson()));
+      }
+      idFields.append(k, v);
+    });
     return idFields;
   }
 

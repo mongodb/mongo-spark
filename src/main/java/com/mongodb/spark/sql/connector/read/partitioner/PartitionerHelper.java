@@ -20,20 +20,17 @@ package com.mongodb.spark.sql.connector.read.partitioner;
 import static com.mongodb.spark.sql.connector.read.partitioner.Partitioner.LOGGER;
 import static java.util.Collections.singletonList;
 
+import com.mongodb.MongoCommandException;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
 import org.bson.BsonDocument;
 import org.bson.BsonType;
 import org.bson.BsonValue;
-
-import com.mongodb.MongoCommandException;
-import com.mongodb.client.MongoDatabase;
-
-import com.mongodb.spark.sql.connector.config.ReadConfig;
-import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 
 /** Partitioner helper class, contains various utility methods used by the partitioner instances. */
 public final class PartitionerHelper {
@@ -100,13 +97,11 @@ public final class PartitionerHelper {
     try {
       return readConfig
           .withCollection(
-              coll ->
-                  Optional.ofNullable(
-                          coll.aggregate(COLL_STATS_AGGREGATION_PIPELINE)
-                              .allowDiskUse(readConfig.getAggregationAllowDiskUse())
-                              .comment(readConfig.getComment())
-                              .first())
-                      .orElseGet(BsonDocument::new))
+              coll -> Optional.ofNullable(coll.aggregate(COLL_STATS_AGGREGATION_PIPELINE)
+                      .allowDiskUse(readConfig.getAggregationAllowDiskUse())
+                      .comment(readConfig.getComment())
+                      .first())
+                  .orElseGet(BsonDocument::new))
           .getDocument("storageStats", new BsonDocument());
     } catch (RuntimeException ex) {
       if (ex instanceof MongoCommandException
@@ -125,12 +120,11 @@ public final class PartitionerHelper {
    */
   public static List<String> getPreferredLocations(final ReadConfig readConfig) {
     return readConfig
-        .withClient(
-            c -> {
-              MongoDatabase db = c.getDatabase(readConfig.getDatabaseName());
-              db.runCommand(PING_COMMAND, db.getReadPreference());
-              return c.getClusterDescription();
-            })
+        .withClient(c -> {
+          MongoDatabase db = c.getDatabase(readConfig.getDatabaseName());
+          db.runCommand(PING_COMMAND, db.getReadPreference());
+          return c.getClusterDescription();
+        })
         .getServerDescriptions()
         .stream()
         .flatMap(sd -> sd.getHosts().stream())

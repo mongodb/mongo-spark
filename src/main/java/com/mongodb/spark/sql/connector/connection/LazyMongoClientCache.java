@@ -17,9 +17,8 @@
 
 package com.mongodb.spark.sql.connector.connection;
 
-import org.jetbrains.annotations.ApiStatus;
-
 import com.mongodb.client.MongoClient;
+import org.jetbrains.annotations.ApiStatus;
 
 /**
  * A lazily initialized {@link MongoClientCache}.

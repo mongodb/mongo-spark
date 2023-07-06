@@ -17,13 +17,10 @@
 
 package com.mongodb.spark.sql.connector.read;
 
-import java.io.Serializable;
-
-import org.apache.spark.sql.connector.read.streaming.Offset;
-
-import org.bson.BsonDocument;
-
 import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
+import java.io.Serializable;
+import org.apache.spark.sql.connector.read.streaming.Offset;
+import org.bson.BsonDocument;
 
 /** An offset that contains a resume token from a change stream */
 final class ResumeTokenBasedOffset extends Offset implements Serializable {
