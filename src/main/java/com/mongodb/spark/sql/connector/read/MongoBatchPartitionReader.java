@@ -108,6 +108,7 @@ class MongoBatchPartitionReader implements PartitionReader<InternalRow> {
               .getCollection(readConfig.getCollectionName(), BsonDocument.class)
               .aggregate(partition.getPipeline())
               .allowDiskUse(readConfig.getAggregationAllowDiskUse())
+              .comment(readConfig.getComment())
               .cursor();
     }
     return mongoCursor;

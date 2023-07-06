@@ -26,6 +26,8 @@ import org.jetbrains.annotations.ApiStatus;
 
 import org.bson.BsonDocument;
 
+import com.mongodb.client.model.CountOptions;
+
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
@@ -67,7 +69,11 @@ public final class PaginateIntoPartitionsPartitioner extends PaginatePartitioner
                     MAX_NUMBER_OF_PARTITIONS_CONFIG));
 
     BsonDocument matchQuery = PartitionerHelper.matchQuery(readConfig.getAggregationPipeline());
-    long count = readConfig.withCollection(coll -> coll.countDocuments(matchQuery));
+    long count =
+        readConfig.withCollection(
+            coll ->
+                coll.countDocuments(
+                    matchQuery, new CountOptions().comment(readConfig.getComment())));
     if (count <= 1) {
       LOGGER.warn("Returning a single partition.");
       return SINGLE_PARTITIONER.generatePartitions(readConfig);

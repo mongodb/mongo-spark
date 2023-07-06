@@ -182,7 +182,8 @@ final class MongoContinuousPartitionReader implements ContinuousPartitionReader<
               .getDatabase(readConfig.getDatabaseName())
               .getCollection(readConfig.getCollectionName())
               .watch(pipeline)
-              .fullDocument(readConfig.getStreamFullDocument());
+              .fullDocument(readConfig.getStreamFullDocument())
+              .comment(readConfig.getComment());
 
       if (!lastOffset.getResumeToken().isEmpty()) {
         changeStreamIterable = changeStreamIterable.startAfter(lastOffset.getResumeToken());

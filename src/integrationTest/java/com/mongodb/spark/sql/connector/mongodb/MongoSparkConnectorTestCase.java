@@ -15,8 +15,18 @@
  */
 package com.mongodb.spark.sql.connector.mongodb;
 
+import static java.lang.String.format;
+import static java.util.Arrays.asList;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
@@ -28,15 +38,19 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.bson.BsonDocument;
+import org.bson.Document;
 
 import com.mongodb.MongoNamespace;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.Filters;
 import com.mongodb.connection.ClusterType;
 import com.mongodb.connection.ServerDescription;
 
 import com.mongodb.spark.sql.connector.config.MongoConfig;
+import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.config.WriteConfig;
 
 @MongoDBOnline()
 public class MongoSparkConnectorTestCase {
@@ -45,6 +59,10 @@ public class MongoSparkConnectorTestCase {
 
   @RegisterExtension
   public static final MongoSparkConnectorHelper HELPER = new MongoSparkConnectorHelper();
+
+  public static final String IGNORE_COMMENT = "IGNORE_THIS_COMMENT";
+
+  public static final String TEST_COMMENT = "TEST_COMMENT";
 
   public String getDatabaseName() {
     return HELPER.getDatabaseName();
@@ -138,6 +156,57 @@ public class MongoSparkConnectorTestCase {
   public void loadSampleData(
       final int numberOfDocuments, final int sizeInMB, final MongoConfig config) {
     HELPER.loadSampleData(numberOfDocuments, sizeInMB, config);
+  }
+
+  /** Runs events with the profiler on. */
+  public void assertCommentsInProfile(final Runnable runnable, final ReadConfig readConfig) {
+    assumeFalse(isSharded());
+    assertNotNull(readConfig.getComment());
+    assertCommentsInProfile(runnable, readConfig.getDatabaseName(), readConfig.getCollectionName());
+  }
+
+  /** Runs events with the profiler on. */
+  public void assertCommentsInProfile(final Runnable runnable, final WriteConfig writeConfig) {
+    assertNotNull(writeConfig.getComment());
+    assertCommentsInProfile(
+        runnable, writeConfig.getDatabaseName(), writeConfig.getCollectionName());
+  }
+
+  private void assertCommentsInProfile(
+      final Runnable runnable, final String databaseName, final String collectionName) {
+    assumeTrue(isAtLeastFiveDotZero());
+    assumeFalse(isSharded());
+    MongoDatabase database = HELPER.getMongoClient().getDatabase(databaseName);
+    MongoCollection<Document> profileCollection = database.getCollection("system.profile");
+    try {
+      profileCollection.drop();
+      database.runCommand(
+          BsonDocument.parse(
+              format("{profile: 2, filter: {ns: '%s.%s'}}", databaseName, collectionName)));
+
+      runnable.run();
+
+      List<Document> profileDocs =
+          profileCollection
+              .find(
+                  Filters.nor(
+                      Filters.exists("command.killCursors"), Filters.eq("command.comment", IGNORE_COMMENT)))
+              .into(new ArrayList<>());
+
+      List<String> withoutComment =
+          profileDocs.stream()
+              .filter(d -> !d.getEmbedded(asList("command", "comment"), "").equals(TEST_COMMENT))
+              .map(Document::toJson)
+              .collect(Collectors.toList());
+
+      assertTrue(
+          withoutComment.isEmpty(),
+          () ->
+              format("The following commands were observed without comments: %s", withoutComment));
+    } finally {
+      database.runCommand(BsonDocument.parse("{profile: 0}"));
+      profileCollection.drop();
+    }
   }
 
   public SparkConf getSparkConf() {

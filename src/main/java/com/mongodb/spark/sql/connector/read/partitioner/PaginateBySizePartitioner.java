@@ -27,6 +27,8 @@ import org.jetbrains.annotations.ApiStatus;
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
 
+import com.mongodb.client.model.CountOptions;
+
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
@@ -91,7 +93,11 @@ public final class PaginateBySizePartitioner extends PaginatePartitioner {
     if (matchQuery.isEmpty() && storageStats.containsKey("count")) {
       count = storageStats.getNumber("count").longValue();
     } else {
-      count = readConfig.withCollection(coll -> coll.countDocuments(matchQuery));
+      count =
+          readConfig.withCollection(
+              coll ->
+                  coll.countDocuments(
+                      matchQuery, new CountOptions().comment(readConfig.getComment())));
     }
 
     if (count <= numDocumentsPerPartition) {

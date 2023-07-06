@@ -17,6 +17,7 @@
 
 package com.mongodb.spark.sql.connector.read.partitioner;
 
+import static com.mongodb.spark.sql.connector.config.MongoConfig.COMMENT_CONFIG;
 import static com.mongodb.spark.sql.connector.config.ReadConfig.PARTITIONER_OPTIONS_PREFIX;
 import static com.mongodb.spark.sql.connector.read.partitioner.FieldPartitioner.PARTITION_FIELD_CONFIG;
 import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper.SINGLE_PARTITIONER;
@@ -273,5 +274,15 @@ public class PaginateBySizePartitionerTest extends PartitionerTestCase {
                             PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG,
                             "0")),
                 PARTITION_SIZE_MB_CONFIG + " is zero"));
+  }
+
+  @Test
+  void shouldLogCommentsInProfilerLogs() {
+    ReadConfig readConfig = createReadConfig("commentInLogs");
+    loadSampleData(50, 5, readConfig);
+
+    ReadConfig configWithComment = readConfig.withOption(COMMENT_CONFIG, TEST_COMMENT);
+    assertCommentsInProfile(
+        () -> PARTITIONER.generatePartitions(configWithComment), configWithComment);
   }
 }

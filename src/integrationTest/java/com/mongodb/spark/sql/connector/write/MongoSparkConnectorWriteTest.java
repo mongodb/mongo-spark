@@ -16,12 +16,15 @@
  */
 package com.mongodb.spark.sql.connector.write;
 
+import static com.mongodb.spark.sql.connector.config.MongoConfig.COMMENT_CONFIG;
+import static com.mongodb.spark.sql.connector.interop.JavaScala.asJava;
 import static java.util.Arrays.asList;
 import static org.apache.spark.sql.types.DataTypes.createStructField;
 import static org.apache.spark.sql.types.DataTypes.createStructType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.ArrayList;
@@ -44,6 +47,7 @@ import org.junit.jupiter.api.Test;
 import org.bson.BsonDocument;
 import org.bson.BsonNull;
 
+import com.mongodb.client.model.CountOptions;
 import com.mongodb.client.model.CreateCollectionOptions;
 import com.mongodb.client.model.TimeSeriesGranularity;
 import com.mongodb.client.model.TimeSeriesOptions;
@@ -246,6 +250,71 @@ class MongoSparkConnectorWriteTest extends MongoSparkConnectorTestCase {
     assertThrows(AnalysisException.class, () -> dfw.mode("Ignore").save());
   }
 
+  @Test
+  void testLogCommentsInProfilerLogs() {
+    SparkSession spark = getOrCreateSparkSession();
+
+    Dataset<Row> df = spark.read().json(WRITE_RESOURCES_JSON_PATH);
+    WriteConfig writeConfig =
+        MongoConfig.writeConfig(asJava(spark.initialSessionOptions()))
+            .withOption(COMMENT_CONFIG, TEST_COMMENT);
+
+    assertCommentsInProfile(
+        () -> {
+          df.write()
+              .option(COMMENT_CONFIG, TEST_COMMENT)
+              .format("mongodb")
+              .mode("Overwrite")
+              .save();
+          assertEquals(
+              10,
+              getCollection()
+                  .countDocuments(new BsonDocument(), new CountOptions().comment(IGNORE_COMMENT)));
+          assertCollection();
+        },
+        writeConfig);
+  }
+
+  @Test
+  void testLogCommentsInProfilerLogsStreamingWrites() {
+    SparkSession spark = getOrCreateSparkSession();
+
+    WriteConfig writeConfig =
+        MongoConfig.writeConfig(asJava(spark.initialSessionOptions()))
+            .withOption(COMMENT_CONFIG, TEST_COMMENT);
+
+    assertCommentsInProfile(
+        () -> {
+          try {
+            StructType schema =
+                createStructType(
+                    asList(
+                        createStructField("age", DataTypes.LongType, true),
+                        createStructField("name", DataTypes.StringType, true)));
+
+            Dataset<Row> df = spark.readStream().schema(schema).json(WRITE_RESOURCES_JSON_PATH);
+
+            StreamingQuery query =
+                df.writeStream()
+                    .outputMode("Append")
+                    .format("mongodb")
+                    .option(COMMENT_CONFIG, TEST_COMMENT)
+                    .start();
+            query.processAllAvailable();
+            query.stop();
+          } catch (TimeoutException e) {
+            fail("TimeoutException", e);
+          }
+
+          assertEquals(
+              10,
+              getCollection()
+                  .countDocuments(new BsonDocument(), new CountOptions().comment(IGNORE_COMMENT)));
+          assertCollection();
+        },
+        writeConfig);
+  }
+
   private void assertCollection() {
     assertCollection(getCollectionName());
   }
@@ -281,6 +350,7 @@ class MongoSparkConnectorWriteTest extends MongoSparkConnectorTestCase {
   private List<BsonDocument> getCollectionData(final String collectionName) {
     return getCollection(collectionName)
         .find()
+        .comment(IGNORE_COMMENT)
         .map(
             d ->
                 BsonDocument.parse(

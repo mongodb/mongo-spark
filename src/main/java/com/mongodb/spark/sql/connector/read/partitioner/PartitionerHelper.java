@@ -104,6 +104,7 @@ public final class PartitionerHelper {
                   Optional.ofNullable(
                           coll.aggregate(COLL_STATS_AGGREGATION_PIPELINE)
                               .allowDiskUse(readConfig.getAggregationAllowDiskUse())
+                              .comment(readConfig.getComment())
                               .first())
                       .orElseGet(BsonDocument::new))
           .getDocument("storageStats", new BsonDocument());

@@ -34,6 +34,7 @@ import org.bson.BsonInt32;
 import org.bson.conversions.Bson;
 
 import com.mongodb.client.model.Aggregates;
+import com.mongodb.client.model.CountOptions;
 import com.mongodb.client.model.Projections;
 import com.mongodb.client.model.Sorts;
 
@@ -111,7 +112,11 @@ public final class SamplePartitioner extends FieldPartitioner {
     if (matchQuery.isEmpty() && storageStats.containsKey("count")) {
       count = storageStats.getNumber("count").longValue();
     } else {
-      count = readConfig.withCollection(coll -> coll.countDocuments(matchQuery));
+      count =
+          readConfig.withCollection(
+              coll ->
+                  coll.countDocuments(
+                      matchQuery, new CountOptions().comment(readConfig.getComment())));
     }
     double avgObjSizeInBytes =
         storageStats.get("avgObjSize", new BsonInt32(0)).asNumber().doubleValue();
@@ -140,6 +145,7 @@ public final class SamplePartitioner extends FieldPartitioner {
                             Aggregates.project(projection),
                             Aggregates.sort(Sorts.ascending(partitionField))))
                     .allowDiskUse(readConfig.getAggregationAllowDiskUse())
+                    .comment(readConfig.getComment())
                     .into(new ArrayList<>()));
     return createMongoInputPartitions(
         partitionField, getRightHandBoundaries(samples, samplesPerPartition), readConfig);
