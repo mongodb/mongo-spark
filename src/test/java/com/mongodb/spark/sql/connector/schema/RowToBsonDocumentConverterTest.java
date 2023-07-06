@@ -42,6 +42,7 @@ import org.bson.BsonDecimal128;
 import org.bson.BsonDocument;
 import org.bson.types.Decimal128;
 
+import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.exceptions.DataException;
 import com.mongodb.spark.sql.connector.interop.JavaScala;
 
@@ -49,11 +50,16 @@ import scala.collection.Seq;
 
 public class RowToBsonDocumentConverterTest extends SchemaTest {
   private static final RowToBsonDocumentConverter DEFAULT_CONVERTER =
-      new RowToBsonDocumentConverter(new StructType(), false, false);
-  private static final RowToBsonDocumentConverter EXTENDED_JSON_CONVERTER =
-      new RowToBsonDocumentConverter(new StructType(), true, false);
+      new RowToBsonDocumentConverter(new StructType(), WriteConfig.ConvertJson.FALSE, false);
+  private static final RowToBsonDocumentConverter JSON_CONVERTER =
+      new RowToBsonDocumentConverter(new StructType(), WriteConfig.ConvertJson.ANY, false);
+
+  private static final RowToBsonDocumentConverter OBJECT_OR_ARRAY_JSON_CONVERTER =
+      new RowToBsonDocumentConverter(
+          new StructType(), WriteConfig.ConvertJson.OBJECT_OR_ARRAY_ONLY, false);
+
   private static final RowToBsonDocumentConverter IGNORE_NULL_VALUES_CONVERTER =
-      new RowToBsonDocumentConverter(new StructType(), false, true);
+      new RowToBsonDocumentConverter(new StructType(), WriteConfig.ConvertJson.FALSE, true);
 
   @Test
   @DisplayName("test simple types")
@@ -62,17 +68,19 @@ public class RowToBsonDocumentConverterTest extends SchemaTest {
   }
 
   @Test
-  @DisplayName("test relaxed json string types")
-  void testRelaxedStringTypes() {
-    assertEquals(
-        BSON_DOCUMENT_RELAXED, EXTENDED_JSON_CONVERTER.fromRow(ALL_TYPES_RELAXED_JSON_ROW));
+  @DisplayName("test json converter all fields")
+  void testJsonConverter() {
+    assertEquals(BSON_DOCUMENT_RELAXED, JSON_CONVERTER.fromRow(ALL_TYPES_RELAXED_JSON_ROW));
+    assertEquals(BSON_DOCUMENT_ALL_TYPES, JSON_CONVERTER.fromRow(ALL_TYPES_EXTENDED_JSON_ROW));
+    assertEquals(CONVERT_JSON_DOCUMENT, JSON_CONVERTER.fromRow(CONVERT_JSON_ROW));
   }
 
   @Test
-  @DisplayName("test extended json string types")
+  @DisplayName("test json converter objects or arrays only")
   void testExtendedStringTypes() {
     assertEquals(
-        BSON_DOCUMENT_ALL_TYPES, EXTENDED_JSON_CONVERTER.fromRow(ALL_TYPES_EXTENDED_JSON_ROW));
+        CONVERT_JSON_OBJECT_OR_ARRAY_ONLY_DOCUMENT,
+        OBJECT_OR_ARRAY_JSON_CONVERTER.fromRow(CONVERT_JSON_ROW));
   }
 
   @Test

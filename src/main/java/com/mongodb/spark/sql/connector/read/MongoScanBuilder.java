@@ -66,6 +66,7 @@ import com.mongodb.client.model.Filters;
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 
 /** A builder for a {@link MongoScan}. */
@@ -73,7 +74,7 @@ import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 public final class MongoScanBuilder
     implements ScanBuilder, SupportsPushDownFilters, SupportsPushDownRequiredColumns {
   private static final RowToBsonDocumentConverter CONVERTER =
-      new RowToBsonDocumentConverter(new StructType(), false, false);
+      new RowToBsonDocumentConverter(new StructType(), WriteConfig.ConvertJson.FALSE, false);
   private final StructType schema;
   private final ReadConfig readConfig;
   private final boolean isCaseSensitive;

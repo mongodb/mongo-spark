@@ -342,6 +342,43 @@ abstract class SchemaTest {
               .toArray(),
           BSON_DOCUMENT_STRING_SCHEMA);
 
+  // JSON Conversion types handling
+  private static final StructType CONVERT_JSON_SCHEMA =
+      DataTypes.createStructType(
+          asList(
+              DataTypes.createStructField("booleanString", DataTypes.StringType, true),
+              DataTypes.createStructField("numericString", DataTypes.StringType, true),
+              DataTypes.createStructField("document", DataTypes.StringType, true),
+              DataTypes.createStructField("array", DataTypes.StringType, true)));
+
+  static final GenericRowWithSchema CONVERT_JSON_ROW =
+      new GenericRowWithSchema(
+          asList(
+                  "true",
+                  "012345",
+                  "{\"a\": \"foo\", \"b\": \"012345\", \"c\": \"true\"}",
+                  "[\"012345\", \"true\", {\"a\": \"foo\", \"b\": \"012345\", \"c\": \"true\"}]")
+              .toArray(),
+          CONVERT_JSON_SCHEMA);
+
+  static final BsonDocument CONVERT_JSON_DOCUMENT =
+      BsonDocument.parse(
+          "{"
+              + " \"booleanString\": true,"
+              + " \"numericString\": 012345,"
+              + " \"document\": {\"a\": \"foo\", \"b\": \"012345\", \"c\": \"true\"},"
+              + " \"array\": [\"012345\", \"true\", {\"a\": \"foo\", \"b\": \"012345\", \"c\": \"true\"}]"
+              + "}");
+
+  static final BsonDocument CONVERT_JSON_OBJECT_OR_ARRAY_ONLY_DOCUMENT =
+      BsonDocument.parse(
+          "{"
+              + " \"booleanString\": \"true\","
+              + " \"numericString\": \"012345\","
+              + " \"document\": {\"a\": \"foo\", \"b\": \"012345\", \"c\": \"true\"},"
+              + " \"array\": [\"012345\", \"true\", {\"a\": \"foo\", \"b\": \"012345\", \"c\": \"true\"}],"
+              + "}");
+
   // Infer Schema
   static final StructType BSON_DOCUMENT_ALL_TYPES_SCHEMA_WITH_PLACEHOLDER =
       DataTypes.createStructType(
