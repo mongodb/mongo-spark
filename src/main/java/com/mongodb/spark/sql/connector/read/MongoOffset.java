@@ -38,12 +38,7 @@ import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 abstract class MongoOffset extends Offset implements Serializable {
   private static final int VERSION = 1;
   private static final String JSON_TEMPLATE = format("{\"version\": %d, \"offset\": %%s}", VERSION);
-  private static final Set<String> LEGACY_KEYSET =
-      new HashSet<String>() {
-        {
-          add("_data");
-        }
-      };
+  private static final Set<String> LEGACY_KEYSET = Collections.singleton("_data");
 
   static BsonTimestampOffset getInitialOffset(final ReadConfig readConfig) {
     return new BsonTimestampOffset(readConfig.getStreamInitialBsonTimestamp());
