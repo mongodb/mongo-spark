@@ -19,6 +19,7 @@ package com.mongodb.spark.sql.connector.read;
 import static java.lang.String.format;
 
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
