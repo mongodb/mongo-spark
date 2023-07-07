@@ -18,6 +18,7 @@
 package com.mongodb.spark.sql.connector.schema;
 
 import static com.mongodb.spark.sql.connector.schema.ConverterHelper.BSON_VALUE_CODEC;
+import static com.mongodb.spark.sql.connector.schema.ConverterHelper.toJson;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -307,22 +308,7 @@ public final class BsonDocumentToRowConverter implements Serializable {
   }
 
   private String convertToString(final BsonValue bsonValue) {
-    switch (bsonValue.getBsonType()) {
-      case STRING:
-        return bsonValue.asString().getValue();
-      case DOCUMENT:
-        return bsonValue.asDocument().toJson(getJsonWriterSettings());
-      default:
-        String value = new BsonDocument("v", bsonValue).toJson(getJsonWriterSettings());
-        // Strip down to just the value
-        value = value.substring(6, value.length() - 1);
-        // Remove unnecessary quotes of BsonValues converted to Strings.
-        // Such as BsonBinary base64 string representations
-        if (value.startsWith("\"") && value.endsWith("\"")) {
-          value = value.substring(1, value.length() - 1);
-        }
-        return value;
-    }
+    return toJson(bsonValue, getJsonWriterSettings());
   }
 
   private BsonNumber convertToBsonNumber(

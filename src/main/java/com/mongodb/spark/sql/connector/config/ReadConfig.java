@@ -200,20 +200,12 @@ public final class ReadConfig extends AbstractMongoConfig {
   private static final String STREAM_LOOKUP_FULL_DOCUMENT_DEFAULT = FullDocument.DEFAULT.getValue();
 
   enum StreamingStartupMode {
-    /**
-     * Is equivalent to {@link #LATEST}, and is used to discriminate a situation when the default
-     * behavior is configured explicitly.
-     */
-    DEFAULT_INTERNAL,
-    /** @see #DEFAULT_INTERNAL */
     LATEST,
     TIMESTAMP;
 
     static StreamingStartupMode fromString(final String userStartupMode) {
       try {
-        return userStartupMode.equals(STREAMING_STARTUP_MODE_DEFAULT)
-            ? DEFAULT_INTERNAL
-            : StreamingStartupMode.valueOf(userStartupMode.toUpperCase());
+        return StreamingStartupMode.valueOf(userStartupMode.toUpperCase());
       } catch (IllegalArgumentException e) {
         throw new ConfigException(format("'%s' is not a valid Startup mode", userStartupMode));
       }
@@ -226,7 +218,8 @@ public final class ReadConfig extends AbstractMongoConfig {
    * <p>Specifies how the connector should start up when there is no offset available.
    *
    * <p>Resuming a change stream requires a resume token, which the connector stores as / reads from
-   * the offset. If no offset is available, the connector may either ignore all existing data, or may read an offset from the configuration.
+   * the offset. If no offset is available, the connector may either ignore all existing data, or
+   * may read an offset from the configuration.
    *
    * <p>Possible values are:
    *
@@ -234,19 +227,19 @@ public final class ReadConfig extends AbstractMongoConfig {
    *   <li>'latest' is the default value. The connector creates a new change stream, processes
    *       change events from it and stores resume tokens from them, thus ignoring all existing
    *       source data.
-   *   <li>'timestamp' actuates 'change.stream.startup.mode.timestamp.*' properties." If no such properties are
-   *       configured, then 'timestamp' is equivalent to 'latest'.
+   *   <li>'timestamp' actuates 'change.stream.startup.mode.timestamp.*' properties." If no such
+   *       properties are configured, then 'timestamp' is equivalent to 'latest'.
    * </ul>
    */
   public static final String STREAMING_STARTUP_MODE_CONFIG = "change.stream.startup.mode";
 
-  static final String STREAMING_STARTUP_MODE_DEFAULT = EMPTY_STRING;
+  static final String STREAMING_STARTUP_MODE_DEFAULT = StreamingStartupMode.LATEST.name();
 
   /**
    * The `startAtOperationTime` configuration.
    *
-   * <p>Actuated only if 'change.stream.startup.mode = timestamp'. Specifies the starting point for the change
-   * stream.
+   * <p>Actuated only if 'change.stream.startup.mode = timestamp'. Specifies the starting point for
+   * the change stream.
    *
    * <p>Must be either an integer number of seconds since the Epoch in the decimal format (example:
    * 30), or an instant in the ISO-8601 format with one second precision (example:
@@ -382,7 +375,6 @@ public final class ReadConfig extends AbstractMongoConfig {
         StreamingStartupMode.fromString(
             getOrDefault(STREAMING_STARTUP_MODE_CONFIG, STREAMING_STARTUP_MODE_DEFAULT));
     switch (streamingStartupMode) {
-      case DEFAULT_INTERNAL:
       case LATEST:
         return STREAMING_LATEST_TIMESTAMP;
       case TIMESTAMP:

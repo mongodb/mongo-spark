@@ -27,9 +27,7 @@ import org.apache.spark.sql.connector.read.streaming.Offset;
 import org.bson.BsonDocument;
 import org.bson.BsonInvalidOperationException;
 import org.bson.BsonValue;
-import org.bson.json.JsonMode;
 import org.bson.json.JsonParseException;
-import org.bson.json.JsonWriterSettings;
 
 import com.mongodb.client.ChangeStreamIterable;
 
@@ -38,8 +36,6 @@ import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 
 /** The abstract class for MongoDB change stream based offsets */
 abstract class MongoOffset extends Offset implements Serializable {
-  static final JsonWriterSettings EXTENDED_JSON_WRITER_SETTINGS =
-      JsonWriterSettings.builder().outputMode(JsonMode.EXTENDED).build();
   private static final int VERSION = 1;
   private static final String JSON_TEMPLATE = format("{\"version\": %d, \"offset\": %%s}", VERSION);
   private static final Set<String> LEGACY_KEYSET =

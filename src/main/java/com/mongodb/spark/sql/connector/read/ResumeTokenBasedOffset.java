@@ -16,6 +16,8 @@
  */
 package com.mongodb.spark.sql.connector.read;
 
+import static com.mongodb.spark.sql.connector.schema.ConverterHelper.toJson;
+
 import org.bson.BsonDocument;
 
 import com.mongodb.client.ChangeStreamIterable;
@@ -32,7 +34,7 @@ final class ResumeTokenBasedOffset extends MongoOffset {
 
   @Override
   String getOffsetJsonValue() {
-    return resumeToken.toJson(EXTENDED_JSON_WRITER_SETTINGS);
+    return toJson(resumeToken);
   }
 
   @Override
