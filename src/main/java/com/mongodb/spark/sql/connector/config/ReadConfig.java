@@ -226,8 +226,7 @@ public final class ReadConfig extends AbstractMongoConfig {
    * <p>Specifies how the connector should start up when there is no offset available.
    *
    * <p>Resuming a change stream requires a resume token, which the connector stores as / reads from
-   * the offset. If no offset is available, the connector may either ignore all/some existing source
-   * data, or may at first copy all existing source data and then continue with processing new data.
+   * the offset. If no offset is available, the connector may either ignore all existing data, or may read an offset from the configuration.
    *
    * <p>Possible values are:
    *
