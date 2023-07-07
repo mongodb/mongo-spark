@@ -235,7 +235,7 @@ public final class ReadConfig extends AbstractMongoConfig {
    *   <li>'latest' is the default value. The connector creates a new change stream, processes
    *       change events from it and stores resume tokens from them, thus ignoring all existing
    *       source data.
-   *   <li>'timestamp' actuates 'startup.mode.timestamp.*' properties." If no such properties are
+   *   <li>'timestamp' actuates 'change.stream.startup.mode.timestamp.*' properties." If no such properties are
    *       configured, then 'timestamp' is equivalent to 'latest'.
    * </ul>
    */
