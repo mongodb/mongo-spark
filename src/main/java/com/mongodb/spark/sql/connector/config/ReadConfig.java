@@ -246,7 +246,7 @@ public final class ReadConfig extends AbstractMongoConfig {
   /**
    * The `startAtOperationTime` configuration.
    *
-   * <p>Actuated only if 'startup.mode = timestamp'. Specifies the starting point for the change
+   * <p>Actuated only if 'change.stream.startup.mode = timestamp'. Specifies the starting point for the change
    * stream.
    *
    * <p>Must be either an integer number of seconds since the Epoch in the decimal format (example:
