@@ -22,13 +22,15 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
+import org.bson.BsonDocument;
 import org.bson.BsonValue;
 import org.bson.codecs.BsonValueCodec;
 import org.bson.codecs.Codec;
 import org.bson.json.JsonMode;
 import org.bson.json.JsonWriterSettings;
 
-final class ConverterHelper {
+/** Shared converter helper methods and statics */
+public final class ConverterHelper {
   static final Codec<BsonValue> BSON_VALUE_CODEC = new BsonValueCodec();
 
   static final JsonWriterSettings RELAXED_JSON_WRITER_SETTINGS = JsonWriterSettings.builder()
@@ -46,6 +48,35 @@ final class ConverterHelper {
 
   static final JsonWriterSettings EXTENDED_JSON_WRITER_SETTINGS =
       JsonWriterSettings.builder().outputMode(JsonMode.EXTENDED).build();
+
+  /**
+   * Converts a bson value into its extended JSON form
+   *
+   * @param bsonValue the bson value
+   * @return the extended JSON form
+   */
+  public static String toJson(final BsonValue bsonValue) {
+    return toJson(bsonValue, EXTENDED_JSON_WRITER_SETTINGS);
+  }
+
+  static String toJson(final BsonValue bsonValue, final JsonWriterSettings jsonWriterSettings) {
+    switch (bsonValue.getBsonType()) {
+      case STRING:
+        return bsonValue.asString().getValue();
+      case DOCUMENT:
+        return bsonValue.asDocument().toJson(jsonWriterSettings);
+      default:
+        String value = new BsonDocument("v", bsonValue).toJson(jsonWriterSettings);
+        // Strip down to just the value
+        value = value.substring(6, value.length() - 1);
+        // Remove unnecessary quotes of BsonValues converted to Strings.
+        // Such as BsonBinary base64 string representations
+        if (value.startsWith("\"") && value.endsWith("\"")) {
+          value = value.substring(1, value.length() - 1);
+        }
+        return value;
+    }
+  }
 
   private ConverterHelper() {}
 }

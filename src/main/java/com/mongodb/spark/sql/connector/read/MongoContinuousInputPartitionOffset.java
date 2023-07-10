@@ -17,28 +17,37 @@
 
 package com.mongodb.spark.sql.connector.read;
 
+import com.mongodb.client.ChangeStreamIterable;
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import java.util.Objects;
 import org.apache.spark.sql.connector.read.streaming.PartitionOffset;
-import org.bson.BsonDocument;
 
-/** A resume token partition offset */
+/**
+ * The continuous stream partition offset class.
+ *
+ * <p>Relies on a MongoOffset for determining the partitions offset.
+ */
 final class MongoContinuousInputPartitionOffset implements PartitionOffset {
   private static final long serialVersionUID = 1L;
-  private final ResumeTokenBasedOffset offset;
+  private final MongoOffset offset;
 
   /**
    * Construct a new instance
    *
-   * @param resumeToken the change stream resume token
+   * @param offset the MongoOffset
    */
-  MongoContinuousInputPartitionOffset(final ResumeTokenBasedOffset offset) {
-    Assertions.ensureArgument(() -> offset != null, () -> "Invalid offset");
+  MongoContinuousInputPartitionOffset(final MongoOffset offset) {
+    Assertions.ensureArgument(() -> offset != null, () -> "Invalid resume token");
     this.offset = offset;
   }
 
-  BsonDocument getResumeToken() {
-    return offset.getResumeToken();
+  public MongoOffset getOffset() {
+    return offset;
+  }
+
+  public <T> ChangeStreamIterable<T> applyToChangeStreamIterable(
+      final ChangeStreamIterable<T> changeStreamIterable) {
+    return offset.applyToChangeStreamIterable(changeStreamIterable);
   }
 
   @Override
@@ -50,18 +59,16 @@ final class MongoContinuousInputPartitionOffset implements PartitionOffset {
       return false;
     }
     final MongoContinuousInputPartitionOffset that = (MongoContinuousInputPartitionOffset) o;
-    return Objects.equals(getResumeToken(), that.getResumeToken());
+    return Objects.equals(offset, that.offset);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(getResumeToken());
+    return Objects.hash(offset);
   }
 
   @Override
   public String toString() {
-    return "MongoContinuousInputPartitionOffset{resumeToken="
-        + offset.getResumeToken().toJson()
-        + '}';
+    return "MongoContinuousInputPartitionOffset{offset=" + offset + '}';
   }
 }

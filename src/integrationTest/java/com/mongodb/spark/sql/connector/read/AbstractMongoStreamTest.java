@@ -40,6 +40,7 @@ import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -63,6 +64,7 @@ import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 import org.bson.BsonDocument;
 import org.bson.BsonString;
+import org.bson.BsonTimestamp;
 import org.junit.jupiter.api.Test;
 import org.opentest4j.AssertionFailedError;
 
@@ -243,6 +245,63 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
   }
 
   @Test
+  void testStreamResumable() {
+    assumeTrue(supportsChangeStreams());
+    assumeTrue(isAtLeastFourDotFour());
+    testIdentifier = "Resumable";
+
+    MongoConfig mongoConfig = createMongoConfig();
+
+    testStreamingQuery(
+        "mongodb",
+        mongoConfig,
+        withSource("inserting 0-25", (msg, coll) -> coll.insertMany(createDocuments(0, 25))),
+        withSink(
+            "Expected to see 25 documents",
+            (msg, ds) -> assertEquals(25, ds.countDocuments(), msg)));
+
+    // Insert 50 documents - when there is no stream running
+    mongoConfig.toReadConfig().doWithCollection(coll -> coll.insertMany(createDocuments(100, 200)));
+
+    // Start the stream again - confirm it resumes at last point and sees the new documents
+    testStreamingQuery(
+        "mongodb",
+        mongoConfig,
+        withSource("Setup", (msg, coll) -> {} /* NOOP */),
+        withSink(
+            "Expecting to see 125 documents",
+            (msg, ds) -> assertEquals(125, ds.countDocuments(), msg)));
+  }
+
+  @Test
+  void testStreamStartAtOperationTime() {
+    assumeTrue(supportsChangeStreams());
+    assumeTrue(isAtLeastFourDotFour());
+    testIdentifier = "startAtOperationTime";
+
+    ReadConfig readConfig = createMongoConfig().toReadConfig();
+
+    // Add some documents prior to the start time
+    readConfig.doWithCollection(coll -> coll.insertMany(createDocuments(0, 25)));
+
+    HELPER.sleep(1000);
+    BsonTimestamp currentTimestamp = new BsonTimestamp((int) Instant.now().getEpochSecond(), 0);
+
+    // Add some documents post start time
+    readConfig.doWithCollection(coll -> coll.insertMany(createDocuments(100, 120)));
+    testStreamingQuery(
+        readConfig
+            .withOption(ReadConfig.STREAMING_STARTUP_MODE_CONFIG, "timestamp")
+            .withOption(
+                ReadConfig.STREAMING_STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_CONFIG,
+                format("{\"$timestamp\": {\"t\": %d, \"i\": 0}}", currentTimestamp.getTime())),
+        withSource("Setup", (msg, coll) -> {} /* NOOP */),
+        withMemorySink(
+            "Expected to see 20 documents",
+            (msg, ds) -> assertEquals(20, ds.collectAsList().size(), msg)));
+  }
+
+  @Test
   void testStreamCustomMongoClientFactory() {
     assumeTrue(supportsChangeStreams());
     testIdentifier = "CustomClientFactory";
@@ -263,7 +322,6 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
   void testStreamInferSchemaNoData() {
     testIdentifier = "inferSchemaNoData";
     SparkSession spark = getOrCreateSparkSession();
-
     Throwable cause = assertThrows(Exception.class, () -> spark
         .readStream()
         .format(MONGODB)
@@ -432,11 +490,13 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
 
       try {
         setup.accept(mongoConfig);
+        LOGGER.info("Setup completed");
       } catch (Exception e) {
         throw new AssertionFailedError("Setup failed: " + e.getMessage());
       }
 
       for (Consumer<MongoConfig> consumer : consumers) {
+
         retryAssertion(() -> consumer.accept(mongoConfig), () -> {
           mongoConfig
               .toReadConfig()
@@ -475,6 +535,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     } finally {
       try {
         streamingQuery.stop();
+        LOGGER.info("Stream stopped");
       } catch (TimeoutException e) {
         fail("Stopping the stream failed: ", e);
       }

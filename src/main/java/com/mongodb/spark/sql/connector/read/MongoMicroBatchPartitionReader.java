@@ -166,14 +166,12 @@ final class MongoMicroBatchPartitionReader implements PartitionReader<InternalRo
         pipeline.add(Aggregates.match(Filters.exists(FULL_DOCUMENT)).toBsonDocument());
       }
       pipeline.addAll(partition.getPipeline());
-
       ChangeStreamIterable<Document> changeStreamIterable = mongoClient
           .getDatabase(readConfig.getDatabaseName())
           .getCollection(readConfig.getCollectionName())
           .watch(pipeline)
           .fullDocument(readConfig.getStreamFullDocument())
           .comment(readConfig.getComment());
-
       if (partition.getStartOffsetTimestamp().getTime() >= 0) {
         changeStreamIterable.startAtOperationTime(partition.getStartOffsetTimestamp());
       }

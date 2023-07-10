@@ -26,7 +26,12 @@ import org.bson.BsonValue;
 final class ResumeTokenTimestampHelper {
 
   /**
-   * The resume token has the following structure:
+   * Returns the BsonTimestamp from a resume token.
+   *
+   * <p>Handles server based resume tokens or approximated Bson documents with a `_data` field that
+   * contains a BsonTimestamp.
+   *
+   * <p>Server based resume tokens have the following structure:
    *
    * <p>1. It's a document containing a single field named "_data" whose value is a string
    *
@@ -51,6 +56,10 @@ final class ResumeTokenTimestampHelper {
     }
 
     BsonValue data = resumeToken.get("_data");
+    if (data.isTimestamp()) {
+      return data.asTimestamp();
+    }
+
     if (!data.isString()) {
       throw new MongoSparkException(
           "Invalid resume token, expected string value for `_data` field, but found: "

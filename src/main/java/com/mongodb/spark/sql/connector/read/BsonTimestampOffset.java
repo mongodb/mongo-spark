@@ -19,26 +19,36 @@ package com.mongodb.spark.sql.connector.read;
 import static com.mongodb.spark.sql.connector.schema.ConverterHelper.toJson;
 
 import com.mongodb.client.ChangeStreamIterable;
-import org.bson.BsonDocument;
+import org.bson.BsonTimestamp;
 
-final class ResumeTokenBasedOffset extends MongoOffset {
-
+final class BsonTimestampOffset extends MongoOffset {
   private static final long serialVersionUID = 1L;
+  private final long bsonTimestampValue;
+  private transient BsonTimestamp bsonTimestamp;
 
-  private final BsonDocument resumeToken;
-
-  ResumeTokenBasedOffset(final BsonDocument resumeToken) {
-    this.resumeToken = resumeToken;
+  BsonTimestampOffset(final BsonTimestamp value) {
+    bsonTimestamp = value;
+    bsonTimestampValue = value.getValue();
   }
 
   @Override
   String getOffsetJsonValue() {
-    return toJson(resumeToken);
+    return toJson(getBsonTimestamp());
   }
 
   @Override
   <T> ChangeStreamIterable<T> applyToChangeStreamIterable(
       final ChangeStreamIterable<T> changeStreamIterable) {
-    return changeStreamIterable.startAfter(resumeToken);
+    if (getBsonTimestamp().getTime() >= 0) {
+      return changeStreamIterable.startAtOperationTime(getBsonTimestamp());
+    }
+    return changeStreamIterable;
+  }
+
+  synchronized BsonTimestamp getBsonTimestamp() {
+    if (bsonTimestamp == null) {
+      bsonTimestamp = new BsonTimestamp(bsonTimestampValue);
+    }
+    return bsonTimestamp;
   }
 }

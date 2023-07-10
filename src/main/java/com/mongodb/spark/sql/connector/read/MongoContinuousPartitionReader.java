@@ -54,7 +54,6 @@ final class MongoContinuousPartitionReader implements ContinuousPartitionReader<
   private final MongoInputPartition partition;
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
   private final ReadConfig readConfig;
-
   private MongoContinuousInputPartitionOffset lastOffset;
   private InternalRow currentRow;
   private boolean closed = false;
@@ -170,17 +169,13 @@ final class MongoContinuousPartitionReader implements ContinuousPartitionReader<
         pipeline.add(Aggregates.match(Filters.exists(FULL_DOCUMENT)).toBsonDocument());
       }
       pipeline.addAll(partition.getPipeline());
-
       ChangeStreamIterable<Document> changeStreamIterable = mongoClient
           .getDatabase(readConfig.getDatabaseName())
           .getCollection(readConfig.getCollectionName())
           .watch(pipeline)
           .fullDocument(readConfig.getStreamFullDocument())
           .comment(readConfig.getComment());
-
-      if (!lastOffset.getResumeToken().isEmpty()) {
-        changeStreamIterable = changeStreamIterable.startAfter(lastOffset.getResumeToken());
-      }
+      changeStreamIterable = lastOffset.applyToChangeStreamIterable(changeStreamIterable);
 
       try {
         changeStreamCursor = (MongoChangeStreamCursor<BsonDocument>)
