@@ -27,9 +27,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 import org.apache.spark.sql.types.StructType;
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
+import org.bson.BsonTimestamp;
 
 final class MongoInputPartitionHelper {
 
@@ -68,6 +70,44 @@ final class MongoInputPartitionHelper {
     } catch (RuntimeException ex) {
       throw new MongoSparkException("Partitioning failed. " + ex.getMessage(), ex);
     }
+  }
+
+  static MongoMicroBatchInputPartition[] generateMicroBatchPartitions(
+      final StructType schema,
+      final ReadConfig readConfig,
+      final BsonTimestampOffset start,
+      final BsonTimestampOffset end) {
+
+    List<BsonDocument> partitionPipeline = generatePipeline(schema, readConfig);
+
+    BsonTimestamp startTimestamp = start.getBsonTimestamp();
+    BsonTimestamp endTimestamp = end.getBsonTimestamp();
+
+    List<BsonTimestamp> partitions = new ArrayList<>();
+    partitions.add(startTimestamp);
+
+    if (startTimestamp.getTime() >= 0) {
+      int partitionCount = readConfig.getMicroBatchMaxPartitionCount();
+      int totalSecondsDiff = endTimestamp.getTime() - startTimestamp.getTime();
+      int numberOfBatches = Math.min(totalSecondsDiff, partitionCount);
+      int incPerBatch = (int) Math.ceil((double) totalSecondsDiff / numberOfBatches);
+
+      BsonTimestamp previous = startTimestamp;
+      while (previous.getTime() + incPerBatch < endTimestamp.getTime()) {
+        BsonTimestamp next = new BsonTimestamp(previous.getTime() + incPerBatch, 0);
+        partitions.add(next);
+        previous = next;
+      }
+    }
+    partitions.add(endTimestamp);
+
+    return IntStream.range(1, partitions.size())
+        .mapToObj(i -> new MongoMicroBatchInputPartition(
+            i,
+            partitionPipeline,
+            new BsonTimestampOffset(partitions.get(i - 1)),
+            new BsonTimestampOffset(partitions.get(i))))
+        .toArray(MongoMicroBatchInputPartition[]::new);
   }
 
   static List<BsonDocument> generatePipeline(final StructType schema, final ReadConfig readConfig) {

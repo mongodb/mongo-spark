@@ -22,6 +22,7 @@ import static java.util.Collections.singletonList;
 import static org.apache.spark.sql.types.DataTypes.createStructField;
 import static org.apache.spark.sql.types.DataTypes.createStructType;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.mongodb.spark.sql.connector.config.MongoConfig;
@@ -31,9 +32,11 @@ import com.mongodb.spark.sql.connector.read.partitioner.SinglePartitionPartition
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 import org.bson.BsonDocument;
+import org.bson.BsonTimestamp;
 import org.junit.jupiter.api.Test;
 
 public class MongoInputPartitionHelperTest {
@@ -141,6 +144,92 @@ public class MongoInputPartitionHelperTest {
                 .getPipeline()));
   }
 
+  @Test
+  public void generateMicroBatchPartitions() {
+
+    assertAll(
+        () -> {
+          // Negative start value test
+          MongoMicroBatchInputPartition[] expected = toArray(new MongoMicroBatchInputPartition(
+              1, emptyList(), toBsonTimestampOffset(-1), toBsonTimestampOffset(10)));
+
+          MongoMicroBatchInputPartition[] actual =
+              MongoInputPartitionHelper.generateMicroBatchPartitions(
+                  EMPTY_SCHEMA, READ_CONFIG, toBsonTimestampOffset(-1), toBsonTimestampOffset(10));
+
+          assertArrayEquals(expected, actual);
+        },
+        () -> {
+          // Negative start value with multiple configured partitions
+          MongoMicroBatchInputPartition[] expected = toArray(new MongoMicroBatchInputPartition(
+              1, emptyList(), toBsonTimestampOffset(-1), toBsonTimestampOffset(10)));
+
+          MongoMicroBatchInputPartition[] actual =
+              MongoInputPartitionHelper.generateMicroBatchPartitions(
+                  EMPTY_SCHEMA,
+                  READ_CONFIG.withOption(
+                      ReadConfig.STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_CONFIG, "2"),
+                  toBsonTimestampOffset(-1),
+                  toBsonTimestampOffset(10));
+          assertArrayEquals(expected, actual);
+        },
+        () -> {
+          // Test splitting partitions
+          MongoMicroBatchInputPartition[] expected = toArray(
+              new MongoMicroBatchInputPartition(
+                  1, emptyList(), toBsonTimestampOffset(0), toBsonTimestampOffset(5)),
+              new MongoMicroBatchInputPartition(
+                  2, emptyList(), toBsonTimestampOffset(5), toBsonTimestampOffset(10)));
+
+          MongoMicroBatchInputPartition[] actual =
+              MongoInputPartitionHelper.generateMicroBatchPartitions(
+                  EMPTY_SCHEMA,
+                  READ_CONFIG.withOption(
+                      ReadConfig.STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_CONFIG, "2"),
+                  toBsonTimestampOffset(0),
+                  toBsonTimestampOffset(10));
+          assertArrayEquals(expected, actual);
+        },
+        () -> {
+          // Test max partitions greater than seconds diff
+          MongoMicroBatchInputPartition[] expected = IntStream.range(0, 7)
+              .mapToObj(i -> new MongoMicroBatchInputPartition(
+                  i + 1, emptyList(), toBsonTimestampOffset(i), toBsonTimestampOffset(i + 1)))
+              .toArray(MongoMicroBatchInputPartition[]::new);
+
+          MongoMicroBatchInputPartition[] actual =
+              MongoInputPartitionHelper.generateMicroBatchPartitions(
+                  EMPTY_SCHEMA,
+                  READ_CONFIG.withOption(
+                      ReadConfig.STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_CONFIG, "10"),
+                  toBsonTimestampOffset(0),
+                  toBsonTimestampOffset(7));
+
+          assertArrayEquals(expected, actual);
+        },
+        () -> {
+          // Test partitions splitting into max
+          List<Integer> partitions = asList(1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 20);
+          MongoMicroBatchInputPartition[] expected = IntStream.range(1, partitions.size())
+              .mapToObj(i -> new MongoMicroBatchInputPartition(
+                  i,
+                  emptyList(),
+                  toBsonTimestampOffset(partitions.get(i - 1)),
+                  toBsonTimestampOffset(partitions.get(i))))
+              .toArray(MongoMicroBatchInputPartition[]::new);
+
+          MongoMicroBatchInputPartition[] actual =
+              MongoInputPartitionHelper.generateMicroBatchPartitions(
+                  EMPTY_SCHEMA,
+                  READ_CONFIG.withOption(
+                      ReadConfig.STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_CONFIG, "10"),
+                  toBsonTimestampOffset(1),
+                  toBsonTimestampOffset(20));
+
+          assertArrayEquals(expected, actual);
+        });
+  }
+
   public static class SingleNoPreferredLocationsPartitioner implements Partitioner {
 
     @Override
@@ -148,5 +237,13 @@ public class MongoInputPartitionHelperTest {
       return singletonList(
           new MongoInputPartition(0, readConfig.getAggregationPipeline(), emptyList()));
     }
+  }
+
+  private BsonTimestampOffset toBsonTimestampOffset(final int seconds) {
+    return new BsonTimestampOffset(new BsonTimestamp(seconds, 0));
+  }
+
+  public MongoMicroBatchInputPartition[] toArray(final MongoMicroBatchInputPartition... elems) {
+    return elems;
   }
 }

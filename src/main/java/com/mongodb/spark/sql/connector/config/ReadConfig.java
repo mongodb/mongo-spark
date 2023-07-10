@@ -256,6 +256,28 @@ public final class ReadConfig extends AbstractMongoConfig {
   private static final BsonTimestamp STREAMING_LATEST_TIMESTAMP = new BsonTimestamp(-1);
 
   /**
+   * Configures the maximum number of partitions per micro batch.
+   *
+   * <p>Divides a micro batch into a maximum number of partitions, based on the seconds since epoch
+   * part of a BsonTimestamp. The smallest micro batch partition generated is one second.
+   *
+   * <p>Actuated only if using micro batch streams.
+   *
+   * <p>Default: {@value STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_DEFAULT}
+   *
+   * <p>Warning: Splitting up into multiple partitions, removes any guarantees of processing the
+   * change events in as happens order. Therefore, care should be taken to ensure partitioning and
+   * processing won't cause data inconsistencies downstream.
+   *
+   * <p>See <a href="https://www.mongodb.com/docs/manual/reference/bson-types/#timestamps">bson
+   * timestamp</a>.
+   */
+  public static final String STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_CONFIG =
+      "change.stream.micro.batch.max.partition.count";
+
+  static final int STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_DEFAULT = 1;
+
+  /**
    * Output extended JSON for any String types.
    *
    * <p>Configuration: {@value}
@@ -383,6 +405,13 @@ public final class ReadConfig extends AbstractMongoConfig {
         throw new AssertionError(
             format("Unexpected change stream startup mode %s", streamingStartupMode));
     }
+  }
+
+  /** @return the micro batch max partition count */
+  public int getMicroBatchMaxPartitionCount() {
+    return getInt(
+        STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_CONFIG,
+        STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_DEFAULT);
   }
 
   /**
