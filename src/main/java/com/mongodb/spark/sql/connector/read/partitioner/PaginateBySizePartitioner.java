@@ -92,7 +92,7 @@ public final class PaginateBySizePartitioner extends PaginatePartitioner {
 
     if (count <= numDocumentsPerPartition) {
       LOGGER.warn(
-          "The calculated number of documents per partition {} is less than or equal to the number of matching documents. "
+          "The calculated number of documents per partition {} is greater than or equal to the number of matching documents. "
               + "Returning a single partition.",
           numDocumentsPerPartition);
       return SINGLE_PARTITIONER.generatePartitions(readConfig);
