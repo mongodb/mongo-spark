@@ -21,6 +21,7 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
+import static org.apache.spark.sql.types.DataTypes.StringType;
 import static org.apache.spark.sql.types.DataTypes.createArrayType;
 import static org.apache.spark.sql.types.DataTypes.createStructType;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -190,7 +191,6 @@ public class InferSchemaTest extends SchemaTest {
   @Test
   @DisplayName("It should be able to infer the schema from arrays")
   void testInferArrays() {
-
     assertAll(
         "arrays simple",
         () -> assertEquals(
@@ -224,6 +224,41 @@ public class InferSchemaTest extends SchemaTest {
                     BsonDocument.parse("{arrayField: []}"),
                     BsonDocument.parse("{arrayField: [false]}"),
                     BsonDocument.parse("{arrayField: []}")),
+                READ_CONFIG)));
+
+    assertAll(
+        "arrays nested",
+        () -> assertEquals(
+            createStructType(singletonList(createStructField(
+                "arrayField", createArrayType(createArrayType(DataTypes.StringType, true))))),
+            InferSchema.inferSchema(
+                singletonList(BsonDocument.parse("{arrayField: [[]]}")), READ_CONFIG)),
+        () -> assertEquals(
+            createStructType(singletonList(createStructField(
+                "arrayField", createArrayType(createArrayType(DataTypes.BooleanType, true))))),
+            InferSchema.inferSchema(
+                asList(
+                    BsonDocument.parse("{arrayField: [[]]}"),
+                    BsonDocument.parse("{arrayField: [[true]]}")),
+                READ_CONFIG)),
+        () -> assertEquals(
+            createStructType(singletonList(createStructField(
+                "arrayField", createArrayType(createArrayType(DataTypes.BooleanType, true))))),
+            InferSchema.inferSchema(
+                asList(
+                    BsonDocument.parse("{arrayField: [[true]]}"),
+                    BsonDocument.parse("{arrayField: [[]]}"),
+                    BsonDocument.parse("{arrayField: [[]]}")),
+                READ_CONFIG)),
+        () -> assertEquals(
+            createStructType(singletonList(createStructField(
+                "arrayField", createArrayType(createArrayType(DataTypes.BooleanType, true))))),
+            InferSchema.inferSchema(
+                asList(
+                    BsonDocument.parse("{arrayField: [[]]}"),
+                    BsonDocument.parse("{arrayField: [[]]}"),
+                    BsonDocument.parse("{arrayField: [[false]]}"),
+                    BsonDocument.parse("{arrayField: [[]]}")),
                 READ_CONFIG)));
 
     StructType elementType = createStructType(asList(
@@ -284,6 +319,7 @@ public class InferSchemaTest extends SchemaTest {
                     BsonDocument.parse("{arrayField: [[{a: 1, e: 2}]]}"),
                     BsonDocument.parse("{arrayField: [[{d: 3, c: 4}]]}"),
                     BsonDocument.parse("{arrayField: []}"),
+                    BsonDocument.parse("{arrayField: [[]]}"),
                     BsonDocument.parse("{arrayField: [[{b: 5}]]}")),
                 READ_CONFIG)),
         () -> assertEquals(
@@ -408,12 +444,25 @@ public class InferSchemaTest extends SchemaTest {
                     BsonDocument.parse("{mapField: {nested: {f: 6}}}")),
                 readConfig)));
 
+    assertAll(
+        "nested array map fields",
+        () -> assertEquals(
+            createStructType(singletonList(createStructField(
+                "arrayMapField", createArrayType(StringType.asNullable(), true)))),
+            InferSchema.inferSchema(
+                singletonList(BsonDocument.parse("{arrayMapField: []}")), readConfig)),
+        () -> assertEquals(
+            createStructType(singletonList(createStructField(
+                "arrayMapField", createArrayType(createArrayType(StringType.asNullable(), true))))),
+            InferSchema.inferSchema(
+                singletonList(BsonDocument.parse("{arrayMapField: [[]]}")), readConfig)));
+
     StructType arrayMapFieldStruct = createStructType(singletonList(createStructField(
         "arrayMapField",
         createArrayType(
             DataTypes.createMapType(DataTypes.StringType, DataTypes.IntegerType), true))));
     assertAll(
-        "nested array map fields",
+        "nested array map fields containing structs",
         () -> assertEquals(
             createStructType(singletonList(
                 createStructField("arrayMapField", createArrayType(abcdStruct, true)))),
