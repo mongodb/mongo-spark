@@ -97,19 +97,27 @@ public final class InferSchema {
     StructType structType = bsonDocuments.stream()
         .map(d -> getStructType(d, readConfig))
         .reduce(PLACE_HOLDER_STRUCT_TYPE, (dt1, dt2) -> compatibleStructType(dt1, dt2, readConfig));
+    return (StructType) removePlaceholders(structType);
+  }
 
-    return DataTypes.createStructType(Arrays.stream(structType.fields())
-        .map(f -> {
-          if (f.dataType().sameType(PLACE_HOLDER_ARRAY_TYPE)) {
-            return DataTypes.createStructField(
-                f.name(),
-                DataTypes.createArrayType(DataTypes.StringType, true),
-                f.nullable(),
-                INFERRED_METADATA);
-          }
-          return f;
-        })
-        .collect(Collectors.toList()));
+  private static DataType removePlaceholders(final DataType dataType) {
+    if (dataType == PLACE_HOLDER_ARRAY_TYPE) {
+      return DataTypes.createArrayType(DataTypes.StringType, true);
+    } else if (dataType instanceof StructType) {
+      StructType structType = (StructType) dataType;
+      return DataTypes.createStructType(Arrays.stream(structType.fields())
+          .map(f -> DataTypes.createStructField(
+              f.name(), removePlaceholders(f.dataType()), f.nullable(), f.metadata()))
+          .collect(Collectors.toList()));
+    } else if (dataType instanceof ArrayType) {
+      ArrayType arrayType = (ArrayType) dataType;
+      return new ArrayType(removePlaceholders(arrayType.elementType()), arrayType.containsNull());
+    } else if (dataType instanceof MapType) {
+      MapType mapType = (MapType) dataType;
+      return new MapType(
+          mapType.keyType(), removePlaceholders(mapType.valueType()), mapType.valueContainsNull());
+    }
+    return dataType;
   }
 
   @NotNull
@@ -135,7 +143,7 @@ public final class InferSchema {
             .reduce((d1, d2) -> compatibleType(d1, d2, readConfig))
             .orElse(PLACE_HOLDER_DATA_TYPE);
 
-        if (elementType.sameType(PLACE_HOLDER_DATA_TYPE)) {
+        if (elementType == PLACE_HOLDER_DATA_TYPE) {
           return PLACE_HOLDER_ARRAY_TYPE;
         }
         return DataTypes.createArrayType(elementType, true);
@@ -271,6 +279,10 @@ public final class InferSchema {
   private static DataType compatibleArrayType(
       final ArrayType arrayType1, final ArrayType arrayType2, final ReadConfig readConfig) {
 
+    if (arrayType1 == PLACE_HOLDER_ARRAY_TYPE) {
+      return arrayType2;
+    }
+
     DataType arrayElementType1 = arrayType1.elementType();
     DataType arrayElementType2 = arrayType2.elementType();
 
@@ -281,8 +293,7 @@ public final class InferSchema {
           arrayType1.containsNull() || arrayType2.containsNull());
     } else if (arrayElementType1 == PLACE_HOLDER_DATA_TYPE
         && arrayElementType2 == PLACE_HOLDER_DATA_TYPE) {
-      return DataTypes.createArrayType(
-          DataTypes.StringType, arrayType1.containsNull() || arrayType2.containsNull());
+      return PLACE_HOLDER_ARRAY_TYPE;
     } else if (arrayElementType1 != PLACE_HOLDER_DATA_TYPE) {
       return arrayType1;
     } else {
