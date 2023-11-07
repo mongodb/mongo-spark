@@ -236,7 +236,7 @@ public final class MongoScanBuilder
     } else if (filter instanceof IsNotNull) {
       IsNotNull isNotNullFilter = (IsNotNull) filter;
       String fieldName = getFieldName(isNotNullFilter.attribute());
-      return new FilterAndPipelineStage(filter, Filters.exists(fieldName, true));
+      return new FilterAndPipelineStage(filter, Filters.ne(fieldName, null));
     } else if (filter instanceof LessThan) {
       LessThan lessThan = (LessThan) filter;
       String fieldName = getFieldName(lessThan.attribute());

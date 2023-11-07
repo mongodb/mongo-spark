@@ -387,7 +387,8 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
             .map((MapFunction<Row, String>) r -> r.getString(2), Encoders.STRING())
             .collectAsList());
 
-    // IsNotNull - filter handled by Spark alone
+    // IsNotNull
+    getCollection().insertOne(BsonDocument.parse("{_id: 11, name: 'Gollum', age: null}"));
     assertIterableEquals(
         asList(
             "Bilbo Baggins",
