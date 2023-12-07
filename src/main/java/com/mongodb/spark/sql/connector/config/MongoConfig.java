@@ -151,6 +151,12 @@ public interface MongoConfig extends Serializable {
    * <p>{@value}
    */
   String DATABASE_NAME_CONFIG = "database";
+  /**
+   * The validation String config
+   *
+   * <p>{@value}
+   */
+  String VALIDATION_CONFIG = "validation";
 
   /**
    * The collection name config

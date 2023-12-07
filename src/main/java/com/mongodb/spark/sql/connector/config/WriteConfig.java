@@ -25,6 +25,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import org.bson.BsonDocument;
+import org.bson.BsonValue;
+import org.bson.conversions.Bson;
+
 import com.mongodb.WriteConcern;
 
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
@@ -181,7 +185,7 @@ public final class WriteConfig extends AbstractMongoConfig {
 
   private final WriteConcern writeConcern;
   private final OperationType operationType;
-
+  private final Bson validationPipeline;
   /**
    * Construct a new instance
    *
@@ -190,6 +194,7 @@ public final class WriteConfig extends AbstractMongoConfig {
   WriteConfig(final Map<String, String> options) {
     super(options, UsageMode.WRITE);
     writeConcern = createWriteConcern();
+    validationPipeline = generateValidationPipeline();
     operationType =
         OperationType.fromString(getOrDefault(OPERATION_TYPE_CONFIG, OPERATION_TYPE_DEFAULT.value));
   }
@@ -247,6 +252,14 @@ public final class WriteConfig extends AbstractMongoConfig {
     return getBoolean(CONVERT_JSON_CONFIG, CONVERT_JSON_DEFAULT);
   }
 
+  /**
+   * @return the true if JSON strings should be converted
+   * @since 10.1
+   */
+  public Bson getValidationPipeline() {
+    return validationPipeline;
+  }
+
   private WriteConcern createWriteConcern() {
     WriteConcern writeConcern = WriteConcern.ACKNOWLEDGED;
     try {
@@ -272,5 +285,21 @@ public final class WriteConfig extends AbstractMongoConfig {
       throw new ConfigException("Invalid write concern configuration.", e);
     }
     return writeConcern;
+  }
+
+  /**
+   * Handles either a single stage of a pipeline (eg. a single document) or multiple stages (eg. an
+   * array of documents).
+   *
+   * @return the aggregation pipeline
+   * @throws ConfigException if the user provided input is invalid
+   */
+  private Bson generateValidationPipeline() {
+    String pipelineJson = getOrDefault(VALIDATION_CONFIG, "");
+    if (pipelineJson.isEmpty()) {
+      return null;
+    }
+    BsonValue pipeline = BsonDocument.parse(format("{$jsonSchema: %s}", pipelineJson));
+    return pipeline.asDocument();
   }
 }

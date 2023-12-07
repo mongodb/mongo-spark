@@ -45,7 +45,12 @@ import org.bson.conversions.Bson;
 
 import com.mongodb.MongoCommandException;
 import com.mongodb.MongoNamespace;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.CreateCollectionOptions;
 import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.ValidationAction;
+import com.mongodb.client.model.ValidationLevel;
+import com.mongodb.client.model.ValidationOptions;
 
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
@@ -411,8 +416,7 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
     return readConfig;
   }
 
-  @VisibleForTesting
-  WriteConfig getWriteConfig() {
+  public WriteConfig getWriteConfig() {
     assertInitialized();
     if (writeConfig == null) {
       writeConfig = MongoConfig.writeConfig(options);
@@ -431,5 +435,67 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
       readConfig = null;
       writeConfig = null;
     }
+  }
+
+  public void createTable() {
+    assertInitialized();
+    getWriteConfig();
+    if (writeConfig.getDatabaseName().isEmpty()) {
+      throw new UnsupportedOperationException(
+          format("Invalid namespace: %s", writeConfig.getDatabaseName()));
+    }
+
+    Identifier identifier =
+        Identifier.of(
+            new String[] {writeConfig.getDatabaseName()}, writeConfig.getCollectionName());
+
+    if (tableExists(identifier)) {
+      throw new UnsupportedOperationException(
+          format("Collection already exists: %s", writeConfig.getCollectionName()));
+    }
+
+    getWriteConfig()
+        .doWithClient(
+            c -> {
+              MongoDatabase db = c.getDatabase(identifier.namespace()[0]);
+              if (writeConfig.getValidationPipeline() != null) {
+                ValidationOptions validationOptions =
+                    new ValidationOptions()
+                        .validator(writeConfig.getValidationPipeline())
+                        .validationAction(ValidationAction.ERROR)
+                        .validationLevel(ValidationLevel.MODERATE);
+                db.createCollection(
+                    writeConfig.getCollectionName(),
+                    new CreateCollectionOptions().validationOptions(validationOptions));
+              } else {
+                db.createCollection(writeConfig.getCollectionName());
+              }
+            });
+  }
+
+  public void dropTable(String collection) {
+    assertInitialized();
+    getWriteConfig();
+    String collectionName = collection != null ? collection : writeConfig.getCollectionName();
+
+    Identifier identifier =
+        Identifier.of(new String[] {writeConfig.getDatabaseName()}, collectionName);
+
+    if (!dropTable(identifier)) {
+      throw new UnsupportedOperationException(
+          format("Collection could not be dropped: %s", collectionName));
+    }
+  }
+
+  public void renameTable(String oldName, String newName)
+      throws TableAlreadyExistsException, NoSuchTableException {
+    assertInitialized();
+    getWriteConfig();
+
+    Identifier from = Identifier.of(new String[] {writeConfig.getDatabaseName()}, oldName);
+
+    Identifier to = Identifier.of(new String[] {writeConfig.getDatabaseName()}, newName);
+
+    renameTable(from, to);
   }
 }
