@@ -40,6 +40,8 @@ import org.bson.BsonDocument;
 import com.mongodb.ConnectionString;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.ValidationAction;
+import com.mongodb.client.model.ValidationLevel;
 
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.connection.LazyMongoClientCache;
@@ -120,6 +122,16 @@ abstract class AbstractMongoConfig implements MongoConfig {
         get(COLLECTION_NAME_CONFIG),
         Objects::nonNull,
         () -> "Missing configuration for: " + COLLECTION_NAME_CONFIG);
+  }
+
+  public ValidationAction getValidationAction() {
+    return ValidationAction.fromString(
+        getOrDefault(VALIDATION_ACTION_CONFIG, VALIDATION_ACTION_DEFAULT));
+  }
+
+  public ValidationLevel getValidationLevel() {
+    return ValidationLevel.fromString(
+        getOrDefault(VALIDATION_LEVEL_CONFIG, VALIDATION_LEVEL_DEFAULT));
   }
 
   /**

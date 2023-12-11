@@ -17,14 +17,17 @@
 
 package com.mongodb.spark.sql.connector;
 
-import static java.lang.String.format;
-import static java.util.Arrays.asList;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-
+import com.mongodb.MongoCommandException;
+import com.mongodb.MongoNamespace;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.CreateCollectionOptions;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.ValidationOptions;
+import com.mongodb.spark.sql.connector.assertions.Assertions;
+import com.mongodb.spark.sql.connector.config.MongoConfig;
+import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.config.WriteConfig;
+import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import org.apache.spark.sql.catalyst.analysis.NamespaceAlreadyExistsException;
 import org.apache.spark.sql.catalyst.analysis.NoSuchNamespaceException;
 import org.apache.spark.sql.catalyst.analysis.NoSuchTableException;
@@ -38,25 +41,17 @@ import org.apache.spark.sql.connector.catalog.TableChange;
 import org.apache.spark.sql.connector.expressions.Transform;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
+import org.bson.conversions.Bson;
 import org.jetbrains.annotations.TestOnly;
 import org.jetbrains.annotations.VisibleForTesting;
 
-import org.bson.conversions.Bson;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
-import com.mongodb.MongoCommandException;
-import com.mongodb.MongoNamespace;
-import com.mongodb.client.MongoDatabase;
-import com.mongodb.client.model.CreateCollectionOptions;
-import com.mongodb.client.model.Filters;
-import com.mongodb.client.model.ValidationAction;
-import com.mongodb.client.model.ValidationLevel;
-import com.mongodb.client.model.ValidationOptions;
-
-import com.mongodb.spark.sql.connector.assertions.Assertions;
-import com.mongodb.spark.sql.connector.config.MongoConfig;
-import com.mongodb.spark.sql.connector.config.ReadConfig;
-import com.mongodb.spark.sql.connector.config.WriteConfig;
-import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
+import static java.lang.String.format;
+import static java.util.Arrays.asList;
 
 /** Spark Catalog methods for working with namespaces (databases) and tables (collections). */
 public class MongoCatalog implements TableCatalog, SupportsNamespaces {
@@ -437,47 +432,46 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
     }
   }
 
-  public void createTable() {
-    assertInitialized();
-    getWriteConfig();
-    if (writeConfig.getDatabaseName().isEmpty()) {
-      throw new UnsupportedOperationException(
-          format("Invalid namespace: %s", writeConfig.getDatabaseName()));
+    public void createTable() {
+        assertInitialized();
+        getWriteConfig();
+        if (writeConfig.getDatabaseName().isEmpty()) {
+            throw new UnsupportedOperationException(
+                    format("Invalid namespace: %s", writeConfig.getDatabaseName()));
+        }
+
+        Identifier identifier =
+                Identifier.of(
+                        new String[]{writeConfig.getDatabaseName()}, writeConfig.getCollectionName());
+
+        if (tableExists(identifier)) {
+            throw new UnsupportedOperationException(
+                    format("Collection already exists: %s", writeConfig.getCollectionName()));
+        }
+
+        getWriteConfig()
+                .doWithClient(
+                        c -> {
+                            MongoDatabase db = c.getDatabase(identifier.namespace()[0]);
+                            if (writeConfig.getValidationPipeline() != null) {
+                                ValidationOptions validationOptions =
+                                        new ValidationOptions()
+                                                .validator(writeConfig.getValidationPipeline())
+                                                .validationAction(writeConfig.getValidationAction())
+                                                .validationLevel(writeConfig.getValidationLevel());
+                                db.createCollection(
+                                        writeConfig.getCollectionName(),
+                                        new CreateCollectionOptions().validationOptions(validationOptions));
+                            } else {
+                                db.createCollection(writeConfig.getCollectionName());
+                            }
+                        });
     }
-
-    Identifier identifier =
-        Identifier.of(
-            new String[] {writeConfig.getDatabaseName()}, writeConfig.getCollectionName());
-
-    if (tableExists(identifier)) {
-      throw new UnsupportedOperationException(
-          format("Collection already exists: %s", writeConfig.getCollectionName()));
-    }
-
-    getWriteConfig()
-        .doWithClient(
-            c -> {
-              MongoDatabase db = c.getDatabase(identifier.namespace()[0]);
-              if (writeConfig.getValidationPipeline() != null) {
-                ValidationOptions validationOptions =
-                    new ValidationOptions()
-                        .validator(writeConfig.getValidationPipeline())
-                        .validationAction(ValidationAction.ERROR)
-                        .validationLevel(ValidationLevel.MODERATE);
-                db.createCollection(
-                    writeConfig.getCollectionName(),
-                    new CreateCollectionOptions().validationOptions(validationOptions));
-              } else {
-                db.createCollection(writeConfig.getCollectionName());
-              }
-            });
-  }
 
   public void dropTable(String collection) {
     assertInitialized();
     getWriteConfig();
     String collectionName = collection != null ? collection : writeConfig.getCollectionName();
-
     Identifier identifier =
         Identifier.of(new String[] {writeConfig.getDatabaseName()}, collectionName);
 
@@ -493,9 +487,17 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
     getWriteConfig();
 
     Identifier from = Identifier.of(new String[] {writeConfig.getDatabaseName()}, oldName);
-
     Identifier to = Identifier.of(new String[] {writeConfig.getDatabaseName()}, newName);
-
     renameTable(from, to);
+  }
+
+  public boolean tableExists(String collection) {
+    assertInitialized();
+    getWriteConfig();
+    String collectionName = collection != null ? collection : writeConfig.getCollectionName();
+    Identifier identifier =
+        Identifier.of(new String[] {writeConfig.getDatabaseName()}, collectionName);
+
+    return tableExists(identifier);
   }
 }
