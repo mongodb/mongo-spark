@@ -31,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.CreateCollectionOptions;
 
 import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.exceptions.DataException;
@@ -66,6 +67,14 @@ final class MongoBatchWrite implements BatchWrite {
   public DataWriterFactory createBatchWriterFactory(final PhysicalWriteInfo physicalWriteInfo) {
     if (truncate) {
       writeConfig.doWithCollection(MongoCollection::drop);
+      if (writeConfig.getValidationPipeline() != null) {
+        writeConfig.doWithDatabase(
+            db ->
+                db.createCollection(
+                    writeConfig.getCollectionName(),
+                    new CreateCollectionOptions()
+                        .validationOptions(writeConfig.getValidationOptions())));
+      }
     }
     return new MongoDataWriterFactory(info.schema(), writeConfig);
   }

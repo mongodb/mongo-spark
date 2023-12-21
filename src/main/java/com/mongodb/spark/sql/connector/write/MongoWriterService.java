@@ -17,10 +17,6 @@ public class MongoWriterService {
     mongoCatalog.initialize(database, new CaseInsensitiveStringMap(options));
   }
 
-  public void createTable() {
-    mongoCatalog.createTable();
-  }
-
   public void dropTable() {
     dropTable(null);
   }

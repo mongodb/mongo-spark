@@ -17,9 +17,20 @@
 
 package com.mongodb.spark.sql.connector.config;
 
-import static java.lang.String.format;
-import static java.util.Collections.unmodifiableMap;
-import static java.util.stream.Collectors.toMap;
+import com.mongodb.ConnectionString;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.ValidationAction;
+import com.mongodb.client.model.ValidationLevel;
+import com.mongodb.spark.sql.connector.assertions.Assertions;
+import com.mongodb.spark.sql.connector.connection.LazyMongoClientCache;
+import com.mongodb.spark.sql.connector.connection.MongoClientFactory;
+import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.util.CaseInsensitiveStringMap;
+import org.bson.BsonDocument;
+import org.jetbrains.annotations.TestOnly;
+import scala.Tuple2;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -31,23 +42,9 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import org.apache.spark.sql.SparkSession;
-import org.apache.spark.sql.util.CaseInsensitiveStringMap;
-import org.jetbrains.annotations.TestOnly;
-
-import org.bson.BsonDocument;
-
-import com.mongodb.ConnectionString;
-import com.mongodb.client.MongoClient;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.model.ValidationAction;
-import com.mongodb.client.model.ValidationLevel;
-
-import com.mongodb.spark.sql.connector.assertions.Assertions;
-import com.mongodb.spark.sql.connector.connection.LazyMongoClientCache;
-import com.mongodb.spark.sql.connector.connection.MongoClientFactory;
-
-import scala.Tuple2;
+import static java.lang.String.format;
+import static java.util.Collections.unmodifiableMap;
+import static java.util.stream.Collectors.toMap;
 
 /**
  * The MongoConfig abstract base class
@@ -201,6 +198,33 @@ abstract class AbstractMongoConfig implements MongoConfig {
           return null;
         });
   }
+
+    /**
+     * Loans a {@link MongoDatabase} to the user, does not return a result.
+     *
+     * @param consumer the consumer of the {@code MongoCollection<MongoDatabase>}
+     */
+    public void doWithDatabase(final Consumer<MongoDatabase> consumer) {
+        withDatabase(
+                database -> {
+                    consumer.accept(database);
+                    return null;
+                });
+    }
+
+
+    /**
+     * Runs a function against a {@code MongoDatabase}
+     *
+     * @param function the function that is passed the {@code MongoDatabase}
+     * @param <T>      The return type
+     * @return the result of the function
+     */
+    public <T> T withDatabase(final Function<MongoDatabase, T> function) {
+        try (MongoClient client = getMongoClient()) {
+            return function.apply(client.getDatabase(getDatabaseName()));
+        }
+    }
 
   @Override
   public String toString() {

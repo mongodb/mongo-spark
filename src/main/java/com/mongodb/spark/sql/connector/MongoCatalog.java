@@ -19,10 +19,7 @@ package com.mongodb.spark.sql.connector;
 
 import com.mongodb.MongoCommandException;
 import com.mongodb.MongoNamespace;
-import com.mongodb.client.MongoDatabase;
-import com.mongodb.client.model.CreateCollectionOptions;
 import com.mongodb.client.model.Filters;
-import com.mongodb.client.model.ValidationOptions;
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
@@ -432,41 +429,6 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
     }
   }
 
-    public void createTable() {
-        assertInitialized();
-        getWriteConfig();
-        if (writeConfig.getDatabaseName().isEmpty()) {
-            throw new UnsupportedOperationException(
-                    format("Invalid namespace: %s", writeConfig.getDatabaseName()));
-        }
-
-        Identifier identifier =
-                Identifier.of(
-                        new String[]{writeConfig.getDatabaseName()}, writeConfig.getCollectionName());
-
-        if (tableExists(identifier)) {
-            throw new UnsupportedOperationException(
-                    format("Collection already exists: %s", writeConfig.getCollectionName()));
-        }
-
-        getWriteConfig()
-                .doWithClient(
-                        c -> {
-                            MongoDatabase db = c.getDatabase(identifier.namespace()[0]);
-                            if (writeConfig.getValidationPipeline() != null) {
-                                ValidationOptions validationOptions =
-                                        new ValidationOptions()
-                                                .validator(writeConfig.getValidationPipeline())
-                                                .validationAction(writeConfig.getValidationAction())
-                                                .validationLevel(writeConfig.getValidationLevel());
-                                db.createCollection(
-                                        writeConfig.getCollectionName(),
-                                        new CreateCollectionOptions().validationOptions(validationOptions));
-                            } else {
-                                db.createCollection(writeConfig.getCollectionName());
-                            }
-                        });
-    }
 
   public void dropTable(String collection) {
     assertInitialized();

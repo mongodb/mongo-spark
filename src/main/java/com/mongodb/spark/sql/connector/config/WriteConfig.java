@@ -30,6 +30,7 @@ import org.bson.BsonValue;
 import org.bson.conversions.Bson;
 
 import com.mongodb.WriteConcern;
+import com.mongodb.client.model.ValidationOptions;
 
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 
@@ -252,12 +253,17 @@ public final class WriteConfig extends AbstractMongoConfig {
     return getBoolean(CONVERT_JSON_CONFIG, CONVERT_JSON_DEFAULT);
   }
 
-  /**
-   * @return the true if JSON strings should be converted
-   * @since 10.1
-   */
+  /** @return Bson document with validation pipeline */
   public Bson getValidationPipeline() {
     return validationPipeline;
+  }
+
+  /** @return Bson document with validation options */
+  public ValidationOptions getValidationOptions() {
+    return new ValidationOptions()
+        .validator(this.getValidationPipeline())
+        .validationAction(this.getValidationAction())
+        .validationLevel(this.getValidationLevel());
   }
 
   private WriteConcern createWriteConcern() {
