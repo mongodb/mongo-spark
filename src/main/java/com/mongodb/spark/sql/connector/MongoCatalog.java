@@ -38,7 +38,6 @@ import org.apache.spark.sql.connector.catalog.TableChange;
 import org.apache.spark.sql.connector.expressions.Transform;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
-import org.bson.conversions.Bson;
 import org.jetbrains.annotations.TestOnly;
 import org.jetbrains.annotations.VisibleForTesting;
 
@@ -412,7 +411,8 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
     return readConfig;
   }
 
-  public WriteConfig getWriteConfig() {
+  @VisibleForTesting
+  WriteConfig getWriteConfig() {
     assertInitialized();
     if (writeConfig == null) {
       writeConfig = MongoConfig.writeConfig(options);
@@ -431,39 +431,5 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
       readConfig = null;
       writeConfig = null;
     }
-  }
-
-
-  public void dropTable(String collection) {
-    assertInitialized();
-    getWriteConfig();
-    String collectionName = collection != null ? collection : writeConfig.getCollectionName();
-    Identifier identifier =
-        Identifier.of(new String[] {writeConfig.getDatabaseName()}, collectionName);
-
-    if (!dropTable(identifier)) {
-      throw new UnsupportedOperationException(
-          format("Collection could not be dropped: %s", collectionName));
-    }
-  }
-
-  public void renameTable(String oldName, String newName)
-      throws TableAlreadyExistsException, NoSuchTableException {
-    assertInitialized();
-    getWriteConfig();
-
-    Identifier from = Identifier.of(new String[] {writeConfig.getDatabaseName()}, oldName);
-    Identifier to = Identifier.of(new String[] {writeConfig.getDatabaseName()}, newName);
-    renameTable(from, to);
-  }
-
-  public boolean tableExists(String collection) {
-    assertInitialized();
-    getWriteConfig();
-    String collectionName = collection != null ? collection : writeConfig.getCollectionName();
-    Identifier identifier =
-        Identifier.of(new String[] {writeConfig.getDatabaseName()}, collectionName);
-
-    return tableExists(identifier);
   }
 }
