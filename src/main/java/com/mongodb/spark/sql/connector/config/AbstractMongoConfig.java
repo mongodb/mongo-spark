@@ -17,20 +17,9 @@
 
 package com.mongodb.spark.sql.connector.config;
 
-import com.mongodb.ConnectionString;
-import com.mongodb.client.MongoClient;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
-import com.mongodb.client.model.ValidationAction;
-import com.mongodb.client.model.ValidationLevel;
-import com.mongodb.spark.sql.connector.assertions.Assertions;
-import com.mongodb.spark.sql.connector.connection.LazyMongoClientCache;
-import com.mongodb.spark.sql.connector.connection.MongoClientFactory;
-import org.apache.spark.sql.SparkSession;
-import org.apache.spark.sql.util.CaseInsensitiveStringMap;
-import org.bson.BsonDocument;
-import org.jetbrains.annotations.TestOnly;
-import scala.Tuple2;
+import static java.lang.String.format;
+import static java.util.Collections.unmodifiableMap;
+import static java.util.stream.Collectors.toMap;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -42,9 +31,23 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static java.lang.String.format;
-import static java.util.Collections.unmodifiableMap;
-import static java.util.stream.Collectors.toMap;
+import com.mongodb.client.model.ValidationAction;
+import com.mongodb.client.model.ValidationLevel;
+import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.util.CaseInsensitiveStringMap;
+import org.jetbrains.annotations.TestOnly;
+
+import org.bson.BsonDocument;
+
+import com.mongodb.ConnectionString;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoCollection;
+
+import com.mongodb.spark.sql.connector.assertions.Assertions;
+import com.mongodb.spark.sql.connector.connection.LazyMongoClientCache;
+import com.mongodb.spark.sql.connector.connection.MongoClientFactory;
+
+import scala.Tuple2;
 
 /**
  * The MongoConfig abstract base class

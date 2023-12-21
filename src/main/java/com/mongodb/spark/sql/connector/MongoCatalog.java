@@ -17,14 +17,14 @@
 
 package com.mongodb.spark.sql.connector;
 
-import com.mongodb.MongoCommandException;
-import com.mongodb.MongoNamespace;
-import com.mongodb.client.model.Filters;
-import com.mongodb.spark.sql.connector.assertions.Assertions;
-import com.mongodb.spark.sql.connector.config.MongoConfig;
-import com.mongodb.spark.sql.connector.config.ReadConfig;
-import com.mongodb.spark.sql.connector.config.WriteConfig;
-import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
+import static java.lang.String.format;
+import static java.util.Arrays.asList;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.apache.spark.sql.catalyst.analysis.NamespaceAlreadyExistsException;
 import org.apache.spark.sql.catalyst.analysis.NoSuchNamespaceException;
 import org.apache.spark.sql.catalyst.analysis.NoSuchTableException;
@@ -42,13 +42,17 @@ import org.bson.conversions.Bson;
 import org.jetbrains.annotations.TestOnly;
 import org.jetbrains.annotations.VisibleForTesting;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import org.bson.conversions.Bson;
 
-import static java.lang.String.format;
-import static java.util.Arrays.asList;
+import com.mongodb.MongoCommandException;
+import com.mongodb.MongoNamespace;
+import com.mongodb.client.model.Filters;
+
+import com.mongodb.spark.sql.connector.assertions.Assertions;
+import com.mongodb.spark.sql.connector.config.MongoConfig;
+import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.config.WriteConfig;
+import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 
 /** Spark Catalog methods for working with namespaces (databases) and tables (collections). */
 public class MongoCatalog implements TableCatalog, SupportsNamespaces {
