@@ -31,7 +31,7 @@ plugins {
     checkstyle
     id("com.github.gmazzo.buildconfig") version "3.0.2"
     id("com.github.spotbugs") version "4.7.9"
-    id("com.diffplug.spotless") version "6.19.0"
+    //id("com.diffplug.spotless") version "6.19.0"
     id("com.github.johnrengelman.shadow") version "7.0.0"
 }
 
@@ -50,8 +50,8 @@ repositories {
 }
 
 // Usage: ./gradlew -DscalaVersion=2.12 -DsparkVersion=3.1.2
-val scalaVersion = System.getProperty("scalaVersion", "2.13")
-val sparkVersion = System.getProperty("sparkVersion", "3.2.2")
+val scalaVersion = System.getProperty("scalaVersion", "2.12")
+val sparkVersion = System.getProperty("sparkVersion", "3.5.0")
 
 extra.apply {
     set("annotationsVersion", "22.0.0")
@@ -232,38 +232,6 @@ tasks.withType<com.github.spotbugs.snom.SpotBugsTask> {
     enabled = baseName.equals("main")
     reports.maybeCreate("html").isEnabled = !project.hasProperty("xmlReports.enabled")
     reports.maybeCreate("xml").isEnabled = project.hasProperty("xmlReports.enabled")
-}
-
-// Spotless is used to lint and reformat source files.
-spotless {
-    java {
-        importOrder("java", "io", "org", "org.bson", "com.mongodb", "com.mongodb.spark", "")
-        removeUnusedImports() // removes any unused imports
-        trimTrailingWhitespace()
-        endWithNewline()
-        indentWithSpaces()
-
-        palantirJavaFormat().style("GOOGLE")
-    }
-
-    kotlinGradle {
-        ktlint()
-        trimTrailingWhitespace()
-        indentWithSpaces()
-        endWithNewline()
-    }
-
-    format("extraneous") {
-        target("*.xml", "*.yml", "*.md")
-        trimTrailingWhitespace()
-        indentWithSpaces()
-        endWithNewline()
-    }
-}
-
-// Auto apply spotless on compile
-tasks.named("compileJava") {
-    dependsOn(":spotlessApply")
 }
 
 // ===========================
