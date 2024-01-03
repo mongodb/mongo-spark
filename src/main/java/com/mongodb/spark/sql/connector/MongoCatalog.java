@@ -185,7 +185,7 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
    * @return true if the namespace (database) was dropped
    */
   @Override
-  public boolean dropNamespace(final String[] namespace) {
+  public boolean dropNamespace(final String[] namespace, final boolean cascade) {
     assertInitialized();
     if (namespaceExists(namespace)) {
       MongoConfig.writeConfig(options)
