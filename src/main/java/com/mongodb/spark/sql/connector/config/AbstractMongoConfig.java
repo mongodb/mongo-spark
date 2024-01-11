@@ -40,6 +40,9 @@ import org.bson.BsonDocument;
 import com.mongodb.ConnectionString;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.ValidationAction;
+import com.mongodb.client.model.ValidationLevel;
 
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.connection.LazyMongoClientCache;
@@ -122,6 +125,16 @@ abstract class AbstractMongoConfig implements MongoConfig {
         () -> "Missing configuration for: " + COLLECTION_NAME_CONFIG);
   }
 
+  public ValidationAction getValidationAction() {
+    return ValidationAction.fromString(
+        getOrDefault(VALIDATION_ACTION_CONFIG, VALIDATION_ACTION_DEFAULT));
+  }
+
+  public ValidationLevel getValidationLevel() {
+    return ValidationLevel.fromString(
+        getOrDefault(VALIDATION_LEVEL_CONFIG, VALIDATION_LEVEL_DEFAULT));
+  }
+
   /**
    * Returns a MongoClient
    *
@@ -188,6 +201,32 @@ abstract class AbstractMongoConfig implements MongoConfig {
           consumer.accept(collection);
           return null;
         });
+  }
+
+  /**
+   * Loans a {@link MongoDatabase} to the user, does not return a result.
+   *
+   * @param consumer the consumer of the {@code MongoCollection<MongoDatabase>}
+   */
+  public void doWithDatabase(final Consumer<MongoDatabase> consumer) {
+    withDatabase(
+        database -> {
+          consumer.accept(database);
+          return null;
+        });
+  }
+
+  /**
+   * Runs a function against a {@code MongoDatabase}
+   *
+   * @param function the function that is passed the {@code MongoDatabase}
+   * @param <T> The return type
+   * @return the result of the function
+   */
+  public <T> T withDatabase(final Function<MongoDatabase, T> function) {
+    try (MongoClient client = getMongoClient()) {
+      return function.apply(client.getDatabase(getDatabaseName()));
+    }
   }
 
   @Override
