@@ -23,11 +23,13 @@ import static java.util.Collections.singletonList;
 import com.mongodb.MongoCommandException;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.apache.spark.sql.connector.read.Scan;
 import org.bson.BsonDocument;
 import org.bson.BsonType;
 import org.bson.BsonValue;
@@ -91,6 +93,10 @@ public final class PartitionerHelper {
   /**
    * @param readConfig the read config
    * @return the storage stats or an empty document if the collection does not exist
+   * @throws ConfigException
+   * If either {@linkplain com.mongodb.spark.sql.connector.config.CollectionsConfig.Type#MULTIPLE multiple}
+   * or {@linkplain com.mongodb.spark.sql.connector.config.CollectionsConfig.Type#ALL all}
+   * collections are {@linkplain ReadConfig#getCollectionsConfig() configured} to be {@linkplain Scan scanned}.
    */
   public static BsonDocument storageStats(final ReadConfig readConfig) {
     LOGGER.info("Getting collection stats for: {}", readConfig.getNamespace().getFullName());

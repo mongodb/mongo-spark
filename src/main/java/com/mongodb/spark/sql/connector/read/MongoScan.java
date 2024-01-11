@@ -52,10 +52,15 @@ final class MongoScan implements Scan {
   /** A description string of this scan. */
   @Override
   public String description() {
-    return "MongoScan{" + "namespace=" + readConfig.getNamespace().toString() + '}';
+    return "MongoScan{" + "namespaceDescription=" + readConfig.getNamespaceDescription() + '}';
   }
 
-  /** Returns the physical representation of this scan for batch query. */
+  /**
+   * Returns the physical representation of this scan for batch query.
+   * This mode does not support scanning
+   * {@linkplain com.mongodb.spark.sql.connector.config.CollectionsConfig.Type#MULTIPLE multiple} or
+   * {@linkplain com.mongodb.spark.sql.connector.config.CollectionsConfig.Type#ALL all} collections.
+   */
   @Override
   public Batch toBatch() {
     return new MongoBatch(schema, readConfig);

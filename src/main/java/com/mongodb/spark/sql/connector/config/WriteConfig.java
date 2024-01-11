@@ -20,6 +20,7 @@ package com.mongodb.spark.sql.connector.config;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 
+import com.mongodb.MongoNamespace;
 import com.mongodb.WriteConcern;
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import java.util.HashMap;
@@ -27,6 +28,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import org.jetbrains.annotations.ApiStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -304,6 +306,30 @@ public final class WriteConfig extends AbstractMongoConfig {
    */
   public boolean ignoreNullValues() {
     return getBoolean(IGNORE_NULL_VALUES_CONFIG, IGNORE_NULL_VALUES_DEFAULT);
+  }
+
+  @Override
+  CollectionsConfig parseAndValidateCollectionsConfig() {
+    CollectionsConfig collectionsConfig = super.parseAndValidateCollectionsConfig();
+    CollectionsConfig.Type type = collectionsConfig.getType();
+    if (type == CollectionsConfig.Type.SINGLE) {
+      return collectionsConfig;
+    } else {
+      throw new ConfigException(format(
+          "The connector is configured to access %s, which is not supported when writing",
+          getNamespaceDescription(collectionsConfig)));
+    }
+  }
+
+  @Override
+  @ApiStatus.Internal
+  public String getNamespaceDescription() {
+    return getNamespaceDescription(getCollectionsConfig());
+  }
+
+  private String getNamespaceDescription(final CollectionsConfig collectionsConfig) {
+    return new MongoNamespace(getDatabaseName(), collectionsConfig.getPartialNamespaceDescription())
+        .toString();
   }
 
   private WriteConcern createWriteConcern() {

@@ -17,16 +17,19 @@
 
 package com.mongodb.spark.sql.connector.config;
 
+import static com.mongodb.assertions.Assertions.assertNotNull;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.stream.Collectors.toMap;
 
 import com.mongodb.ConnectionString;
+import com.mongodb.MongoNamespace;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.connection.LazyMongoClientCache;
 import com.mongodb.spark.sql.connector.connection.MongoClientFactory;
+import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -37,8 +40,10 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.connector.read.Scan;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 import org.bson.BsonDocument;
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.TestOnly;
 import scala.Tuple2;
 
@@ -65,6 +70,7 @@ abstract class AbstractMongoConfig implements MongoConfig {
   private final UsageMode usageMode;
   private transient MongoClientFactory mongoClientFactory;
   private transient CaseInsensitiveStringMap caseInsensitiveOptions;
+  private transient CollectionsConfig collectionsConfig;
 
   /**
    * Constructs the instance
@@ -106,12 +112,43 @@ abstract class AbstractMongoConfig implements MongoConfig {
         () -> "Missing configuration for: " + DATABASE_NAME_CONFIG);
   }
 
+  /**
+   * @throws ConfigException
+   * If either {@linkplain CollectionsConfig.Type#MULTIPLE multiple} or {@linkplain CollectionsConfig.Type#ALL all}
+   * collections are {@linkplain ReadConfig#getCollectionsConfig() configured} to be {@linkplain Scan scanned}.
+   */
   @Override
   public String getCollectionName() {
-    return Assertions.validateConfig(
-        get(COLLECTION_NAME_CONFIG),
-        Objects::nonNull,
-        () -> "Missing configuration for: " + COLLECTION_NAME_CONFIG);
+    CollectionsConfig collectionsConfig = getCollectionsConfig();
+    CollectionsConfig.Type type = collectionsConfig.getType();
+    if (type == CollectionsConfig.Type.SINGLE) {
+      return collectionsConfig.getName();
+    } else {
+      throw new ConfigException(format(
+          "The connector is configured to access %s, which is not supported in the current context",
+          getNamespaceDescription()));
+    }
+  }
+
+  /**
+   * @see #getNamespace()
+   */
+  @ApiStatus.Internal
+  public String getNamespaceDescription() {
+    return new MongoNamespace(
+            getDatabaseName(), getCollectionsConfig().getPartialNamespaceDescription())
+        .toString();
+  }
+
+  /**
+   * @see #getCollectionName()
+   */
+  @ApiStatus.Internal
+  public CollectionsConfig getCollectionsConfig() {
+    if (collectionsConfig == null) {
+      collectionsConfig = parseAndValidateCollectionsConfig();
+    }
+    return assertNotNull(collectionsConfig);
   }
 
   /**
@@ -158,6 +195,9 @@ abstract class AbstractMongoConfig implements MongoConfig {
    * @param function the function that is passed the {@code MongoCollection}
    * @param <T> The return type
    * @return the result of the function
+   * @throws ConfigException
+   * If either {@linkplain CollectionsConfig.Type#MULTIPLE multiple} or {@linkplain CollectionsConfig.Type#ALL all}
+   * collections are {@linkplain ReadConfig#getCollectionsConfig() configured} to be {@linkplain Scan scanned}.
    */
   public <T> T withCollection(final Function<MongoCollection<BsonDocument>, T> function) {
     try (MongoClient client = getMongoClient()) {
@@ -222,6 +262,10 @@ abstract class AbstractMongoConfig implements MongoConfig {
     });
     newOptions.putAll(overrides);
     return newOptions;
+  }
+
+  CollectionsConfig parseAndValidateCollectionsConfig() {
+    return parseCollectionsConfig();
   }
 
   /** @return the {@link MongoClientFactory} for this configuration. */
@@ -320,6 +364,21 @@ abstract class AbstractMongoConfig implements MongoConfig {
       if (collectionName != null) {
         usageSpecificOptions.put(COLLECTION_NAME_CONFIG, collectionName);
       }
+    }
+  }
+
+  private String getRawCollectionName() {
+    return Assertions.validateConfig(
+        get(COLLECTION_NAME_CONFIG),
+        v -> v != null && !v.isEmpty(),
+        () -> "Missing configuration for: " + COLLECTION_NAME_CONFIG);
+  }
+
+  private CollectionsConfig parseCollectionsConfig() throws ConfigException {
+    try {
+      return CollectionsConfig.parse(getRawCollectionName());
+    } catch (CollectionsConfig.ParsingException e) {
+      throw new ConfigException(e);
     }
   }
 }
