@@ -305,7 +305,7 @@ public final class WriteConfig extends AbstractMongoConfig {
     if (pipelineJson.isEmpty()) {
       return null;
     }
-    BsonValue pipeline = BsonDocument.parse(format("{$jsonSchema: %s}", pipelineJson));
+    BsonValue pipeline = BsonDocument.parse(pipelineJson);
     return pipeline.asDocument();
   }
 }
