@@ -109,7 +109,7 @@ final class MongoMicroBatchPartitionReader implements PartitionReader<InternalRo
         && cursor.getServerCursor() != null
         && (cursor.getResumeToken() == null
             || getTimestamp(cursor.getResumeToken()).compareTo(partition.getEndOffsetTimestamp())
-                <= 0));
+                < 0));
 
     boolean hasNext = cursorNext != null;
     if (hasNext) {
