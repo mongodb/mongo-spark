@@ -415,7 +415,7 @@ public final class ReadConfig extends AbstractMongoConfig {
   }
 
   /**
-   * @return true if should ouput extended JSON
+   * @return true if should output extended JSON
    * @since 10.1
    */
   public boolean outputExtendedJson() {
