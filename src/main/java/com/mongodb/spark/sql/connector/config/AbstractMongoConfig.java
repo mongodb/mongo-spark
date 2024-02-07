@@ -131,7 +131,12 @@ abstract class AbstractMongoConfig implements MongoConfig {
   }
 
   /**
-   * @see #getNamespace()
+   * @return The namespace description, which is equal to the {@linkplain MongoNamespace#toString() string representation}
+   * of {@link #getNamespace()} when a {@linkplain CollectionsConfig.Type#SINGLE single}
+   * collection is {@linkplain ReadConfig#getCollectionsConfig() configured} to be {@linkplain Scan scanned}.
+   * Unlike {@link #getNamespace()}, this method works even if
+   * {@linkplain CollectionsConfig.Type#MULTIPLE multiple} or {@linkplain CollectionsConfig.Type#ALL all}
+   * collections are configured to be scanned.
    */
   @ApiStatus.Internal
   public String getNamespaceDescription() {
@@ -141,6 +146,7 @@ abstract class AbstractMongoConfig implements MongoConfig {
   }
 
   /**
+   * @return The {@link CollectionsConfig}.
    * @see #getCollectionName()
    */
   @ApiStatus.Internal

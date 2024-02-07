@@ -32,7 +32,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.spark.sql.connector.read.Scan;
-import org.apache.spark.sql.connector.write.Write;
+import org.apache.spark.sql.connector.write.WriteBuilder;
 import org.bson.BsonString;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
@@ -153,9 +153,11 @@ public interface MongoConfig extends Serializable {
    */
   String DATABASE_NAME_CONFIG = "database";
 
+  // This documentation links to `WriteBuilder` instead of `Write`
+  // because `Write` was added in park-catalyst 3.2.0, and we must support 3.1.2.
   /**
-   * A configuration of the set of collections for {@linkplain Write writing} to / {@linkplain Scan scanning} from.
-   * When configuring a {@linkplain Write write}, only a single collection name is supported.
+   * A configuration of the set of collections for {@linkplain WriteBuilder writing} to / {@linkplain Scan scanning} from.
+   * When configuring a {@linkplain WriteBuilder write}, only a single collection name is supported.
    * When configuring a {@linkplain Scan scan},
    * the following {@linkplain CollectionsConfig.Type configuration types} are supported:
    * <ul>
