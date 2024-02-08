@@ -154,7 +154,7 @@ public interface MongoConfig extends Serializable {
   String DATABASE_NAME_CONFIG = "database";
 
   // This documentation links to `WriteBuilder` instead of `Write`
-  // because `Write` was added in park-catalyst 3.2.0, and we must support 3.1.2.
+  // because `Write` was added in spark-catalyst 3.2.0, and we must support 3.1.2.
   /**
    * A configuration of the set of collections for {@linkplain WriteBuilder writing} to / {@linkplain Scan scanning} from.
    * When configuring a {@linkplain WriteBuilder write}, only a single collection name is supported.

@@ -732,7 +732,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
       final BiConsumer<String, MongoCollection<BsonDocument>> biConsumer) {
     return mongoConfig -> {
       if (msg != null) {
-        LOGGER.info("-> With source: " + msg);
+        LOGGER.info("-> With source: {}", msg);
       }
       ReadConfig readConfig = mongoConfig.toReadConfig();
       MongoCollection<BsonDocument> collection = readConfig.withClient(client -> client
@@ -746,7 +746,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
       @Nullable final String msg, final BiConsumer<String, MongoDatabase> biConsumer) {
     return mongoConfig -> {
       if (msg != null) {
-        LOGGER.info("-> With source: " + msg);
+        LOGGER.info("-> With source: {}", msg);
       }
       ReadConfig readConfig = mongoConfig.toReadConfig();
       MongoDatabase db =
