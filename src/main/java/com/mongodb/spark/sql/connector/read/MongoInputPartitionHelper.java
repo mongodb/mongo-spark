@@ -39,6 +39,7 @@ import org.apache.spark.sql.types.StructType;
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
 import org.bson.BsonTimestamp;
+import org.bson.conversions.Bson;
 
 final class MongoInputPartitionHelper {
 
@@ -157,20 +158,21 @@ final class MongoInputPartitionHelper {
    */
   private static Collection<BsonDocument> collectionsConfigPipeline(
       final CollectionsConfig collectionsConfig) {
-    // note that `invalidate` events do not have the `ns.coll` field,
+    // `invalidate` events do not have the `ns.coll` field,
     // so we have to explicitly allow them in the filter
+    Bson invalidateOperationType = Filters.eq("operationType", "invalidate");
     switch (collectionsConfig.getType()) {
       case SINGLE:
         return emptyList();
       case MULTIPLE:
         return singletonList(Aggregates.match(Filters.or(
                 Filters.in("ns.coll", collectionsConfig.getNames().toArray()),
-                Filters.in("operationType", "invalidate")))
+                invalidateOperationType))
             .toBsonDocument());
       case ALL:
-        return singletonList(Aggregates.match(
-                Filters.or(Filters.exists("ns.coll"), Filters.in("operationType", "invalidate")))
-            .toBsonDocument());
+        return singletonList(
+            Aggregates.match(Filters.or(Filters.exists("ns.coll"), invalidateOperationType))
+                .toBsonDocument());
       default:
         throw fail();
     }
