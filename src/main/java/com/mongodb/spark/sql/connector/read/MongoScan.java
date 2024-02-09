@@ -17,7 +17,11 @@
 
 package com.mongodb.spark.sql.connector.read;
 
+import static java.lang.String.format;
+
+import com.mongodb.spark.sql.connector.config.CollectionsConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import org.apache.spark.sql.connector.read.Batch;
 import org.apache.spark.sql.connector.read.Scan;
 import org.apache.spark.sql.connector.read.streaming.ContinuousStream;
@@ -60,9 +64,18 @@ final class MongoScan implements Scan {
    * This mode does not support scanning
    * {@linkplain com.mongodb.spark.sql.connector.config.CollectionsConfig.Type#MULTIPLE multiple} or
    * {@linkplain com.mongodb.spark.sql.connector.config.CollectionsConfig.Type#ALL all} collections.
+   *
+   * @throws ConfigException
+   * If either {@linkplain CollectionsConfig.Type#MULTIPLE multiple} or {@linkplain CollectionsConfig.Type#ALL all}
+   * collections are {@linkplain ReadConfig#getCollectionsConfig() configured} to be {@linkplain Scan scanned}.
    */
   @Override
   public Batch toBatch() {
+    if (readConfig.getCollectionsConfig().getType() != CollectionsConfig.Type.SINGLE) {
+      throw new ConfigException(format(
+          "The connector is configured to access %s, which is not supported by batch queries",
+          readConfig.getNamespaceDescription()));
+    }
     return new MongoBatch(schema, readConfig);
   }
 
