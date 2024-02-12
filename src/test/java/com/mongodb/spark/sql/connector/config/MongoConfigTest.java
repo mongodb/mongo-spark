@@ -214,6 +214,29 @@ public class MongoConfigTest {
     writeConfig = MongoConfig.writeConfig(options);
     assertEquals("overriddenWriteDb", writeConfig.getDatabaseName());
     assertEquals("overriddenWriteColl", writeConfig.getCollectionName());
+
+    // CollectionsConfig.Mode.MULTIPLE
+    options.put(
+        MongoConfig.READ_PREFIX + MongoConfig.COLLECTION_NAME_CONFIG, "readCollA,readCollB");
+    options.put(
+        MongoConfig.WRITE_PREFIX + MongoConfig.COLLECTION_NAME_CONFIG, "writeCollA,writeCollB");
+    assertEquals(
+        CollectionsConfig.parse("readCollA,readCollB"),
+        MongoConfig.readConfig(options).getCollectionsConfig());
+    assertThrows(ConfigException.class, () -> MongoConfig.readConfig(options).getCollectionName());
+    assertThrows(
+        ConfigException.class, () -> MongoConfig.writeConfig(options).getCollectionsConfig());
+    assertThrows(ConfigException.class, () -> MongoConfig.writeConfig(options).getCollectionName());
+
+    // CollectionsConfig.Mode.ALL
+    options.put(MongoConfig.READ_PREFIX + MongoConfig.COLLECTION_NAME_CONFIG, "*");
+    options.put(MongoConfig.WRITE_PREFIX + MongoConfig.COLLECTION_NAME_CONFIG, "*");
+    assertEquals(
+        CollectionsConfig.parse("*"), MongoConfig.readConfig(options).getCollectionsConfig());
+    assertThrows(ConfigException.class, () -> MongoConfig.readConfig(options).getCollectionName());
+    assertThrows(
+        ConfigException.class, () -> MongoConfig.writeConfig(options).getCollectionsConfig());
+    assertThrows(ConfigException.class, () -> MongoConfig.writeConfig(options).getCollectionName());
   }
 
   @ParameterizedTest

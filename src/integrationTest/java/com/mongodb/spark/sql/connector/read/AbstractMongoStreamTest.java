@@ -19,9 +19,11 @@ package com.mongodb.spark.sql.connector.read;
 import static com.mongodb.spark.sql.connector.config.MongoConfig.COMMENT_CONFIG;
 import static com.mongodb.spark.sql.connector.config.MongoConfig.PREFIX;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
+import static java.util.stream.Collectors.joining;
 import static org.apache.spark.sql.types.DataTypes.createStructField;
 import static org.apache.spark.sql.types.DataTypes.createStructType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,9 +34,12 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.InsertManyOptions;
 import com.mongodb.client.model.Updates;
+import com.mongodb.lang.Nullable;
+import com.mongodb.spark.sql.connector.config.CollectionsConfig;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.config.WriteConfig;
@@ -46,12 +51,14 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.spark.sql.Column;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -66,6 +73,8 @@ import org.bson.BsonDocument;
 import org.bson.BsonString;
 import org.bson.BsonTimestamp;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.opentest4j.AssertionFailedError;
 
 /**
@@ -76,7 +85,6 @@ import org.opentest4j.AssertionFailedError;
  * return immediately perhaps waiting for the stream to complete.
  */
 abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
-
   /*
    *
    */
@@ -93,12 +101,15 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
 
   private String testIdentifier;
 
-  @Test
-  void testStream() {
+  @ParameterizedTest
+  @ValueSource(strings = {"SINGLE", "MULTIPLE", "ALL"})
+  void testStream(final String collectionsConfigModeStr) {
     assumeTrue(supportsChangeStreams());
-    testIdentifier = "Simple";
+    CollectionsConfig.Type collectionsConfigType =
+        CollectionsConfig.Type.valueOf(collectionsConfigModeStr);
+    testIdentifier = computeTestIdentifier("Simple", collectionsConfigType);
     testStreamingQuery(
-        createMongoConfig(),
+        createMongoConfig(collectionsConfigType),
         withSource("inserting 0-25", (msg, coll) -> coll.insertMany(createDocuments(0, 25))),
         withMemorySink(
             "Expected to see 25 documents",
@@ -109,14 +120,75 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
             (msg, ds) -> assertEquals(50, ds.collectAsList().size(), msg)));
   }
 
-  @Test
-  void testStreamHandlesCollectionDrop() {
+  @ParameterizedTest
+  @ValueSource(strings = {"MULTIPLE", "ALL"})
+  void testStreamFromActuallyMultipleCollections(final String collectionsConfigModeStr) {
+    assumeTrue(supportsChangeStreams());
+    CollectionsConfig.Type collectionsConfigType =
+        CollectionsConfig.Type.valueOf(collectionsConfigModeStr);
+    testIdentifier = computeTestIdentifier("ActuallyMultiple", collectionsConfigType);
+    String collectionName1 = collectionName() + "_1";
+    String collectionName2 = collectionName() + "_2";
+    String collectionName3 = collectionName() + "_3";
+    int expectedNumberOfDocuments;
+    Set<String> expectedCollectionNames;
+    String collectionNameOptionValue;
+    if (collectionsConfigType == CollectionsConfig.Type.ALL) {
+      expectedNumberOfDocuments = 3;
+      expectedCollectionNames =
+          Stream.of(collectionName1, collectionName2, collectionName3).collect(Collectors.toSet());
+      collectionNameOptionValue = "*";
+    } else {
+      expectedNumberOfDocuments = 2;
+      expectedCollectionNames =
+          Stream.of(collectionName1, collectionName3).collect(Collectors.toSet());
+      collectionNameOptionValue = join(",", expectedCollectionNames);
+    }
+    testStreamingQuery(
+        createMongoConfig(collectionsConfigType)
+            .withOption(
+                ReadConfig.READ_PREFIX + ReadConfig.COLLECTION_NAME_CONFIG,
+                collectionNameOptionValue),
+        DEFAULT_SCHEMA.add(
+            "ns", DataTypes.createMapType(DataTypes.StringType, DataTypes.StringType)),
+        withSourceDb("Inserting 0-1 in " + collectionName1, (msg, db) -> db.getCollection(
+                collectionName1, BsonDocument.class)
+            .insertMany(createDocuments(0, 1))),
+        withSourceDb("Inserting 2-3 in " + collectionName2, (msg, db) -> db.getCollection(
+                collectionName2, BsonDocument.class)
+            .insertMany(createDocuments(2, 3))),
+        withSourceDb("Inserting 3-4 in " + collectionName3, (msg, db) -> db.getCollection(
+                collectionName3, BsonDocument.class)
+            .insertMany(createDocuments(3, 4))),
+        withMemorySink(
+            format(
+                "Expected to see %d documents from %s",
+                expectedNumberOfDocuments, expectedCollectionNames),
+            (msg, ds) -> {
+              List<Row> rows = ds.collectAsList();
+              assertEquals(expectedNumberOfDocuments, rows.size(), msg);
+              Set<String> actualCollectionNames = rows.stream()
+                  .map(row -> row.<String, String>getMap(row.fieldIndex("ns"))
+                      .get("coll")
+                      .get())
+                  .collect(Collectors.toSet());
+              assertEquals(expectedCollectionNames, actualCollectionNames, msg);
+            }));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"SINGLE", "MULTIPLE", "ALL"})
+  void testStreamHandlesCollectionDrop(final String collectionsConfigModeStr) {
     assumeTrue(supportsChangeStreams());
     assumeTrue(isAtLeastFourDotFour());
 
-    testIdentifier = "WithDrop";
+    CollectionsConfig.Type collectionsConfigType =
+        CollectionsConfig.Type.valueOf(collectionsConfigModeStr);
+    testIdentifier = computeTestIdentifier("WithDrop", collectionsConfigType);
+    int expectedInvalidateDocumentsCount =
+        collectionsConfigType == CollectionsConfig.Type.SINGLE ? 1 : 0;
     testStreamingQuery(
-        createMongoConfig(),
+        createMongoConfig(collectionsConfigType),
         withSource("inserting 0-25", (msg, coll) -> coll.insertMany(createDocuments(0, 25))),
         withMemorySink(
             "Expected to see 25 documents",
@@ -131,24 +203,27 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
                     .count(),
                 msg)),
         withMemorySink(
-            "Expected to see 1 invalidate document",
+            "Expected to see " + expectedInvalidateDocumentsCount + " invalidate document",
             (msg, ds) -> assertEquals(
-                1,
+                expectedInvalidateDocumentsCount,
                 ds.collectAsList().stream()
                     .filter(c -> c.get(c.fieldIndex("operationType")).equals("invalidate"))
                     .count(),
                 msg)));
   }
 
-  @Test
-  void testStreamWithFilter() {
+  @ParameterizedTest
+  @ValueSource(strings = {"SINGLE", "MULTIPLE", "ALL"})
+  void testStreamWithFilter(final String collectionsConfigModeStr) {
     assumeTrue(supportsChangeStreams());
     assumeTrue(isAtLeastFourDotFour());
 
-    testIdentifier = "WithFilter";
+    CollectionsConfig.Type collectionsConfigType =
+        CollectionsConfig.Type.valueOf(collectionsConfigModeStr);
+    testIdentifier = computeTestIdentifier("WithFilter", collectionsConfigType);
     Column filterColumn = new Column("operationType").equalTo("insert");
     testStreamingQuery(
-        createMongoConfig()
+        createMongoConfig(collectionsConfigType)
             .withOption(
                 ReadConfig.READ_PREFIX + ReadConfig.STREAM_LOOKUP_FULL_DOCUMENT_CONFIG,
                 "updateLookup"),
@@ -171,15 +246,18 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
             (msg, ds) -> assertEquals(75, ds.collectAsList().size(), msg)));
   }
 
-  @Test
-  void testStreamWithPublishFullDocumentOnly() {
+  @ParameterizedTest
+  @ValueSource(strings = {"SINGLE", "MULTIPLE", "ALL"})
+  void testStreamWithPublishFullDocumentOnly(final String collectionsConfigModeStr) {
     assumeTrue(supportsChangeStreams());
     assumeTrue(isAtLeastFourDotFour());
 
-    testIdentifier = "FullDocOnly";
+    CollectionsConfig.Type collectionsConfigType =
+        CollectionsConfig.Type.valueOf(collectionsConfigModeStr);
+    testIdentifier = computeTestIdentifier("FullDocOnly", collectionsConfigType);
 
     testStreamingQuery(
-        createMongoConfig()
+        createMongoConfig(collectionsConfigType)
             .withOption(
                 ReadConfig.READ_PREFIX + ReadConfig.STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG,
                 "true")
@@ -218,14 +296,18 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
                 msg)));
   }
 
-  @Test
-  void testStreamPublishFullDocumentOnlyHandlesCollectionDrop() {
+  @ParameterizedTest
+  @ValueSource(strings = {"SINGLE", "MULTIPLE", "ALL"})
+  void testStreamPublishFullDocumentOnlyHandlesCollectionDrop(
+      final String collectionsConfigModeStr) {
     assumeTrue(supportsChangeStreams());
     assumeTrue(isAtLeastFourDotFour());
 
-    testIdentifier = "FullDocOnlyWithDrop";
+    CollectionsConfig.Type collectionsConfigType =
+        CollectionsConfig.Type.valueOf(collectionsConfigModeStr);
+    testIdentifier = computeTestIdentifier("FullDocOnlyWithDrop", collectionsConfigType);
     testStreamingQuery(
-        createMongoConfig()
+        createMongoConfig(collectionsConfigType)
             .withOption(
                 ReadConfig.READ_PREFIX + ReadConfig.STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG,
                 "true")
@@ -244,13 +326,16 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
             (msg, ds) -> assertEquals(25, ds.collectAsList().size(), msg)));
   }
 
-  @Test
-  void testStreamResumable() {
+  @ParameterizedTest
+  @ValueSource(strings = {"SINGLE", "MULTIPLE", "ALL"})
+  void testStreamResumable(final String collectionsConfigModeStr) {
     assumeTrue(supportsChangeStreams());
     assumeTrue(isAtLeastFourDotFour());
-    testIdentifier = "Resumable";
+    CollectionsConfig.Type collectionsConfigType =
+        CollectionsConfig.Type.valueOf(collectionsConfigModeStr);
+    testIdentifier = computeTestIdentifier("Resumable", collectionsConfigType);
 
-    MongoConfig mongoConfig = createMongoConfig();
+    MongoConfig mongoConfig = createMongoConfig(collectionsConfigType);
 
     testStreamingQuery(
         "mongodb",
@@ -261,7 +346,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
             (msg, ds) -> assertEquals(25, ds.countDocuments(), msg)));
 
     // Insert 50 documents - when there is no stream running
-    mongoConfig.toReadConfig().doWithCollection(coll -> coll.insertMany(createDocuments(100, 200)));
+    getCollection(collectionName()).insertMany(createDocuments(100, 200));
 
     // Start the stream again - confirm it resumes at last point and sees the new documents
     testStreamingQuery(
@@ -273,22 +358,27 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
             (msg, ds) -> assertEquals(125, ds.countDocuments(), msg)));
   }
 
-  @Test
-  void testStreamStartAtOperationTime() {
+  @ParameterizedTest
+  @ValueSource(strings = {"SINGLE", "MULTIPLE", "ALL"})
+  void testStreamStartAtOperationTime(final String collectionsConfigModeStr) {
     assumeTrue(supportsChangeStreams());
     assumeTrue(isAtLeastFourDotFour());
-    testIdentifier = "startAtOperationTime";
+    CollectionsConfig.Type collectionsConfigType =
+        CollectionsConfig.Type.valueOf(collectionsConfigModeStr);
+    testIdentifier = computeTestIdentifier("startAtOperationTime", collectionsConfigType);
 
-    ReadConfig readConfig = createMongoConfig().toReadConfig();
+    ReadConfig readConfig = createMongoConfig(collectionsConfigType).toReadConfig();
+    MongoCollection<BsonDocument> collection = getCollection(collectionName());
 
     // Add some documents prior to the start time
-    readConfig.doWithCollection(coll -> coll.insertMany(createDocuments(0, 25)));
+    collection.insertMany(createDocuments(0, 25));
 
     HELPER.sleep(1000);
     BsonTimestamp currentTimestamp = new BsonTimestamp((int) Instant.now().getEpochSecond(), 0);
 
     // Add some documents post start time
-    readConfig.doWithCollection(coll -> coll.insertMany(createDocuments(100, 120)));
+
+    collection.insertMany(createDocuments(100, 120));
     testStreamingQuery(
         readConfig
             .withOption(ReadConfig.STREAMING_STARTUP_MODE_CONFIG, "timestamp")
@@ -301,12 +391,15 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
             (msg, ds) -> assertEquals(20, ds.collectAsList().size(), msg)));
   }
 
-  @Test
-  void testStreamCustomMongoClientFactory() {
+  @ParameterizedTest
+  @ValueSource(strings = {"SINGLE", "MULTIPLE", "ALL"})
+  void testStreamCustomMongoClientFactory(final String collectionsConfigModeStr) {
     assumeTrue(supportsChangeStreams());
-    testIdentifier = "CustomClientFactory";
+    CollectionsConfig.Type collectionsConfigType =
+        CollectionsConfig.Type.valueOf(collectionsConfigModeStr);
+    testIdentifier = computeTestIdentifier("CustomClientFactory", collectionsConfigType);
     testStreamingQuery(
-        createMongoConfig()
+        createMongoConfig(collectionsConfigType)
             .withOption(
                 ReadConfig.PREFIX + ReadConfig.CLIENT_FACTORY_CONFIG,
                 "com.mongodb.spark.sql.connector.read.CustomMongoClientFactory"),
@@ -367,16 +460,21 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     assertTrue(cause.getMessage().contains("streams require a schema to be explicitly defined"));
   }
 
-  @Test
-  void testStreamInferSchemaWithDataPublishFullOnly() {
+  @ParameterizedTest
+  @ValueSource(strings = {"SINGLE", "MULTIPLE", "ALL"})
+  void testStreamInferSchemaWithDataPublishFullOnly(final String collectionsConfigModeStr) {
     assumeTrue(supportsChangeStreams());
-    testIdentifier = "inferSchemaWithDataPublishFullOnly";
+    CollectionsConfig.Type collectionsConfigType =
+        CollectionsConfig.Type.valueOf(collectionsConfigModeStr);
+    testIdentifier =
+        computeTestIdentifier("inferSchemaWithDataPublishFullOnly", collectionsConfigType);
 
-    ReadConfig readConfig = createMongoConfig()
+    ReadConfig readConfig = createMongoConfig(collectionsConfigType)
         .toReadConfig()
         .withOption(ReadConfig.STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG, "true");
 
-    getCollection(readConfig.getCollectionName()).insertMany(createDocuments(0, 1));
+    withSource("inserting 0-1", (msg, coll) -> coll.insertMany(createDocuments(0, 1)))
+        .accept(readConfig);
     HELPER.sleep(1000);
 
     testStreamingQuery(
@@ -388,15 +486,18 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
             (msg, ds) -> assertEquals(25, ds.collectAsList().size(), msg)));
   }
 
-  @Test
-  void testStreamWriteStream() {
+  @ParameterizedTest
+  @ValueSource(strings = {"SINGLE", "MULTIPLE", "ALL"})
+  void testStreamWriteStream(final String collectionsConfigModeStr) {
     assumeTrue(supportsChangeStreams());
     assumeTrue(isAtLeastFourDotFour());
 
-    testIdentifier = "RoundTrip";
+    CollectionsConfig.Type collectionsConfigType =
+        CollectionsConfig.Type.valueOf(collectionsConfigModeStr);
+    testIdentifier = computeTestIdentifier("RoundTrip", collectionsConfigType);
     testStreamingQuery(
         "mongodb",
-        createMongoConfig(),
+        createMongoConfig(collectionsConfigType),
         withSource("inserting 0-25", (msg, coll) -> coll.insertMany(createDocuments(0, 25))),
         withSink(
             "Expected to see 25 documents",
@@ -410,10 +511,10 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
   @Test
   void testLogCommentsInProfilerLogs() {
     assumeTrue(supportsChangeStreams());
-
-    MongoConfig mongoConfig = createMongoConfig().withOption(PREFIX + COMMENT_CONFIG, TEST_COMMENT);
-
-    testIdentifier = "logsComments";
+    CollectionsConfig.Type collectionsConfigType = CollectionsConfig.Type.SINGLE;
+    testIdentifier = computeTestIdentifier("logsComments", collectionsConfigType);
+    MongoConfig mongoConfig =
+        createMongoConfig(collectionsConfigType).withOption(PREFIX + COMMENT_CONFIG, TEST_COMMENT);
 
     assertCommentsInProfile(
         () -> testStreamingQuery(
@@ -426,6 +527,54 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
                 "Expected to see 25 documents",
                 (msg, ds) -> assertEquals(25, ds.collectAsList().size(), msg))),
         mongoConfig.toReadConfig());
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"SINGLE", "MULTIPLE", "ALL"})
+  void testStreamHandlesDbDrop(final String collectionsConfigModeStr) {
+    assumeTrue(supportsChangeStreams());
+    CollectionsConfig.Type collectionsConfigType =
+        CollectionsConfig.Type.valueOf(collectionsConfigModeStr);
+    testIdentifier = computeTestIdentifier("WithDbDrop", collectionsConfigType);
+    MongoConfig config = createMongoConfig(collectionsConfigType);
+    ReadConfig readConfig = config.toReadConfig();
+    Set<String> expectedEventTypes =
+        Stream.of("insert", "drop", "invalidate").collect(Collectors.toSet());
+    testStreamingQuery(
+        config,
+        withSource("inserting 0-3", (msg, coll) -> coll.insertMany(createDocuments(0, 3))),
+        withMemorySink(
+            "Expected to see 3 documents",
+            (msg, ds) -> assertEquals(3, ds.collectAsList().size(), msg)),
+        withSource(
+            format("Dropping the database `%s`", readConfig.getDatabaseName()),
+            (msg, coll) -> readConfig.doWithClient(
+                client -> client.getDatabase(readConfig.getDatabaseName()).drop())),
+        withMemorySink(
+            "Expected to see 1 drop document",
+            (msg, ds) -> assertEquals(
+                1,
+                ds.collectAsList().stream()
+                    .filter(c -> c.get(c.fieldIndex("operationType")).equals("drop"))
+                    .count(),
+                msg)),
+        withMemorySink(
+            "Expected to see 1 invalidate document",
+            (msg, ds) -> assertEquals(
+                1,
+                ds.collectAsList().stream()
+                    .filter(c -> c.get(c.fieldIndex("operationType")).equals("invalidate"))
+                    .count(),
+                msg)),
+        withMemorySink(
+            "Expected to see 0 documents of operation types other than " + expectedEventTypes,
+            (msg, ds) -> assertEquals(
+                0,
+                ds.collectAsList().stream()
+                    .filter(c ->
+                        !expectedEventTypes.contains(c.getString(c.fieldIndex("operationType"))))
+                    .count(),
+                msg)));
   }
 
   private static final StructType IGNORE_SCHEMA = createStructType(emptyList());
@@ -478,7 +627,8 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
       final Column condition,
       final Consumer<MongoConfig> setup,
       final Consumer<MongoConfig>... consumers) {
-
+    // see https://jira.mongodb.org/browse/SPARK-417 for the reason behind this call to `sleep`
+    HELPER.sleep(2000);
     StreamingQuery streamingQuery =
         createStreamingQuery(writeFormat, mongoConfig, schema, condition);
     try {
@@ -492,30 +642,32 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
         setup.accept(mongoConfig);
         LOGGER.info("Setup completed");
       } catch (Exception e) {
-        throw new AssertionFailedError("Setup failed: " + e.getMessage());
+        throw new AssertionFailedError("Setup failed: " + e.getMessage(), e);
       }
 
       for (Consumer<MongoConfig> consumer : consumers) {
 
         retryAssertion(() -> consumer.accept(mongoConfig), () -> {
-          mongoConfig
-              .toReadConfig()
-              .doWithCollection(coll -> LOGGER.info(
-                  "Source Collection Status: {}.",
-                  coll.find()
-                      .comment(IGNORE_COMMENT)
-                      .map(BsonDocument::toJson)
-                      .into(new ArrayList<>())));
+          withSource(
+                  null,
+                  (msg, coll) -> LOGGER.info(
+                      "Source Collection Status: {}.",
+                      coll.find()
+                          .comment(IGNORE_COMMENT)
+                          .map(BsonDocument::toJson)
+                          .into(new ArrayList<>())))
+              .accept(mongoConfig);
 
           if (writeFormat.equals(MONGODB)) {
-            mongoConfig
-                .toWriteConfig()
-                .doWithCollection(coll -> LOGGER.info(
-                    "Sink Collection Status: {}.",
-                    coll.find()
-                        .comment(IGNORE_COMMENT)
-                        .map(BsonDocument::toJson)
-                        .into(new ArrayList<>())));
+            withSink(
+                    null,
+                    (msg, coll) -> LOGGER.info(
+                        "Sink Collection Status: {}.",
+                        coll.find()
+                            .comment(IGNORE_COMMENT)
+                            .map(BsonDocument::toJson)
+                            .into(new ArrayList<>())))
+                .accept(mongoConfig);
           } else {
             LOGGER.info(
                 "Sink Memory Status: {}.",
@@ -525,8 +677,8 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
                     .stream()
                     .map(r -> Arrays.stream(r.schema().fields())
                         .map(f -> f.name() + ": " + r.get(r.fieldIndex(f.name())))
-                        .collect(Collectors.joining(", ", "{", "}")))
-                    .collect(Collectors.joining(", ", "[", "]")));
+                        .collect(joining(", ", "{", "}")))
+                    .collect(joining(", ", "[", "]")));
           }
         });
       }
@@ -576,18 +728,45 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
   }
 
   private Consumer<MongoConfig> withSource(
-      final String msg, final BiConsumer<String, MongoCollection<BsonDocument>> biConsumer) {
+      @Nullable final String msg,
+      final BiConsumer<String, MongoCollection<BsonDocument>> biConsumer) {
     return mongoConfig -> {
-      LOGGER.info("-> With source: " + msg);
-      mongoConfig.toReadConfig().doWithCollection(coll -> biConsumer.accept(msg, coll));
+      if (msg != null) {
+        LOGGER.info("-> With source: {}", msg);
+      }
+      ReadConfig readConfig = mongoConfig.toReadConfig();
+      MongoCollection<BsonDocument> collection = readConfig.withClient(client -> client
+          .getDatabase(readConfig.getDatabaseName())
+          .getCollection(collectionName(), BsonDocument.class));
+      biConsumer.accept(msg, collection);
+    };
+  }
+
+  private Consumer<MongoConfig> withSourceDb(
+      @Nullable final String msg, final BiConsumer<String, MongoDatabase> biConsumer) {
+    return mongoConfig -> {
+      if (msg != null) {
+        LOGGER.info("-> With source: {}", msg);
+      }
+      ReadConfig readConfig = mongoConfig.toReadConfig();
+      MongoDatabase db =
+          readConfig.withClient(client -> client.getDatabase(readConfig.getDatabaseName()));
+      biConsumer.accept(msg, db);
     };
   }
 
   private Consumer<MongoConfig> withSink(
-      final String msg, final BiConsumer<String, MongoCollection<BsonDocument>> biConsumer) {
+      @Nullable final String msg,
+      final BiConsumer<String, MongoCollection<BsonDocument>> biConsumer) {
     return mongoConfig -> {
-      LOGGER.info("-> With sink: " + msg);
-      mongoConfig.toWriteConfig().doWithCollection(coll -> biConsumer.accept(msg, coll));
+      if (msg != null) {
+        LOGGER.info("-> With sink: " + msg);
+      }
+      WriteConfig writeConfig = mongoConfig.toWriteConfig();
+      MongoCollection<BsonDocument> collection = writeConfig.withClient(client -> client
+          .getDatabase(writeConfig.getDatabaseName())
+          .getCollection(collectionName(), BsonDocument.class));
+      biConsumer.accept(msg, collection);
     };
   }
 
@@ -599,14 +778,37 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     };
   }
 
-  private MongoConfig createMongoConfig() {
+  private MongoConfig createMongoConfig(final CollectionsConfig.Type collectionsConfigType) {
     Map<String, String> options = new HashMap<>();
     Arrays.stream(getSparkConf().getAllWithPrefix(MongoConfig.PREFIX))
         .forEach(t -> options.put(MongoConfig.PREFIX + t._1(), t._2()));
+    String collectionsConfigOptionValue;
+    switch (collectionsConfigType) {
+      case SINGLE:
+        collectionsConfigOptionValue = collectionName();
+        break;
+      case MULTIPLE:
+        collectionsConfigOptionValue =
+            join(",", "collectionNameThatDoesNotExist", collectionName());
+        break;
+      case ALL:
+        collectionsConfigOptionValue = "*";
+        break;
+      default:
+        throw com.mongodb.assertions.Assertions.fail();
+    }
     options.put(
-        ReadConfig.READ_PREFIX + ReadConfig.COLLECTION_NAME_CONFIG,
-        collectionPrefix() + "Source" + testIdentifier);
+        ReadConfig.READ_PREFIX + ReadConfig.COLLECTION_NAME_CONFIG, collectionsConfigOptionValue);
     return MongoConfig.createConfig(options);
+  }
+
+  private static String computeTestIdentifier(
+      final String testIdentifierStart, final CollectionsConfig.Type collectionsConfigType) {
+    return testIdentifierStart + "_" + collectionsConfigType;
+  }
+
+  private String collectionName() {
+    return collectionPrefix() + "Source" + testIdentifier;
   }
 
   private List<BsonDocument> createDocuments(final int startInclusive, final int endExclusive) {

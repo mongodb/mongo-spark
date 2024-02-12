@@ -16,14 +16,21 @@
  */
 package com.mongodb.spark.sql.connector.read;
 
+import static com.mongodb.assertions.Assertions.fail;
 import static com.mongodb.spark.sql.connector.read.partitioner.Partitioner.LOGGER;
 import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper.SINGLE_PARTITIONER;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
 
+import com.mongodb.client.model.Aggregates;
+import com.mongodb.client.model.Filters;
+import com.mongodb.spark.sql.connector.config.CollectionsConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import com.mongodb.spark.sql.connector.read.partitioner.Partitioner;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -32,6 +39,7 @@ import org.apache.spark.sql.types.StructType;
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
 import org.bson.BsonTimestamp;
+import org.bson.conversions.Bson;
 
 final class MongoInputPartitionHelper {
 
@@ -111,9 +119,14 @@ final class MongoInputPartitionHelper {
   }
 
   static List<BsonDocument> generatePipeline(final StructType schema, final ReadConfig readConfig) {
-    return schemaProjections(schema, readConfig.streamPublishFullDocumentOnly())
+    ArrayList<BsonDocument> result =
+        new ArrayList<>(collectionsConfigPipeline(readConfig.getCollectionsConfig()));
+    List<BsonDocument> customPipelineAndSchemaProjections = schemaProjections(
+            schema, readConfig.streamPublishFullDocumentOnly())
         .map(mergePipelineFunction(readConfig.getAggregationPipeline()))
         .orElse(readConfig.getAggregationPipeline());
+    result.addAll(customPipelineAndSchemaProjections);
+    return result;
   }
 
   private static Optional<BsonDocument> schemaProjections(
@@ -137,6 +150,32 @@ final class MongoInputPartitionHelper {
       pipelineWithSchemaProjection.add(projectionStage);
       return pipelineWithSchemaProjection;
     };
+  }
+
+  /**
+   * Returns the stages of the aggregation pipeline
+   * that are to be used before any other stages in order to account for the {@code collectionsConfig}.
+   */
+  private static Collection<BsonDocument> collectionsConfigPipeline(
+      final CollectionsConfig collectionsConfig) {
+    // `invalidate` events do not have the `ns.coll` field,
+    // so we have to explicitly allow them in the filter
+    Bson invalidateOperationType = Filters.eq("operationType", "invalidate");
+    switch (collectionsConfig.getType()) {
+      case SINGLE:
+        return emptyList();
+      case MULTIPLE:
+        return singletonList(Aggregates.match(Filters.or(
+                Filters.in("ns.coll", collectionsConfig.getNames().toArray()),
+                invalidateOperationType))
+            .toBsonDocument());
+      case ALL:
+        return singletonList(
+            Aggregates.match(Filters.or(Filters.exists("ns.coll"), invalidateOperationType))
+                .toBsonDocument());
+      default:
+        throw fail();
+    }
   }
 
   private MongoInputPartitionHelper() {}
