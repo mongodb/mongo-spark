@@ -25,10 +25,14 @@ import com.mongodb.spark.sql.connector.exceptions.DataException;
 import com.mongodb.spark.sql.connector.interop.JavaScala;
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.types.ArrayType;
@@ -47,6 +51,7 @@ import org.bson.BsonDateTime;
 import org.bson.BsonDecimal128;
 import org.bson.BsonDocument;
 import org.bson.BsonDouble;
+import org.bson.BsonElement;
 import org.bson.BsonInt32;
 import org.bson.BsonInt64;
 import org.bson.BsonNull;
@@ -67,8 +72,8 @@ public final class RowToBsonDocumentConverter implements Serializable {
   private static final long serialVersionUID = 1L;
 
   private final InternalRowToRowFunction internalRowToRowFunction;
-  private final WriteConfig.ConvertJson convertJson;
   private final boolean ignoreNulls;
+  private final List<ObjectToBsonElement> mappers;
 
   /**
    * Construct a new instance
@@ -81,9 +86,12 @@ public final class RowToBsonDocumentConverter implements Serializable {
       final StructType schema,
       final WriteConfig.ConvertJson convertJson,
       final boolean ignoreNulls) {
-    this.internalRowToRowFunction = new InternalRowToRowFunction(schema);
-    this.convertJson = convertJson;
+
+    this.internalRowToRowFunction = createInternalRowToRowFunction(schema);
     this.ignoreNulls = ignoreNulls;
+    this.mappers = Arrays.stream(schema.fields())
+        .map(f -> dataTypeToBsonElement(f, convertJson, ignoreNulls))
+        .collect(Collectors.toList());
   }
 
   /**
@@ -105,54 +113,86 @@ public final class RowToBsonDocumentConverter implements Serializable {
    * @return a BsonDocument representing the data in the row
    */
   public BsonDocument fromRow(final Row row) {
-    if (row.schema() == null) {
-      throw new DataException("Cannot convert Row without schema");
-    }
-    return toBsonValue(row.schema(), row).asDocument();
+    return rowToBsonDocument(row, mappers, ignoreNulls);
   }
 
   /**
-   * Converts data to a bson value that the data type represents
+   * Returns a conversion function that converts an object to a BsonValue
    *
-   * @param dataType the data type
-   * @param data the data
-   * @return the bsonValue
+   * @param dataType the data type of the object
+   * @param convertJson the string json conversion setting
+   * @param ignoreNulls true if ignoring null values
+   * @return a serializable function converts an object to a BsonValue
    */
-  @SuppressWarnings("unchecked")
-  public BsonValue toBsonValue(final DataType dataType, final Object data) {
-    try {
+  public static ObjectToBsonValue createObjectToBsonValue(
+      final DataType dataType,
+      final WriteConfig.ConvertJson convertJson,
+      final boolean ignoreNulls) {
+    ObjectToBsonValue cachedObjectToBsonValue =
+        objectToBsonValue(dataType, convertJson, ignoreNulls);
+    return (data) -> {
       if (!ignoreNulls && data == null) {
         return BsonNull.VALUE;
-      } else if (DataTypes.BinaryType.acceptsType(dataType)) {
-        return new BsonBinary((byte[]) data);
-      } else if (DataTypes.BooleanType.acceptsType(dataType)) {
-        return new BsonBoolean((Boolean) data);
-      } else if (DataTypes.DoubleType.acceptsType(dataType)) {
-        return new BsonDouble(((Number) data).doubleValue());
-      } else if (DataTypes.FloatType.acceptsType(dataType)) {
-        return new BsonDouble(((Number) data).floatValue());
-      } else if (DataTypes.IntegerType.acceptsType(dataType)) {
-        return new BsonInt32(((Number) data).intValue());
-      } else if (DataTypes.ShortType.acceptsType(dataType)) {
-        return new BsonInt32(((Number) data).intValue());
-      } else if (DataTypes.ByteType.acceptsType(dataType)) {
-        return new BsonInt32(((Number) data).intValue());
-      } else if (DataTypes.LongType.acceptsType(dataType)) {
-        return new BsonInt64(((Number) data).longValue());
-      } else if (DataTypes.StringType.acceptsType(dataType)) {
-        return processString((String) data);
-      } else if (DataTypes.DateType.acceptsType(dataType)
-          || DataTypes.TimestampType.acceptsType(dataType)) {
-        return new BsonDateTime(((Date) data).getTime());
-      } else if (DataTypes.NullType.acceptsType(dataType)) {
-        return BsonNull.VALUE;
-      } else if (dataType instanceof DecimalType) {
+      }
+      try {
+        return cachedObjectToBsonValue.apply(data);
+      } catch (Exception e) {
+        throw new DataException(format(
+            "Cannot cast %s into a BsonValue. %s has no matching BsonValue. Error: %s",
+            data, dataType, e.getMessage()));
+      }
+    };
+  }
+
+  private static ObjectToBsonElement dataTypeToBsonElement(
+      final StructField field,
+      final WriteConfig.ConvertJson convertJson,
+      final boolean ignoreNulls) {
+    ObjectToBsonValue cachedObjectToBsonValue =
+        createObjectToBsonValue(field.dataType(), convertJson, ignoreNulls);
+    return (data) -> new BsonElement(field.name(), cachedObjectToBsonValue.apply(data));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static ObjectToBsonValue objectToBsonValue(
+      final DataType dataType,
+      final WriteConfig.ConvertJson convertJson,
+      final boolean ignoreNulls) {
+    if (DataTypes.BinaryType.acceptsType(dataType)) {
+      return (data) -> new BsonBinary((byte[]) data);
+    } else if (DataTypes.BooleanType.acceptsType(dataType)) {
+      return (data) -> new BsonBoolean((Boolean) data);
+    } else if (DataTypes.DoubleType.acceptsType(dataType)) {
+      return (data) -> new BsonDouble(((Number) data).doubleValue());
+    } else if (DataTypes.FloatType.acceptsType(dataType)) {
+      return (data) -> new BsonDouble(((Number) data).floatValue());
+    } else if (DataTypes.IntegerType.acceptsType(dataType)) {
+      return (data) -> new BsonInt32(((Number) data).intValue());
+    } else if (DataTypes.ShortType.acceptsType(dataType)) {
+      return (data) -> new BsonInt32(((Number) data).intValue());
+    } else if (DataTypes.ByteType.acceptsType(dataType)) {
+      return (data) -> new BsonInt32(((Number) data).intValue());
+    } else if (DataTypes.LongType.acceptsType(dataType)) {
+      return (data) -> new BsonInt64(((Number) data).longValue());
+    } else if (DataTypes.StringType.acceptsType(dataType)) {
+      return (data) -> processString((String) data, convertJson);
+    } else if (DataTypes.DateType.acceptsType(dataType)
+        || DataTypes.TimestampType.acceptsType(dataType)) {
+      return (data) -> new BsonDateTime(((Date) data).getTime());
+    } else if (DataTypes.NullType.acceptsType(dataType)) {
+      return (data) -> BsonNull.VALUE;
+    } else if (dataType instanceof DecimalType) {
+      return (data) -> {
         BigDecimal bigDecimal = data instanceof BigDecimal
             ? (BigDecimal) data
             : ((Decimal) data).toBigDecimal().bigDecimal();
         return new BsonDecimal128(new Decimal128(bigDecimal));
-      } else if (dataType instanceof ArrayType) {
+      };
+    } else if (dataType instanceof ArrayType) {
+      return (data) -> {
         DataType elementType = ((ArrayType) dataType).elementType();
+        Function<Object, BsonValue> element =
+            createObjectToBsonValue(elementType, convertJson, ignoreNulls);
         BsonArray bsonArray = new BsonArray();
 
         List<Object> listData;
@@ -165,17 +205,21 @@ public final class RowToBsonDocumentConverter implements Serializable {
         }
         for (Object obj : listData) {
           if (!(ignoreNulls && Objects.isNull(obj))) {
-            bsonArray.add(toBsonValue(elementType, obj));
+            bsonArray.add(element.apply(obj));
           }
         }
         return bsonArray;
-      } else if (dataType instanceof MapType) {
+      };
+    } else if (dataType instanceof MapType) {
+      return (data) -> {
         DataType keyType = ((MapType) dataType).keyType();
         DataType valueType = ((MapType) dataType).valueType();
         if (!(keyType instanceof StringType)) {
           throw new DataException(
               format("Cannot cast %s into a BsonValue. Invalid key type %s.", data, keyType));
         }
+        Function<Object, BsonValue> value =
+            createObjectToBsonValue(valueType, convertJson, ignoreNulls);
         BsonDocument bsonDocument = new BsonDocument();
         Map<String, Object> mapData;
         if (data instanceof Map) {
@@ -185,30 +229,40 @@ public final class RowToBsonDocumentConverter implements Serializable {
         }
         for (Map.Entry<String, Object> entry : mapData.entrySet()) {
           if (!(ignoreNulls && Objects.isNull(entry.getValue()))) {
-            bsonDocument.put(entry.getKey(), toBsonValue(valueType, entry.getValue()));
+            bsonDocument.put(entry.getKey(), value.apply(entry.getValue()));
           }
         }
         return bsonDocument;
-      } else if (dataType instanceof StructType) {
+      };
+    } else if (dataType instanceof StructType) {
+      List<ObjectToBsonElement> local = Arrays.stream(((StructType) dataType).fields())
+          .map(f -> dataTypeToBsonElement(f, convertJson, ignoreNulls))
+          .collect(Collectors.toList());
+      return (data) -> {
         Row row = (Row) data;
-        BsonDocument bsonDocument = new BsonDocument();
-        for (StructField field : row.schema().fields()) {
-          int fieldIndex = row.fieldIndex(field.name());
-          if (!(ignoreNulls && field.nullable() && row.isNullAt(fieldIndex))) {
-            bsonDocument.append(field.name(), toBsonValue(field.dataType(), row.get(fieldIndex)));
-          }
-        }
-        return bsonDocument;
-      }
-    } catch (Exception e) {
-      throw new DataException(format(
-          "Cannot cast %s into a BsonValue. %s has no matching BsonValue. Error: %s",
-          data, dataType, e.getMessage()));
+        return rowToBsonDocument(row, local, ignoreNulls);
+      };
     }
 
-    throw new DataException(format(
-        "Cannot cast %s into a BsonValue. %s data type has no matching BsonValue.",
-        data, dataType));
+    return (data) -> {
+      throw new DataException(format(
+          "Cannot cast %s into a BsonValue. %s data type has no matching BsonValue.",
+          data, dataType));
+    };
+  }
+
+  private static BsonDocument rowToBsonDocument(
+      final Row row,
+      final List<ObjectToBsonElement> objectToBsonElements,
+      final boolean ignoreNulls) {
+    List<BsonElement> elements = new ArrayList<>();
+    for (int i = 0; i < objectToBsonElements.size(); i++) {
+      Object value = row.get(i);
+      if (!(ignoreNulls && Objects.isNull(value))) {
+        elements.add(objectToBsonElements.get(i).apply(value));
+      }
+    }
+    return new BsonDocument(elements);
   }
 
   private static final String BSON_TEMPLATE = "{v: %s}";
@@ -225,8 +279,9 @@ public final class RowToBsonDocumentConverter implements Serializable {
         || (firstChar == JSON_ARRAY_START && lastChar == JSON_ARRAY_END);
   }
 
-  private BsonValue processString(final String data) {
-    if (parseJsonData(data)) {
+  private static BsonValue processString(
+      final String data, final WriteConfig.ConvertJson convertJson) {
+    if (parseJsonData(data, convertJson)) {
       try {
         return BsonDocument.parse(format(BSON_TEMPLATE, data)).get("v");
       } catch (JsonParseException e) {
@@ -236,7 +291,8 @@ public final class RowToBsonDocumentConverter implements Serializable {
     return new BsonString(data);
   }
 
-  private boolean parseJsonData(final String data) {
+  private static boolean parseJsonData(
+      final String data, final WriteConfig.ConvertJson convertJson) {
     switch (convertJson) {
       case FALSE:
         return false;
@@ -248,4 +304,20 @@ public final class RowToBsonDocumentConverter implements Serializable {
         throw new AssertionError("Unexpected value: " + convertJson);
     }
   }
+
+  private static InternalRowToRowFunction createInternalRowToRowFunction(final StructType schema) {
+    try {
+      return new InternalRowToRowFunction(schema);
+    } catch (Exception e) {
+      throw new DataException(
+          format(
+              "Unable to create InternalRow to Row Function using %s. Errors: %s",
+              schema, e.getMessage()),
+          e);
+    }
+  }
+
+  interface ObjectToBsonElement extends Function<Object, BsonElement>, Serializable {}
+
+  interface ObjectToBsonValue extends Function<Object, BsonValue>, Serializable {}
 }
