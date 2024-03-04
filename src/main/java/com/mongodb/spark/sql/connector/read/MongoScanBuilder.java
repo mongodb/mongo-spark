@@ -28,13 +28,13 @@ import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.config.WriteConfig;
+import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.connector.read.Scan;
@@ -305,7 +305,7 @@ public final class MongoScanBuilder
           localSchema = (StructType) localField.dataType();
         }
       }
-      Function<Object, BsonValue> objectToBsonValue =
+      RowToBsonDocumentConverter.ObjectToBsonValue objectToBsonValue =
           createObjectToBsonValue(localDataType, WriteConfig.ConvertJson.FALSE, false);
       return Optional.of(objectToBsonValue.apply(value));
     } catch (Exception e) {

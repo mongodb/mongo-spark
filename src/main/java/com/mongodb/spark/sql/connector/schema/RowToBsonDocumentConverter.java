@@ -25,7 +25,6 @@ import com.mongodb.spark.sql.connector.exceptions.DataException;
 import com.mongodb.spark.sql.connector.interop.JavaScala;
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -98,7 +97,7 @@ public final class RowToBsonDocumentConverter implements Serializable {
    * Converts a {@link InternalRow} to a {@link BsonDocument}
    *
    * @param row the internal row to convert
-   * @throws DataException if the {@code Row} does not have a schema associated with it
+   * @throws DataException if the {@code Row} is not convertable to a {@code BsonDocument}
    * @return a BsonDocument representing the data in the row
    */
   public BsonDocument fromRow(final InternalRow row) {
@@ -109,7 +108,7 @@ public final class RowToBsonDocumentConverter implements Serializable {
    * Converts a {@link Row} to a {@link BsonDocument}
    *
    * @param row the row to convert
-   * @throws DataException if the {@code Row} does not have a schema associated with it
+   * @throws DataException if the {@code Row} is not convertable to a {@code BsonDocument}
    * @return a BsonDocument representing the data in the row
    */
   public BsonDocument fromRow(final Row row) {
@@ -189,10 +188,10 @@ public final class RowToBsonDocumentConverter implements Serializable {
         return new BsonDecimal128(new Decimal128(bigDecimal));
       };
     } else if (dataType instanceof ArrayType) {
+      DataType elementType = ((ArrayType) dataType).elementType();
+      Function<Object, BsonValue> element =
+          createObjectToBsonValue(elementType, convertJson, ignoreNulls);
       return (data) -> {
-        DataType elementType = ((ArrayType) dataType).elementType();
-        Function<Object, BsonValue> element =
-            createObjectToBsonValue(elementType, convertJson, ignoreNulls);
         BsonArray bsonArray = new BsonArray();
 
         List<Object> listData;
@@ -211,15 +210,16 @@ public final class RowToBsonDocumentConverter implements Serializable {
         return bsonArray;
       };
     } else if (dataType instanceof MapType) {
+      DataType keyType = ((MapType) dataType).keyType();
+      DataType valueType = ((MapType) dataType).valueType();
+      if (!(keyType instanceof StringType)) {
+        throw new DataException(
+            format("Cannot cast Map into a BsonValue. Invalid key type %s.", keyType));
+      }
+      Function<Object, BsonValue> value =
+          createObjectToBsonValue(valueType, convertJson, ignoreNulls);
+
       return (data) -> {
-        DataType keyType = ((MapType) dataType).keyType();
-        DataType valueType = ((MapType) dataType).valueType();
-        if (!(keyType instanceof StringType)) {
-          throw new DataException(
-              format("Cannot cast %s into a BsonValue. Invalid key type %s.", data, keyType));
-        }
-        Function<Object, BsonValue> value =
-            createObjectToBsonValue(valueType, convertJson, ignoreNulls);
         BsonDocument bsonDocument = new BsonDocument();
         Map<String, Object> mapData;
         if (data instanceof Map) {
@@ -255,14 +255,15 @@ public final class RowToBsonDocumentConverter implements Serializable {
       final Row row,
       final List<ObjectToBsonElement> objectToBsonElements,
       final boolean ignoreNulls) {
-    List<BsonElement> elements = new ArrayList<>();
+    BsonDocument bsonDocument = new BsonDocument();
     for (int i = 0; i < objectToBsonElements.size(); i++) {
       Object value = row.get(i);
       if (!(ignoreNulls && Objects.isNull(value))) {
-        elements.add(objectToBsonElements.get(i).apply(value));
+        BsonElement bsonElement = objectToBsonElements.get(i).apply(value);
+        bsonDocument.append(bsonElement.getName(), bsonElement.getValue());
       }
     }
-    return new BsonDocument(elements);
+    return bsonDocument;
   }
 
   private static final String BSON_TEMPLATE = "{v: %s}";
@@ -319,5 +320,8 @@ public final class RowToBsonDocumentConverter implements Serializable {
 
   interface ObjectToBsonElement extends Function<Object, BsonElement>, Serializable {}
 
-  interface ObjectToBsonValue extends Function<Object, BsonValue>, Serializable {}
+  /**
+   * A serializable {@code Function<Object, BsonValue>} interface.
+   */
+  public interface ObjectToBsonValue extends Function<Object, BsonValue>, Serializable {}
 }
