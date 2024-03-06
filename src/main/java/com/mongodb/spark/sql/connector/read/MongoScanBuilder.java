@@ -17,6 +17,7 @@
 
 package com.mongodb.spark.sql.connector.read;
 
+import static com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter.createObjectToBsonValue;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
@@ -69,8 +70,6 @@ import org.jetbrains.annotations.Nullable;
 @ApiStatus.Internal
 public final class MongoScanBuilder
     implements ScanBuilder, SupportsPushDownFilters, SupportsPushDownRequiredColumns {
-  private static final RowToBsonDocumentConverter CONVERTER =
-      new RowToBsonDocumentConverter(new StructType(), WriteConfig.ConvertJson.FALSE, false);
   private final StructType schema;
   private final ReadConfig readConfig;
   private final boolean isCaseSensitive;
@@ -306,7 +305,9 @@ public final class MongoScanBuilder
           localSchema = (StructType) localField.dataType();
         }
       }
-      return Optional.of(CONVERTER.toBsonValue(localDataType, value));
+      RowToBsonDocumentConverter.ObjectToBsonValue objectToBsonValue =
+          createObjectToBsonValue(localDataType, WriteConfig.ConvertJson.FALSE, false);
+      return Optional.of(objectToBsonValue.apply(value));
     } catch (Exception e) {
       // ignore
       return Optional.empty();
