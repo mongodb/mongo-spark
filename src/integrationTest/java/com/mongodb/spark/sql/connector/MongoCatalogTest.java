@@ -177,13 +177,14 @@ public class MongoCatalogTest extends MongoSparkConnectorTestCase {
   void dropNamespaceTest() {
     Identifier identifier = createIdentifier(DATABASE_NAME, COLLECTION_NAME);
     assertThrows(
-        IllegalStateException.class, () -> MONGO_CATALOG.dropNamespace(identifier.namespace()));
+        IllegalStateException.class,
+        () -> MONGO_CATALOG.dropNamespace(identifier.namespace(), true));
 
     MONGO_CATALOG.initialize(identifier.namespace()[0], getConnectionProviderOptions());
-    assertFalse(MONGO_CATALOG.dropNamespace(identifier.namespace()));
+    assertFalse(MONGO_CATALOG.dropNamespace(identifier.namespace(), true));
 
     createCollection(identifier);
-    assertTrue(MONGO_CATALOG.dropNamespace(identifier.namespace()));
+    assertTrue(MONGO_CATALOG.dropNamespace(identifier.namespace(), true));
   }
 
   @Test
