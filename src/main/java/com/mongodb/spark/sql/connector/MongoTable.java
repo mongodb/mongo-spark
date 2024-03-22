@@ -95,10 +95,13 @@ final class MongoTable implements Table, SupportsWrite, SupportsRead {
   /** The name of this table. */
   @Override
   public String name() {
-    if (mongoConfig instanceof ReadConfig || mongoConfig instanceof WriteConfig) {
-      return "MongoTable(" + mongoConfig.getNamespace() + ")";
+    if (mongoConfig instanceof ReadConfig) {
+      return "MongoTable(" + mongoConfig.toReadConfig().getNamespaceDescription() + ")";
+    } else if (mongoConfig instanceof WriteConfig) {
+      return "MongoTable(" + mongoConfig.toWriteConfig().getNamespaceDescription() + ")";
+    } else {
+      return "MongoTable()";
     }
-    return "MongoTable()";
   }
 
   /**

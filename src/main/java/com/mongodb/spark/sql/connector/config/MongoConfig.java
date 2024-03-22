@@ -31,6 +31,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.spark.sql.connector.read.Scan;
+import org.apache.spark.sql.connector.write.WriteBuilder;
 import org.bson.BsonString;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
@@ -151,8 +153,38 @@ public interface MongoConfig extends Serializable {
    */
   String DATABASE_NAME_CONFIG = "database";
 
+  // This documentation links to `WriteBuilder` instead of `Write`
+  // because `Write` was added in spark-catalyst 3.2.0, and we must support 3.1.2.
   /**
-   * The collection name config
+   * A configuration of the set of collections for {@linkplain WriteBuilder writing} to / {@linkplain Scan scanning} from.
+   * When configuring a {@linkplain WriteBuilder write}, only a single collection name is supported.
+   * When configuring a {@linkplain Scan scan},
+   * the following {@linkplain CollectionsConfig.Type configuration types} are supported:
+   * <ul>
+   *     <li>
+   *     A {@linkplain CollectionsConfig.Type#SINGLE single} collection name.</li>
+   *     <li>
+   *     {@linkplain CollectionsConfig.Type#MULTIPLE Multiple} collection names separated with comma ({@code ','}).
+   *     For example, {@code "collectionA,collectionB"}.
+   *     Note how the values are separated only with comma, and there is no space ({@code ' '}) accompanying it.
+   *     Specifying a space makes it part of a collection name:
+   *     {@code "collectionA, collectionB"}---collections {@code "collectionA"} and {@code " collectionB"}.</li>
+   *     <li>
+   *     {@linkplain CollectionsConfig.Type#ALL All} collections in the {@linkplain #getDatabaseName() database},
+   *     in which case one must specify a string consisting of a single asterisk ({@code '*'}).</li>
+   * </ul>
+   * Note that if a collection name contains comma ({@code ','}), reverse solidus ({@code '\'}), or starts with asterisk ({@code '*'}),
+   * such a character must be escaped with reverse solidus ({@code '\'}). Examples:
+   * <ul>
+   *     <li>
+   *     {@code "mass\, kg"}---a single collection named {@code "mass, kg"}.</li>
+   *     <li>
+   *     {@code "\*"}---a single collection named {@code "*"}.</li>
+   *     <li>
+   *     {@code "\\"}---a single collection named {@code "\"}.
+   *     Note that if the value is specified as a string literal in Java code, then each reverse solidus has to be further escaped,
+   *     leading to having to specify {@code "\\\\"}.</li>
+   * </ul>
    *
    * <p>{@value}
    */
@@ -204,7 +236,12 @@ public interface MongoConfig extends Serializable {
     return new ConnectionString(getOrDefault(CONNECTION_STRING_CONFIG, CONNECTION_STRING_DEFAULT));
   }
 
-  /** @return the namespace related to this config */
+  /**
+   * @return the namespace related to this config
+   * @throws ConfigException
+   * If either {@linkplain CollectionsConfig.Type#MULTIPLE multiple} or {@linkplain CollectionsConfig.Type#ALL all}
+   * collections are {@linkplain ReadConfig#getCollectionsConfig() configured} to be {@linkplain Scan scanned}.
+   */
   default MongoNamespace getNamespace() {
     return new MongoNamespace(getDatabaseName(), getCollectionName());
   }

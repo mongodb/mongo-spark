@@ -25,6 +25,7 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.Filters;
 import com.mongodb.spark.sql.connector.assertions.Assertions;
+import com.mongodb.spark.sql.connector.config.CollectionsConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
@@ -109,7 +110,7 @@ final class MongoMicroBatchPartitionReader implements PartitionReader<InternalRo
         && cursor.getServerCursor() != null
         && (cursor.getResumeToken() == null
             || getTimestamp(cursor.getResumeToken()).compareTo(partition.getEndOffsetTimestamp())
-                <= 0));
+                < 0));
 
     boolean hasNext = cursorNext != null;
     if (hasNext) {
@@ -166,10 +167,17 @@ final class MongoMicroBatchPartitionReader implements PartitionReader<InternalRo
         pipeline.add(Aggregates.match(Filters.exists(FULL_DOCUMENT)).toBsonDocument());
       }
       pipeline.addAll(partition.getPipeline());
-      ChangeStreamIterable<Document> changeStreamIterable = mongoClient
-          .getDatabase(readConfig.getDatabaseName())
-          .getCollection(readConfig.getCollectionName())
-          .watch(pipeline)
+      ChangeStreamIterable<Document> changeStreamIterable;
+      if (readConfig.getCollectionsConfig().getType() == CollectionsConfig.Type.SINGLE) {
+        changeStreamIterable = mongoClient
+            .getDatabase(readConfig.getDatabaseName())
+            .getCollection(readConfig.getCollectionName())
+            .watch(pipeline);
+      } else {
+        changeStreamIterable =
+            mongoClient.getDatabase(readConfig.getDatabaseName()).watch(pipeline);
+      }
+      changeStreamIterable
           .fullDocument(readConfig.getStreamFullDocument())
           .comment(readConfig.getComment());
       if (partition.getStartOffsetTimestamp().getTime() >= 0) {

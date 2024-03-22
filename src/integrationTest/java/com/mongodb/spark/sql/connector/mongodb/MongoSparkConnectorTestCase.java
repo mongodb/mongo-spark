@@ -17,6 +17,7 @@ package com.mongodb.spark.sql.connector.mongodb;
 
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
@@ -176,10 +177,19 @@ public class MongoSparkConnectorTestCase {
     MongoCollection<Document> profileCollection = database.getCollection("system.profile");
     try {
       profileCollection.drop();
-      database.runCommand(BsonDocument.parse(
-          format("{profile: 2, filter: {ns: '%s.%s'}}", databaseName, collectionName)));
+      database.runCommand(new Document("profile", 1)
+          .append(
+              "filter",
+              Filters.eq("ns", new MongoNamespace(databaseName, collectionName).getFullName())));
 
       runnable.run();
+
+      List<Document> profileDocsWithComment = profileCollection
+          .find(Filters.eq("command.comment", TEST_COMMENT))
+          .into(new ArrayList<>());
+      assertFalse(
+          profileDocsWithComment.isEmpty(),
+          format("There were no commands observed with the comment \"%s\"", TEST_COMMENT));
 
       List<Document> profileDocs = profileCollection
           .find(Filters.nor(

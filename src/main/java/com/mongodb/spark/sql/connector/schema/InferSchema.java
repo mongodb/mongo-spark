@@ -17,16 +17,20 @@
 
 package com.mongodb.spark.sql.connector.schema;
 
+import static com.mongodb.assertions.Assertions.fail;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.groupingBy;
 
+import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Aggregates;
 import com.mongodb.spark.sql.connector.assertions.Assertions;
+import com.mongodb.spark.sql.connector.config.CollectionsConfig;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -65,7 +69,7 @@ public final class InferSchema {
   public static final Metadata INFERRED_METADATA = Metadata.fromJson("{\"inferred\": true}");
 
   /**
-   * Infer the schema for the collection
+   * Infer the schema for the specified configuration.
    *
    * @param options the configuration options to determine the namespace to determine the schema for
    * @return the schema
@@ -73,14 +77,34 @@ public final class InferSchema {
   public static StructType inferSchema(final CaseInsensitiveStringMap options) {
     ReadConfig readConfig = MongoConfig.readConfig(options.asCaseSensitiveMap())
         .withOptions(options.asCaseSensitiveMap());
-    ArrayList<Bson> samplePipeline = new ArrayList<>(readConfig.getAggregationPipeline());
-    samplePipeline.add(Aggregates.sample(readConfig.getInferSchemaSampleSize()));
-    return inferSchema(
-        readConfig.withCollection(coll -> coll.aggregate(samplePipeline)
+    CollectionsConfig collectionsConfig = readConfig.getCollectionsConfig();
+    return readConfig.withClient(client -> {
+      MongoDatabase database = client.getDatabase(readConfig.getDatabaseName());
+      Collection<String> collectionNames;
+      switch (collectionsConfig.getType()) {
+        case SINGLE:
+        case MULTIPLE:
+          collectionNames = collectionsConfig.getNames();
+          break;
+        case ALL:
+          collectionNames = database.listCollectionNames().into(new ArrayList<>());
+          break;
+        default:
+          throw fail();
+      }
+      List<BsonDocument> sampleDocuments = new ArrayList<>();
+      ArrayList<Bson> samplePipeline = new ArrayList<>(readConfig.getAggregationPipeline());
+      samplePipeline.add(Aggregates.sample(readConfig.getInferSchemaSampleSize()));
+      for (String collectionName : collectionNames) {
+        database
+            .getCollection(collectionName, BsonDocument.class)
+            .aggregate(samplePipeline)
             .allowDiskUse(readConfig.getAggregationAllowDiskUse())
             .comment(readConfig.getComment())
-            .into(new ArrayList<>())),
-        readConfig);
+            .into(sampleDocuments);
+      }
+      return inferSchema(sampleDocuments, readConfig);
+    });
   }
 
   /**

@@ -79,7 +79,9 @@ public final class ReadConfig extends AbstractMongoConfig {
   public static final String PARTITIONER_OPTIONS_PREFIX = "partitioner.options.";
 
   /**
-   * The size of the sample of documents from the collection to use when inferring the schema
+   * The size of the sample of documents from the collection to use when inferring the schema.
+   * When inferring from {@linkplain CollectionsConfig.Type#MULTIPLE multiple} or {@linkplain CollectionsConfig.Type#ALL all} collections,
+   * each collection is sampled with this size.
    *
    * <p>Configuration: {@value}
    *
@@ -415,7 +417,7 @@ public final class ReadConfig extends AbstractMongoConfig {
   }
 
   /**
-   * @return true if should ouput extended JSON
+   * @return true if should output extended JSON
    * @since 10.1
    */
   public boolean outputExtendedJson() {
