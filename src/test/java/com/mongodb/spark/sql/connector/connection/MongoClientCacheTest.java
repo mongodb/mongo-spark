@@ -18,27 +18,39 @@
 package com.mongodb.spark.sql.connector.connection;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.mongodb.client.MongoClient;
+import com.mongodb.spark.sql.connector.config.MongoConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-@ExtendWith(MockitoExtension.class)
-public class MongoClientCacheTest {
+import java.util.HashMap;
+import java.util.Map;
 
+@ExtendWith(MockitoExtension.class)
+class MongoClientCacheTest {
+  private static final Map<String, String> CONFIG_MAP = new HashMap<>();
   @Mock
   private MongoClientFactory mongoClientFactory;
 
   @Mock
   private MongoClient mongoClient;
 
+    static {
+        CONFIG_MAP.put(
+                MongoConfig.PREFIX + MongoConfig.CONNECTION_STRING_CONFIG, "mongodb://localhost:27017");
+        CONFIG_MAP.put(MongoConfig.PREFIX + MongoConfig.DATABASE_NAME_CONFIG, "db");
+    }
+
   @Test
-  void testNormalUsecase() {
+  void testNormalUseCase() {
     MongoClientCache mongoClientCache = new MongoClientCache(0, 0, 100);
     when(mongoClientFactory.create()).thenReturn(mongoClient);
 
@@ -55,6 +67,75 @@ public class MongoClientCacheTest {
     sleep(200);
     verify(mongoClient, times(1)).close();
   }
+
+    @Test
+    void factoriesWithSameConfigCreateSameClientsThroughCache() {
+        MongoConfig config = MongoConfig.createConfig(CONFIG_MAP);
+        DefaultMongoClientFactory factory1 = new DefaultMongoClientFactory(config);
+        DefaultMongoClientFactory factory2 = new DefaultMongoClientFactory(config);
+        MongoClientCache mongoClientCache = new MongoClientCache(0, 0, 100);
+
+        MongoClient client1 = mongoClientCache.acquire(factory1);
+        MongoClient client2 = mongoClientCache.acquire(factory2);
+
+        assertSame(client1, client2);
+    }
+
+    @Test
+    void factoriesWithEqualConfigCreateNotSameClientsThroughCache() {
+        MongoConfig config1 = MongoConfig.createConfig(CONFIG_MAP);
+        MongoConfig config2 = MongoConfig.createConfig(CONFIG_MAP);
+        DefaultMongoClientFactory factory1 = new DefaultMongoClientFactory(config1);
+        DefaultMongoClientFactory factory2 = new DefaultMongoClientFactory(config2);
+        MongoClientCache mongoClientCache = new MongoClientCache(0, 0, 100);
+
+        MongoClient client1 = mongoClientCache.acquire(factory1);
+        MongoClient client2 = mongoClientCache.acquire(factory2);
+
+        assertNotSame(client1, client2);
+    }
+
+    @Test
+    void factoriesWithEqualReadConfigsCreateSameClientsThroughCache() {
+        MongoConfig config1 = MongoConfig.readConfig(CONFIG_MAP);
+        MongoConfig config2 = MongoConfig.readConfig(CONFIG_MAP);
+        DefaultMongoClientFactory factory1 = new DefaultMongoClientFactory(config1);
+        DefaultMongoClientFactory factory2 = new DefaultMongoClientFactory(config2);
+        MongoClientCache mongoClientCache = new MongoClientCache(0, 0, 100);
+
+        MongoClient client1 = mongoClientCache.acquire(factory1);
+        MongoClient client2 = mongoClientCache.acquire(factory2);
+
+        assertSame(client1, client2);
+    }
+
+    @Test
+    void factoriesWithEqualWriteConfigsCreateNotSameClientsThroughCache() {
+        MongoConfig config1 = MongoConfig.writeConfig(CONFIG_MAP);
+        MongoConfig config2 = MongoConfig.writeConfig(CONFIG_MAP);
+        DefaultMongoClientFactory factory1 = new DefaultMongoClientFactory(config1);
+        DefaultMongoClientFactory factory2 = new DefaultMongoClientFactory(config2);
+        MongoClientCache mongoClientCache = new MongoClientCache(0, 0, 100);
+
+        MongoClient client1 = mongoClientCache.acquire(factory1);
+        MongoClient client2 = mongoClientCache.acquire(factory2);
+
+        assertSame(client1, client2);
+    }
+
+    @Test
+    void factoriesWithEqualReadWriteConfigsCreateNotSameClientsThroughCache() {
+        MongoConfig config1 = MongoConfig.readConfig(CONFIG_MAP);
+        MongoConfig config2 = MongoConfig.writeConfig(CONFIG_MAP);
+        DefaultMongoClientFactory factory1 = new DefaultMongoClientFactory(config1);
+        DefaultMongoClientFactory factory2 = new DefaultMongoClientFactory(config2);
+        MongoClientCache mongoClientCache = new MongoClientCache(0, 0, 100);
+
+        MongoClient client1 = mongoClientCache.acquire(factory1);
+        MongoClient client2 = mongoClientCache.acquire(factory2);
+
+        assertNotSame(client1, client2);
+    }
 
   @Test
   void testKeepAliveReuseOfClient() {
