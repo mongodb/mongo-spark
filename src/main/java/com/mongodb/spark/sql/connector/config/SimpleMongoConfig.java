@@ -19,6 +19,7 @@ package com.mongodb.spark.sql.connector.config;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /** A simple implementation of MongoConfig with no set the use case */
@@ -67,5 +68,22 @@ class SimpleMongoConfig implements MongoConfig {
         })
         .collect(Collectors.joining(", "));
     return "MongoConfig{options=" + cleanedOptions + ", usageMode=NotSet}";
+  }
+
+  @Override
+  public boolean equals(final Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    final SimpleMongoConfig that = (SimpleMongoConfig) o;
+    return Objects.equals(options, that.options);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(options);
   }
 }
