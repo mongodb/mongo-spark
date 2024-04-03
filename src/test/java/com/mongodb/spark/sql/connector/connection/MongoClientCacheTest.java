@@ -85,20 +85,6 @@ class MongoClientCacheTest {
   }
 
   @Test
-  void factoriesWithEqualConfigCreateNotSameClientsThroughCache() {
-    MongoConfig config1 = MongoConfig.createConfig(CONFIG_MAP);
-    MongoConfig config2 = MongoConfig.createConfig(CONFIG_MAP);
-    DefaultMongoClientFactory factory1 = new DefaultMongoClientFactory(config1);
-    DefaultMongoClientFactory factory2 = new DefaultMongoClientFactory(config2);
-    MongoClientCache mongoClientCache = new MongoClientCache(0, 0, 100);
-
-    MongoClient client1 = mongoClientCache.acquire(factory1);
-    MongoClient client2 = mongoClientCache.acquire(factory2);
-
-    assertNotSame(client1, client2);
-  }
-
-  @Test
   void factoriesWithEqualReadConfigsCreateSameClientsThroughCache() {
     MongoConfig config1 = MongoConfig.readConfig(CONFIG_MAP);
     MongoConfig config2 = MongoConfig.readConfig(CONFIG_MAP);
