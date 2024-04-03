@@ -19,7 +19,8 @@ package com.mongodb.spark.sql.connector.config;
 import static com.mongodb.spark.sql.connector.config.MongoConfig.CONNECTION_STRING_CONFIG;
 import static com.mongodb.spark.sql.connector.config.MongoConfig.DATABASE_NAME_CONFIG;
 import static com.mongodb.spark.sql.connector.config.MongoConfig.PREFIX;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 import java.util.HashMap;
 import java.util.Map;
