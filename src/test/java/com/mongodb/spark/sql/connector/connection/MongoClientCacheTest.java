@@ -22,7 +22,6 @@ import static com.mongodb.spark.sql.connector.config.MongoConfig.DATABASE_NAME_C
 import static com.mongodb.spark.sql.connector.config.MongoConfig.PREFIX;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
-
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -32,17 +31,11 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.junit.jupiter.api.Disabled;
-
-import java.util.HashMap;
-import java.util.Map;
-
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
 
 @ExtendWith(MockitoExtension.class)
 class MongoClientCacheTest {
