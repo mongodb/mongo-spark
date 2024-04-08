@@ -321,16 +321,23 @@ post:
   - func: "upload test results"
   - func: "cleanup"
 
+variables:
+  - &run-on
+    run_on: "ubuntu2004-small"
+
 tasks:
   - name: "static-checks-task"
+    <<: *run-on
     commands:
       - func: "run static checks"
 
   - name: "unit-test-task"
+    <<: *run-on
     commands:
       - func: "run unit tests"
 
   - name: "integration-test-task"
+    <<: *run-on
     commands:
       - func: "bootstrap mongo-orchestration"
       - func: "run integration tests"
@@ -338,6 +345,7 @@ tasks:
       - func: "upload test results"
 
   - name: "publish-snapshots-task"
+    <<: *run-on
     depends_on:
       - name: "static-checks-task"
         variant: ".static-check"
@@ -349,6 +357,7 @@ tasks:
       - func: "publish snapshots"
 
   - name: "publish-release-task"
+    <<: *run-on
     git_tag_only: true
     commands:
       - func: "publish release"
@@ -373,16 +382,14 @@ axes:
         display_name: "6.0"
         variables:
           VERSION: "6.0"
+      - id: "7.0"
+        display_name: "7.0"
+        variables:
+          VERSION: "7.0"
       - id: "latest"
         display_name: "latest"
         variables:
           VERSION: "latest"
-  - id: "os"
-    display_name: "OS"
-    values:
-      - id: "ubuntu"
-        display_name: "Ubuntu 1804"
-        run_on: "ubuntu1804-test"
 
   - id: "topology"
     display_name: "Topology"
@@ -439,8 +446,6 @@ buildvariants:
     exclude_spec: {scala: "2.13", spark: "3.1.2"}
     display_name: "Units tests: ${scala} ${spark}"
     tags: ["unit-test"]
-    run_on:
-      - "ubuntu1804-test"
     tasks:
       - name: "unit-test-task"
 
@@ -448,8 +453,6 @@ buildvariants:
     matrix_spec: { scala: "2.12", spark: "*", version: ["6.0"], topology: "sharded-cluster"}
     display_name: "Integration tests: ${scala} ${spark} ${version} ${topology}"
     tags: ["integration-test"]
-    run_on:
-      - "ubuntu1804-test"
     tasks:
       - name: "integration-test-task"
 
@@ -461,21 +464,15 @@ buildvariants:
 
     display_name: "Integration tests: ${scala} ${spark} ${version} ${topology}"
     tags: ["integration-test"]
-    run_on:
-      - "ubuntu1804-test"
     tasks:
       - name: "integration-test-task"
 
   - name: "publish-snapshots"
     display_name: "Publish Snapshots"
-    run_on:
-      - "ubuntu1804-test"
     tasks:
       - name: "publish-snapshots-task"
 
   - name: "publish-release"
     display_name: "Publish Release"
-    run_on:
-      - "ubuntu1804-test"
     tasks:
       - name: "publish-release-task"
