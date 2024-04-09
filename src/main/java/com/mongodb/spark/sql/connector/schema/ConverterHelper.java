@@ -31,6 +31,8 @@ import org.bson.json.JsonWriterSettings;
 
 /** Shared converter helper methods and statics */
 public final class ConverterHelper {
+  static final SchemaToExpressionEncoderFunction SCHEMA_TO_EXPRESSION_ENCODER_FUNCTION =
+      new SchemaToExpressionEncoderFunction();
   static final Codec<BsonValue> BSON_VALUE_CODEC = new BsonValueCodec();
 
   static final JsonWriterSettings RELAXED_JSON_WRITER_SETTINGS = JsonWriterSettings.builder()

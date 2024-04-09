@@ -17,12 +17,13 @@
 
 package com.mongodb.spark.sql.connector.schema;
 
+import static com.mongodb.spark.sql.connector.schema.ConverterHelper.SCHEMA_TO_EXPRESSION_ENCODER_FUNCTION;
+
 import java.io.Serializable;
 import java.util.function.Function;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder;
-import org.apache.spark.sql.catalyst.encoders.RowEncoder$;
 import org.apache.spark.sql.types.StructType;
 
 /**
@@ -37,7 +38,7 @@ final class RowToInternalRowFunction implements Function<Row, InternalRow>, Seri
   private final ExpressionEncoder.Serializer<Row> serializer;
 
   RowToInternalRowFunction(final StructType schema) {
-    this.serializer = RowEncoder$.MODULE$.apply(schema).createSerializer();
+    serializer = SCHEMA_TO_EXPRESSION_ENCODER_FUNCTION.apply(schema).createSerializer();
   }
 
   @Override

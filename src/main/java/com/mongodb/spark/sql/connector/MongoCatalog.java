@@ -50,7 +50,7 @@ import org.jetbrains.annotations.TestOnly;
 import org.jetbrains.annotations.VisibleForTesting;
 
 /** Spark Catalog methods for working with namespaces (databases) and tables (collections). */
-public class MongoCatalog implements TableCatalog, SupportsNamespaces {
+public class MongoCatalog implements TableCatalog, SupportsNamespaces, SupportsNamespacesAdapter {
   private static final Bson NOT_SYSTEM_NAMESPACE =
       Filters.not(Filters.regex("name", "^system\\..*"));
   private static final Bson IS_COLLECTION =
@@ -178,12 +178,11 @@ public class MongoCatalog implements TableCatalog, SupportsNamespaces {
     throw new UnsupportedOperationException("Altering databases is currently not supported");
   }
 
-  /**
-   * Drop a database.
-   *
-   * @param namespace (database) a multi-part namespace
-   * @return true if the namespace (database) was dropped
-   */
+  @Override
+  public boolean dropNamespace(final String[] namespace, final boolean cascade) {
+    return dropNamespace(namespace);
+  }
+
   @Override
   public boolean dropNamespace(final String[] namespace) {
     assertInitialized();
