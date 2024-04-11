@@ -51,7 +51,7 @@ repositories {
 
 // Usage: ./gradlew -DscalaVersion=2.12 -DsparkVersion=3.1.4
 val scalaVersion = System.getProperty("scalaVersion", "2.13")
-val sparkVersion = System.getProperty("sparkVersion", "3.2.4")
+val sparkVersion = System.getProperty("sparkVersion", "3.5.1")
 
 extra.apply {
     set("annotationsVersion", "22.0.0")
