@@ -289,6 +289,15 @@ functions:
           ${PREPARE_SHELL}
           MONGODB_URI="${MONGODB_URI}" SCALA_VERSION="${SCALA}" SPARK_VERSION="${SPARK}" .evergreen/run-integration-tests.sh
 
+  "run sharded integration tests":
+    - command: shell.exec
+      type: test
+      params:
+        working_dir: "src"
+        script: |
+          ${PREPARE_SHELL}
+          MONGODB_URI="${MONGODB_URI}" SCALA_VERSION="${SCALA}" SPARK_VERSION="${SPARK}" .evergreen/run-sharded-integration-tests.sh
+
   "publish snapshots":
     - command: shell.exec
       type: test
@@ -353,6 +362,14 @@ tasks:
       - func: "stop mongo-orchestration"
       - func: "upload test results"
 
+  - name: "sharded-integration-test-task"
+    <<: *run-on
+    commands:
+      - func: "bootstrap mongo-orchestration"
+      - func: "run sharded integration tests"
+      - func: "stop mongo-orchestration"
+      - func: "upload test results"
+
   - name: "publish-snapshots-task"
     <<: *run-on
     depends_on:
@@ -362,6 +379,8 @@ tasks:
         variant: ".unit-test"
       - name: "integration-test-task"
         variant: ".integration-test"
+      - name: "sharded-integration-test-task"
+        variant: ".sharded-integration-test"
     commands:
       - func: "publish snapshots"
 
@@ -379,6 +398,10 @@ axes:
         display_name: "4.0"
         variables:
           VERSION: "4.0"
+      - id: "4.4"
+        display_name: "4.4"
+        variables:
+          VERSION: "4.4"
       - id: "7.0"
         display_name: "7.0"
         variables:
@@ -395,7 +418,7 @@ axes:
         display_name: "Replica Set"
         variables:
           TOPOLOGY: "replica_set"
-      - id: "sharded-cluster"
+      - id: "sharded"
         display_name: "Sharded Cluster"
         variables:
           TOPOLOGY: "sharded_cluster"
@@ -455,18 +478,25 @@ buildvariants:
       - name: "unit-test-task"
 
   - matrix_name: "integration-tests-2-12"
-    matrix_spec: { scala: "2.12", spark: "3.1.3", version: ["7.0"], topology: "sharded-cluster"}
+    matrix_spec: { scala: "2.12", spark: "3.1.3", version: ["7.0"], topology: "replicaset"}
     display_name: "Integration tests: ${scala} ${spark} ${version} ${topology}"
     tags: ["integration-test"]
     tasks:
       - name: "integration-test-task"
 
   - matrix_name: "integration-tests-2-13"
-    matrix_spec: { scala: "2.13", spark: ["3.2.4", "3.5.1"], version: ["4.0", "7.0", "latest"], topology: ["replicaset",  "sharded-cluster"] }
+    matrix_spec: { scala: "2.13", spark: ["3.2.4", "3.5.1"], version: ["4.0", "7.0", "latest"], topology: "replicaset" }
     display_name: "Integration tests: ${scala} ${spark} ${version} ${topology}"
     tags: ["integration-test"]
     tasks:
       - name: "integration-test-task"
+
+  - matrix_name: "integration-tests-2-13-sharded"
+    matrix_spec: { scala: "2.13", spark: [ "3.2.4", "3.5.1" ], version: ["4.4", "7.0", "latest" ], topology: "sharded" }
+    display_name: "Integration tests: ${scala} ${spark} ${version} ${topology}"
+    tags: [ "sharded-integration-test" ]
+    tasks:
+      - name: "sharded-integration-test-task"
 
   - name: "publish-snapshots"
     display_name: "Publish Snapshots"
