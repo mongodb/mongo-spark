@@ -22,9 +22,12 @@ import static java.util.Arrays.asList;
 
 import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.exceptions.DataException;
+import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import com.mongodb.spark.sql.connector.interop.JavaScala;
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -177,7 +180,18 @@ public final class RowToBsonDocumentConverter implements Serializable {
       return (data) -> processString((String) data, convertJson);
     } else if (DataTypes.DateType.acceptsType(dataType)
         || DataTypes.TimestampType.acceptsType(dataType)) {
-      return (data) -> new BsonDateTime(((Date) data).getTime());
+      return (data) -> {
+        if (data instanceof Date) {
+          // Covers java.util.Date, java.sql.Date, java.sql.Timestamp
+          return new BsonDateTime(((Date) data).getTime());
+        } else if (data instanceof LocalDate) {
+          return new BsonDateTime(((LocalDate) data).toEpochDay());
+        } else if (data instanceof Instant) {
+          return new BsonDateTime(((Instant) data).toEpochMilli());
+        }
+        throw new MongoSparkException(
+            "Unsupported date type: " + data.getClass().getSimpleName());
+      };
     } else if (DataTypes.NullType.acceptsType(dataType)) {
       return (data) -> BsonNull.VALUE;
     } else if (dataType instanceof DecimalType) {

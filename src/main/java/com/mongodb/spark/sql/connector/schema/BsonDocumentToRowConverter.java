@@ -28,6 +28,7 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -145,7 +146,7 @@ public final class BsonDocumentToRowConverter implements Serializable {
     } else if (dataType instanceof BooleanType) {
       return convertToBoolean(fieldName, dataType, bsonValue);
     } else if (dataType instanceof DateType) {
-      return convertToTimestamp(fieldName, dataType, bsonValue);
+      return convertToDate(fieldName, dataType, bsonValue);
     } else if (dataType instanceof TimestampType) {
       return convertToTimestamp(fieldName, dataType, bsonValue);
     } else if (dataType instanceof FloatType) {
@@ -248,6 +249,11 @@ public final class BsonDocumentToRowConverter implements Serializable {
       throw invalidFieldData(fieldName, dataType, bsonValue);
     }
     return bsonValue.asBoolean().getValue();
+  }
+
+  private Date convertToDate(
+      final String fieldName, final DataType dataType, final BsonValue bsonValue) {
+    return new Date(convertToLong(fieldName, dataType, bsonValue));
   }
 
   private Timestamp convertToTimestamp(
