@@ -16,10 +16,11 @@
  */
 package com.mongodb.spark.sql.connector.schema;
 
+import com.mongodb.spark.sql.connector.annotations.ThreadSafe;
 import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
-import com.mongodb.spark.sql.connector.function.SerializableFunction;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.function.Function;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.analysis.SimpleAnalyzer$;
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder;
@@ -27,19 +28,17 @@ import org.apache.spark.sql.catalyst.expressions.Attribute;
 import org.apache.spark.sql.types.StructType;
 import scala.collection.immutable.Seq;
 
-@SuppressWarnings("unchecked")
-class SchemaToExpressionEncoderFunction
-    implements SerializableFunction<StructType, ExpressionEncoder<Row>> {
-  private static final long serialVersionUID = 1L;
+@ThreadSafe
+class SchemaToExpressionEncoderFunction implements Function<StructType, ExpressionEncoder<Row>> {
   private static final Object MODULE_STATIC;
   private static final Method APPLY_METHOD;
-  private static final SerializableFunction<StructType, Seq<Attribute>> ATTRIBUTE_FUNCTION;
+  private static final Function<StructType, Seq<Attribute>> ATTRIBUTE_FUNCTION;
 
   static {
     Class<?> clazz;
     Object moduleStatic = null;
     Method applyMethod = null;
-    SerializableFunction<StructType, Seq<Attribute>> attributeFunction = null;
+    Function<StructType, Seq<Attribute>> attributeFunction = null;
 
     try {
       // Test Spark 3.1 - 3.4 support

@@ -19,7 +19,8 @@ package com.mongodb.spark.sql.connector.schema;
 
 import static com.mongodb.spark.sql.connector.schema.ConverterHelper.SCHEMA_TO_EXPRESSION_ENCODER_FUNCTION;
 
-import com.mongodb.spark.sql.connector.function.SerializableFunction;
+import java.io.Serializable;
+import java.util.function.Function;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder;
@@ -31,7 +32,7 @@ import org.apache.spark.sql.types.StructType;
  * <p>A concrete {@code Function} implementation that is {@code Serializable}, so it can be
  * serialized and sent to executors.
  */
-final class InternalRowToRowFunction implements SerializableFunction<InternalRow, Row> {
+final class InternalRowToRowFunction implements Function<InternalRow, Row>, Serializable {
   private static final long serialVersionUID = 1L;
 
   private final ExpressionEncoder.Deserializer<Row> deserializer;
