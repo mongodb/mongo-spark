@@ -76,8 +76,12 @@ public class DateTimeBean implements Serializable {
 
   @Override
   public boolean equals(final Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
     DateTimeBean that = (DateTimeBean) o;
     // Cheat with sqlDate - ignore system clock normalization
     return Objects.equals(sqlDate.toString(), that.sqlDate.toString())
