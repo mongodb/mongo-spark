@@ -352,6 +352,7 @@ abstract class SchemaTest {
 
   // JSON Conversion types handling
   private static final StructType CONVERT_JSON_SCHEMA = DataTypes.createStructType(asList(
+      DataTypes.createStructField("emptyString", DataTypes.StringType, true),
       DataTypes.createStructField("booleanString", DataTypes.StringType, true),
       DataTypes.createStructField("numericString", DataTypes.StringType, true),
       DataTypes.createStructField("document", DataTypes.StringType, true),
@@ -359,6 +360,7 @@ abstract class SchemaTest {
 
   static final GenericRowWithSchema CONVERT_JSON_ROW = new GenericRowWithSchema(
       asList(
+              "",
               "true",
               "012345",
               "{\"a\": \"foo\", \"b\": \"012345\", \"c\": \"true\"}",
@@ -367,6 +369,7 @@ abstract class SchemaTest {
       CONVERT_JSON_SCHEMA);
 
   static final BsonDocument CONVERT_JSON_DOCUMENT = BsonDocument.parse("{"
+      + " \"emptyString\": \"\","
       + " \"booleanString\": true,"
       + " \"numericString\": 012345,"
       + " \"document\": {\"a\": \"foo\", \"b\": \"012345\", \"c\": \"true\"},"
@@ -374,6 +377,7 @@ abstract class SchemaTest {
       + "}");
 
   static final BsonDocument CONVERT_JSON_OBJECT_OR_ARRAY_ONLY_DOCUMENT = BsonDocument.parse("{"
+      + " \"emptyString\": \"\","
       + " \"booleanString\": \"true\","
       + " \"numericString\": \"012345\","
       + " \"document\": {\"a\": \"foo\", \"b\": \"012345\", \"c\": \"true\"},"

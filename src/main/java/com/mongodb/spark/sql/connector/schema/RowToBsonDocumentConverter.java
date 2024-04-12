@@ -59,6 +59,7 @@ import org.bson.BsonValue;
 import org.bson.json.JsonParseException;
 import org.bson.types.Decimal128;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The helper for conversion of GenericRowWithSchema instances to BsonDocuments.
@@ -273,7 +274,10 @@ public final class RowToBsonDocumentConverter implements Serializable {
   private static final char JSON_ARRAY_START = '[';
   private static final char JSON_ARRAY_END = ']';
 
-  private static boolean isJsonObjectOrArray(final String data) {
+  private static boolean isJsonObjectOrArray(@Nullable final String data) {
+    if (data == null || data.isEmpty()) {
+      return false;
+    }
     char firstChar = data.charAt(0);
     char lastChar = data.charAt(data.length() - 1);
     return (firstChar == JSON_OBJECT_START && lastChar == JSON_OBJECT_END)
