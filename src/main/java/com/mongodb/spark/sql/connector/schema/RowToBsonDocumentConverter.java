@@ -59,7 +59,6 @@ import org.bson.BsonValue;
 import org.bson.json.JsonParseException;
 import org.bson.types.Decimal128;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * The helper for conversion of GenericRowWithSchema instances to BsonDocuments.
