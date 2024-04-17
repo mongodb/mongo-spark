@@ -274,6 +274,9 @@ public final class RowToBsonDocumentConverter implements Serializable {
   private static final char JSON_ARRAY_END = ']';
 
   private static boolean isJsonObjectOrArray(final String data) {
+    if (data.isEmpty()) {
+      return false;
+    }
     char firstChar = data.charAt(0);
     char lastChar = data.charAt(data.length() - 1);
     return (firstChar == JSON_OBJECT_START && lastChar == JSON_OBJECT_END)
