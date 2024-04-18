@@ -74,6 +74,12 @@ public class RowToBsonDocumentConverterTest extends SchemaTest {
   }
 
   @Test
+  @DisplayName("test simple types with null values")
+  void testSimpleTypesNulls() {
+    assertEquals(SIMPLE_NULL_BSON_DOCUMENT, fromRowDefault(SIMPLE_NULL_ROW));
+  }
+
+  @Test
   @DisplayName("test json converter all fields")
   void testJsonConverter() {
     assertEquals(BSON_DOCUMENT_RELAXED, fromRowJson(ALL_TYPES_RELAXED_JSON_ROW));

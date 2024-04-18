@@ -85,6 +85,38 @@ abstract class SchemaTest {
           .add("stringType", DataTypes.StringType, true)
           .add("timestampType", DataTypes.TimestampType, true));
 
+  static final Row SIMPLE_NULL_ROW = new GenericRowWithSchema(
+      asList(null, null, null, null, null, null, null, null, null, null, null, null)
+          .toArray(),
+      new StructType()
+          .add("binaryType", DataTypes.BinaryType, true)
+          .add("booleanType", DataTypes.BooleanType, true)
+          .add("byteType", DataTypes.ByteType, true)
+          .add("dateType", DataTypes.DateType, true)
+          .add("doubleType", DataTypes.DoubleType, true)
+          .add("floatType", DataTypes.FloatType, true)
+          .add("integerType", DataTypes.IntegerType, true)
+          .add("longType", DataTypes.LongType, true)
+          .add("nullType", DataTypes.NullType, false)
+          .add("shortType", DataTypes.ShortType, true)
+          .add("stringType", DataTypes.StringType, true)
+          .add("timestampType", DataTypes.TimestampType, true));
+
+  static final BsonDocument SIMPLE_NULL_BSON_DOCUMENT = BsonDocument.parse("{"
+      + "'binaryType': null, "
+      + "'booleanType': null, "
+      + "'byteType': null, "
+      + "'dateType': null, "
+      + "'doubleType': null, "
+      + "'floatType': null, "
+      + "'integerType': null, "
+      + "'longType': null, "
+      + "'nullType': null,"
+      + "'shortType': null, "
+      + "'stringType': null, "
+      + "'timestampType': null"
+      + "}");
+
   static final String SUB_BSON_DOCUMENT_JSON =
       "{\"A\": {\"$binary\": {\"base64\": \"S2Fma2Egcm9ja3Mh\", \"subType\": \"00\"}},"
           + " \"B\": {\"$date\": {\"$numberLong\": \"1577863627000\"}},"
@@ -320,6 +352,7 @@ abstract class SchemaTest {
 
   // JSON Conversion types handling
   private static final StructType CONVERT_JSON_SCHEMA = DataTypes.createStructType(asList(
+      DataTypes.createStructField("emptyString", DataTypes.StringType, true),
       DataTypes.createStructField("booleanString", DataTypes.StringType, true),
       DataTypes.createStructField("numericString", DataTypes.StringType, true),
       DataTypes.createStructField("document", DataTypes.StringType, true),
@@ -327,6 +360,7 @@ abstract class SchemaTest {
 
   static final GenericRowWithSchema CONVERT_JSON_ROW = new GenericRowWithSchema(
       asList(
+              "",
               "true",
               "012345",
               "{\"a\": \"foo\", \"b\": \"012345\", \"c\": \"true\"}",
@@ -335,6 +369,7 @@ abstract class SchemaTest {
       CONVERT_JSON_SCHEMA);
 
   static final BsonDocument CONVERT_JSON_DOCUMENT = BsonDocument.parse("{"
+      + " \"emptyString\": \"\","
       + " \"booleanString\": true,"
       + " \"numericString\": 012345,"
       + " \"document\": {\"a\": \"foo\", \"b\": \"012345\", \"c\": \"true\"},"
@@ -342,6 +377,7 @@ abstract class SchemaTest {
       + "}");
 
   static final BsonDocument CONVERT_JSON_OBJECT_OR_ARRAY_ONLY_DOCUMENT = BsonDocument.parse("{"
+      + " \"emptyString\": \"\","
       + " \"booleanString\": \"true\","
       + " \"numericString\": \"012345\","
       + " \"document\": {\"a\": \"foo\", \"b\": \"012345\", \"c\": \"true\"},"
