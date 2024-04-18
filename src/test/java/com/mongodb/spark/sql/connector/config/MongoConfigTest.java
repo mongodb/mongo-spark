@@ -128,6 +128,25 @@ public class MongoConfigTest {
   }
 
   @Test
+  void testWriteConfigConvertJson() {
+    WriteConfig writeConfig = MongoConfig.createConfig(CONFIG_MAP).toWriteConfig();
+    assertEquals(writeConfig.convertJson(), WriteConfig.ConvertJson.FALSE);
+    assertEquals(
+        writeConfig.withOption("convertJson", "False").convertJson(),
+        WriteConfig.ConvertJson.FALSE);
+    assertEquals(
+        writeConfig.withOption("convertJson", "True").convertJson(), WriteConfig.ConvertJson.ANY);
+    assertEquals(
+        writeConfig.withOption("convertJson", "Any").convertJson(), WriteConfig.ConvertJson.ANY);
+    assertEquals(
+        writeConfig.withOption("convertJson", "objectOrArrayOnly").convertJson(),
+        WriteConfig.ConvertJson.OBJECT_OR_ARRAY_ONLY);
+    assertEquals(
+        writeConfig.withOption("convertJson", "OBJECT_OR_ARRAY_ONLY").convertJson(),
+        WriteConfig.ConvertJson.OBJECT_OR_ARRAY_ONLY);
+  }
+
+  @Test
   void testMongoConfigOptionsParsing() {
     MongoConfig mongoConfig = MongoConfig.readConfig(OPTIONS_CONFIG_MAP);
 

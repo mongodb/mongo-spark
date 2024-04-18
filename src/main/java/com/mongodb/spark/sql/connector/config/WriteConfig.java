@@ -25,7 +25,6 @@ import com.mongodb.WriteConcern;
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.jetbrains.annotations.ApiStatus;
@@ -83,20 +82,32 @@ public final class WriteConfig extends AbstractMongoConfig {
     private final String value;
     private static final String TRUE = "true";
 
-    ConvertJson(final String operationType) {
-      this.value = operationType;
+    ConvertJson(final String value) {
+      this.value = value;
     }
 
-    static ConvertJson fromString(final String jsonType) {
-      if (jsonType.equalsIgnoreCase(TRUE)) {
+    static ConvertJson fromString(final String value) {
+      if (value.equalsIgnoreCase(TRUE)) {
         LOGGER.warn("{}: '{}' is deprecated. Use: '{}' instead.", CONVERT_JSON_CONFIG, TRUE, ANY);
         return ANY;
       }
-      try {
-        return ConvertJson.valueOf(jsonType.toUpperCase(Locale.ROOT));
-      } catch (IllegalArgumentException e) {
-        throw new ConfigException(format("'%s' is not a valid Convert Json Type", jsonType), e);
+
+      for (ConvertJson convertJsonType : ConvertJson.values()) {
+        if (value.equalsIgnoreCase(convertJsonType.value)) {
+          return convertJsonType;
+        }
       }
+
+      if (value.equalsIgnoreCase(OBJECT_OR_ARRAY_ONLY.name())) {
+        LOGGER.warn(
+            "{}: '{}' is deprecated. Use: '{}' instead.",
+            CONVERT_JSON_CONFIG,
+            OBJECT_OR_ARRAY_ONLY.name(),
+            OBJECT_OR_ARRAY_ONLY.value);
+        return OBJECT_OR_ARRAY_ONLY;
+      }
+
+      throw new ConfigException(format("'%s' is not a valid Convert Json Type", value));
     }
 
     @Override
