@@ -132,6 +132,9 @@ public class MongoConfigTest {
     WriteConfig writeConfig = MongoConfig.createConfig(CONFIG_MAP).toWriteConfig();
     assertEquals(writeConfig.convertJson(), WriteConfig.ConvertJson.FALSE);
     assertEquals(
+        writeConfig.withOption("convertJson", "False").convertJson(),
+        WriteConfig.ConvertJson.FALSE);
+    assertEquals(
         writeConfig.withOption("convertJson", "True").convertJson(), WriteConfig.ConvertJson.ANY);
     assertEquals(
         writeConfig.withOption("convertJson", "Any").convertJson(), WriteConfig.ConvertJson.ANY);

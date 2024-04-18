@@ -82,23 +82,23 @@ public final class WriteConfig extends AbstractMongoConfig {
     private final String value;
     private static final String TRUE = "true";
 
-    ConvertJson(final String operationType) {
-      this.value = operationType;
+    ConvertJson(final String value) {
+      this.value = value;
     }
 
-    static ConvertJson fromString(final String operationType) {
-      if (operationType.equalsIgnoreCase(TRUE)) {
+    static ConvertJson fromString(final String value) {
+      if (value.equalsIgnoreCase(TRUE)) {
         LOGGER.warn("{}: '{}' is deprecated. Use: '{}' instead.", CONVERT_JSON_CONFIG, TRUE, ANY);
         return ANY;
       }
 
       for (ConvertJson convertJsonType : ConvertJson.values()) {
-        if (operationType.equalsIgnoreCase(convertJsonType.value)) {
+        if (value.equalsIgnoreCase(convertJsonType.value)) {
           return convertJsonType;
         }
       }
 
-      if (operationType.equalsIgnoreCase(OBJECT_OR_ARRAY_ONLY.name())) {
+      if (value.equalsIgnoreCase(OBJECT_OR_ARRAY_ONLY.name())) {
         LOGGER.warn(
             "{}: '{}' is deprecated. Use: '{}' instead.",
             CONVERT_JSON_CONFIG,
@@ -107,7 +107,7 @@ public final class WriteConfig extends AbstractMongoConfig {
         return OBJECT_OR_ARRAY_ONLY;
       }
 
-      throw new ConfigException(format("'%s' is not a valid Convert Json Type", operationType));
+      throw new ConfigException(format("'%s' is not a valid Convert Json Type", value));
     }
 
     @Override
