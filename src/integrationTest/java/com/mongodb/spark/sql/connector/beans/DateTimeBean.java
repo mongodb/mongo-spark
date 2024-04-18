@@ -83,8 +83,7 @@ public class DateTimeBean implements Serializable {
       return false;
     }
     DateTimeBean that = (DateTimeBean) o;
-    // Cheat with sqlDate - ignore system clock normalization
-    return Objects.equals(sqlDate.toString(), that.sqlDate.toString())
+    return Objects.equals(sqlDate, that.sqlDate)
         && Objects.equals(sqlTimestamp, that.sqlTimestamp)
         && Objects.equals(localDate, that.localDate)
         && Objects.equals(instant, that.instant);

@@ -33,6 +33,7 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoder;
@@ -92,32 +93,39 @@ public class RoundTripTest extends MongoSparkConnectorTestCase {
 
   @Test
   void testDateTimeBean() {
-    // Given
-    long oneHour = TimeUnit.MILLISECONDS.convert(1, TimeUnit.HOURS);
-    long oneDay = oneHour * 24;
+    TimeZone original = TimeZone.getDefault();
+    try {
+      TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
 
-    List<DateTimeBean> dataSetOriginal = singletonList(new DateTimeBean(
-        new Date(oneDay * 365),
-        new Timestamp(oneDay + oneHour),
-        LocalDate.of(2000, 1, 1),
-        Instant.EPOCH));
+      // Given
+      long oneHour = TimeUnit.MILLISECONDS.convert(1, TimeUnit.HOURS);
+      long oneDay = oneHour * 24;
 
-    // when
-    SparkSession spark = getOrCreateSparkSession();
-    Encoder<DateTimeBean> encoder = Encoders.bean(DateTimeBean.class);
+      List<DateTimeBean> dataSetOriginal = singletonList(new DateTimeBean(
+          new Date(oneDay * 365),
+          new Timestamp(oneDay + oneHour),
+          LocalDate.of(2000, 1, 1),
+          Instant.EPOCH));
 
-    Dataset<DateTimeBean> dataset = spark.createDataset(dataSetOriginal, encoder);
-    dataset.write().format("mongodb").mode("Overwrite").save();
+      // when
+      SparkSession spark = getOrCreateSparkSession();
+      Encoder<DateTimeBean> encoder = Encoders.bean(DateTimeBean.class);
 
-    // Then
-    List<DateTimeBean> dataSetMongo = spark
-        .read()
-        .format("mongodb")
-        .schema(encoder.schema())
-        .load()
-        .as(encoder)
-        .collectAsList();
-    assertIterableEquals(dataSetOriginal, dataSetMongo);
+      Dataset<DateTimeBean> dataset = spark.createDataset(dataSetOriginal, encoder);
+      dataset.write().format("mongodb").mode("Overwrite").save();
+
+      // Then
+      List<DateTimeBean> dataSetMongo = spark
+          .read()
+          .format("mongodb")
+          .schema(encoder.schema())
+          .load()
+          .as(encoder)
+          .collectAsList();
+      assertIterableEquals(dataSetOriginal, dataSetMongo);
+    } finally {
+      TimeZone.setDefault(original);
+    }
   }
 
   @Test
