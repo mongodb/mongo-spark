@@ -91,7 +91,7 @@ public class DateTimeBean implements Serializable {
 
   @Override
   public int hashCode() {
-    return Objects.hash(sqlDate.toString(), sqlTimestamp, localDate, instant);
+    return Objects.hash(sqlDate, sqlTimestamp, localDate, instant);
   }
 
   @Override
