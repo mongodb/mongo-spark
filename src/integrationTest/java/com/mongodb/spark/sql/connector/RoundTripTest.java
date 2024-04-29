@@ -30,6 +30,7 @@ import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -95,7 +96,7 @@ public class RoundTripTest extends MongoSparkConnectorTestCase {
   void testDateTimeBean() {
     TimeZone original = TimeZone.getDefault();
     try {
-      TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+      TimeZone.setDefault(TimeZone.getTimeZone(ZoneOffset.UTC));
 
       // Given
       long oneHour = TimeUnit.MILLISECONDS.convert(1, TimeUnit.HOURS);
