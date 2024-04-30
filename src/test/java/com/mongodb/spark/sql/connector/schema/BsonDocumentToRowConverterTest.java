@@ -31,6 +31,7 @@ import com.mongodb.spark.sql.connector.interop.JavaScala;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -238,18 +239,17 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
 
     assertAll(
         "Testing date support",
+        () -> assertEquals(new Date(oneDayAnd1Hour), CONVERT.apply(DataTypes.DateType, bsonInt32)),
         () -> assertEquals(
-            new Timestamp(oneDayAnd1Hour), CONVERT.apply(DataTypes.DateType, bsonInt32)),
+            new Date(oneDayAnd1Hour * 2L), CONVERT.apply(DataTypes.DateType, bsonInt64)),
         () -> assertEquals(
-            new Timestamp(oneDayAnd1Hour * 2L), CONVERT.apply(DataTypes.DateType, bsonInt64)),
+            new Date(oneDayAnd1Hour * 3L), CONVERT.apply(DataTypes.DateType, bsonDouble)),
         () -> assertEquals(
-            new Timestamp(oneDayAnd1Hour * 3L), CONVERT.apply(DataTypes.DateType, bsonDouble)),
+            new Date(oneDayAnd1Hour * 4L), CONVERT.apply(DataTypes.DateType, bsonDateTime)),
         () -> assertEquals(
-            new Timestamp(oneDayAnd1Hour * 4L), CONVERT.apply(DataTypes.DateType, bsonDateTime)),
+            new Date(oneDayAnd1Hour * 5L), CONVERT.apply(DataTypes.DateType, bsonTimestamp)),
         () -> assertEquals(
-            new Timestamp(oneDayAnd1Hour * 5L), CONVERT.apply(DataTypes.DateType, bsonTimestamp)),
-        () -> assertEquals(
-            new Timestamp(oneDayAnd1Hour * 7L), CONVERT.apply(DataTypes.DateType, bsonDecimal128)),
+            new Date(oneDayAnd1Hour * 7L), CONVERT.apply(DataTypes.DateType, bsonDecimal128)),
         () -> assertNull(CONVERT.apply(DataTypes.DateType, BsonNull.VALUE)));
 
     assertAll(
