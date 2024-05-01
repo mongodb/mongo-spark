@@ -35,3 +35,6 @@ local.properties
 
 # jenv
 .java-version
+
+# release.sh
+release.sh
