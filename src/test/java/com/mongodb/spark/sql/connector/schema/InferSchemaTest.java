@@ -512,6 +512,142 @@ public class InferSchemaTest extends SchemaTest {
             disabledInferSchemaReadConfig));
   }
 
+  @Test
+  void testSchemaHints() {
+    ReadConfig readConfig = READ_CONFIG.withOption(ReadConfig.SCHEMA_HINTS, "booleanField BOOLEAN");
+    StructType expected = createStructType(asList(
+        createStructField("booleanField", DataTypes.BooleanType),
+        createStructField("intField", DataTypes.IntegerType)));
+
+    // Field Exists
+    assertEquals(
+        expected,
+        InferSchema.inferSchema(
+            asList(
+                BsonDocument.parse("{booleanField: true, intField: 1}"),
+                BsonDocument.parse("{booleanField: false, intField: 2}")),
+            readConfig));
+
+    // Schema hint field not present.
+    assertEquals(
+        expected,
+        InferSchema.inferSchema(singletonList(BsonDocument.parse("{intField: 123}")), readConfig));
+
+    // Schema hint field different type
+    assertEquals(
+        expected,
+        InferSchema.inferSchema(
+            singletonList(BsonDocument.parse("{booleanField: 'string!', intField: 1}")),
+            readConfig));
+  }
+
+  @Test
+  void testNestedSchemaHints() {
+    ReadConfig readConfig =
+        READ_CONFIG.withOption(ReadConfig.SCHEMA_HINTS, "`nested.booleanField` BOOLEAN");
+    StructType expected = createStructType(singletonList(createStructField(
+        "nested",
+        createStructType(asList(
+            createStructField("booleanField", DataTypes.BooleanType),
+            createStructField("intField", DataTypes.IntegerType))))));
+
+    // Field Exists
+    assertEquals(
+        expected,
+        InferSchema.inferSchema(
+            asList(
+                BsonDocument.parse("{nested: {booleanField: true, intField: 1}}"),
+                BsonDocument.parse("{nested: {booleanField: false, intField: 2}}")),
+            readConfig));
+
+    // Schema hint field not present.
+    assertEquals(
+        expected,
+        InferSchema.inferSchema(
+            singletonList(BsonDocument.parse("{nested: {intField: 123}}")), readConfig));
+
+    // Schema hint field different type
+    assertEquals(
+        expected,
+        InferSchema.inferSchema(
+            singletonList(BsonDocument.parse("{nested: {booleanField: 'string!', intField: 1}}")),
+            readConfig));
+
+    readConfig = READ_CONFIG.withOption(ReadConfig.SCHEMA_HINTS, "`a.b.c` Int");
+    expected = createStructType(singletonList(createStructField(
+        "a",
+        createStructType(singletonList(createStructField(
+            "b",
+            createStructType(asList(
+                createStructField("c", DataTypes.IntegerType),
+                createStructField("d", StringType)))))))));
+
+    // Field Exists
+    assertEquals(
+        expected,
+        InferSchema.inferSchema(
+            asList(
+                BsonDocument.parse("{a: {b: {c: 1}}}"),
+                BsonDocument.parse("{a: {b: {d: 'string'}}}")),
+            readConfig));
+
+    // Schema hint field not present.
+    assertEquals(
+        expected,
+        InferSchema.inferSchema(
+            singletonList(BsonDocument.parse("{a: {b: {d: 'string'}}}")), readConfig));
+
+    // Schema hint field different type
+    assertEquals(
+        expected,
+        InferSchema.inferSchema(
+            singletonList(BsonDocument.parse("{a: {b: {c: 'string', d: 'string'}}}")), readConfig));
+
+    // Ensure can handle multiple nested hints
+    readConfig = READ_CONFIG.withOption(ReadConfig.SCHEMA_HINTS, "`a.b.c` Int,`a.b.d` String");
+    assertEquals(
+        expected, InferSchema.inferSchema(singletonList(BsonDocument.parse("{}")), readConfig));
+  }
+
+  @Test
+  public void rhsPreferredMergeTest() {
+    // Can handle simple merges
+    DataType lhs = DataType.fromDDL("a LONG");
+    DataType rhs = DataType.fromDDL("b LONG");
+    DataType expected = DataType.fromDDL("a LONG, b LONG");
+    assertEquals(expected, InferSchema.rhsPreferredMerge(lhs, rhs));
+
+    // Uses the RHS type over LHS type.
+    lhs = DataType.fromDDL("a LONG");
+    rhs = DataType.fromDDL("a STRING");
+    expected = DataType.fromDDL("a STRING");
+    assertEquals(expected, InferSchema.rhsPreferredMerge(lhs, rhs));
+
+    // Handles nested structures merging
+    lhs = DataType.fromDDL("a STRUCT<b: INT>");
+    rhs = DataType.fromDDL("a STRUCT<c: INT>");
+    expected = DataType.fromDDL("a STRUCT<b: INT, c: INT>");
+    assertEquals(expected, InferSchema.rhsPreferredMerge(lhs, rhs));
+
+    // Uses the nested RHS type over LHS type.
+    lhs = DataType.fromDDL("a STRUCT<b: STRING>");
+    rhs = DataType.fromDDL("a STRUCT<b: INT>");
+    expected = DataType.fromDDL("a STRUCT<b: INT>");
+    assertEquals(expected, InferSchema.rhsPreferredMerge(lhs, rhs));
+
+    // Handles multiple levels of nesting.
+    lhs = DataType.fromDDL("a STRUCT<b: STRUCT<c: STRING>>");
+    rhs = DataType.fromDDL("a STRUCT<b: STRUCT<d: INT>>");
+    expected = DataType.fromDDL("a STRUCT<b: STRUCT<c: STRING, d: INT>>");
+    assertEquals(expected, InferSchema.rhsPreferredMerge(lhs, rhs));
+
+    // Uses the nested nested RHS type over LHS type.
+    lhs = DataType.fromDDL("a STRUCT<b: STRUCT<c: STRUCT<d: INT>>>");
+    rhs = DataType.fromDDL("a STRUCT<b: STRUCT<c: INT>>");
+    expected = DataType.fromDDL("a STRUCT<b: STRUCT<c: INT>>");
+    assertEquals(expected, InferSchema.rhsPreferredMerge(lhs, rhs));
+  }
+
   static Stream<String> documentFieldNames() {
     return BSON_DOCUMENT_ALL_TYPES.keySet().stream();
   }
