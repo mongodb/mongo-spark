@@ -121,7 +121,15 @@ public final class InferSchema {
     StructType structType = bsonDocuments.stream()
         .map(d -> getStructType(d, readConfig))
         .reduce(PLACE_HOLDER_STRUCT_TYPE, (dt1, dt2) -> compatibleStructType(dt1, dt2, readConfig));
-    return (StructType) removePlaceholders(structType);
+
+    structType = (StructType) removePlaceholders(structType);
+
+    String corruptDocumentColumnName = readConfig.getColumnNameOfCorruptRecord();
+    if (!corruptDocumentColumnName.isEmpty()) {
+      structType = structType.add(DataTypes.createStructField(
+          corruptDocumentColumnName, DataTypes.StringType, true, INFERRED_METADATA));
+    }
+    return structType;
   }
 
   private static DataType removePlaceholders(final DataType dataType) {

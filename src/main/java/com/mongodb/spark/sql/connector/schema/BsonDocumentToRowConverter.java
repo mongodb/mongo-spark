@@ -18,10 +18,12 @@
 package com.mongodb.spark.sql.connector.schema;
 
 import static com.mongodb.spark.sql.connector.schema.ConverterHelper.BSON_VALUE_CODEC;
+import static com.mongodb.spark.sql.connector.schema.ConverterHelper.getJsonWriterSettings;
 import static com.mongodb.spark.sql.connector.schema.ConverterHelper.toJson;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.exceptions.DataException;
 import com.mongodb.spark.sql.connector.interop.JavaScala;
 import java.io.Serializable;
@@ -34,6 +36,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.spark.sql.Row;
@@ -67,7 +70,6 @@ import org.bson.BsonValue;
 import org.bson.RawBsonDocument;
 import org.bson.codecs.EncoderContext;
 import org.bson.io.BasicOutputBuffer;
-import org.bson.json.JsonWriterSettings;
 import org.bson.types.Decimal128;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.VisibleForTesting;
@@ -87,18 +89,23 @@ public final class BsonDocumentToRowConverter implements Serializable {
   private final Function<Row, InternalRow> rowToInternalRowFunction;
   private final StructType schema;
   private final boolean outputExtendedJson;
+  private final boolean isPermissive;
+  private final boolean dropMalformed;
+  private final String columnNameOfCorruptRecord;
 
   /**
    * Create a new instance
    *
    * @param schema the schema for the row
-   * @param outputExtendedJson if true will produce extended JSON for any fields that have the
-   *     String datatype.
+   * @param readConfig the read config
    */
-  public BsonDocumentToRowConverter(final StructType schema, final boolean outputExtendedJson) {
+  public BsonDocumentToRowConverter(final StructType schema, final ReadConfig readConfig) {
     this.schema = schema;
     this.rowToInternalRowFunction = new RowToInternalRowFunction(schema);
-    this.outputExtendedJson = outputExtendedJson;
+    this.outputExtendedJson = readConfig.outputExtendedJson();
+    this.isPermissive = readConfig.isPermissive();
+    this.dropMalformed = readConfig.dropMalformed();
+    this.columnNameOfCorruptRecord = readConfig.getColumnNameOfCorruptRecord();
   }
 
   /** @return the schema for the converter */
@@ -110,12 +117,51 @@ public final class BsonDocumentToRowConverter implements Serializable {
    * Converts a {@code BsonDocument} into a {@link GenericRowWithSchema} using the supplied {@code
    * StructType}
    *
+   * <p>Converts top level documents, includes error handling and {@link ReadConfig#PARSE_MODE} support.
+   *
    * @param bsonDocument the bson document to shape into a GenericRowWithSchema.
    * @return the converted data as a Row
    */
   @VisibleForTesting
   GenericRowWithSchema toRow(final BsonDocument bsonDocument) {
-    return convertToRow("", schema, bsonDocument);
+    Map<String, Object> valueMap = new HashMap<>();
+    boolean hasError = false;
+
+    for (StructField field : schema.fields()) {
+      boolean hasField = bsonDocument.containsKey(field.name());
+      if (hasField || field.nullable()) {
+        if (hasField) {
+          try {
+            valueMap.put(
+                field.name(),
+                convertBsonValue(field.name(), field.dataType(), bsonDocument.get(field.name())));
+          } catch (DataException e) {
+            hasError = true;
+            if (!isPermissive) {
+              throw e;
+            }
+            valueMap.put(field.name(), null);
+          }
+        } else {
+          valueMap.put(field.name(), null);
+        }
+      }
+    }
+
+    // Check if need to add corrupt data record
+    if (hasError && !columnNameOfCorruptRecord.isEmpty()) {
+      valueMap.put(columnNameOfCorruptRecord, bsonDocument.toJson());
+    }
+
+    List<Object> values = new ArrayList<>();
+    for (StructField field : schema.fields()) {
+      if (!valueMap.containsKey(field.name())) {
+        throw missingFieldException(field.name(), bsonDocument);
+      }
+      values.add(valueMap.get(field.name()));
+    }
+
+    return new GenericRowWithSchema(values.toArray(), schema);
   }
 
   /**
@@ -124,10 +170,17 @@ public final class BsonDocumentToRowConverter implements Serializable {
    * StructType}
    *
    * @param bsonDocument the bson document to shape into an InternalRow.
-   * @return the converted data as a Row
+   * @return an Optional containing the converted data as a Row or empty if ignoring malformed data
    */
-  public InternalRow toInternalRow(final BsonDocument bsonDocument) {
-    return rowToInternalRowFunction.apply(toRow(bsonDocument));
+  public Optional<InternalRow> toInternalRow(final BsonDocument bsonDocument) {
+    try {
+      return Optional.of(rowToInternalRowFunction.apply(toRow(bsonDocument)));
+    } catch (DataException e) {
+      if (dropMalformed) {
+        return Optional.empty();
+      }
+      throw e;
+    }
   }
 
   @VisibleForTesting
@@ -170,12 +223,6 @@ public final class BsonDocumentToRowConverter implements Serializable {
     }
 
     throw invalidFieldData(fieldName, dataType, bsonValue);
-  }
-
-  private JsonWriterSettings getJsonWriterSettings() {
-    return outputExtendedJson
-        ? ConverterHelper.EXTENDED_JSON_WRITER_SETTINGS
-        : ConverterHelper.RELAXED_JSON_WRITER_SETTINGS;
   }
 
   private GenericRowWithSchema convertToRow(
@@ -306,7 +353,7 @@ public final class BsonDocumentToRowConverter implements Serializable {
   }
 
   private String convertToString(final BsonValue bsonValue) {
-    return toJson(bsonValue, getJsonWriterSettings());
+    return toJson(bsonValue, getJsonWriterSettings(outputExtendedJson));
   }
 
   private BsonNumber convertToBsonNumber(
@@ -357,8 +404,9 @@ public final class BsonDocumentToRowConverter implements Serializable {
   }
 
   private DataException missingFieldException(final String fieldPath, final BsonDocument value) {
-    return new DataException(
-        format("Missing field '%s' in: '%s'", fieldPath, value.toJson(getJsonWriterSettings())));
+    return new DataException(format(
+        "Missing field '%s' in: '%s'",
+        fieldPath, value.toJson(getJsonWriterSettings(outputExtendedJson))));
   }
 
   @VisibleForTesting

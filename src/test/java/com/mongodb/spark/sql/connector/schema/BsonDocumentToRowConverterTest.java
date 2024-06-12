@@ -19,13 +19,19 @@ package com.mongodb.spark.sql.connector.schema;
 
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonList;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.mongodb.spark.sql.connector.config.MongoConfig;
+import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.exceptions.DataException;
 import com.mongodb.spark.sql.connector.interop.JavaScala;
 import java.math.BigDecimal;
@@ -35,10 +41,13 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
+import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
 import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.DataTypes;
@@ -60,14 +69,17 @@ import org.junit.jupiter.api.Test;
 
 public class BsonDocumentToRowConverterTest extends SchemaTest {
 
+  private static final ReadConfig READ_CONFIG = MongoConfig.readConfig(emptyMap());
+
   private static final BsonDocumentToRowConverter CONVERTER =
-      new BsonDocumentToRowConverter(new StructType(), false);
+      new BsonDocumentToRowConverter(new StructType(), READ_CONFIG);
 
   private static final BiFunction<DataType, BsonValue, Object> CONVERT =
       (dataType, bsonValue) -> CONVERTER.convertBsonValue("", dataType, bsonValue);
 
   private static final BsonDocumentToRowConverter EXTENDED_CONVERTER =
-      new BsonDocumentToRowConverter(new StructType(), true);
+      new BsonDocumentToRowConverter(
+          new StructType(), READ_CONFIG.withOption(ReadConfig.OUTPUT_EXTENDED_JSON_CONFIG, "true"));
 
   private static final BiFunction<DataType, BsonValue, Object> EXTENDED_CONVERT =
       (dataType, bsonValue) -> EXTENDED_CONVERTER.convertBsonValue("", dataType, bsonValue);
@@ -459,7 +471,7 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
   @DisplayName("test fromBsonDocument")
   void testFromBsonDocument() {
     BsonDocumentToRowConverter bsonDocumentToRowConverter =
-        new BsonDocumentToRowConverter(ALL_TYPES_ROW.schema(), false);
+        new BsonDocumentToRowConverter(ALL_TYPES_ROW.schema(), READ_CONFIG);
     GenericRowWithSchema actual = bsonDocumentToRowConverter.toRow(BSON_DOCUMENT_ALL_TYPES);
 
     assertRows(ALL_TYPES_ROW, actual);
@@ -473,6 +485,35 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
         () -> CONVERT.apply(DataTypes.CalendarIntervalType, new BsonInt32(123)));
     assertThrows(
         DataException.class, () -> CONVERT.apply(DataTypes.BinaryType, new BsonInt32(123)));
+  }
+
+  @Test
+  @DisplayName("test parse modes")
+  void testParseModes() {
+    DataType unexpectedDataType = DataType.fromDDL("STRUCT<xyz: INT NOT NULL>");
+    StructType schema = DataTypes.createStructType(BSON_DOCUMENT_ALL_TYPES.keySet().stream()
+        .map(f -> DataTypes.createStructField(f, unexpectedDataType, true))
+        .collect(Collectors.toList()));
+
+    // test fail fast
+    assertThrows(DataException.class, () -> new BsonDocumentToRowConverter(
+            schema, READ_CONFIG.withOption(ReadConfig.PARSE_MODE, "FAILFAST"))
+        .toInternalRow(BSON_DOCUMENT_ALL_TYPES));
+
+    // test permissive
+    Optional<InternalRow> internalRow = assertDoesNotThrow(() -> new BsonDocumentToRowConverter(
+            schema, READ_CONFIG.withOption(ReadConfig.PARSE_MODE, "PERMISSIVE"))
+        .toInternalRow(BSON_DOCUMENT_ALL_TYPES));
+    assertTrue(internalRow.isPresent());
+    assertTrue(
+        internalRow.get().toSeq(schema).filterNot(Objects::isNull).isEmpty(),
+        "all fields should be null");
+
+    // test drop / ignore malformed
+    internalRow = assertDoesNotThrow(() -> new BsonDocumentToRowConverter(
+            schema, READ_CONFIG.withOption(ReadConfig.PARSE_MODE, "DROPMALFORMED"))
+        .toInternalRow(BSON_DOCUMENT_ALL_TYPES));
+    assertFalse(internalRow.isPresent());
   }
 
   private void assertRows(final GenericRowWithSchema expected, final GenericRowWithSchema actual) {

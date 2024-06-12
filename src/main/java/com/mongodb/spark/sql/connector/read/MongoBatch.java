@@ -43,8 +43,7 @@ final class MongoBatch implements Batch {
   MongoBatch(final StructType schema, final ReadConfig readConfig) {
     this.schema = schema;
     this.readConfig = readConfig;
-    this.bsonDocumentToRowConverter =
-        new BsonDocumentToRowConverter(schema, readConfig.outputExtendedJson());
+    this.bsonDocumentToRowConverter = new BsonDocumentToRowConverter(schema, readConfig);
   }
 
   /** Returns a list of partitions that split the collection into parts */
