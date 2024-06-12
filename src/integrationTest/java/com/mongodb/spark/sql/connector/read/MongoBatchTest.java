@@ -648,14 +648,14 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
   }
 
   @Test
-  void testReadsLogCommentsInProfilerLogs() {
+  void testLogsCommentsInProfilerLogs() {
     SparkSession spark = getOrCreateSparkSession();
 
     List<BsonDocument> collectionData =
         toBsonDocuments(spark.read().textFile(READ_RESOURCES_HOBBITS_JSON_PATH));
     getCollection().insertMany(collectionData);
 
-    WriteConfig writeConfig = MongoConfig.writeConfig(asJava(spark.initialSessionOptions()))
+    ReadConfig readConfig = MongoConfig.readConfig(asJava(spark.initialSessionOptions()))
         .withOption(COMMENT_CONFIG, TEST_COMMENT);
 
     assertCommentsInProfile(
@@ -674,37 +674,7 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
                   .load()
                   .toJSON()));
         },
-        writeConfig);
-  }
-
-  @Test
-  void testWritesLogCommentsInProfilerLogs() {
-    SparkSession spark = getOrCreateSparkSession();
-
-    List<BsonDocument> collectionData =
-        toBsonDocuments(spark.read().textFile(READ_RESOURCES_HOBBITS_JSON_PATH));
-    getCollection().insertMany(collectionData);
-
-    WriteConfig writeConfig = MongoConfig.writeConfig(asJava(spark.initialSessionOptions()))
-        .withOption(COMMENT_CONFIG, TEST_COMMENT);
-
-    assertCommentsInProfile(
-        () -> {
-          StructType schema = createStructType(asList(
-              createStructField("_id", DataTypes.IntegerType, false),
-              createStructField("age", DataTypes.LongType, true),
-              createStructField("name", DataTypes.StringType, true)));
-          assertIterableEquals(
-              collectionData,
-              toBsonDocuments(spark
-                  .read()
-                  .option(COMMENT_CONFIG, TEST_COMMENT)
-                  .format("mongodb")
-                  .schema(schema)
-                  .load()
-                  .toJSON()));
-        },
-        writeConfig);
+        readConfig);
   }
 
   private List<BsonDocument> toBsonDocuments(final Dataset<String> dataset) {
