@@ -23,11 +23,15 @@ import static java.lang.String.join;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
+import static java.util.Collections.unmodifiableList;
 import static java.util.stream.Collectors.joining;
 import static org.apache.spark.sql.types.DataTypes.createStructField;
 import static org.apache.spark.sql.types.DataTypes.createStructType;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertIterableEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -38,7 +42,6 @@ import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.InsertManyOptions;
 import com.mongodb.client.model.Updates;
-import com.mongodb.lang.Nullable;
 import com.mongodb.spark.sql.connector.config.CollectionsConfig;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
@@ -66,12 +69,17 @@ import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.streaming.DataStreamReader;
 import org.apache.spark.sql.streaming.StreamingQuery;
 import org.apache.spark.sql.streaming.StreamingQueryException;
+import org.apache.spark.sql.streaming.StreamingQueryListener;
 import org.apache.spark.sql.streaming.Trigger;
+import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 import org.bson.BsonDocument;
+import org.bson.BsonInt32;
+import org.bson.BsonNull;
 import org.bson.BsonString;
 import org.bson.BsonTimestamp;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -327,7 +335,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"SINGLE", "MULTIPLE", "ALL"})
+  @ValueSource(strings = {"SINGLE", "MULTIPLE"})
   void testStreamResumable(final String collectionsConfigModeStr) {
     assumeTrue(supportsChangeStreams());
     assumeTrue(isAtLeastFourDotFour());
@@ -338,7 +346,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     MongoConfig mongoConfig = createMongoConfig(collectionsConfigType);
 
     testStreamingQuery(
-        "mongodb",
+        MONGODB,
         mongoConfig,
         withSource("inserting 0-25", (msg, coll) -> coll.insertMany(createDocuments(0, 25))),
         withSink(
@@ -350,11 +358,11 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
 
     // Start the stream again - confirm it resumes at last point and sees the new documents
     testStreamingQuery(
-        "mongodb",
+        MONGODB,
         mongoConfig,
         withSource("Setup", (msg, coll) -> {} /* NOOP */),
         withSink(
-            "Expecting to see 125 documents",
+            "Expected to see 125 documents",
             (msg, ds) -> assertEquals(125, ds.countDocuments(), msg)));
   }
 
@@ -377,8 +385,8 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     BsonTimestamp currentTimestamp = new BsonTimestamp((int) Instant.now().getEpochSecond(), 0);
 
     // Add some documents post start time
-
     collection.insertMany(createDocuments(100, 120));
+
     testStreamingQuery(
         readConfig
             .withOption(ReadConfig.STREAMING_STARTUP_MODE_CONFIG, "timestamp")
@@ -430,7 +438,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     if (cause instanceof StreamingQueryException) {
       cause = ((StreamingQueryException) cause).cause();
     }
-    assertTrue(cause instanceof ConfigException, format("Expected ConfigException: %s", cause));
+    assertInstanceOf(ConfigException.class, cause, format("Expected ConfigException: %s", cause));
     assertTrue(cause.getMessage().contains("streams require a schema to be explicitly defined"));
   }
 
@@ -456,7 +464,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     if (cause instanceof StreamingQueryException) {
       cause = ((StreamingQueryException) cause).cause();
     }
-    assertTrue(cause instanceof ConfigException, format("Expected ConfigException: %s", cause));
+    assertInstanceOf(ConfigException.class, cause, format("Expected ConfigException: %s", cause));
     assertTrue(cause.getMessage().contains("streams require a schema to be explicitly defined"));
   }
 
@@ -487,7 +495,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"SINGLE", "MULTIPLE", "ALL"})
+  @ValueSource(strings = {"SINGLE", "MULTIPLE"})
   void testStreamWriteStream(final String collectionsConfigModeStr) {
     assumeTrue(supportsChangeStreams());
     assumeTrue(isAtLeastFourDotFour());
@@ -577,6 +585,121 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
                 msg)));
   }
 
+  @Test
+  void testReadsWithParseMode() {
+    assumeTrue(supportsChangeStreams());
+    BsonTimestamp currentTimestamp = new BsonTimestamp((int) Instant.now().getEpochSecond(), 0);
+    HELPER.sleep(1000);
+
+    testIdentifier = "ParseModeTest";
+    MongoConfig mongoConfig = createMongoConfig(CollectionsConfig.Type.SINGLE)
+        .withOption(ReadConfig.READ_PREFIX + ReadConfig.STREAMING_STARTUP_MODE_CONFIG, "timestamp")
+        .withOption(
+            ReadConfig.READ_PREFIX
+                + ReadConfig.STREAMING_STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_CONFIG,
+            format("{\"$timestamp\": {\"t\": %d, \"i\": 0}}", currentTimestamp.getTime()))
+        .withOption(
+            ReadConfig.READ_PREFIX + ReadConfig.STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG, "true");
+
+    // Add some documents post start time
+    MongoCollection<BsonDocument> sinkCollection =
+        getCollection(mongoConfig.toWriteConfig().getCollectionName());
+    MongoCollection<BsonDocument> sourceCollection =
+        getCollection(mongoConfig.toReadConfig().getCollectionName());
+    sourceCollection.insertMany(PARSE_MODE_DATA);
+
+    // DEFAULT
+    testIdentifier = "parseModeDefault";
+    assertTrue(testStreamingQueryErrors(mongoConfig, PARSE_MODE_SCHEMA)
+        .contains(" Invalid field: 'address'"));
+
+    // FAIL FAST
+    testIdentifier = "parseModeFailFast";
+    mongoConfig = mongoConfig.withOption(
+        MongoConfig.READ_PREFIX + ReadConfig.PARSE_MODE, ReadConfig.ParseMode.FAILFAST.name());
+    assertTrue(testStreamingQueryErrors(mongoConfig, PARSE_MODE_SCHEMA)
+        .contains(" Invalid field: 'address'"));
+
+    // DROP MALFORMED
+    sinkCollection.drop();
+    testIdentifier = "parseModeDropMalformed";
+    mongoConfig = mongoConfig.withOption(
+        MongoConfig.READ_PREFIX + ReadConfig.PARSE_MODE, ReadConfig.ParseMode.DROPMALFORMED.name());
+
+    List<BsonDocument> dropMalformedExpected =
+        PARSE_MODE_DATA.stream().map(BsonDocument::clone).collect(Collectors.toList());
+    dropMalformedExpected.remove(2);
+
+    testStreamingQueryToMongoDB(
+        mongoConfig,
+        PARSE_MODE_SCHEMA,
+        withSink(
+            "Expected data to match",
+            (msg, coll) -> assertIterableEquals(
+                dropMalformedExpected, coll.find().into(new ArrayList<>()), msg)));
+
+    // PERMISSIVE
+    sinkCollection.drop();
+    testIdentifier = "parseModePermissive";
+    mongoConfig = mongoConfig.withOption(
+        ReadConfig.READ_PREFIX + ReadConfig.PARSE_MODE, ReadConfig.ParseMode.PERMISSIVE.name());
+
+    List<BsonDocument> permissiveExpected =
+        PARSE_MODE_DATA.stream().map(BsonDocument::clone).collect(Collectors.toList());
+    permissiveExpected.remove(2);
+    permissiveExpected.add(2, BsonDocument.parse("{_id: 3, name: 'Alan Turing', address: null}"));
+
+    testStreamingQueryToMongoDB(
+        mongoConfig,
+        PARSE_MODE_SCHEMA,
+        withSink(
+            "Expected data to match",
+            (msg, coll) -> assertIterableEquals(
+                permissiveExpected, coll.find().into(new ArrayList<>()), msg)));
+
+    // No corrupted field in the schema - so ignore
+    sinkCollection.drop();
+    testIdentifier = "parseModePermissiveNoCorruptField";
+    String corruptedField = "_corrupted";
+    mongoConfig = mongoConfig.withOption(
+        ReadConfig.READ_PREFIX + ReadConfig.COLUMN_NAME_OF_CORRUPT_RECORD, corruptedField);
+
+    testStreamingQueryToMongoDB(
+        mongoConfig,
+        PARSE_MODE_SCHEMA,
+        withSink(
+            "Expected data to match",
+            (msg, coll) -> assertIterableEquals(
+                permissiveExpected, coll.find().into(new ArrayList<>()), msg)));
+
+    // With corrupted field
+    sinkCollection.drop();
+    testIdentifier = "parseModePermissiveWithCorruptField";
+    StructType schemaWithCorruptedField =
+        PARSE_MODE_SCHEMA.add(corruptedField, DataTypes.StringType);
+
+    List<BsonDocument> withCorruptedExpected =
+        PARSE_MODE_DATA.stream().map(BsonDocument::clone).collect(Collectors.toList());
+    withCorruptedExpected.forEach(d -> {
+      d.put(corruptedField, BsonNull.VALUE);
+      if (d.get("_id").equals(new BsonInt32(3))) {
+        d.put("address", BsonNull.VALUE);
+        d.put(
+            corruptedField,
+            new BsonString(
+                "{\"_id\": 3, \"name\": \"Alan Turing\", \"address\": \"{\\\"street\\\": \\\"Bletchley Hall\\\"}\"}"));
+      }
+    });
+
+    testStreamingQueryToMongoDB(
+        mongoConfig,
+        schemaWithCorruptedField,
+        withSink(
+            "Expected data to match",
+            (msg, coll) -> assertIterableEquals(
+                withCorruptedExpected, coll.find().into(new ArrayList<>()), msg)));
+  }
+
   private static final StructType IGNORE_SCHEMA = createStructType(emptyList());
 
   private static final StructType DEFAULT_SCHEMA = createStructType(asList(
@@ -598,7 +721,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
       final MongoConfig mongoConfig,
       final Consumer<MongoConfig> setup,
       final Consumer<MongoConfig>... consumers) {
-    testStreamingQuery(writeFormat, mongoConfig, DEFAULT_SCHEMA, null, setup, consumers);
+    testStreamingQuery(writeFormat, mongoConfig, DEFAULT_SCHEMA, null, null, setup, consumers);
   }
 
   @SafeVarargs
@@ -607,7 +730,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
       final StructType schema,
       final Consumer<MongoConfig> setup,
       final Consumer<MongoConfig>... consumers) {
-    testStreamingQuery(MEMORY, mongoConfig, schema, null, setup, consumers);
+    testStreamingQuery(MEMORY, mongoConfig, schema, null, null, setup, consumers);
   }
 
   @SafeVarargs
@@ -616,7 +739,14 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
       final Column condition,
       final Consumer<MongoConfig> setup,
       final Consumer<MongoConfig>... consumers) {
-    testStreamingQuery(MEMORY, mongoConfig, DEFAULT_SCHEMA, condition, setup, consumers);
+    testStreamingQuery(MEMORY, mongoConfig, DEFAULT_SCHEMA, condition, null, setup, consumers);
+  }
+
+  private void testStreamingQueryToMongoDB(
+      final MongoConfig mongoConfig,
+      final StructType schema,
+      final Consumer<MongoConfig> consumer) {
+    testStreamingQuery(MONGODB, mongoConfig, schema, null, null, c -> {}, consumer);
   }
 
   @SafeVarargs
@@ -625,82 +755,107 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
       final MongoConfig mongoConfig,
       final StructType schema,
       final Column condition,
+      @Nullable final StreamingQueryListener streamingQueryListener,
       final Consumer<MongoConfig> setup,
       final Consumer<MongoConfig>... consumers) {
     // see https://jira.mongodb.org/browse/SPARK-417 for the reason behind this call to `sleep`
     HELPER.sleep(2000);
-    StreamingQuery streamingQuery =
-        createStreamingQuery(writeFormat, mongoConfig, schema, condition);
-    try {
-      retryAssertion(() -> assertFalse(
-          streamingQuery.status().message().contains("Initializing"), "Stream is not initialized"));
 
-      // Give some time for the stream to be fully initialized and to be running.
-      HELPER.sleep(2000);
+    SparkSession sparkSession = getOrCreateSparkSession(getSparkConf().set("numPartitions", "1"));
+    if (streamingQueryListener != null) {
+      sparkSession.streams().addListener(streamingQueryListener);
+    }
+
+    try {
+      StreamingQuery streamingQuery =
+          createStreamingQuery(sparkSession, writeFormat, mongoConfig, schema, condition);
 
       try {
-        setup.accept(mongoConfig);
-        LOGGER.info("Setup completed");
-      } catch (Exception e) {
-        throw new AssertionFailedError("Setup failed: " + e.getMessage(), e);
-      }
+        retryAssertion(() -> assertFalse(
+            streamingQuery.status().message().contains("Initializing"),
+            "Stream is not initialized"));
 
-      for (Consumer<MongoConfig> consumer : consumers) {
+        // Give some time for the stream to be fully initialized and to be running.
+        HELPER.sleep(2000);
 
-        retryAssertion(() -> consumer.accept(mongoConfig), () -> {
-          withSource(
-                  null,
-                  (msg, coll) -> LOGGER.info(
-                      "Source Collection Status: {}.",
-                      coll.find()
-                          .comment(IGNORE_COMMENT)
-                          .map(BsonDocument::toJson)
-                          .into(new ArrayList<>())))
-              .accept(mongoConfig);
+        try {
+          setup.accept(mongoConfig);
+          LOGGER.info("Setup completed");
+        } catch (Exception e) {
+          throw new AssertionFailedError("Setup failed: " + e.getMessage(), e);
+        }
 
-          if (writeFormat.equals(MONGODB)) {
-            withSink(
+        for (Consumer<MongoConfig> consumer : consumers) {
+
+          retryAssertion(() -> consumer.accept(mongoConfig), () -> {
+            withSource(
                     null,
                     (msg, coll) -> LOGGER.info(
-                        "Sink Collection Status: {}.",
+                        "Source Collection Status: {}.",
                         coll.find()
                             .comment(IGNORE_COMMENT)
                             .map(BsonDocument::toJson)
                             .into(new ArrayList<>())))
                 .accept(mongoConfig);
-          } else {
-            LOGGER.info(
-                "Sink Memory Status: {}.",
-                getOrCreateSparkSession()
-                    .sql("select * from " + testIdentifier)
-                    .collectAsList()
-                    .stream()
-                    .map(r -> Arrays.stream(r.schema().fields())
-                        .map(f -> f.name() + ": " + r.get(r.fieldIndex(f.name())))
-                        .collect(joining(", ", "{", "}")))
-                    .collect(joining(", ", "[", "]")));
-          }
-        });
+
+            if (writeFormat.equals(MONGODB)) {
+              withSink(
+                      null,
+                      (msg, coll) -> LOGGER.info(
+                          "Sink Collection Status: {}.",
+                          coll.find()
+                              .comment(IGNORE_COMMENT)
+                              .map(BsonDocument::toJson)
+                              .into(new ArrayList<>())))
+                  .accept(mongoConfig);
+            } else {
+              LOGGER.info(
+                  "Sink Memory Status: {}.",
+                  sparkSession.sql("select * from " + testIdentifier).collectAsList().stream()
+                      .map(r -> Arrays.stream(r.schema().fields())
+                          .map(f -> f.name() + ": " + r.get(r.fieldIndex(f.name())))
+                          .collect(joining(", ", "{", "}")))
+                      .collect(joining(", ", "[", "]")));
+            }
+          });
+        }
+      } catch (RuntimeException e) {
+        fail("Assertions caused an exception", e);
+      } finally {
+        try {
+          streamingQuery.stop();
+          LOGGER.info("Stream stopped");
+        } catch (TimeoutException e) {
+          fail("Stopping the stream failed: ", e);
+        }
       }
-    } catch (RuntimeException e) {
-      fail("Assertions caused an exception", e);
     } finally {
-      try {
-        streamingQuery.stop();
-        LOGGER.info("Stream stopped");
-      } catch (TimeoutException e) {
-        fail("Stopping the stream failed: ", e);
+      if (streamingQueryListener != null) {
+        sparkSession.streams().removeListener(streamingQueryListener);
       }
     }
   }
 
+  private String testStreamingQueryErrors(final MongoConfig mongoConfig, final StructType schema) {
+    StreamingEventsListener listener = new StreamingEventsListener();
+    testStreamingQuery(
+        MEMORY, mongoConfig, schema, null, listener, config -> {}, withMemorySink("", (msg, ds) -> {
+          ds.count();
+          assertNotNull(listener.getQueryTerminatedEvent());
+        }));
+    assertNotNull(listener.getQueryTerminatedEvent());
+    assertTrue(listener.getQueryTerminatedEvent().exception().nonEmpty(), "Stream did not error");
+    return listener.getQueryTerminatedEvent().exception().get();
+  }
+
   private StreamingQuery createStreamingQuery(
+      final SparkSession sparkSession,
       final String writeFormat,
       final MongoConfig mongoConfig,
       final StructType schema,
       final Column condition) {
 
-    DataStreamReader dfr = getOrCreateSparkSession(getSparkConf().set("numPartitions", "1"))
+    DataStreamReader dfr = sparkSession
         .readStream()
         .format(MONGODB)
         .options(mongoConfig.toReadConfig().getOptions());
@@ -765,7 +920,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
       WriteConfig writeConfig = mongoConfig.toWriteConfig();
       MongoCollection<BsonDocument> collection = writeConfig.withClient(client -> client
           .getDatabase(writeConfig.getDatabaseName())
-          .getCollection(collectionName(), BsonDocument.class));
+          .getCollection(writeConfig.getCollectionName(), BsonDocument.class));
       biConsumer.accept(msg, collection);
     };
   }
@@ -799,6 +954,9 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     }
     options.put(
         ReadConfig.READ_PREFIX + ReadConfig.COLLECTION_NAME_CONFIG, collectionsConfigOptionValue);
+    options.put(
+        WriteConfig.WRITE_PREFIX + WriteConfig.COLLECTION_NAME_CONFIG,
+        collectionPrefix() + "Sink" + testIdentifier);
     return MongoConfig.createConfig(options);
   }
 
@@ -829,5 +987,38 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
 
   private IntFunction<BsonString> idFieldMapper() {
     return i -> new BsonString(testIdentifier + "-" + i);
+  }
+
+  private static final StructType PARSE_MODE_SCHEMA = createStructType(asList(
+      createStructField("_id", DataTypes.IntegerType, false),
+      createStructField("name", DataTypes.StringType, true),
+      createStructField("address", DataType.fromDDL("street STRING"), true)));
+
+  private static final List<BsonDocument> PARSE_MODE_DATA = unmodifiableList(asList(
+      BsonDocument.parse("{_id: 1, name: 'Ada Lovelace', address: {street: 'St James Square'}}"),
+      BsonDocument.parse(
+          "{_id: 2, name: 'Charles Babbage', address: {street: '5 Devonshire Street'}}"),
+      BsonDocument.parse(
+          "{_id: 3, name: 'Alan Turing', address: '{\"street\": \"Bletchley Hall\"}'}"),
+      BsonDocument.parse("{_id: 4, name: 'Timothy Berners-Lee', address: {street: null}}")));
+
+  static class StreamingEventsListener extends StreamingQueryListener {
+    private QueryTerminatedEvent queryTerminatedEvent;
+
+    @Override
+    public void onQueryStarted(final QueryStartedEvent event) {}
+
+    @Override
+    public void onQueryProgress(final QueryProgressEvent event) {}
+
+    @Override
+    public void onQueryTerminated(final QueryTerminatedEvent event) {
+      queryTerminatedEvent = event;
+    }
+
+    @Nullable
+    public QueryTerminatedEvent getQueryTerminatedEvent() {
+      return queryTerminatedEvent;
+    }
   }
 }

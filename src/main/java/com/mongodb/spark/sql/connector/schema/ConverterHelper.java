@@ -35,20 +35,25 @@ public final class ConverterHelper {
       new SchemaToExpressionEncoderFunction();
   static final Codec<BsonValue> BSON_VALUE_CODEC = new BsonValueCodec();
 
-  static final JsonWriterSettings RELAXED_JSON_WRITER_SETTINGS = JsonWriterSettings.builder()
-      .outputMode(JsonMode.RELAXED)
-      .binaryConverter((value, writer) ->
-          writer.writeString(Base64.getEncoder().encodeToString(value.getData())))
-      .dateTimeConverter((value, writer) -> {
-        ZonedDateTime zonedDateTime = Instant.ofEpochMilli(value).atZone(ZoneOffset.UTC);
-        writer.writeString(DateTimeFormatter.ISO_DATE_TIME.format(zonedDateTime));
-      })
-      .decimal128Converter((value, writer) -> writer.writeString(value.toString()))
-      .objectIdConverter((value, writer) -> writer.writeString(value.toHexString()))
-      .symbolConverter((value, writer) -> writer.writeString(value))
-      .build();
+  static JsonWriterSettings getJsonWriterSettings(final boolean outputExtendedJson) {
+    return outputExtendedJson ? EXTENDED_JSON_WRITER_SETTINGS : RELAXED_JSON_WRITER_SETTINGS;
+  }
 
-  static final JsonWriterSettings EXTENDED_JSON_WRITER_SETTINGS =
+  private static final JsonWriterSettings RELAXED_JSON_WRITER_SETTINGS =
+      JsonWriterSettings.builder()
+          .outputMode(JsonMode.RELAXED)
+          .binaryConverter((value, writer) ->
+              writer.writeString(Base64.getEncoder().encodeToString(value.getData())))
+          .dateTimeConverter((value, writer) -> {
+            ZonedDateTime zonedDateTime = Instant.ofEpochMilli(value).atZone(ZoneOffset.UTC);
+            writer.writeString(DateTimeFormatter.ISO_DATE_TIME.format(zonedDateTime));
+          })
+          .decimal128Converter((value, writer) -> writer.writeString(value.toString()))
+          .objectIdConverter((value, writer) -> writer.writeString(value.toHexString()))
+          .symbolConverter((value, writer) -> writer.writeString(value))
+          .build();
+
+  private static final JsonWriterSettings EXTENDED_JSON_WRITER_SETTINGS =
       JsonWriterSettings.builder().outputMode(JsonMode.EXTENDED).build();
 
   /**

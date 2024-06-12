@@ -31,6 +31,7 @@ import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.read.PartitionReader;
 import org.bson.BsonDocument;
@@ -98,28 +99,33 @@ final class MongoMicroBatchPartitionReader implements PartitionReader<InternalRo
     Assertions.ensureState(() -> !closed, () -> "Cannot call next() on a closed PartitionReader.");
 
     MongoChangeStreamCursor<BsonDocument> cursor = getCursor();
-    BsonDocument cursorNext;
+    BsonDocument next;
 
     do {
       try {
-        cursorNext = cursor.tryNext();
+        currentRow = null;
+        next = cursor.tryNext();
+        if (next != null) {
+          if (readConfig.streamPublishFullDocumentOnly()) {
+            next = next.getDocument(FULL_DOCUMENT, new BsonDocument());
+          }
+
+          // If there is a result return it otherwise try again (eg: ReadConfig.dropMalformed())
+          Optional<InternalRow> internalRowOptional =
+              bsonDocumentToRowConverter.toInternalRow(next);
+          if (internalRowOptional.isPresent()) {
+            currentRow = internalRowOptional.get();
+            return true;
+          }
+        }
       } catch (RuntimeException e) {
         throw new MongoSparkException("Calling `cursor.tryNext()` errored.", e);
       }
-    } while (cursorNext == null
-        && cursor.getServerCursor() != null
+    } while (cursor.getServerCursor() != null
         && (cursor.getResumeToken() == null
             || getTimestamp(cursor.getResumeToken()).compareTo(partition.getEndOffsetTimestamp())
                 < 0));
-
-    boolean hasNext = cursorNext != null;
-    if (hasNext) {
-      if (readConfig.streamPublishFullDocumentOnly()) {
-        cursorNext = cursorNext.getDocument(FULL_DOCUMENT, new BsonDocument());
-      }
-      currentRow = bsonDocumentToRowConverter.toInternalRow(cursorNext);
-    }
-    return hasNext;
+    return false;
   }
 
   /** Return the current record. This method should return same value until `next` is called. */

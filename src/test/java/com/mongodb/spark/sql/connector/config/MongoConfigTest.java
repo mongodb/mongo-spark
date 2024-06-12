@@ -304,6 +304,28 @@ public class MongoConfigTest {
     assertFalse(mongoConfig.toWriteConfig().toString().contains("mongodb://"));
   }
 
+  @Test
+  void testReadConfigMode() {
+    ReadConfig readConfig = MongoConfig.readConfig(CONFIG_MAP);
+    assertFalse(readConfig.isPermissive());
+    assertFalse(readConfig.dropMalformed());
+
+    readConfig = readConfig.withOption(ReadConfig.PARSE_MODE, "FAILFAST");
+    assertFalse(readConfig.isPermissive());
+    assertFalse(readConfig.dropMalformed());
+
+    readConfig = readConfig.withOption(ReadConfig.PARSE_MODE, "PERMISSIVE");
+    assertTrue(readConfig.isPermissive());
+    assertFalse(readConfig.dropMalformed());
+
+    readConfig = readConfig.withOption(ReadConfig.PARSE_MODE, "DROPMALFORMED");
+    assertFalse(readConfig.isPermissive());
+    assertTrue(readConfig.dropMalformed());
+
+    assertThrows(ConfigException.class, () -> MongoConfig.readConfig(CONFIG_MAP)
+        .withOption(ReadConfig.PARSE_MODE, "UNKNOWN"));
+  }
+
   @ParameterizedTest
   @MethodSource("optionsMapConfigs")
   void testErrorScenarios(final MongoConfig mongoConfig) {

@@ -162,6 +162,66 @@ public final class ReadConfig extends AbstractMongoConfig {
   private static final boolean AGGREGATION_ALLOW_DISK_USE_DEFAULT = true;
 
   /**
+   * Parse Mode using the existing Spark json parse mode configuration names
+   */
+  public enum ParseMode {
+    /**
+     * Fail if a data error occurs
+     */
+    FAILFAST,
+    /**
+     * Ignore any data errors for a field and replace with null
+     */
+    PERMISSIVE,
+    /**
+     * Drop any rows that contains a data error
+     */
+    DROPMALFORMED;
+
+    static ParseMode fromString(final String userParseMode) {
+      try {
+        return ParseMode.valueOf(userParseMode.toUpperCase());
+      } catch (IllegalArgumentException e) {
+        throw new ConfigException(format("'%s' is not a valid Parse mode", userParseMode));
+      }
+    }
+  }
+
+  /**
+   * Parsing strategy for handling corrupt records during reads.
+   *
+   * <ul>
+   *   <li>{@code PERMISSIVE}: When it meets a corrupted record, sets any malformed fields to null.
+   *   Configure the {@value COLUMN_NAME_OF_CORRUPT_RECORD} if you want to store the whole record
+   *   as an extended json string when encountering a corrupt record.
+   *   When inferring a schema, it will implicitly add a {@value COLUMN_NAME_OF_CORRUPT_RECORD} field
+   *   in the output schema if configured.</li>
+   *   <li>{@code DROPMALFORMED}: ignores the whole corrupted records.</li>
+   *   <li>{@code FAILFAST}: throws an exception when it meets corrupted records.</li>
+   * </ul>
+   *
+   * <p>Note: A "corrupt record" is any document that doesn't match schema of the dataset.
+   *
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: FAILFAST.
+   */
+  public static final String PARSE_MODE = "mode";
+
+  private static final String PARSE_MODE_DEFAULT = ParseMode.FAILFAST.name();
+
+  /**
+   * Allows renaming the new field having malformed string created by PERMISSIVE mode.
+   *
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: {@value COLUMN_NAME_OF_CORRUPT_RECORD_DEFAULT}.
+   */
+  public static final String COLUMN_NAME_OF_CORRUPT_RECORD = "columnNameOfCorruptRecord";
+
+  private static final String COLUMN_NAME_OF_CORRUPT_RECORD_DEFAULT = EMPTY_STRING;
+
+  /**
    * Publish Full Document only when streaming.
    *
    * <p>Note: Only publishes the actual changed document rather than the full change stream
@@ -295,6 +355,7 @@ public final class ReadConfig extends AbstractMongoConfig {
   private static final boolean OUTPUT_EXTENDED_JSON_DEFAULT = false;
 
   private final List<BsonDocument> aggregationPipeline;
+  private final ParseMode parseMode;
 
   /**
    * Construct a new instance
@@ -304,6 +365,7 @@ public final class ReadConfig extends AbstractMongoConfig {
   ReadConfig(final Map<String, String> options) {
     super(options, UsageMode.READ);
     aggregationPipeline = generateAggregationPipeline();
+    parseMode = ParseMode.fromString(getOrDefault(PARSE_MODE, PARSE_MODE_DEFAULT));
   }
 
   @Override
@@ -379,6 +441,23 @@ public final class ReadConfig extends AbstractMongoConfig {
     } catch (IllegalArgumentException e) {
       throw new ConfigException(e);
     }
+  }
+
+  /** @return true if should drop any malformed rows */
+  public boolean dropMalformed() {
+    return parseMode == ParseMode.DROPMALFORMED;
+  }
+
+  /** @return true if should allow permissive handling of parse errors */
+  public boolean isPermissive() {
+    return parseMode == ParseMode.PERMISSIVE;
+  }
+
+  /** @return the configured column name to store corrupt documents in or an empty string if not parsing in permissive mode */
+  public String getColumnNameOfCorruptRecord() {
+    return isPermissive()
+        ? getOrDefault(COLUMN_NAME_OF_CORRUPT_RECORD, COLUMN_NAME_OF_CORRUPT_RECORD_DEFAULT)
+        : COLUMN_NAME_OF_CORRUPT_RECORD_DEFAULT;
   }
 
   /**
