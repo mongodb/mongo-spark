@@ -70,8 +70,6 @@ public final class InferSchema {
   /** Inferred schema metadata */
   public static final Metadata INFERRED_METADATA = Metadata.fromJson("{\"inferred\": true}");
 
-  private static final StructType EMPTY_SCHEMA = new StructType();
-
   /**
    * Infer the schema for the specified configuration.
    *
@@ -458,34 +456,25 @@ public final class InferSchema {
 
     // If they are both structs process the fields and merge.
     if (lhs instanceof StructType && rhs instanceof StructType) {
-      Map<String, StructField> lhsMap = Arrays.stream(((StructType) lhs).fields())
-          .collect(Collectors.toMap(StructField::name, f -> f));
-      Map<String, StructField> rhsMap = Arrays.stream(((StructType) rhs).fields())
+      Map<String, StructField> mergedMap = Arrays.stream(((StructType) rhs).fields())
           .collect(Collectors.toMap(StructField::name, f -> f));
 
-      Map<String, StructField> newFields = new HashMap<>();
-
-      lhsMap.forEach((k, v) -> {
-        if (rhsMap.containsKey(k)) {
-          newFields.put(
-              k,
-              new StructField(
-                  v.name(),
-                  rhsPreferredMerge(v.dataType(), rhsMap.get(k).dataType()),
-                  v.nullable(),
-                  v.metadata()));
+      for (StructField f : ((StructType) lhs).fields()) {
+        if (!mergedMap.containsKey(f.name())) {
+          mergedMap.put(f.name(), f);
         } else {
-          newFields.put(k, v);
+          // Merge datatypes
+          mergedMap.put(
+              f.name(),
+              new StructField(
+                  f.name(),
+                  rhsPreferredMerge(f.dataType(), mergedMap.get(f.name()).dataType()),
+                  f.nullable(),
+                  f.metadata()));
         }
-      });
+      }
 
-      rhsMap.forEach((k, v) -> {
-        if (!newFields.containsKey(k)) {
-          newFields.put(k, v);
-        }
-      });
-
-      return new StructType(newFields.values().toArray(new StructField[0]));
+      return new StructType(mergedMap.values().toArray(new StructField[0]));
     }
 
     // Otherwise RHS wins.
