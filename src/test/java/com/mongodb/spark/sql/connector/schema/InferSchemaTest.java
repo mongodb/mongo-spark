@@ -610,7 +610,7 @@ public class InferSchemaTest extends SchemaTest {
   }
 
   @Test
-  public void rhsPreferredMergeTest() {
+  void rhsPreferredMergeTest() {
     // Can handle simple merges
     DataType lhs = DataType.fromDDL("a LONG");
     DataType rhs = DataType.fromDDL("b LONG");
