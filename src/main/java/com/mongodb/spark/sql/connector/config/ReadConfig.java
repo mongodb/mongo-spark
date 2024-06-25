@@ -29,6 +29,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.spark.sql.types.DataType;
+import org.apache.spark.sql.types.StructType;
 import org.bson.BsonArray;
 import org.bson.BsonDocument;
 import org.bson.BsonTimestamp;
@@ -48,6 +50,7 @@ public final class ReadConfig extends AbstractMongoConfig {
   private static final long serialVersionUID = 1L;
 
   private static final String EMPTY_STRING = "";
+  private static final StructType EMPTY_SCHEMA = new StructType();
 
   /**
    * The partitioner full class name.
@@ -90,6 +93,33 @@ public final class ReadConfig extends AbstractMongoConfig {
   public static final String INFER_SCHEMA_SAMPLE_SIZE_CONFIG = "sampleSize";
 
   private static final int INFER_SCHEMA_SAMPLE_SIZE_DEFAULT = 1000;
+
+  /**
+   * Add Schema hints for use when inferring the schema.
+   * <p>
+   * Use schema hints to enforce schema information about any known field types when inferring schema.
+   *
+   * <p>Accepts valid Spark DDL / SQL DDL / simple string formats: <br>
+   *   {@code value STRING,count INT}<br>
+   *   {@code STRUCT<value: STRING, count: INT>}<br>
+   *   {@code struct<value:string,count:int>}
+   *
+   * <p>Or Spark JSON format: <br>
+   *   {@code {"type":"struct","fields":[
+   *          {"name":"value","type":"string","nullable":true},
+   *          {"name":"count","type":"integer","nullable":true}]}}
+   *
+   * <p>Schema hints for partial nested fields are supported but field names must be quoted using {@code `}.<br>
+   *   {@code `nested.value` String} This will set the address field to be a String but other user fields can still
+   *   be inferred.
+   *
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: {@value SCHEMA_HINTS_DEFAULT} (no hint).
+   */
+  public static final String SCHEMA_HINTS = "schemaHints";
+
+  private static final String SCHEMA_HINTS_DEFAULT = EMPTY_STRING;
 
   /**
    * Enable Map Types when inferring the schema.
@@ -326,16 +356,34 @@ public final class ReadConfig extends AbstractMongoConfig {
     return getInt(INFER_SCHEMA_SAMPLE_SIZE_CONFIG, INFER_SCHEMA_SAMPLE_SIZE_DEFAULT);
   }
 
-  /** @return the configured infer sample size */
+  /** @return the configured schema map type */
   public boolean inferSchemaMapType() {
     return getBoolean(INFER_SCHEMA_MAP_TYPE_ENABLED_CONFIG, INFER_SCHEMA_MAP_TYPE_ENABLED_DEFAULT);
   }
 
-  /** @return the configured infer sample size */
+  /** @return the configured schema map type min key size */
   public int getInferSchemaMapTypeMinimumKeySize() {
     return getInt(
         INFER_SCHEMA_MAP_TYPE_MINIMUM_KEY_SIZE_CONFIG,
         INFER_SCHEMA_MAP_TYPE_MINIMUM_KEY_SIZE_DEFAULT);
+  }
+
+  /** @return the configured schema hints struct type */
+  public StructType getSchemaHints() {
+    String schemaHints = getOrDefault(SCHEMA_HINTS, SCHEMA_HINTS_DEFAULT).trim();
+    if (schemaHints.isEmpty()) {
+      return EMPTY_SCHEMA;
+    }
+
+    try {
+      DataType dataType = schemaHints.startsWith("{")
+          ? DataType.fromJson(schemaHints)
+          : DataType.fromDDL(schemaHints);
+      return (StructType) dataType;
+    } catch (Exception e) {
+      throw new ConfigException(
+          format("Invalid %s configuration: '%s'", SCHEMA_HINTS, schemaHints), e);
+    }
   }
 
   /** @return the partitioner instance */
