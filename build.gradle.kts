@@ -95,8 +95,6 @@ dependencies {
     testImplementation("org.apache.spark:spark-catalyst_$scalaVersion:$sparkVersion")
     testImplementation("org.apache.spark:spark-streaming_$scalaVersion:$sparkVersion")
 
-    testCompileOnly("org.jetbrains:annotations:${project.extra["annotationsVersion"]}")
-
     // Unit Tests
     testImplementation(platform("org.junit:junit-bom:5.8.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
@@ -105,6 +103,7 @@ dependencies {
 
     // Integration Tests
     testImplementation("org.apache.commons:commons-lang3:${project.extra["commons-lang3"]}")
+    testImplementation("org.jetbrains:annotations:${project.extra["annotationsVersion"]}")
 }
 
 val defaultJdkVersion: Int = 11
