@@ -95,6 +95,8 @@ dependencies {
     testImplementation("org.apache.spark:spark-catalyst_$scalaVersion:$sparkVersion")
     testImplementation("org.apache.spark:spark-streaming_$scalaVersion:$sparkVersion")
 
+    testCompileOnly("org.jetbrains:annotations:${project.extra["annotationsVersion"]}")
+
     // Unit Tests
     testImplementation(platform("org.junit:junit-bom:5.8.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
