@@ -155,6 +155,18 @@ public class MongoSparkConnectorTestCase {
     HELPER.loadSampleData(numberOfDocuments, sizeInMB, config);
   }
 
+  /**
+   * Creates complex sample data
+   *
+   * @param numberOfDocuments the total number of documents to create
+   * @param sizeInMB the total size of the documents
+   * @param config the config used for the database and collection
+   */
+  public void loadComplexSampleData(
+      final int numberOfDocuments, final int sizeInMB, final MongoConfig config) {
+    HELPER.loadComplexSampleData(numberOfDocuments, sizeInMB, config);
+  }
+
   /** Runs events with the profiler on. */
   public void assertCommentsInProfile(final Runnable runnable, final ReadConfig readConfig) {
     assumeFalse(isSharded());
