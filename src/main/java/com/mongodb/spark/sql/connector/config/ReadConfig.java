@@ -179,7 +179,9 @@ public final class ReadConfig extends AbstractMongoConfig {
     DROPMALFORMED;
 
     static ParseMode fromString(final String userParseMode) {
+     validateConfig(userParseMode, Objects::nonNull, () -> "The userParseMode can't be null");
       try {
+      
         return ParseMode.valueOf(userParseMode.toUpperCase());
       } catch (IllegalArgumentException e) {
         throw new ConfigException(format("'%s' is not a valid Parse mode", userParseMode));
