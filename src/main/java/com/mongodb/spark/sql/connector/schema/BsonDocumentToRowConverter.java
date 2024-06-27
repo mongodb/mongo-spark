@@ -243,7 +243,7 @@ public final class BsonDocumentToRowConverter implements Serializable {
         .forEach((k, v) ->
             map.put(k, convertBsonValue(createFieldPath(fieldName, k), dataType.valueType(), v)));
 
-    return scala.collection.immutable.Map$.MODULE$.from(JavaScala.asScala(map));
+    return JavaScala.asScalaImmutable(map);
   }
 
   private Object[] convertToArray(

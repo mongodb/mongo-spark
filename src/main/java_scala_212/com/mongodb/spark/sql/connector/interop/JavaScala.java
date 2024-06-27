@@ -19,7 +19,10 @@ package com.mongodb.spark.sql.connector.interop;
 
 import java.util.List;
 import java.util.Map;
+import scala.Tuple2;
 import scala.collection.JavaConverters;
+import scala.collection.immutable.Map$;
+import scala.collection.mutable.Builder;
 
 /** Utils object to convert Java To Scala to enable cross build */
 @SuppressWarnings("deprecated")
@@ -36,6 +39,23 @@ public final class JavaScala {
    */
   public static <K, V> scala.collection.Map<K, V> asScala(final Map<K, V> data) {
     return JavaConverters.mapAsScalaMap(data);
+  }
+
+  /**
+   * Wrapper to convert a java map to an immutable scala map
+   *
+   * @param data java collection
+   * @param <K> key
+   * @param <V> value
+   * @return scala collection
+   */
+  public static <K, V> scala.collection.immutable.Map<K, V> asScalaImmutable(final Map<K, V> data) {
+    Builder<Tuple2<K, V>, scala.collection.immutable.Map<K, V>> mapBuilder =
+        Map$.MODULE$.newBuilder();
+    for (Map.Entry<K, V> entry : data.entrySet()) {
+      mapBuilder.$plus$eq(new Tuple2<>(entry.getKey(), entry.getValue()));
+    }
+    return mapBuilder.result();
   }
 
   /**
