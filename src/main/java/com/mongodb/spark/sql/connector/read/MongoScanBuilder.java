@@ -35,6 +35,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.connector.read.Scan;
@@ -76,6 +78,8 @@ public final class MongoScanBuilder
   private List<BsonDocument> datasetAggregationPipeline;
   private Filter[] pushedFilters;
   private StructType prunedSchema;
+
+  private static final Pattern ESCAPED_IDENTIFIER_PATTERN = Pattern.compile("`(.*?)`");
 
   /**
    * Construct a new instance
@@ -285,12 +289,18 @@ public final class MongoScanBuilder
     return new FilterAndPipelineStage(filter, null);
   }
 
-  private String getFieldName(final String attribute) {
+  private String getFieldName(final String fieldName) {
     // Spark automatically escapes hyphenated names using backticks
-    if (attribute.startsWith("`") && attribute.endsWith("`")) {
-      return attribute.substring(1, attribute.length() - 1);
+    if (fieldName.contains("`")) {
+      String cleanedFieldName = fieldName;
+      Matcher matcher = ESCAPED_IDENTIFIER_PATTERN.matcher(cleanedFieldName);
+      while (matcher.find()) {
+        cleanedFieldName = matcher.replaceFirst("$1");
+        matcher = ESCAPED_IDENTIFIER_PATTERN.matcher(cleanedFieldName);
+      }
+      return cleanedFieldName;
     }
-    return attribute;
+    return fieldName;
   }
 
   private Optional<BsonValue> getBsonValue(final String fieldName, final Object value) {
