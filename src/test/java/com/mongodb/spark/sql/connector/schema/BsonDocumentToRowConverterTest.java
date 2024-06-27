@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -514,6 +515,40 @@ public class BsonDocumentToRowConverterTest extends SchemaTest {
             schema, READ_CONFIG.withOption(ReadConfig.PARSE_MODE, "DROPMALFORMED"))
         .toInternalRow(BSON_DOCUMENT_ALL_TYPES));
     assertFalse(internalRow.isPresent());
+  }
+
+  @Test
+  @DisplayName("test permissive parse mode")
+  void testPermissiveParseMode() {
+    ReadConfig readConfig = READ_CONFIG.withOption(ReadConfig.PARSE_MODE, "PERMISSIVE");
+    BsonDocument corruptedDocument = BsonDocument.parse(
+        "{\"a\":'n', \"b\":{\"bb\":'n'},\"c\":[1,'n',2], \"d\":{\"dd\":[1,'n',2]},"
+            + "\"e\":[{\"ee\":1},{\"ee\":'n'},{\"ee\":2}], \"f\":{\"a\":1,\"b\":'n',\"c\":2}}");
+    StructType complexSchema = (StructType) DataType.fromDDL(
+        "struct<a:bigint,b:struct<bb:bigint>,c:array<bigint>,d:struct<dd:array<bigint>>"
+            + ",e:array<struct<ee:bigint>>,f:map<string,bigint>>");
+
+    GenericRowWithSchema row =
+        new BsonDocumentToRowConverter(complexSchema, readConfig).toRow(corruptedDocument);
+    assertNotNull(row);
+    String expectedJson =
+        "{\"a\":null,\"b\":{\"bb\":null},\"c\":[1,null,2],\"d\":{\"dd\":[1,null,2]},"
+            + "\"e\":[{\"ee\":1},{\"ee\":null},{\"ee\":2}],\"f\":{\"a\":1,\"b\":null,\"c\":2}}";
+    assertEquals(expectedJson, row.json());
+
+    // Including corrupted field
+    GenericRowWithSchema rowWithCorruptedField = new BsonDocumentToRowConverter(
+            complexSchema.add("_corrupted", DataTypes.StringType),
+            readConfig.withOption(ReadConfig.COLUMN_NAME_OF_CORRUPT_RECORD, "_corrupted"))
+        .toRow(corruptedDocument);
+    assertNotNull(rowWithCorruptedField);
+    String expectedComplexJson =
+        "{\"a\":null,\"b\":{\"bb\":null},\"c\":[1,null,2],\"d\":{\"dd\":[1,null,2]},"
+            + "\"e\":[{\"ee\":1},{\"ee\":null},{\"ee\":2}],\"f\":{\"a\":1,\"b\":null,\"c\":2},"
+            + "\"_corrupted\":\"{\\\"a\\\": \\\"n\\\", \\\"b\\\": {\\\"bb\\\": \\\"n\\\"}, \\\"c\\\": [1, \\\"n\\\", 2],"
+            + " \\\"d\\\": {\\\"dd\\\": [1, \\\"n\\\", 2]}, \\\"e\\\": [{\\\"ee\\\": 1}, {\\\"ee\\\": \\\"n\\\"}, {\\\"ee\\\": 2}],"
+            + " \\\"f\\\": {\\\"a\\\": 1, \\\"b\\\": \\\"n\\\", \\\"c\\\": 2}}\"}";
+    assertEquals(expectedComplexJson, rowWithCorruptedField.json());
   }
 
   private void assertRows(final GenericRowWithSchema expected, final GenericRowWithSchema actual) {

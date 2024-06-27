@@ -33,6 +33,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -92,6 +93,9 @@ public final class BsonDocumentToRowConverter implements Serializable {
   private final boolean isPermissive;
   private final boolean dropMalformed;
   private final String columnNameOfCorruptRecord;
+  private final boolean schemaContainsCorruptRecordColumn;
+
+  private boolean corruptedRecord;
 
   /**
    * Create a new instance
@@ -106,62 +110,13 @@ public final class BsonDocumentToRowConverter implements Serializable {
     this.isPermissive = readConfig.isPermissive();
     this.dropMalformed = readConfig.dropMalformed();
     this.columnNameOfCorruptRecord = readConfig.getColumnNameOfCorruptRecord();
+    this.schemaContainsCorruptRecordColumn = !columnNameOfCorruptRecord.isEmpty()
+        && Arrays.asList(schema.fieldNames()).contains(columnNameOfCorruptRecord);
   }
 
   /** @return the schema for the converter */
   public StructType getSchema() {
     return schema;
-  }
-
-  /**
-   * Converts a {@code BsonDocument} into a {@link GenericRowWithSchema} using the supplied {@code
-   * StructType}
-   *
-   * <p>Converts top level documents, includes error handling and {@link ReadConfig#PARSE_MODE} support.
-   *
-   * @param bsonDocument the bson document to shape into a GenericRowWithSchema.
-   * @return the converted data as a Row
-   */
-  @VisibleForTesting
-  GenericRowWithSchema toRow(final BsonDocument bsonDocument) {
-    Map<String, Object> valueMap = new HashMap<>();
-    boolean hasError = false;
-
-    for (StructField field : schema.fields()) {
-      boolean hasField = bsonDocument.containsKey(field.name());
-      if (hasField || field.nullable()) {
-        if (hasField) {
-          try {
-            valueMap.put(
-                field.name(),
-                convertBsonValue(field.name(), field.dataType(), bsonDocument.get(field.name())));
-          } catch (DataException e) {
-            hasError = true;
-            if (!isPermissive) {
-              throw e;
-            }
-            valueMap.put(field.name(), null);
-          }
-        } else {
-          valueMap.put(field.name(), null);
-        }
-      }
-    }
-
-    // Check if need to add corrupt data record
-    if (hasError && !columnNameOfCorruptRecord.isEmpty()) {
-      valueMap.put(columnNameOfCorruptRecord, bsonDocument.toJson());
-    }
-
-    List<Object> values = new ArrayList<>();
-    for (StructField field : schema.fields()) {
-      if (!valueMap.containsKey(field.name())) {
-        throw missingFieldException(field.name(), bsonDocument);
-      }
-      values.add(valueMap.get(field.name()));
-    }
-
-    return new GenericRowWithSchema(values.toArray(), schema);
   }
 
   /**
@@ -183,46 +138,75 @@ public final class BsonDocumentToRowConverter implements Serializable {
     }
   }
 
+  /**
+   * Converts a {@code BsonDocument} into a {@link GenericRowWithSchema} using the supplied {@code
+   * StructType}
+   *
+   * <p>Converts top level documents, includes error handling and {@link ReadConfig#PARSE_MODE} support.
+   *
+   * @param bsonDocument the bson document to shape into a GenericRowWithSchema.
+   * @return the converted data as a Row
+   */
+  @VisibleForTesting
+  GenericRowWithSchema toRow(final BsonDocument bsonDocument) {
+    try {
+      GenericRowWithSchema row = convertToRow("", schema, bsonDocument);
+      if (corruptedRecord && schemaContainsCorruptRecordColumn) {
+        row.values()[row.fieldIndex(columnNameOfCorruptRecord)] = bsonDocument.toJson();
+      }
+      return row;
+    } finally {
+      corruptedRecord = false;
+    }
+  }
+
   @VisibleForTesting
   Object convertBsonValue(
       final String fieldName, final DataType dataType, final BsonValue bsonValue) {
-    if (bsonValue.isNull()) {
-      return null;
-    } else if (dataType instanceof StructType) {
-      return convertToRow(fieldName, (StructType) dataType, bsonValue);
-    } else if (dataType instanceof MapType) {
-      return convertToMap(fieldName, (MapType) dataType, bsonValue);
-    } else if (dataType instanceof ArrayType) {
-      return convertToArray(fieldName, (ArrayType) dataType, bsonValue);
-    } else if (dataType instanceof BinaryType) {
-      return convertToBinary(fieldName, dataType, bsonValue);
-    } else if (dataType instanceof BooleanType) {
-      return convertToBoolean(fieldName, dataType, bsonValue);
-    } else if (dataType instanceof DateType) {
-      return convertToDate(fieldName, dataType, bsonValue);
-    } else if (dataType instanceof TimestampType) {
-      return convertToTimestamp(fieldName, dataType, bsonValue);
-    } else if (dataType instanceof FloatType) {
-      return convertToFloat(fieldName, dataType, bsonValue);
-    } else if (dataType instanceof IntegerType) {
-      return convertToInteger(fieldName, dataType, bsonValue);
-    } else if (dataType instanceof DoubleType) {
-      return convertToDouble(fieldName, dataType, bsonValue);
-    } else if (dataType instanceof ShortType) {
-      return convertToShort(fieldName, dataType, bsonValue);
-    } else if (dataType instanceof ByteType) {
-      return convertToByte(fieldName, dataType, bsonValue);
-    } else if (dataType instanceof LongType) {
-      return convertToLong(fieldName, dataType, bsonValue);
-    } else if (dataType instanceof DecimalType) {
-      return convertToDecimal(fieldName, dataType, bsonValue);
-    } else if (dataType instanceof StringType) {
-      return convertToString(bsonValue);
-    } else if (dataType instanceof NullType) {
-      return null;
+    try {
+      if (bsonValue.isNull()) {
+        return null;
+      } else if (dataType instanceof StructType) {
+        return convertToRow(fieldName, (StructType) dataType, bsonValue);
+      } else if (dataType instanceof MapType) {
+        return convertToMap(fieldName, (MapType) dataType, bsonValue);
+      } else if (dataType instanceof ArrayType) {
+        return convertToArray(fieldName, (ArrayType) dataType, bsonValue);
+      } else if (dataType instanceof BinaryType) {
+        return convertToBinary(fieldName, dataType, bsonValue);
+      } else if (dataType instanceof BooleanType) {
+        return convertToBoolean(fieldName, dataType, bsonValue);
+      } else if (dataType instanceof DateType) {
+        return convertToDate(fieldName, dataType, bsonValue);
+      } else if (dataType instanceof TimestampType) {
+        return convertToTimestamp(fieldName, dataType, bsonValue);
+      } else if (dataType instanceof FloatType) {
+        return convertToFloat(fieldName, dataType, bsonValue);
+      } else if (dataType instanceof IntegerType) {
+        return convertToInteger(fieldName, dataType, bsonValue);
+      } else if (dataType instanceof DoubleType) {
+        return convertToDouble(fieldName, dataType, bsonValue);
+      } else if (dataType instanceof ShortType) {
+        return convertToShort(fieldName, dataType, bsonValue);
+      } else if (dataType instanceof ByteType) {
+        return convertToByte(fieldName, dataType, bsonValue);
+      } else if (dataType instanceof LongType) {
+        return convertToLong(fieldName, dataType, bsonValue);
+      } else if (dataType instanceof DecimalType) {
+        return convertToDecimal(fieldName, dataType, bsonValue);
+      } else if (dataType instanceof StringType) {
+        return convertToString(bsonValue);
+      } else if (dataType instanceof NullType) {
+        return null;
+      }
+      throw invalidFieldData(fieldName, dataType, bsonValue);
+    } catch (DataException e) {
+      corruptedRecord = true;
+      if (isPermissive) {
+        return null;
+      }
+      throw e;
     }
-
-    throw invalidFieldData(fieldName, dataType, bsonValue);
   }
 
   private GenericRowWithSchema convertToRow(
@@ -246,7 +230,7 @@ public final class BsonDocumentToRowConverter implements Serializable {
     return new GenericRowWithSchema(values.toArray(), dataType);
   }
 
-  private scala.collection.Map<String, ?> convertToMap(
+  private scala.collection.immutable.Map<String, ?> convertToMap(
       final String fieldName, final MapType dataType, final BsonValue bsonValue) {
     ensureFieldData(bsonValue::isDocument, () -> invalidFieldData(fieldName, dataType, bsonValue));
     ensureFieldData(
@@ -259,7 +243,7 @@ public final class BsonDocumentToRowConverter implements Serializable {
         .forEach((k, v) ->
             map.put(k, convertBsonValue(createFieldPath(fieldName, k), dataType.valueType(), v)));
 
-    return JavaScala.asScala(map);
+    return scala.collection.immutable.Map$.MODULE$.from(JavaScala.asScala(map));
   }
 
   private Object[] convertToArray(
