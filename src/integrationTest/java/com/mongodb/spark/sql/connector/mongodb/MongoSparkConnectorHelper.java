@@ -59,6 +59,8 @@ public class MongoSparkConnectorHelper
   public static final String DEFAULT_DATABASE_NAME = "MongoSparkConnectorTest";
   public static final String DEFAULT_COLLECTION_NAME = "coll";
   private static final String SAMPLE_DATA_TEMPLATE = "{_id: '%s', pk: '%s', dups: '%s', s: '%s'}";
+  private static final String COMPLEX_SAMPLE_DATA_TEMPLATE =
+      "{_id: '%s', nested: {pk: '%s', dups: '%s', i: %d}, s: '%s'}";
 
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoSparkConnectorHelper.class);
 
@@ -214,6 +216,43 @@ public class MongoSparkConnectorHelper
           String dupsString = StringUtils.leftPad(format("%s", i % 3 == 0 ? 0 : i), 5, "0");
           return RawBsonDocument.parse(
               format(SAMPLE_DATA_TEMPLATE, idString, pkString, dupsString, sampleString));
+        })
+        .collect(Collectors.toList());
+    MongoCollection<BsonDocument> coll = getMongoClient()
+        .getDatabase(config.getDatabaseName())
+        .getCollection(config.getCollectionName(), BsonDocument.class);
+    coll.insertMany(sampleDocuments);
+  }
+
+  /**
+   * Creates complex sample data
+   *
+   * @param numberOfDocuments the total number of documents to create
+   * @param sizeInMB the total size of the documents
+   * @param config the config used for the database and collection
+   */
+  public void loadComplexSampleData(
+      final int numberOfDocuments, final int sizeInMB, final MongoConfig config) {
+    if (!isOnline()) {
+      return;
+    }
+    int sizeBytes = sizeInMB * 1000 * 1000;
+    int totalDocumentSize = sizeBytes / numberOfDocuments;
+    int sampleDataWithEmptySampleStringSize = RawBsonDocument.parse(
+            format(COMPLEX_SAMPLE_DATA_TEMPLATE, "00000", "_10000", "00000", 1, ""))
+        .getByteBuffer()
+        .limit();
+    String sampleString =
+        RandomStringUtils.randomAlphabetic(totalDocumentSize - sampleDataWithEmptySampleStringSize);
+
+    List<BsonDocument> sampleDocuments = IntStream.range(0, numberOfDocuments)
+        .boxed()
+        .map(i -> {
+          String idString = StringUtils.leftPad(i.toString(), 5, "0");
+          String pkString = format("_%s", i + 10000);
+          String dupsString = StringUtils.leftPad(format("%s", i % 3 == 0 ? 0 : i), 5, "0");
+          return RawBsonDocument.parse(format(
+              COMPLEX_SAMPLE_DATA_TEMPLATE, idString, pkString, dupsString, i % 10, sampleString));
         })
         .collect(Collectors.toList());
     MongoCollection<BsonDocument> coll = getMongoClient()
