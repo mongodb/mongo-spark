@@ -408,7 +408,7 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
   }
 
   @Test
-  void testReadsAreSupportedWithHyphenedNamesFilters() {
+  void testReadsFiltersHandleEscapedFieldNames() {
     SparkSession spark = getOrCreateSparkSession();
 
     List<BsonDocument> collectionData =
@@ -418,15 +418,20 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
                 .append(
                     "sub-doc",
                     new BsonDocument("full-name", d.get("full-name"))
-                        .append("actual-age", d.get("actual-age"))))
+                        .append("actual-age", d.get("actual-age")))
+                .append(
+                    "fieldWith`Backtic",
+                    new BsonDocument("name", d.get("full-name"))
+                        .append("age", d.get("actual-age"))))
             .collect(Collectors.toList());
     getCollection().insertMany(collectionData);
     getCollection()
-        .insertOne(BsonDocument.parse(
-            "{_id: 10, 'full-name': 'Bombur', 'sub-doc': {'full-name': 'Bombur'}}"));
+        .insertOne(
+            BsonDocument.parse(
+                "{_id: 10, 'full-name': 'Bombur', 'sub-doc': {'full-name': 'Bombur'}, 'fieldWith`Backtic': {'name': 'Bombur'}}"));
 
     Dataset<Row> ds = spark.read().format("mongodb").load();
-    MapFunction<Row, String> getFullName = r -> r.getString(2);
+    MapFunction<Row, String> getFullName = r -> r.getString(3);
 
     // EqualNullSafe
     assertIterableEquals(
@@ -547,6 +552,15 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
         ds.filter(new Column("sub-doc.full-name")
                 .startsWith("B")
                 .or(new Column("sub-doc.actual-age").lt(150)))
+            .map(getFullName, Encoders.STRING())
+            .collectAsList());
+
+    // Supports escaped fields containing backtics
+    assertIterableEquals(
+        asList("Bilbo Baggins", "Balin", "Kíli", "Fíli", "Bombur"),
+        ds.filter(new Column("`fieldWith``Backtic`.name")
+                .startsWith("B")
+                .or(new Column("`fieldWith``Backtic`.age").lt(150)))
             .map(getFullName, Encoders.STRING())
             .collectAsList());
   }
