@@ -55,7 +55,7 @@ val sparkVersion = System.getProperty("sparkVersion", "3.5.1")
 
 extra.apply {
     set("annotationsVersion", "22.0.0")
-    set("mongodbDriverVersion", "[4.8.1,4.8.99)")
+    set("mongodbDriverVersion", "[5.1.1,5.1.99)")
     set("sparkVersion", sparkVersion)
     set("scalaVersion", scalaVersion)
 
