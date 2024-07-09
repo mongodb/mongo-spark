@@ -268,7 +268,7 @@ public final class AutoBucketPartitioner implements Partitioner {
               MIN, MAX, bounds.toJson()));
 
       boolean includeMin = i > 0;
-      boolean includeMax = i < finalBoundsIndex;
+      boolean includeMax = i < buckets.size() - 1;
 
       BsonDocument partitionBounds = new BsonDocument();
       if (includeMin) {
