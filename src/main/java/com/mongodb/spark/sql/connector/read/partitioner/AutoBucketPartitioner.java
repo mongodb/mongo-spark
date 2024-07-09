@@ -267,15 +267,14 @@ public final class AutoBucketPartitioner implements Partitioner {
       boolean includeMin = i > 0;
       boolean includeMax = i < buckets.size() - 1;
 
-      BsonDocument partitionBounds = new BsonDocument();
+      List<Bson> partitionBounds = new ArrayList<>();
       if (includeMin) {
-        partitionBounds.put(GTE, bounds.get(MIN));
+        partitionBounds.add(Filters.gte(matchField, bounds.get(MIN)));
       }
       if (includeMax) {
-        partitionBounds.put(LT, bounds.get(MAX));
+        partitionBounds.add(Filters.lt(matchField, bounds.get(MAX)));
       }
-      BsonDocument partitionBoundsMatch =
-          new BsonDocument("$match", new BsonDocument(matchField, partitionBounds));
+      BsonDocument partitionBoundsMatch = Aggregates.match(Filters.and(partitionBounds)).toBsonDocument();
 
       List<BsonDocument> partitionPipeline = createPartitionPipeline(
           partitionFieldList, partitionProjectionKey, partitionBoundsMatch, usersPipeline);
