@@ -311,7 +311,7 @@ public final class AutoBucketPartitioner implements Partitioner {
     partitionPipeline.add(partitionBounds);
 
     if (partitionFieldList.size() > 1) {
-      partitionPipeline.add(new BsonDocument("$unset", new BsonString(partitionProjectionKey)));
+      partitionPipeline.add(Aggregates.unset(partitionProjectionKey).toBsonDocument());
     }
     partitionPipeline.addAll(usersPipeline);
     return partitionPipeline;
