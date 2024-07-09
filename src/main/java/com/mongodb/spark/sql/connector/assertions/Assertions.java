@@ -25,6 +25,20 @@ import java.util.function.Supplier;
 public final class Assertions {
 
   /**
+   * Asserts is true
+   *
+   * @param assertionCheck the supplier of the assertion check
+   * @param errorMessageSupplier the supplier of the error message if the predicate
+   * @throws AssertionError if the state check fails
+   */
+  public static void assertTrue(
+      final Supplier<Boolean> assertionCheck, final Supplier<String> errorMessageSupplier) {
+    if (!assertionCheck.get()) {
+      throw new AssertionError(errorMessageSupplier.get());
+    }
+  }
+
+  /**
    * Ensures the validity of state
    *
    * @param stateCheck the supplier of the state check

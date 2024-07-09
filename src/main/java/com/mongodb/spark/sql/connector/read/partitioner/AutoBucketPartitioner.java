@@ -22,17 +22,20 @@ import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 
+import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.CountOptions;
+import com.mongodb.client.model.Field;
+import com.mongodb.client.model.Filters;
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
 import org.bson.BsonString;
+import org.bson.conversions.Bson;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.VisibleForTesting;
 
@@ -90,7 +93,6 @@ import org.jetbrains.annotations.VisibleForTesting;
  * <p>Similar to the {@link SamplePartitioner} however uses the
  * <a href="https://www.mongodb.com/docs/manual/reference/operator/aggregation/bucketAuto/">$bucketAuto</a> aggregation stage
  * to generate the partition bounds.
- *
  * {@inheritDoc}
  */
 @ApiStatus.Internal
@@ -99,8 +101,6 @@ public final class AutoBucketPartitioner implements Partitioner {
   private static final String ID = "_id";
   private static final String MIN = "min";
   private static final String MAX = "max";
-  private static final String LT = "$lt";
-  private static final String GTE = "$gte";
 
   public static final String PARTITION_FIELD_LIST_CONFIG = "fieldList";
   private static final List<String> PARTITION_FIELD_LIST_DEFAULT = singletonList(ID);
@@ -109,7 +109,7 @@ public final class AutoBucketPartitioner implements Partitioner {
   private static final int PARTITION_CHUNK_SIZE_MB_DEFAULT = 64;
 
   public static final String SAMPLES_PER_PARTITION_CONFIG = "samplesPerPartition";
-  private static final int SAMPLES_PER_PARTITION_DEFAULT = 10;
+  private static final int SAMPLES_PER_PARTITION_DEFAULT = 100;
 
   public static final String PARTITION_KEY_PROJECTION_FIELD_CONFIG = "partitionKeyProjectionField";
   private static final String PARTITION_KEY_PROJECTION_FIELD_DEFAULT = "__idx";
@@ -154,17 +154,17 @@ public final class AutoBucketPartitioner implements Partitioner {
         storageStats.get("avgObjSize", new BsonInt32(0)).asNumber().doubleValue();
     double numDocumentsPerPartition = Math.floor(partitionSizeInBytes / avgObjSizeInBytes);
 
-    BsonDocument usersMatchQuery =
+    BsonDocument usersCollectionFilter =
         PartitionerHelper.matchQuery(readConfig.getAggregationPipeline());
     long count;
-    if (usersMatchQuery.isEmpty() && storageStats.containsKey("count")) {
+    if (usersCollectionFilter.isEmpty() && storageStats.containsKey("count")) {
       count = storageStats.getNumber("count").longValue();
     } else {
       count = readConfig.withCollection(coll -> coll.countDocuments(
-          usersMatchQuery, new CountOptions().comment(readConfig.getComment())));
+          usersCollectionFilter, new CountOptions().comment(readConfig.getComment())));
     }
 
-    if (numDocumentsPerPartition >= count) {
+    if (numDocumentsPerPartition == 0 || numDocumentsPerPartition >= count) {
       LOGGER.info(
           "Fewer documents ({}) than the calculated number of documents per partition ({}). Returning a single partition",
           count,
@@ -173,11 +173,11 @@ public final class AutoBucketPartitioner implements Partitioner {
     }
 
     int numberOfBuckets = Math.toIntExact((long) Math.ceil(count / numDocumentsPerPartition));
-    int numberOfSamples = Math.toIntExact((long) Math.ceil(samplesPerPartition * numDocumentsPerPartition));```
+    int numberOfSamples = Math.toIntExact((long) (double) (samplesPerPartition * numberOfBuckets));
 
     List<BsonDocument> buckets =
         readConfig.withCollection(coll -> coll.aggregate(createBucketAutoPipeline(
-                usersMatchQuery,
+                usersCollectionFilter,
                 partitionFieldList,
                 partitionProjectionKey,
                 numberOfSamples,
@@ -185,6 +185,11 @@ public final class AutoBucketPartitioner implements Partitioner {
             .allowDiskUse(readConfig.getAggregationAllowDiskUse())
             .comment(readConfig.getComment())
             .into(new ArrayList<>()));
+
+    if (buckets.size() < 2) {
+      LOGGER.info("Less than two buckets generated, so returning a single partition");
+      return SINGLE_PARTITIONER.generatePartitions(readConfig);
+    }
 
     return createMongoInputPartitions(
         buckets,
@@ -197,7 +202,7 @@ public final class AutoBucketPartitioner implements Partitioner {
   /**
    * Creates the $sample and $bucketAuto aggregation pipeline used for determining the partition bounds.
    *
-   * @param usersMatchQuery the match part of a user supplied aggregation pipeline or an empty document
+   * @param usersCollectionFilter the filter part of a user supplied $match aggregation pipeline or an empty document
    * @param partitionFieldList the fields to partition the collection by
    * @param partitionProjectionKey the partition projection key only used if there are multiple partition fields
    * @param numberOfSamples the number of samples
@@ -206,18 +211,17 @@ public final class AutoBucketPartitioner implements Partitioner {
    */
   @VisibleForTesting
   static List<BsonDocument> createBucketAutoPipeline(
-      final BsonDocument usersMatchQuery,
+      final BsonDocument usersCollectionFilter,
       final List<String> partitionFieldList,
       final String partitionProjectionKey,
       final int numberOfSamples,
       final int numberOfBuckets) {
 
     List<BsonDocument> pipeline = new ArrayList<>();
-    if (!usersMatchQuery.isEmpty()) {
-      pipeline.add(Aggregates.match(usersMatchQuery).toBsonDocument());
+    if (!usersCollectionFilter.isEmpty()) {
+      pipeline.add(Aggregates.match(usersCollectionFilter).toBsonDocument());
     }
-    pipeline.add(
-        Aggregates.sample(numberOfSamples).toBsonDocument());
+    pipeline.add(Aggregates.sample(numberOfSamples).toBsonDocument());
 
     if (partitionFieldList.size() > 1) {
       pipeline.add(addFieldsStage(partitionFieldList, partitionProjectionKey));
@@ -239,26 +243,19 @@ public final class AutoBucketPartitioner implements Partitioner {
       final String partitionProjectionKey,
       final List<String> preferredLocations) {
 
-    Assertions.ensureArgument(
-        () -> buckets.size() > 1,
-        () -> format(
-            "Unexpected auto bucketing size, expected more than one bucket. Got: %s.",
-            buckets.stream().map(BsonDocument::toJson).collect(Collectors.joining(",", "[", "]"))));
-
     String matchField =
         partitionFieldList.size() == 1 ? partitionFieldList.get(0) : partitionProjectionKey;
-    int finalBoundsIndex = buckets.size() - 1;
     List<MongoInputPartition> inputPartitions = new ArrayList<>();
 
     for (int i = 0; i < buckets.size(); i++) {
       BsonDocument bucket = buckets.get(i);
-      Assertions.ensureArgument(
+      Assertions.assertTrue(
           () -> bucket.containsKey(ID) && bucket.isDocument(ID),
           () -> format(
               "Unexpected auto bucket format %s field required. Got: %s.", ID, bucket.toJson()));
       BsonDocument bounds = bucket.getDocument(ID);
 
-      Assertions.ensureArgument(
+      Assertions.assertTrue(
           () -> bounds.containsKey(MIN) && bounds.containsKey(MAX),
           () -> format(
               "Unexpected auto bucket format. Expected %s and %s ranges got: %s.",
@@ -274,7 +271,8 @@ public final class AutoBucketPartitioner implements Partitioner {
       if (includeMax) {
         partitionBounds.add(Filters.lt(matchField, bounds.get(MAX)));
       }
-      BsonDocument partitionBoundsMatch = Aggregates.match(Filters.and(partitionBounds)).toBsonDocument();
+      BsonDocument partitionBoundsMatch =
+          Aggregates.match(Filters.and(partitionBounds)).toBsonDocument();
 
       List<BsonDocument> partitionPipeline = createPartitionPipeline(
           partitionFieldList, partitionProjectionKey, partitionBoundsMatch, usersPipeline);
@@ -290,7 +288,7 @@ public final class AutoBucketPartitioner implements Partitioner {
    * @param partitionProjectionKey the partition projection key only used if there are multiple partition fields
    * @param partitionBounds the calculated partition bounds $match query
    * @param usersPipeline the configured user supplied aggregation pipeline
-   * @return
+   * @return the partition pipeline
    */
   @VisibleForTesting
   static List<BsonDocument> createPartitionPipeline(

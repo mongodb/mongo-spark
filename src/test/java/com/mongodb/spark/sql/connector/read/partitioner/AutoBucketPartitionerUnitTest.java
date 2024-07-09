@@ -123,13 +123,18 @@ public class AutoBucketPartitionerUnitTest {
     assertIterableEquals(
         asList(
             new MongoInputPartition(
-                0, toBsonDocuments("{\"$match\": {\"a\": { \"$lt\": 250}}}"), emptyList()),
-            new MongoInputPartition(
-                1,
-                toBsonDocuments("{\"$match\": {\"a\": { \"$gte\": 250, \"$lt\": 500}}}"),
+                0,
+                toBsonDocuments("{\"$match\": {\"$and\": [{\"a\": {\"$lt\": 250}}]}}}"),
                 emptyList()),
             new MongoInputPartition(
-                2, toBsonDocuments("{\"$match\": {\"a\": { \"$gte\": 500}}}"), emptyList())),
+                1,
+                toBsonDocuments(
+                    "{\"$match\": {\"$and\": [{\"a\": {\"$gte\": 250}}, {\"a\": {\"$lt\": 500}}]}}}"),
+                emptyList()),
+            new MongoInputPartition(
+                2,
+                toBsonDocuments("{\"$match\": {\"$and\": [{\"a\": {\"$gte\": 500}}]}}"),
+                emptyList())),
         createMongoInputPartitions(
             toBsonDocuments(
                 "{\"_id\": {\"min\": 0, \"max\": 250}}",
@@ -146,13 +151,13 @@ public class AutoBucketPartitionerUnitTest {
             new MongoInputPartition(
                 0,
                 toBsonDocuments(
-                    "{\"$match\": {\"a\": { \"$lt\": 250}}}",
+                    "{\"$match\": {\"$and\": [{\"a\": {\"$lt\": 250}}]}}}",
                     "{\"$match\": {\"b\": {\"$gte\": 99}}}"),
                 preferredLocations),
             new MongoInputPartition(
                 1,
                 toBsonDocuments(
-                    "{\"$match\": {\"a\": { \"$gte\": 250}}}",
+                    "{\"$match\": {\"$and\": [{\"a\": {\"$gte\": 250}}]}}}",
                     "{\"$match\": {\"b\": {\"$gte\": 99}}}"),
                 preferredLocations)),
         createMongoInputPartitions(
@@ -170,7 +175,7 @@ public class AutoBucketPartitionerUnitTest {
                 0,
                 toBsonDocuments(
                     "{\"$addFields\": {\"__idx\": {\"0\": \"$a.b\", \"1\": \"$c\"}}}",
-                    "{\"$match\": {\"__idx\": { \"$lt\": {\"0\": 250, \"1\": \"z\"}}}}",
+                    "{\"$match\": {\"$and\": [{\"__idx\": { \"$lt\": {\"0\": 250, \"1\": \"z\"}}}]}}",
                     "{\"$unset\": \"__idx\"}",
                     "{\"$match\": {\"b\": {\"$gte\": 99}}}"),
                 preferredLocations),
@@ -178,7 +183,8 @@ public class AutoBucketPartitionerUnitTest {
                 1,
                 toBsonDocuments(
                     "{\"$addFields\": {\"__idx\": {\"0\": \"$a.b\", \"1\": \"$c\"}}}",
-                    "{\"$match\": {\"__idx\": { \"$gte\": {\"0\": 250, \"1\": \"z\"}, \"$lt\": {\"0\": 500, \"1\": \"a\"}}}}",
+                    "{\"$match\": {\"$and\": [{\"__idx\": {\"$gte\": {\"0\": 250, \"1\": \"z\"}}}, "
+                        + "{\"__idx\": {\"$lt\": {\"0\": 500, \"1\": \"a\"}}}]}}",
                     "{\"$unset\": \"__idx\"}",
                     "{\"$match\": {\"b\": {\"$gte\": 99}}}"),
                 preferredLocations),
@@ -186,7 +192,7 @@ public class AutoBucketPartitionerUnitTest {
                 2,
                 toBsonDocuments(
                     "{\"$addFields\": {\"__idx\": {\"0\": \"$a.b\", \"1\": \"$c\"}}}",
-                    "{\"$match\": {\"__idx\": { \"$gte\": {\"0\": 500, \"1\": \"a\"}}}}",
+                    "{\"$match\": {\"$and\": [{\"__idx\": { \"$gte\": {\"0\": 500, \"1\": \"a\"}}}]}}",
                     "{\"$unset\": \"__idx\"}",
                     "{\"$match\": {\"b\": {\"$gte\": 99}}}"),
                 preferredLocations)),
@@ -202,20 +208,7 @@ public class AutoBucketPartitionerUnitTest {
 
     // Error scenarios
     assertThrows(
-        IllegalArgumentException.class,
-        () -> createMongoInputPartitions(
-            emptyList(), emptyList(), singleFieldList, "a", emptyList()));
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> createMongoInputPartitions(
-            toBsonDocuments("{\"_id\": {\"min\": 0, \"max\": 250}}"),
-            emptyList(),
-            singleFieldList,
-            "a",
-            emptyList()),
-        "Single bounds");
-    assertThrows(
-        IllegalArgumentException.class,
+        AssertionError.class,
         () -> createMongoInputPartitions(
             toBsonDocuments("{\"min\": 0, \"max\": 250}", "{\"min\": 250, \"max\": 500}"),
             emptyList(),
@@ -224,7 +217,7 @@ public class AutoBucketPartitionerUnitTest {
             emptyList()),
         "No _id field");
     assertThrows(
-        IllegalArgumentException.class,
+        AssertionError.class,
         () -> createMongoInputPartitions(
             toBsonDocuments("{\"_id\": {\"max\": 0}}", "{\"_id\": {\"min\": 250, \"max\": 500}}"),
             emptyList(),
@@ -233,7 +226,7 @@ public class AutoBucketPartitionerUnitTest {
             emptyList()),
         "Missing min field");
     assertThrows(
-        IllegalArgumentException.class,
+        AssertionError.class,
         () -> createMongoInputPartitions(
             toBsonDocuments("{\"_id\": {\"min\": 0}}", "{\"_id\": {\"min\": 250, \"max\": 500}}"),
             emptyList(),
