@@ -226,10 +226,7 @@ public final class AutoBucketPartitioner implements Partitioner {
     String groupByField =
         partitionFieldList.size() > 1 ? partitionProjectionKey : partitionFieldList.get(0);
 
-    BsonDocument bucketAuto = new BsonDocument();
-    bucketAuto.put("groupBy", new BsonString("$" + groupByField));
-    bucketAuto.put("buckets", new BsonInt32(numberOfBuckets));
-    pipeline.add(new BsonDocument("$bucketAuto", bucketAuto));
+    pipeline.add(Aggregates.bucketAuto("$" + groupByField, numberOfBuckets).toBsonDocument());
 
     return pipeline;
   }
