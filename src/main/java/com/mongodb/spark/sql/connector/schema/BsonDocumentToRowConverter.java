@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
@@ -48,6 +49,7 @@ import org.apache.spark.sql.types.BinaryType;
 import org.apache.spark.sql.types.BooleanType;
 import org.apache.spark.sql.types.ByteType;
 import org.apache.spark.sql.types.DataType;
+import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.DateType;
 import org.apache.spark.sql.types.DecimalType;
 import org.apache.spark.sql.types.DoubleType;
@@ -100,14 +102,14 @@ public final class BsonDocumentToRowConverter implements Serializable {
   /**
    * Create a new instance
    *
-   * @param schema the schema for the row
+   * @param originalSchema schema for the row
    * @param readConfig the read config
    */
-  public BsonDocumentToRowConverter(final StructType schema, final ReadConfig readConfig) {
-    this.schema = schema;
+  public BsonDocumentToRowConverter(final StructType originalSchema, final ReadConfig readConfig) {
+    this.isPermissive = readConfig.isPermissive();
+    this.schema = isPermissive ? (StructType) forceNullableSchema(originalSchema) : originalSchema;
     this.rowToInternalRowFunction = new RowToInternalRowFunction(schema);
     this.outputExtendedJson = readConfig.outputExtendedJson();
-    this.isPermissive = readConfig.isPermissive();
     this.dropMalformed = readConfig.dropMalformed();
     this.columnNameOfCorruptRecord = readConfig.getColumnNameOfCorruptRecord();
     this.schemaContainsCorruptRecordColumn = !columnNameOfCorruptRecord.isEmpty()
@@ -212,7 +214,6 @@ public final class BsonDocumentToRowConverter implements Serializable {
   private GenericRowWithSchema convertToRow(
       final String fieldName, final StructType dataType, final BsonValue bsonValue) {
     ensureFieldData(bsonValue::isDocument, () -> invalidFieldData(fieldName, dataType, bsonValue));
-
     BsonDocument bsonDocument = bsonValue.asDocument();
     List<Object> values = new ArrayList<>();
     for (StructField field : dataType.fields()) {
@@ -412,8 +413,36 @@ public final class BsonDocumentToRowConverter implements Serializable {
     }
   }
 
+  /**
+   * Forces nullable schema.
+   *
+   * <p>Only used with PermissiveMode, where fields may contain null values for corrupt fields. So even if some of the
+   * columns are not nullable in the user-provided schema, this forces the schema to be fully nullable.
+   *
+   * @param dataType the input
+   * @return a nullable dataType
+   */
+  static DataType forceNullableSchema(final DataType dataType) {
+    if (dataType instanceof StructType) {
+      List<StructField> fields = Arrays.stream(((StructType) dataType).fields())
+          .map(field -> DataTypes.createStructField(
+              field.name(), forceNullableSchema(field.dataType()), true, field.metadata()))
+          .collect(Collectors.toList());
+      return DataTypes.createStructType(fields);
+    } else if (dataType instanceof MapType) {
+      return DataTypes.createMapType(
+          forceNullableSchema(((MapType) dataType).keyType()),
+          forceNullableSchema(((MapType) dataType).valueType()),
+          true);
+    } else if (dataType instanceof ArrayType) {
+      return DataTypes.createArrayType(
+          forceNullableSchema(((ArrayType) dataType).elementType()), true);
+    }
+    return dataType;
+  }
+
   @Override
   public String toString() {
-    return "BsonDocumentToRowConverter{" + "schema=" + schema + '}';
+    return "BsonDocumentToRowConverter{schema=" + schema + '}';
   }
 }

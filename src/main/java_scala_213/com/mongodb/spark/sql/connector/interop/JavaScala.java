@@ -37,17 +37,17 @@ public final class JavaScala {
     return CollectionConverters.MapHasAsScala(data).asScala();
   }
 
-    /**
-     * Wrapper to convert a java map to an immutable scala map
-     *
-     * @param data java collection
-     * @param <K> key
-     * @param <V> value
-     * @return scala collection
-     */
-    public static <K, V> scala.collection.immutable.Map<K, V> asScalaImmutable(final Map<K, V> data) {
-        return scala.collection.immutable.Map.from(asScala(data));
-    }
+  /**
+   * Wrapper to convert a java map to an immutable scala map
+   *
+   * @param data java collection
+   * @param <K> key
+   * @param <V> value
+   * @return scala collection
+   */
+  public static <K, V> scala.collection.immutable.Map<K, V> asScalaImmutable(final Map<K, V> data) {
+    return scala.collection.immutable.Map.from(asScala(data));
+  }
 
   /**
    * Wrapper to convert a java list to a scala seq

@@ -191,7 +191,8 @@ public final class ReadConfig extends AbstractMongoConfig {
    * Parsing strategy for handling corrupt records during reads.
    *
    * <ul>
-   *   <li>{@code PERMISSIVE}: When it meets a corrupted record, sets any malformed fields to null.
+   *   <li>{@code PERMISSIVE}: When it meets a corrupted record, sets any malformed fields or missing fields to null.
+   *   Note, the data schema is forced to be fully nullable, so may be different from the one provided.
    *   Configure the {@value COLUMN_NAME_OF_CORRUPT_RECORD} if you want to store the whole record
    *   as an extended json string when encountering a corrupt record.
    *   When inferring a schema, it will implicitly add a {@value COLUMN_NAME_OF_CORRUPT_RECORD} field
