@@ -172,8 +172,8 @@ public final class AutoBucketPartitioner implements Partitioner {
       return SINGLE_PARTITIONER.generatePartitions(readConfig);
     }
 
-    int numberOfBuckets = (int) Math.ceil(count / numDocumentsPerPartition);
-    int numberOfSamples = (int) Math.ceil(samplesPerPartition * numDocumentsPerPartition);
+    int numberOfBuckets = Math.toIntExact((long) Math.ceil(count / numDocumentsPerPartition));
+    int numberOfSamples = Math.toIntExact((long) Math.ceil(samplesPerPartition * numDocumentsPerPartition));```
 
     List<BsonDocument> buckets =
         readConfig.withCollection(coll -> coll.aggregate(createBucketAutoPipeline(
