@@ -217,7 +217,7 @@ public final class AutoBucketPartitioner implements Partitioner {
       pipeline.add(Aggregates.match(usersMatchQuery).toBsonDocument());
     }
     pipeline.add(
-        new BsonDocument("$sample", new BsonDocument("size", new BsonInt32(numberOfSamples))));
+        Aggregates.sample(numberOfSamples).toBsonDocument());
 
     if (partitionFieldList.size() > 1) {
       pipeline.add(addFieldsStage(partitionFieldList, partitionProjectionKey));
