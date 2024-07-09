@@ -332,6 +332,7 @@ public final class AutoBucketPartitioner implements Partitioner {
     for (int i = 0; i < partitionFieldList.size(); i++) {
       addFieldValue.put(String.valueOf(i), new BsonString("$" + partitionFieldList.get(i)));
     }
-    return new BsonDocument("$addFields", new BsonDocument(partitionProjectionKey, addFieldValue));
+    return Aggregates.addFields(new Field<>(partitionProjectionKey, addFieldValue))
+        .toBsonDocument();
   }
 }
