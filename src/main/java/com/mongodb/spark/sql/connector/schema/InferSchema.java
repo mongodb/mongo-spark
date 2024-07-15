@@ -19,6 +19,7 @@ package com.mongodb.spark.sql.connector.schema;
 
 import static com.mongodb.assertions.Assertions.fail;
 import static java.lang.String.format;
+import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.groupingBy;
 
 import com.mongodb.client.MongoDatabase;
@@ -32,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -155,7 +157,57 @@ public final class InferSchema {
   @NotNull
   private static StructType getStructType(
       final BsonDocument bsonDocument, final ReadConfig readConfig) {
-    return (StructType) getDataType(bsonDocument, readConfig);
+    Map<String, StructField> fieldMap = new HashMap<>();
+    bsonDocument.forEach((k, v) -> {
+      fieldMap.put(k, new StructField(k, getDataType(v, readConfig), true, INFERRED_METADATA));
+    });
+
+    for (StructField f : readConfig.getSchemaHints().fields()) {
+
+      String[] fieldNameParts = f.name().split("\\.");
+      String topLevelFieldName = fieldNameParts[0];
+
+      // Create the hinted StructField
+      // Works through the fieldNameParts in reverse and builds up to the top level field.
+      StructField schemaHintField = null;
+      for (int i = fieldNameParts.length - 1; i >= 0; i--) {
+        String fieldName = fieldNameParts[i];
+        if (schemaHintField == null) {
+          schemaHintField =
+              new StructField(fieldName, f.dataType(), f.nullable(), INFERRED_METADATA);
+        } else {
+          schemaHintField = new StructField(
+              fieldName,
+              DataTypes.createStructType(singletonList(schemaHintField)),
+              true,
+              INFERRED_METADATA);
+        }
+      }
+
+      // Merge datatypes if one already exists
+      if (fieldMap.containsKey(topLevelFieldName)) {
+        StructField inferredStructField = fieldMap.get(topLevelFieldName);
+        DataType mergedDataType =
+            rhsPreferredMerge(inferredStructField.dataType(), schemaHintField.dataType());
+
+        fieldMap.put(
+            fieldNameParts[0],
+            new StructField(
+                inferredStructField.name(),
+                mergedDataType,
+                inferredStructField.nullable(),
+                inferredStructField.metadata()));
+      } else {
+        fieldMap.put(topLevelFieldName, schemaHintField);
+      }
+    }
+
+    List<StructField> structFields = fieldMap.values().stream()
+        .sorted(Comparator.comparing(StructField::name))
+        .collect(Collectors.toList());
+
+    return (StructType)
+        dataTypeCheckStructTypeToMapType(DataTypes.createStructType(structFields), readConfig);
   }
 
   @VisibleForTesting
@@ -398,6 +450,43 @@ public final class InferSchema {
       }
     }
     return dataType;
+  }
+
+  /**
+   * Recursive merge that prefers the rhs datatype value over the lhs. For use with partial schema hints.
+   *
+   * @param lhs the left hand side datatype
+   * @param rhs the right hand side datatype
+   * @return the merged original and preferred data type
+   */
+  @VisibleForTesting
+  static DataType rhsPreferredMerge(final DataType lhs, final DataType rhs) {
+
+    // If they are both structs process the fields and merge.
+    if (lhs instanceof StructType && rhs instanceof StructType) {
+      Map<String, StructField> mergedMap = Arrays.stream(((StructType) rhs).fields())
+          .collect(Collectors.toMap(StructField::name, f -> f));
+
+      for (StructField f : ((StructType) lhs).fields()) {
+        if (!mergedMap.containsKey(f.name())) {
+          mergedMap.put(f.name(), f);
+        } else {
+          // Merge datatypes
+          mergedMap.put(
+              f.name(),
+              new StructField(
+                  f.name(),
+                  rhsPreferredMerge(f.dataType(), mergedMap.get(f.name()).dataType()),
+                  f.nullable(),
+                  f.metadata()));
+        }
+      }
+
+      return new StructType(mergedMap.values().toArray(new StructField[0]));
+    }
+
+    // Otherwise RHS wins.
+    return rhs;
   }
 
   private static final StructType PLACE_HOLDER_STRUCT_TYPE =

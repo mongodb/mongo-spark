@@ -32,6 +32,7 @@ import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Stream;
+import org.apache.spark.sql.types.StructType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -294,6 +295,57 @@ public class MongoConfigTest {
 
     readConfig = readConfig.withOption(ReadConfig.STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG, "true");
     assertEquals(readConfig.getStreamFullDocument(), FullDocument.UPDATE_LOOKUP);
+  }
+
+  @Test
+  void testReadConfigSchemaHints() {
+    ReadConfig readConfig =
+        MongoConfig.readConfig(CONFIG_MAP).withOption(ReadConfig.SCHEMA_HINTS, "");
+    assertEquals(new StructType(), readConfig.getSchemaHints());
+
+    readConfig = MongoConfig.readConfig(CONFIG_MAP).withOption(ReadConfig.SCHEMA_HINTS, "   ");
+    assertEquals(new StructType(), readConfig.getSchemaHints());
+
+    StructType expectedStructType = StructType.fromDDL("a INT, b STRING");
+
+    // Spark shell DataType.toDDL format
+    readConfig =
+        MongoConfig.readConfig(CONFIG_MAP).withOption(ReadConfig.SCHEMA_HINTS, "a INT, b STRING");
+    assertEquals(expectedStructType, readConfig.getSchemaHints());
+
+    // Spark shell DataType.sql format
+    readConfig = MongoConfig.readConfig(CONFIG_MAP)
+        .withOption(ReadConfig.SCHEMA_HINTS, "STRUCT<a: INT, b: STRING>");
+    assertEquals(expectedStructType, readConfig.getSchemaHints());
+
+    // Spark shell DataType.simpleString format
+    readConfig = MongoConfig.readConfig(CONFIG_MAP)
+        .withOption(ReadConfig.SCHEMA_HINTS, "struct<a:int,b:string>");
+    assertEquals(expectedStructType, readConfig.getSchemaHints());
+
+    // Spark shell DataType.json format
+    readConfig = MongoConfig.readConfig(CONFIG_MAP)
+        .withOption(
+            ReadConfig.SCHEMA_HINTS,
+            "{\"type\":\"struct\",\"fields\":["
+                + "{\"name\":\"a\",\"type\":\"integer\",\"nullable\":true},"
+                + "{\"name\":\"b\",\"type\":\"string\",\"nullable\":true}]}");
+    assertEquals(expectedStructType, readConfig.getSchemaHints());
+
+    // FAILURE CASES
+    assertThrows(ConfigException.class, () -> {
+      MongoConfig.readConfig(CONFIG_MAP)
+          .withOption(ReadConfig.SCHEMA_HINTS, "version INVALID")
+          .getSchemaHints();
+    });
+
+    assertThrows(ConfigException.class, () -> {
+      MongoConfig.readConfig(CONFIG_MAP)
+          .withOption(
+              ReadConfig.SCHEMA_HINTS,
+              "{\"name\":\"version\",\"type\":\"integer\",\"nullable\":true}")
+          .getSchemaHints();
+    });
   }
 
   @Test

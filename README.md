@@ -11,7 +11,7 @@ See: https://docs.mongodb.com/spark-connector/
 ## Downloading
 
 The binaries and dependency information for Maven, SBT, Ivy, and others can also be found on
-[Maven Central](https://search.maven.org/#search?q=g:org.mongodb.spark).
+[Maven Central]([https://search.maven.org/#search?q=g:org.mongodb.spark](https://central.sonatype.com/search?q=mongodb%20spark)).
 
 ## Support / Feedback
 
