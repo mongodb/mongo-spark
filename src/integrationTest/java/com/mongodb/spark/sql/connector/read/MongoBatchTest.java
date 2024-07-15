@@ -18,6 +18,7 @@ package com.mongodb.spark.sql.connector.read;
 
 import static com.mongodb.spark.sql.connector.config.MongoConfig.COMMENT_CONFIG;
 import static com.mongodb.spark.sql.connector.interop.JavaScala.asJava;
+import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static org.apache.spark.sql.types.DataTypes.createStructField;
@@ -26,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -41,6 +43,7 @@ import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.apache.spark.SparkException;
 import org.apache.spark.api.java.function.MapFunction;
 import org.apache.spark.sql.Column;
 import org.apache.spark.sql.DataFrameReader;
@@ -49,6 +52,7 @@ import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
+import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 import org.bson.BsonDocument;
@@ -684,6 +688,7 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
 
     List<BsonDocument> collectionData =
         toBsonDocuments(spark.read().textFile(READ_RESOURCES_HOBBITS_JSON_PATH));
+    getCollection().drop();
     getCollection().insertMany(collectionData);
 
     ReadConfig readConfig = MongoConfig.readConfig(asJava(spark.initialSessionOptions()))
@@ -706,6 +711,70 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
                   .toJSON()));
         },
         readConfig);
+  }
+
+  @Test
+  void testReadsWithParseMode() {
+    SparkSession spark = getOrCreateSparkSession();
+
+    List<BsonDocument> collectionData = asList(
+        BsonDocument.parse("{_id: 1, name: 'Ada Lovelace', address: {street: 'St James Square'}}"),
+        BsonDocument.parse(
+            "{_id: 2, name: 'Charles Babbage', address: {street: '5 Devonshire Street'}}"),
+        BsonDocument.parse(
+            "{_id: 3, name: 'Alan Turing', address: '{\"street\": \"Bletchley Hall\"}'}"),
+        BsonDocument.parse("{_id: 4, name: 'Timothy Berners-Lee', address: {}}"));
+    getCollection().insertMany(collectionData);
+
+    StructType schema = createStructType(asList(
+        createStructField("_id", DataTypes.IntegerType, false),
+        createStructField("name", DataTypes.StringType, true),
+        createStructField("address", DataType.fromDDL("street STRING"), true)));
+
+    DataFrameReader errorDFR = spark.read().format("mongodb").schema(schema);
+    assertThrows(SparkException.class, () -> errorDFR.load().toJSON().collect());
+    assertThrows(SparkException.class, () -> errorDFR
+        .option(ReadConfig.PARSE_MODE, ReadConfig.ParseMode.FAILFAST.name())
+        .load()
+        .toJSON()
+        .collect());
+
+    DataFrameReader dfr = spark.read().format("mongodb").schema(schema);
+    List<BsonDocument> expectedData =
+        collectionData.stream().map(BsonDocument::clone).collect(Collectors.toList());
+    expectedData.remove(2);
+    assertEquals(
+        expectedData,
+        toBsonDocuments(dfr.option(ReadConfig.PARSE_MODE, ReadConfig.ParseMode.DROPMALFORMED.name())
+            .load()
+            .toJSON()));
+
+    // Note toJSON uses the default ignoreNullFields = true
+    dfr = dfr.option(ReadConfig.PARSE_MODE, ReadConfig.ParseMode.PERMISSIVE.name());
+    expectedData = collectionData.stream().map(BsonDocument::clone).collect(Collectors.toList());
+    expectedData.remove(2);
+    expectedData.add(2, BsonDocument.parse("{_id: 3, name: 'Alan Turing'}"));
+    assertEquals(expectedData, toBsonDocuments(dfr.load().toJSON()));
+
+    // No corrupted field in the schema - so ignore
+    String corruptedField = "_corrupted";
+    dfr = dfr.option(ReadConfig.COLUMN_NAME_OF_CORRUPT_RECORD, corruptedField);
+    assertEquals(expectedData, toBsonDocuments(dfr.load().toJSON()));
+
+    // With corrupted field
+    StructType schemaWithCorruptedField = schema.add(corruptedField, DataTypes.StringType);
+    dfr = dfr.schema(schemaWithCorruptedField);
+    expectedData = collectionData.stream().map(BsonDocument::clone).collect(Collectors.toList());
+
+    expectedData.remove(2);
+    expectedData.add(
+        2,
+        BsonDocument.parse(
+            format(
+                "{_id: 3, name: 'Alan Turing', _corrupted: '%s'}",
+                "{\"_id\": 3, \"name\": \"Alan Turing\", \"address\": \"{\\\\\"street\\\\\": \\\\\"Bletchley Hall\\\\\"}\"}")));
+
+    assertEquals(expectedData, toBsonDocuments(dfr.load().toJSON()));
   }
 
   private List<BsonDocument> toBsonDocuments(final Dataset<String> dataset) {

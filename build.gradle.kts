@@ -103,6 +103,7 @@ dependencies {
 
     // Integration Tests
     testImplementation("org.apache.commons:commons-lang3:${project.extra["commons-lang3"]}")
+    testImplementation("org.jetbrains:annotations:${project.extra["annotationsVersion"]}")
 }
 
 val defaultJdkVersion: Int = 11

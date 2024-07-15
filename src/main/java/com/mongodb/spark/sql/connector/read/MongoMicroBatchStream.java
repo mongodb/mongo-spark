@@ -73,8 +73,7 @@ final class MongoMicroBatchStream implements MicroBatchStream {
         checkpointLocation,
         MongoOffset.getInitialOffset(readConfig));
     this.readConfig = readConfig;
-    this.bsonDocumentToRowConverter =
-        new BsonDocumentToRowConverter(schema, readConfig.outputExtendedJson());
+    this.bsonDocumentToRowConverter = new BsonDocumentToRowConverter(schema, readConfig);
   }
 
   @Override

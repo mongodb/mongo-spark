@@ -31,6 +31,7 @@ import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.read.streaming.ContinuousPartitionReader;
@@ -130,21 +131,34 @@ final class MongoContinuousPartitionReader implements ContinuousPartitionReader<
     }
   }
 
+  /**
+   * Used within a loop as continuous streams are required to block until {@code ContinuousPartitionReader#next}
+   * returns a result.
+   *
+   * <p>Ensures the cursor resources are managed correctly in case of error retrieving a result.
+   *
+   * @return true if there is a result available else false
+   */
   private boolean tryNext() {
-    return withCursor(c -> {
+    return withCursor(cursor -> {
       try {
-        if (c.hasNext()) {
-          BsonDocument next = c.next();
-          if (next.containsKey("_id") && next.isDocument("_id")) {
-            setLastOffset(next.getDocument("_id"));
-          }
+        currentRow = null;
+        BsonDocument next = cursor.tryNext();
+        setLastOffset(cursor.getResumeToken());
+        if (next != null) {
           if (readConfig.streamPublishFullDocumentOnly()) {
             next = next.getDocument(FULL_DOCUMENT, new BsonDocument());
           }
-          currentRow = bsonDocumentToRowConverter.toInternalRow(next);
-          return true;
+
+          // If there is a result return it otherwise try again (eg: ReadConfig.dropMalformed())
+          Optional<InternalRow> internalRowOptional =
+              bsonDocumentToRowConverter.toInternalRow(next);
+          if (internalRowOptional.isPresent()) {
+            currentRow = internalRowOptional.get();
+            return true;
+          }
         }
-        setLastOffset(c.getResumeToken());
+        return false;
       } catch (MongoException e) {
         LOGGER.info("Trying to get more data from the change stream failed, releasing cursor.", e);
       }

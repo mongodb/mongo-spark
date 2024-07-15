@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import java.util.HashMap;
+import java.util.List;
 import java.util.stream.Stream;
 import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.DataTypes;
@@ -512,6 +513,32 @@ public class InferSchemaTest extends SchemaTest {
             disabledInferSchemaReadConfig));
   }
 
+  @Test
+  @DisplayName("inclusion of column name when set and theres a corrupt record")
+  void testColumnNameOfCorruptRecord() {
+    List<BsonDocument> docs = asList(
+        BsonDocument.parse("{a: -1}"), BsonDocument.parse("{a: 1}"), BsonDocument.parse("{a: 0}"));
+    StructType structType =
+        createStructType(singletonList(createStructField("a", DataTypes.IntegerType)));
+
+    ReadConfig readConfig = READ_CONFIG;
+    assertEquals(structType, InferSchema.inferSchema(docs, READ_CONFIG));
+
+    readConfig = readConfig.withOption(ReadConfig.PARSE_MODE, "FAILFAST");
+    assertEquals(structType, InferSchema.inferSchema(docs, readConfig));
+
+    readConfig = readConfig.withOption(ReadConfig.PARSE_MODE, "DROPMALFORMED");
+    assertEquals(structType, InferSchema.inferSchema(docs, readConfig));
+
+    readConfig = readConfig.withOption(ReadConfig.PARSE_MODE, "PERMISSIVE");
+    assertEquals(structType, InferSchema.inferSchema(docs, readConfig));
+
+    readConfig = readConfig.withOption(ReadConfig.COLUMN_NAME_OF_CORRUPT_RECORD, "_corrupted");
+    structType = structType.add(createStructField("_corrupted", DataTypes.StringType));
+
+    assertEquals(structType, InferSchema.inferSchema(docs, readConfig));
+  }
+  
   @Test
   void testSchemaHints() {
     ReadConfig readConfig = READ_CONFIG.withOption(ReadConfig.SCHEMA_HINTS, "booleanField BOOLEAN");
