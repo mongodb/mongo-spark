@@ -22,11 +22,13 @@ import static java.util.Collections.singletonList;
 
 import com.mongodb.MongoNamespace;
 import com.mongodb.WriteConcern;
+import com.mongodb.client.MongoCollection;
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import org.bson.Document;
 import org.jetbrains.annotations.ApiStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -109,6 +111,59 @@ public final class WriteConfig extends AbstractMongoConfig {
 
       throw new ConfigException(format("'%s' is not a valid Convert Json Type", value));
     }
+
+    @Override
+    public String toString() {
+      return value;
+    }
+  }
+
+  /**
+   * Determines how to truncate a collection when using {@link org.apache.spark.sql.SaveMode#Overwrite}
+   *
+   * @since 10.6
+   */
+  public enum TruncateMode {
+    /**
+     * Drops the collection
+     */
+    DROP("drop") {
+      @Override
+      public void truncate(final WriteConfig writeConfig) {
+        writeConfig.doWithCollection(MongoCollection::drop);
+      }
+    },
+    /**
+     * Deletes all entries in the collection preserving indexes, collection options and any sharding configuration
+     * <p><strong>Warning:</strong> This operation is currently much more expensive than doing a simple drop operation. </p>
+     */
+    TRUNCATE("truncate") {
+      @Override
+      public void truncate(final WriteConfig writeConfig) {
+        writeConfig.doWithCollection(collection -> collection.deleteMany(new Document()));
+      }
+    };
+
+    private final String value;
+
+    TruncateMode(final String value) {
+      this.value = value;
+    }
+
+    static TruncateMode fromString(final String truncateMode) {
+      for (TruncateMode truncateModeType : TruncateMode.values()) {
+        if (truncateMode.equalsIgnoreCase(truncateModeType.value)) {
+          return truncateModeType;
+        }
+      }
+      throw new ConfigException(format("'%s' is not a valid Truncate Mode", truncateMode));
+    }
+
+    /**
+     * The truncation implementation for each different truncation type
+     * @param writeConfig the write config
+     */
+    public abstract void truncate(WriteConfig writeConfig);
 
     @Override
     public String toString() {
@@ -243,6 +298,7 @@ public final class WriteConfig extends AbstractMongoConfig {
 
   private static final boolean IGNORE_NULL_VALUES_DEFAULT = false;
 
+
   /**
    * Ignore duplicate values when inserting.
    *
@@ -261,6 +317,21 @@ public final class WriteConfig extends AbstractMongoConfig {
   public static final String IGNORE_DUPLICATES_ON_INSERT_CONFIG = "ignoreDuplicatesOnInsert";
 
   private static final boolean IGNORE_DUPLICATES_ON_INSERT_DEFAULT = false;
+
+  /**
+   * Truncate Mode
+   *
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: {@code Drop}
+   *
+   * <p>Determines how to truncate a collection when using {@link org.apache.spark.sql.SaveMode#Overwrite}
+   *
+   * @since 10.6
+   */
+  public static final String TRUNCATE_MODE_CONFIG = "truncateMode";
+
+  private static final String TRUNCATE_MODE_DEFAULT = TruncateMode.DROP.value;
 
   private final WriteConcern writeConcern;
   private final OperationType operationType;
@@ -359,6 +430,14 @@ public final class WriteConfig extends AbstractMongoConfig {
           getOperationType());
     }
     return allowIgnoreDuplicatesOnInserts;
+  }
+
+  /**
+   * @return the truncate mode for use when overwriting collections
+   * @since 10.6
+   */
+  public TruncateMode truncateMode() {
+    return TruncateMode.fromString(getOrDefault(TRUNCATE_MODE_CONFIG, TRUNCATE_MODE_DEFAULT));
   }
 
   @Override

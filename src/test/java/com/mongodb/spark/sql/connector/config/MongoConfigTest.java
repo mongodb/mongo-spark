@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.mongodb.WriteConcern;
 import com.mongodb.client.model.changestream.FullDocument;
+import com.mongodb.client.model.changestream.FullDocumentBeforeChange;
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import java.util.HashMap;
 import java.util.Map;
@@ -184,6 +185,21 @@ public class MongoConfigTest {
   }
 
   @Test
+  void testWriteConfigTruncateMode() {
+    WriteConfig writeConfig = MongoConfig.createConfig(CONFIG_MAP).toWriteConfig();
+    assertEquals(writeConfig.truncateMode(), WriteConfig.TruncateMode.DROP);
+    assertEquals(
+        writeConfig.withOption("TruncateMode", "truncate").truncateMode(),
+        WriteConfig.TruncateMode.TRUNCATE);
+    assertEquals(
+        writeConfig.withOption("TruncateMode", "Drop").truncateMode(),
+        WriteConfig.TruncateMode.DROP);
+    assertThrows(
+        ConfigException.class,
+        () -> writeConfig.withOption("TruncateMode", "RECREATE").truncateMode());
+  }
+
+  @Test
   void testMongoConfigOptionsParsing() {
     MongoConfig mongoConfig = MongoConfig.readConfig(OPTIONS_CONFIG_MAP);
 
@@ -331,6 +347,29 @@ public class MongoConfigTest {
 
     readConfig = readConfig.withOption(ReadConfig.STREAM_PUBLISH_FULL_DOCUMENT_ONLY_CONFIG, "true");
     assertEquals(readConfig.getStreamFullDocument(), FullDocument.UPDATE_LOOKUP);
+  }
+
+  @Test
+  void testReadConfigStreamFullDocumentBeforeChange() {
+    ReadConfig readConfig = MongoConfig.readConfig(CONFIG_MAP);
+    assertEquals(readConfig.getStreamFullDocumentBeforeChange(), FullDocumentBeforeChange.DEFAULT);
+
+    readConfig =
+        readConfig.withOption(ReadConfig.STREAM_LOOKUP_FULL_DOCUMENT_BEFORE_CHANGE_CONFIG, "off");
+    assertEquals(readConfig.getStreamFullDocumentBeforeChange(), FullDocumentBeforeChange.OFF);
+
+    readConfig = readConfig.withOption(
+        ReadConfig.STREAM_LOOKUP_FULL_DOCUMENT_BEFORE_CHANGE_CONFIG, "whenAvailable");
+    assertEquals(
+        readConfig.getStreamFullDocumentBeforeChange(), FullDocumentBeforeChange.WHEN_AVAILABLE);
+
+    readConfig = readConfig.withOption(
+        ReadConfig.STREAM_LOOKUP_FULL_DOCUMENT_BEFORE_CHANGE_CONFIG, "required");
+    assertEquals(readConfig.getStreamFullDocumentBeforeChange(), FullDocumentBeforeChange.REQUIRED);
+
+    readConfig = readConfig.withOption(
+        ReadConfig.STREAM_LOOKUP_FULL_DOCUMENT_BEFORE_CHANGE_CONFIG, "INVALID");
+    assertThrows(ConfigException.class, readConfig::getStreamFullDocumentBeforeChange);
   }
 
   @Test
