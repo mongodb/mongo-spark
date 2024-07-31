@@ -160,6 +160,21 @@ public class MongoConfigTest {
   }
 
   @Test
+  void testWriteConfigTruncateMode() {
+    WriteConfig writeConfig = MongoConfig.createConfig(CONFIG_MAP).toWriteConfig();
+    assertEquals(writeConfig.truncateMode(), WriteConfig.TruncateMode.DROP);
+    assertEquals(
+        writeConfig.withOption("TruncateMode", "truncate").truncateMode(),
+        WriteConfig.TruncateMode.TRUNCATE);
+    assertEquals(
+        writeConfig.withOption("TruncateMode", "Drop").truncateMode(),
+        WriteConfig.TruncateMode.DROP);
+    assertThrows(
+        ConfigException.class,
+        () -> writeConfig.withOption("TruncateMode", "RECREATE").truncateMode());
+  }
+
+  @Test
   void testMongoConfigOptionsParsing() {
     MongoConfig mongoConfig = MongoConfig.readConfig(OPTIONS_CONFIG_MAP);
 

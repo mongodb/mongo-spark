@@ -25,6 +25,8 @@ import com.mongodb.spark.sql.connector.beans.BoxedBean;
 import com.mongodb.spark.sql.connector.beans.ComplexBean;
 import com.mongodb.spark.sql.connector.beans.DateTimeBean;
 import com.mongodb.spark.sql.connector.beans.PrimitiveBean;
+import com.mongodb.spark.sql.connector.config.WriteConfig;
+import com.mongodb.spark.sql.connector.config.WriteConfig.TruncateMode;
 import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -41,6 +43,8 @@ import org.apache.spark.sql.Encoder;
 import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.SparkSession;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 public class RoundTripTest extends MongoSparkConnectorTestCase {
 
@@ -68,8 +72,9 @@ public class RoundTripTest extends MongoSparkConnectorTestCase {
     assertIterableEquals(dataSetOriginal, dataSetMongo);
   }
 
-  @Test
-  void testBoxedBean() {
+  @ParameterizedTest
+  @EnumSource(TruncateMode.class)
+  void testBoxedBean(final TruncateMode mode) {
     // Given
     List<BoxedBean> dataSetOriginal =
         singletonList(new BoxedBean((byte) 1, (short) 2, 3, 4L, 5.0f, 6.0, true));
@@ -79,7 +84,12 @@ public class RoundTripTest extends MongoSparkConnectorTestCase {
     Encoder<BoxedBean> encoder = Encoders.bean(BoxedBean.class);
 
     Dataset<BoxedBean> dataset = spark.createDataset(dataSetOriginal, encoder);
-    dataset.write().format("mongodb").mode("Overwrite").save();
+    dataset
+        .write()
+        .format("mongodb")
+        .mode("Overwrite")
+        .option(WriteConfig.TRUNCATE_MODE_CONFIG, mode.name())
+        .save();
 
     // Then
     List<BoxedBean> dataSetMongo = spark

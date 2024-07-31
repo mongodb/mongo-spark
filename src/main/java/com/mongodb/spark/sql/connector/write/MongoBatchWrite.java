@@ -19,7 +19,6 @@ package com.mongodb.spark.sql.connector.write;
 
 import static java.lang.String.format;
 
-import com.mongodb.client.MongoCollection;
 import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.exceptions.DataException;
 import java.util.Arrays;
@@ -62,7 +61,7 @@ final class MongoBatchWrite implements BatchWrite {
   @Override
   public DataWriterFactory createBatchWriterFactory(final PhysicalWriteInfo physicalWriteInfo) {
     if (truncate) {
-      writeConfig.doWithCollection(MongoCollection::drop);
+      writeConfig.truncateMode().truncate(writeConfig);
     }
     return new MongoDataWriterFactory(info.schema(), writeConfig);
   }
