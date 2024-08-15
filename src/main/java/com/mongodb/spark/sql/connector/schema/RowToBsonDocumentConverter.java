@@ -17,6 +17,7 @@
 
 package com.mongodb.spark.sql.connector.schema;
 
+import static com.mongodb.spark.sql.connector.schema.ConverterHelper.isTimestampNTZ;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 
@@ -26,6 +27,10 @@ import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import com.mongodb.spark.sql.connector.interop.JavaScala;
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -137,9 +142,11 @@ public final class RowToBsonDocumentConverter implements Serializable {
       try {
         return cachedObjectToBsonValue.apply(data);
       } catch (Exception e) {
-        throw new DataException(format(
-            "Cannot cast %s into a BsonValue. %s has no matching BsonValue. Error: %s",
-            data, dataType, e.getMessage()));
+        throw new DataException(
+            format(
+                "Cannot cast %s into a BsonValue. %s has no matching BsonValue. Error: %s",
+                data, dataType, e.getMessage()),
+            e);
       }
     };
   }
@@ -177,12 +184,30 @@ public final class RowToBsonDocumentConverter implements Serializable {
     } else if (DataTypes.StringType.acceptsType(dataType)) {
       return (data) -> processString((String) data, convertJson);
     } else if (DataTypes.DateType.acceptsType(dataType)
-        || DataTypes.TimestampType.acceptsType(dataType)) {
+        || DataTypes.TimestampType.acceptsType(dataType)
+        || isTimestampNTZ(dataType)) {
       return (data) -> {
         if (data instanceof Date) {
           // Covers java.util.Date, java.sql.Date, java.sql.Timestamp
           return new BsonDateTime(((Date) data).getTime());
         }
+        if (data instanceof Instant) {
+          return new BsonDateTime(((Instant) data).toEpochMilli());
+        }
+        if (data instanceof LocalDateTime) {
+          LocalDateTime dateTime = (LocalDateTime) data;
+          return new BsonDateTime(Timestamp.valueOf(dateTime).getTime());
+        }
+        if (data instanceof LocalDate) {
+          long epochSeconds = ((LocalDate) data).toEpochDay() * 24L * 3600L;
+          return new BsonDateTime(epochSeconds * 1000L);
+        }
+
+        /*
+        NOTE 1: ZonedDateTime, OffsetDateTime, OffsetTime are not explicitly supported by Spark and cause the Encoder resolver to fail
+        due to cyclic dependency in the ZoneOffset. Subject for review after it changes (if ever).
+        NOTE 2: LocalTime type is not represented neither in Bson nor in Spark
+         */
         throw new MongoSparkException(
             "Unsupported date type: " + data.getClass().getSimpleName());
       };
