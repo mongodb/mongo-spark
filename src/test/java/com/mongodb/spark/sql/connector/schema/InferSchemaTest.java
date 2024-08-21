@@ -538,7 +538,7 @@ public class InferSchemaTest extends SchemaTest {
 
     assertEquals(structType, InferSchema.inferSchema(docs, readConfig));
   }
-  
+
   @Test
   void testSchemaHints() {
     ReadConfig readConfig = READ_CONFIG.withOption(ReadConfig.SCHEMA_HINTS, "booleanField BOOLEAN");
