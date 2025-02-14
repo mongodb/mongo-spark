@@ -18,6 +18,7 @@
 package com.mongodb.spark.sql.connector.read.partitioner;
 
 import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper.SINGLE_PARTITIONER;
+import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper.matchQuery;
 import static java.lang.String.format;
 
 import com.mongodb.client.model.CountOptions;
@@ -27,7 +28,6 @@ import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 import java.util.List;
 import org.bson.BsonDocument;
-import org.bson.BsonInt32;
 import org.jetbrains.annotations.ApiStatus;
 
 /**
@@ -55,7 +55,7 @@ public final class PaginateBySizePartitioner extends PaginatePartitioner {
   @Override
   public List<MongoInputPartition> generatePartitions(final ReadConfig readConfig) {
     MongoConfig partitionerOptions = readConfig.getPartitionerOptions();
-    int partitionSizeBytes = Assertions.validateConfig(
+    int partitionSizeInBytes = Assertions.validateConfig(
             partitionerOptions.getInt(PARTITION_SIZE_MB_CONFIG, PARTITION_SIZE_MB_DEFAULT),
             i -> i > 0,
             () ->
@@ -69,18 +69,6 @@ public final class PaginateBySizePartitioner extends PaginatePartitioner {
       return SINGLE_PARTITIONER.generatePartitions(readConfig);
     }
 
-    double avgObjSizeInBytes =
-        storageStats.get("avgObjSize", new BsonInt32(0)).asNumber().doubleValue();
-    if (avgObjSizeInBytes >= partitionSizeBytes) {
-      LOGGER.warn(
-          "Average document size `{}` is greater than the partition size `{}`. Please increase the partition size."
-              + "Returning a single partition.",
-          avgObjSizeInBytes,
-          partitionSizeBytes);
-      return SINGLE_PARTITIONER.generatePartitions(readConfig);
-    }
-
-    int numDocumentsPerPartition = (int) Math.floor(partitionSizeBytes / avgObjSizeInBytes);
     BsonDocument matchQuery = PartitionerHelper.matchQuery(readConfig.getAggregationPipeline());
     long count;
     if (matchQuery.isEmpty() && storageStats.containsKey("count")) {
@@ -88,6 +76,18 @@ public final class PaginateBySizePartitioner extends PaginatePartitioner {
     } else {
       count = readConfig.withCollection(coll ->
           coll.countDocuments(matchQuery, new CountOptions().comment(readConfig.getComment())));
+    }
+
+    double avgObjSizeInBytes = PartitionerHelper.averageDocumentSize(storageStats, count);
+    int numDocumentsPerPartition = (int) Math.floor(partitionSizeInBytes / avgObjSizeInBytes);
+
+    if (avgObjSizeInBytes >= partitionSizeInBytes) {
+      LOGGER.warn(
+          "Average document size `{}` is greater than the partition size `{}`. Please increase the partition size."
+              + "Returning a single partition.",
+          avgObjSizeInBytes,
+          partitionSizeInBytes);
+      return SINGLE_PARTITIONER.generatePartitions(readConfig);
     }
 
     if (count <= numDocumentsPerPartition) {

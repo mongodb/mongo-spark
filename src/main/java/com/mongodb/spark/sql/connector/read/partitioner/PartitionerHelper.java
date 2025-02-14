@@ -18,7 +18,8 @@
 package com.mongodb.spark.sql.connector.read.partitioner;
 
 import static com.mongodb.spark.sql.connector.read.partitioner.Partitioner.LOGGER;
-import static java.util.Collections.singletonList;
+import static java.lang.String.format;
+import static java.util.Arrays.asList;
 
 import com.mongodb.MongoCommandException;
 import com.mongodb.client.MongoDatabase;
@@ -31,15 +32,19 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import org.apache.spark.sql.connector.read.Scan;
 import org.bson.BsonDocument;
+import org.bson.BsonInt32;
 import org.bson.BsonType;
 import org.bson.BsonValue;
 
 /** Partitioner helper class, contains various utility methods used by the partitioner instances. */
 public final class PartitionerHelper {
 
-  private static final List<BsonDocument> COLL_STATS_AGGREGATION_PIPELINE =
-      singletonList(BsonDocument.parse("{'$collStats': {'storageStats': { } } }"));
+  private static final List<BsonDocument> COLL_STATS_AGGREGATION_PIPELINE = asList(
+      BsonDocument.parse("{'$collStats': {'storageStats': { } } }"),
+      BsonDocument.parse(
+          "{'$project': {'size': '$storageStats.size', 'count': '$storageStats.count' } }"));
   private static final BsonDocument PING_COMMAND = BsonDocument.parse("{ping: 1}");
+  private static final BsonDocument BUILD_INFO_COMMAND = BsonDocument.parse("{buildInfo: 1}");
   public static final Partitioner SINGLE_PARTITIONER = new SinglePartitionPartitioner();
 
   /**
@@ -101,14 +106,34 @@ public final class PartitionerHelper {
   public static BsonDocument storageStats(final ReadConfig readConfig) {
     LOGGER.info("Getting collection stats for: {}", readConfig.getNamespace().getFullName());
     try {
-      return readConfig
-          .withCollection(
-              coll -> Optional.ofNullable(coll.aggregate(COLL_STATS_AGGREGATION_PIPELINE)
-                      .allowDiskUse(readConfig.getAggregationAllowDiskUse())
-                      .comment(readConfig.getComment())
-                      .first())
-                  .orElseGet(BsonDocument::new))
-          .getDocument("storageStats", new BsonDocument());
+      BsonDocument buildInfo = readConfig.withClient(c -> {
+        MongoDatabase db = c.getDatabase(readConfig.getDatabaseName());
+        return db.runCommand(BUILD_INFO_COMMAND).toBsonDocument();
+      });
+
+      // Atlas Data Federation does not support the storageStats property and requires
+      // special handling to return the federated collection stats.
+      if (!buildInfo.containsKey("dataLake")) {
+        return readConfig.withClient(c -> {
+          MongoDatabase db = c.getDatabase(readConfig.getDatabaseName());
+          BsonDocument command =
+              BsonDocument.parse(format("{ collStats: '%s' }", readConfig.getCollectionName()));
+          BsonDocument result = db.runCommand(command).toBsonDocument();
+
+          BsonDocument formattedResult = new BsonDocument();
+          formattedResult.append("count", result.get("count"));
+          formattedResult.append("size", result.get("size"));
+
+          return formattedResult;
+        });
+      }
+
+      return readConfig.withCollection(
+          coll -> Optional.ofNullable(coll.aggregate(COLL_STATS_AGGREGATION_PIPELINE)
+                  .allowDiskUse(readConfig.getAggregationAllowDiskUse())
+                  .comment(readConfig.getComment())
+                  .first())
+              .orElseGet(BsonDocument::new));
     } catch (RuntimeException ex) {
       if (ex instanceof MongoCommandException
           && (ex.getMessage().contains("not found.")
@@ -136,6 +161,26 @@ public final class PartitionerHelper {
         .flatMap(sd -> sd.getHosts().stream())
         .distinct()
         .collect(Collectors.toList());
+  }
+
+  /**
+   * Returns the average document size in a collection, either using {@code avgObjSize}
+   * or calculated from document count and collection size.
+   *
+   * @param storageStats the storage stats of a collection
+   * @param documentCount the number of documents in a collection
+   * @return the average document size in a collection
+   */
+  public static double averageDocumentSize(
+      final BsonDocument storageStats, final long documentCount) {
+    if (storageStats.containsKey("avgObjSize")) {
+      return storageStats.get("avgObjSize", new BsonInt32(0)).asNumber().doubleValue();
+    }
+
+    long size = storageStats.getNumber("size").longValue();
+    double avgObjSizeInBytes = Math.floor(size / documentCount);
+
+    return avgObjSizeInBytes;
   }
 
   private PartitionerHelper() {}
