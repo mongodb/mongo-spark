@@ -18,7 +18,6 @@
 package com.mongodb.spark.sql.connector.read.partitioner;
 
 import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper.SINGLE_PARTITIONER;
-import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper.matchQuery;
 import static java.lang.String.format;
 
 import com.mongodb.client.model.CountOptions;
@@ -69,18 +68,7 @@ public final class PaginateBySizePartitioner extends PaginatePartitioner {
       return SINGLE_PARTITIONER.generatePartitions(readConfig);
     }
 
-    BsonDocument matchQuery = PartitionerHelper.matchQuery(readConfig.getAggregationPipeline());
-    long count;
-    if (matchQuery.isEmpty() && storageStats.containsKey("count")) {
-      count = storageStats.getNumber("count").longValue();
-    } else {
-      count = readConfig.withCollection(coll ->
-          coll.countDocuments(matchQuery, new CountOptions().comment(readConfig.getComment())));
-    }
-
-    double avgObjSizeInBytes = PartitionerHelper.averageDocumentSize(storageStats, count);
-    int numDocumentsPerPartition = (int) Math.floor(partitionSizeInBytes / avgObjSizeInBytes);
-
+    double avgObjSizeInBytes = PartitionerHelper.averageDocumentSize(storageStats);
     if (avgObjSizeInBytes >= partitionSizeInBytes) {
       LOGGER.warn(
           "Average document size `{}` is greater than the partition size `{}`. Please increase the partition size."
@@ -88,6 +76,16 @@ public final class PaginateBySizePartitioner extends PaginatePartitioner {
           avgObjSizeInBytes,
           partitionSizeInBytes);
       return SINGLE_PARTITIONER.generatePartitions(readConfig);
+    }
+
+    int numDocumentsPerPartition = (int) Math.floor(partitionSizeInBytes / avgObjSizeInBytes);
+    BsonDocument matchQuery = PartitionerHelper.matchQuery(readConfig.getAggregationPipeline());
+    long count;
+    if (matchQuery.isEmpty() && storageStats.containsKey("count")) {
+      count = storageStats.getNumber("count").longValue();
+    } else {
+      count = readConfig.withCollection(coll ->
+          coll.countDocuments(matchQuery, new CountOptions().comment(readConfig.getComment())));
     }
 
     if (count <= numDocumentsPerPartition) {

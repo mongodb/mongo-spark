@@ -18,8 +18,8 @@
 package com.mongodb.spark.sql.connector.read.partitioner;
 
 import static com.mongodb.spark.sql.connector.read.partitioner.Partitioner.LOGGER;
-import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static java.util.Collections.singletonList;
 
 import com.mongodb.MongoCommandException;
 import com.mongodb.client.MongoDatabase;
@@ -43,8 +43,9 @@ public final class PartitionerHelper {
       BsonDocument.parse("{'$collStats': {'storageStats': { } } }"),
       BsonDocument.parse(
           "{'$project': {'size': '$storageStats.size', 'count': '$storageStats.count' } }"));
+  private static final List<BsonDocument> COLL_STATS_DATA_FEDERATION_AGGREGATION_PIPELINE =
+      singletonList(BsonDocument.parse("{'$collStats': {'count': { } } }"));
   private static final BsonDocument PING_COMMAND = BsonDocument.parse("{ping: 1}");
-  private static final BsonDocument BUILD_INFO_COMMAND = BsonDocument.parse("{buildInfo: 1}");
   public static final Partitioner SINGLE_PARTITIONER = new SinglePartitionPartitioner();
 
   /**
@@ -106,41 +107,43 @@ public final class PartitionerHelper {
   public static BsonDocument storageStats(final ReadConfig readConfig) {
     LOGGER.info("Getting collection stats for: {}", readConfig.getNamespace().getFullName());
     try {
-      BsonDocument buildInfo = readConfig.withClient(c -> {
-        MongoDatabase db = c.getDatabase(readConfig.getDatabaseName());
-        return db.runCommand(BUILD_INFO_COMMAND).toBsonDocument();
-      });
-
-      // Atlas Data Federation does not support the storageStats property and requires
-      // special handling to return the federated collection stats.
-      if (!buildInfo.containsKey("dataLake")) {
-        return readConfig.withClient(c -> {
-          MongoDatabase db = c.getDatabase(readConfig.getDatabaseName());
-          BsonDocument command =
-              BsonDocument.parse(format("{ collStats: '%s' }", readConfig.getCollectionName()));
-          BsonDocument result = db.runCommand(command).toBsonDocument();
-
-          BsonDocument formattedResult = new BsonDocument();
-          formattedResult.append("count", result.get("count"));
-          formattedResult.append("size", result.get("size"));
-
-          return formattedResult;
-        });
-      }
-
       return readConfig.withCollection(
           coll -> Optional.ofNullable(coll.aggregate(COLL_STATS_AGGREGATION_PIPELINE)
                   .allowDiskUse(readConfig.getAggregationAllowDiskUse())
                   .comment(readConfig.getComment())
                   .first())
               .orElseGet(BsonDocument::new));
-    } catch (RuntimeException ex) {
-      if (ex instanceof MongoCommandException
-          && (ex.getMessage().contains("not found.")
-              || ((MongoCommandException) ex).getCode() == 26)) {
+    } catch (MongoCommandException ex) {
+      if (ex.getMessage().contains("not found.") || ex.getCode() == 26) {
         LOGGER.info("Could not find collection: {}", readConfig.getCollectionName());
         return new BsonDocument();
       }
+
+      // Atlas Data Federation does not support the storageStats property and requires
+      // special handling to return the federated collection stats.
+      if (ex.getMessage().contains("Data Federation") || ex.getCode() == 9) {
+        return storageStatsDataFederation(readConfig);
+      }
+      throw new MongoSparkException("Partitioner calling collStats command failed", ex);
+    } catch (RuntimeException ex) {
+      throw new MongoSparkException("Partitioner calling collStats command failed", ex);
+    }
+  }
+
+  private static BsonDocument storageStatsDataFederation(final ReadConfig readConfig) {
+    try {
+      return readConfig.withCollection(
+          coll -> Optional.ofNullable(coll.aggregate(COLL_STATS_DATA_FEDERATION_AGGREGATION_PIPELINE)
+                  .allowDiskUse(readConfig.getAggregationAllowDiskUse())
+                  .comment(readConfig.getComment())
+                  .map(collStats -> collStats.append(
+                      "size",
+                      collStats
+                          .getDocument("partition", new BsonDocument())
+                          .getNumber("size", new BsonInt32(0))))
+                  .first())
+              .orElseGet(BsonDocument::new));
+    } catch (RuntimeException ex) {
       throw new MongoSparkException("Partitioner calling collStats command failed", ex);
     }
   }
@@ -168,19 +171,15 @@ public final class PartitionerHelper {
    * or calculated from document count and collection size.
    *
    * @param storageStats the storage stats of a collection
-   * @param documentCount the number of documents in a collection
    * @return the average document size in a collection
    */
-  public static double averageDocumentSize(
-      final BsonDocument storageStats, final long documentCount) {
+  public static double averageDocumentSize(final BsonDocument storageStats) {
     if (storageStats.containsKey("avgObjSize")) {
       return storageStats.get("avgObjSize", new BsonInt32(0)).asNumber().doubleValue();
     }
-
-    long size = storageStats.getNumber("size").longValue();
-    double avgObjSizeInBytes = Math.floor(size / documentCount);
-
-    return avgObjSizeInBytes;
+    double size = storageStats.getNumber("size", new BsonInt32(0)).doubleValue();
+    double count = storageStats.getNumber("count", new BsonInt32(0)).doubleValue();
+    return Math.floor(size / count);
   }
 
   private PartitionerHelper() {}

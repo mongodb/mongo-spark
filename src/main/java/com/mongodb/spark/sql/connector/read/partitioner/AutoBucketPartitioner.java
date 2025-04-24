@@ -149,6 +149,9 @@ public final class AutoBucketPartitioner implements Partitioner {
       return SINGLE_PARTITIONER.generatePartitions(readConfig);
     }
 
+    double avgObjSizeInBytes = PartitionerHelper.averageDocumentSize(storageStats);
+    double numDocumentsPerPartition = Math.floor(partitionSizeInBytes / avgObjSizeInBytes);
+
     BsonDocument usersCollectionFilter =
         PartitionerHelper.matchQuery(readConfig.getAggregationPipeline());
     long count;
@@ -158,9 +161,6 @@ public final class AutoBucketPartitioner implements Partitioner {
       count = readConfig.withCollection(coll -> coll.countDocuments(
           usersCollectionFilter, new CountOptions().comment(readConfig.getComment())));
     }
-
-    double avgObjSizeInBytes = PartitionerHelper.averageDocumentSize(storageStats, count);
-    double numDocumentsPerPartition = Math.floor(partitionSizeInBytes / avgObjSizeInBytes);
 
     if (numDocumentsPerPartition == 0 || numDocumentsPerPartition >= count) {
       LOGGER.info(

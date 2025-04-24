@@ -18,7 +18,6 @@
 package com.mongodb.spark.sql.connector.read.partitioner;
 
 import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper.SINGLE_PARTITIONER;
-import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper.matchQuery;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 
@@ -105,8 +104,7 @@ public final class SamplePartitioner extends FieldPartitioner {
       count = readConfig.withCollection(coll ->
           coll.countDocuments(matchQuery, new CountOptions().comment(readConfig.getComment())));
     }
-
-    double avgObjSizeInBytes = PartitionerHelper.averageDocumentSize(storageStats, count);
+    double avgObjSizeInBytes = PartitionerHelper.averageDocumentSize(storageStats);
     double numDocumentsPerPartition = Math.floor(partitionSizeInBytes / avgObjSizeInBytes);
 
     if (numDocumentsPerPartition >= count) {
