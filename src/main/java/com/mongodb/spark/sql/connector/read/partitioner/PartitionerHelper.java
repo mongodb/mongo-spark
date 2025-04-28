@@ -19,7 +19,6 @@ package com.mongodb.spark.sql.connector.read.partitioner;
 
 import static com.mongodb.spark.sql.connector.read.partitioner.Partitioner.LOGGER;
 import static java.util.Arrays.asList;
-import static java.util.Collections.singletonList;
 
 import com.mongodb.MongoCommandException;
 import com.mongodb.client.MongoDatabase;
@@ -43,8 +42,10 @@ public final class PartitionerHelper {
       BsonDocument.parse("{'$collStats': {'storageStats': { } } }"),
       BsonDocument.parse(
           "{'$project': {'size': '$storageStats.size', 'count': '$storageStats.count' } }"));
-  private static final List<BsonDocument> COLL_STATS_DATA_FEDERATION_AGGREGATION_PIPELINE =
-      singletonList(BsonDocument.parse("{'$collStats': {'count': { } } }"));
+  private static final List<BsonDocument> COLL_STATS_DATA_FEDERATION_AGGREGATION_PIPELINE = asList(
+      BsonDocument.parse("{'$collStats': {'count': { } } }"),
+      BsonDocument.parse(
+          "{'$group': {'_id': null, 'totalCount': {'$sum': '$count'} 'totalSize': {'$sum': '$partition.size' } } }"));
   private static final BsonDocument PING_COMMAND = BsonDocument.parse("{ping: 1}");
   public static final Partitioner SINGLE_PARTITIONER = new SinglePartitionPartitioner();
 
@@ -132,17 +133,15 @@ public final class PartitionerHelper {
 
   private static BsonDocument storageStatsDataFederation(final ReadConfig readConfig) {
     try {
-      return readConfig.withCollection(
-          coll -> Optional.ofNullable(coll.aggregate(COLL_STATS_DATA_FEDERATION_AGGREGATION_PIPELINE)
+      return readConfig.withCollection(coll -> Optional.ofNullable(
+              coll.aggregate(COLL_STATS_DATA_FEDERATION_AGGREGATION_PIPELINE)
                   .allowDiskUse(readConfig.getAggregationAllowDiskUse())
                   .comment(readConfig.getComment())
-                  .map(collStats -> collStats.append(
-                      "size",
-                      collStats
-                          .getDocument("partition", new BsonDocument())
-                          .getNumber("size", new BsonInt32(0))))
+                  .map(collStats -> collStats
+                      .append("size", collStats.getNumber("totalSize", new BsonInt32(0)))
+                      .append("count", collStats.getNumber("totalCount", new BsonInt32(0))))
                   .first())
-              .orElseGet(BsonDocument::new));
+          .orElseGet(BsonDocument::new));
     } catch (RuntimeException ex) {
       throw new MongoSparkException("Partitioner calling collStats command failed", ex);
     }
