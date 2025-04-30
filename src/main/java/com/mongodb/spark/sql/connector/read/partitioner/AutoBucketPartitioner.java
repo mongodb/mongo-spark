@@ -26,6 +26,7 @@ import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.CountOptions;
 import com.mongodb.client.model.Field;
 import com.mongodb.client.model.Filters;
+import com.mongodb.connection.ServerDescription;
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
@@ -100,6 +101,7 @@ public final class AutoBucketPartitioner implements Partitioner {
   private static final String ID = "_id";
   private static final String MIN = "min";
   private static final String MAX = "max";
+  private static final int SEVEN_DOT_ZERO_WIRE_VERSION = 21;
 
   public static final String PARTITION_FIELD_LIST_CONFIG = "fieldList";
   private static final List<String> PARTITION_FIELD_LIST_DEFAULT = singletonList(ID);
@@ -187,6 +189,16 @@ public final class AutoBucketPartitioner implements Partitioner {
     if (buckets.size() < 2) {
       LOGGER.info("Less than two buckets generated, so returning a single partition");
       return SINGLE_PARTITIONER.generatePartitions(readConfig);
+    }
+
+    Integer serverMaxWireVersion =
+        readConfig.withClient(c -> c.getClusterDescription().getServerDescriptions().stream()
+            .map(ServerDescription::getMaxWireVersion)
+            .max(Integer::compare)
+            .orElse(0));
+    if (serverMaxWireVersion < SEVEN_DOT_ZERO_WIRE_VERSION) {
+      LOGGER.warn(
+          "Note: The AutoBucketPartitioner requires MongoDB 7.0 or greater, if the dataset contains documents with duplicated keys.");
     }
 
     return createMongoInputPartitions(
