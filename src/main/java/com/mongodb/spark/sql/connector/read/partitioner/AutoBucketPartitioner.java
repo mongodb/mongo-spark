@@ -33,7 +33,6 @@ import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 import java.util.ArrayList;
 import java.util.List;
 import org.bson.BsonDocument;
-import org.bson.BsonInt32;
 import org.bson.BsonString;
 import org.bson.conversions.Bson;
 import org.jetbrains.annotations.ApiStatus;
@@ -150,8 +149,7 @@ public final class AutoBucketPartitioner implements Partitioner {
       return SINGLE_PARTITIONER.generatePartitions(readConfig);
     }
 
-    double avgObjSizeInBytes =
-        storageStats.get("avgObjSize", new BsonInt32(0)).asNumber().doubleValue();
+    double avgObjSizeInBytes = PartitionerHelper.averageDocumentSize(storageStats);
     double numDocumentsPerPartition = Math.floor(partitionSizeInBytes / avgObjSizeInBytes);
 
     BsonDocument usersCollectionFilter =
