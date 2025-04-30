@@ -49,7 +49,11 @@ public class AutoBucketPartitionerTest extends PartitionerTestCase {
 
   @Override
   List<String> defaultReadConfigOptions() {
-    return asList(ReadConfig.PARTITIONER_OPTIONS_PREFIX + PARTITION_CHUNK_SIZE_MB_CONFIG, "1");
+    return asList(
+        ReadConfig.PARTITIONER_CONFIG,
+        PARTITIONER.getClass().getName(),
+        ReadConfig.PARTITIONER_OPTIONS_PREFIX + PARTITION_CHUNK_SIZE_MB_CONFIG,
+        "1");
   }
 
   @Test
@@ -174,6 +178,7 @@ public class AutoBucketPartitionerTest extends PartitionerTestCase {
 
   @Test
   void testUsingCompoundPartitionFieldThatContainsDuplicates() {
+    assumeTrue(isAtLeastSevernDotZero());
     ReadConfig readConfig = createReadConfig(
         "compound", PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_LIST_CONFIG, "pk,dups");
     loadSampleData(250, 10, readConfig);
