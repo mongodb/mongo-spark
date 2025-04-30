@@ -26,9 +26,11 @@ import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.CountOptions;
 import com.mongodb.client.model.Field;
 import com.mongodb.client.model.Filters;
+import com.mongodb.connection.ServerDescription;
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,7 +43,7 @@ import org.jetbrains.annotations.VisibleForTesting;
 /**
  * Auto Bucket Partitioner
  *
- * <p>A $sample based partitioner that provides support for all collection types.
+ * <p>A sample based partitioner that provides support for all collection types.
  * Supports partitioning across single or multiple fields, including nested fields.
  *
  * <p>The logic for the partitioner is as follows:</p>
@@ -100,6 +102,7 @@ public final class AutoBucketPartitioner implements Partitioner {
   private static final String ID = "_id";
   private static final String MIN = "min";
   private static final String MAX = "max";
+  private static final int SEVEN_DOT_ZERO_WIRE_VERSION = 21;
 
   public static final String PARTITION_FIELD_LIST_CONFIG = "fieldList";
   private static final List<String> PARTITION_FIELD_LIST_DEFAULT = singletonList(ID);
@@ -144,6 +147,17 @@ public final class AutoBucketPartitioner implements Partitioner {
         PARTITION_KEY_PROJECTION_FIELD_CONFIG, PARTITION_KEY_PROJECTION_FIELD_DEFAULT);
 
     BsonDocument storageStats = PartitionerHelper.storageStats(readConfig);
+
+    Integer serverMaxWireVersion =
+        readConfig.withClient(c -> c.getClusterDescription().getServerDescriptions().stream()
+            .mapToInt(ServerDescription::getMaxWireVersion)
+            .max()
+            .orElse(0));
+    if (serverMaxWireVersion < SEVEN_DOT_ZERO_WIRE_VERSION && partitionFieldList.size() > 1) {
+      throw new MongoSparkException(
+          "Invalid partitioner strategy. The AutoBucketPartitioner only supports compound keys in MongoDB 7.0 and above.");
+    }
+
     if (storageStats.isEmpty()) {
       LOGGER.warn("Unable to get collection stats (collstats) returning a single partition.");
       return SINGLE_PARTITIONER.generatePartitions(readConfig);
