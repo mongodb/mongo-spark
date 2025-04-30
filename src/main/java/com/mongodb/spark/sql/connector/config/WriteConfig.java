@@ -344,7 +344,10 @@ public final class WriteConfig extends AbstractMongoConfig {
   }
 
   private WriteConcern createWriteConcern() {
-    WriteConcern writeConcern = WriteConcern.ACKNOWLEDGED;
+    WriteConcern writeConcern = getConnectionString().getWriteConcern();
+    if (writeConcern == null) {
+      writeConcern = WriteConcern.ACKNOWLEDGED;
+    }
     try {
       if (containsKey(WRITE_CONCERN_W_CONFIG)) {
         try {
