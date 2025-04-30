@@ -101,7 +101,7 @@ public final class AutoBucketPartitioner implements Partitioner {
   private static final String ID = "_id";
   private static final String MIN = "min";
   private static final String MAX = "max";
-  private static final int SEVERN_DOT_ZERO_WIRE_VERSION = 21;
+  private static final int SEVEN_DOT_ZERO_WIRE_VERSION = 21;
 
   public static final String PARTITION_FIELD_LIST_CONFIG = "fieldList";
   private static final List<String> PARTITION_FIELD_LIST_DEFAULT = singletonList(ID);
@@ -196,7 +196,7 @@ public final class AutoBucketPartitioner implements Partitioner {
             .mapToInt(ServerDescription::getMaxWireVersion)
             .max()
             .orElse(0));
-    if (serverMaxWireVersion < SEVERN_DOT_ZERO_WIRE_VERSION) {
+    if (serverMaxWireVersion < SEVEN_DOT_ZERO_WIRE_VERSION) {
       LOGGER.warn(
           "Note: The AutoBucketPartitioner requires MongoDB 7.0 or greater, if the dataset contains documents with duplicated keys.");
     }

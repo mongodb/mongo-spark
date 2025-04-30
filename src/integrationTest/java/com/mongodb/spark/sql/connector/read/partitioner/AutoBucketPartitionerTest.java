@@ -178,7 +178,7 @@ public class AutoBucketPartitionerTest extends PartitionerTestCase {
 
   @Test
   void testUsingCompoundPartitionFieldThatContainsDuplicates() {
-    assumeTrue(isAtLeastSevernDotZero());
+    assumeTrue(isAtLeastSevenDotZero());
     ReadConfig readConfig = createReadConfig(
         "compound", PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_LIST_CONFIG, "pk,dups");
     loadSampleData(250, 10, readConfig);

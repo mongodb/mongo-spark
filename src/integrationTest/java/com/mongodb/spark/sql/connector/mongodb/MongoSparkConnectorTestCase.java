@@ -101,7 +101,7 @@ public class MongoSparkConnectorTestCase {
     return getMaxWireVersion() >= 12;
   }
 
-  public boolean isAtLeastSevernDotZero() {
+  public boolean isAtLeastSevenDotZero() {
     return getMaxWireVersion() >= 21;
   }
 
