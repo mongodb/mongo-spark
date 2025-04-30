@@ -30,6 +30,7 @@ import com.mongodb.connection.ServerDescription;
 import com.mongodb.spark.sql.connector.assertions.Assertions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
+import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 import java.util.ArrayList;
 import java.util.List;
@@ -146,6 +147,17 @@ public final class AutoBucketPartitioner implements Partitioner {
         PARTITION_KEY_PROJECTION_FIELD_CONFIG, PARTITION_KEY_PROJECTION_FIELD_DEFAULT);
 
     BsonDocument storageStats = PartitionerHelper.storageStats(readConfig);
+
+    Integer serverMaxWireVersion =
+        readConfig.withClient(c -> c.getClusterDescription().getServerDescriptions().stream()
+            .mapToInt(ServerDescription::getMaxWireVersion)
+            .max()
+            .orElse(0));
+    if (serverMaxWireVersion < SEVEN_DOT_ZERO_WIRE_VERSION && partitionFieldList.size() > 1) {
+      throw new MongoSparkException(
+          "Invalid partitioner strategy. The AutoBucketPartitioner only supports compound keys in MongoDB 7.0 and above.");
+    }
+
     if (storageStats.isEmpty()) {
       LOGGER.warn("Unable to get collection stats (collstats) returning a single partition.");
       return SINGLE_PARTITIONER.generatePartitions(readConfig);
@@ -189,16 +201,6 @@ public final class AutoBucketPartitioner implements Partitioner {
     if (buckets.size() < 2) {
       LOGGER.info("Less than two buckets generated, so returning a single partition");
       return SINGLE_PARTITIONER.generatePartitions(readConfig);
-    }
-
-    Integer serverMaxWireVersion =
-        readConfig.withClient(c -> c.getClusterDescription().getServerDescriptions().stream()
-            .mapToInt(ServerDescription::getMaxWireVersion)
-            .max()
-            .orElse(0));
-    if (serverMaxWireVersion < SEVEN_DOT_ZERO_WIRE_VERSION) {
-      LOGGER.warn(
-          "Note: The AutoBucketPartitioner requires MongoDB 7.0 or greater, if the dataset contains documents with duplicated keys.");
     }
 
     return createMongoInputPartitions(

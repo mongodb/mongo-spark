@@ -31,10 +31,12 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
+import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 import java.util.Arrays;
 import java.util.List;
@@ -227,7 +229,44 @@ public class AutoBucketPartitionerTest extends PartitionerTestCase {
   }
 
   @Test
+  void testCompoundKeysPreMongoDB70() {
+    assumeFalse(isAtLeastSevenDotZero());
+    ReadConfig readConfig = createReadConfig(
+        "compoundKeys", PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_LIST_CONFIG, "_id,pk");
+    assertThrows(MongoSparkException.class, () -> PARTITIONER.generatePartitions(readConfig));
+  }
+
+  @Test
+  void testCompoundKeys() {
+    assumeTrue(isAtLeastSevenDotZero());
+    ReadConfig readConfig = createReadConfig(
+        "compoundKeys", PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_LIST_CONFIG, "_id,pk");
+    loadSampleData(250, 10, readConfig);
+
+    List<MongoInputPartition> expectedPartitions = createMongoInputPartitions(
+        toBsonDocuments(
+            "{\"_id\": {\"min\": \"IGNORED\", \"max\": {\"0\": \"00025\", \"1\": \"_10025\"}}}",
+            "{\"_id\": {\"min\": {\"0\": \"00025\", \"1\": \"_10025\"}, \"max\": {\"0\": \"00050\", \"1\": \"_10050\"}}}",
+            "{\"_id\": {\"min\": {\"0\": \"00050\", \"1\": \"_10050\"}, \"max\": {\"0\": \"00075\", \"1\": \"_10075\"}}}",
+            "{\"_id\": {\"min\": {\"0\": \"00075\", \"1\": \"_10075\"}, \"max\": {\"0\": \"00100\", \"1\": \"_10100\"}}}",
+            "{\"_id\": {\"min\": {\"0\": \"00100\", \"1\": \"_10100\"}, \"max\": {\"0\": \"00125\", \"1\": \"_10125\"}}}",
+            "{\"_id\": {\"min\": {\"0\": \"00125\", \"1\": \"_10125\"}, \"max\": {\"0\": \"00150\", \"1\": \"_10150\"}}}",
+            "{\"_id\": {\"min\": {\"0\": \"00150\", \"1\": \"_10150\"}, \"max\": {\"0\": \"00175\", \"1\": \"_10175\"}}}",
+            "{\"_id\": {\"min\": {\"0\": \"00175\", \"1\": \"_10175\"}, \"max\": {\"0\": \"00200\", \"1\": \"_10200\"}}}",
+            "{\"_id\": {\"min\": {\"0\": \"00200\", \"1\": \"_10200\"}, \"max\": {\"0\": \"00225\", \"1\": \"_10225\"}}}",
+            "{\"_id\": {\"min\": {\"0\": \"00225\", \"1\": \"_10225\"}, \"max\": \"IGNORED\"}}}"),
+        emptyList(),
+        asList("_id", "pk"),
+        PARTITION_FIELD_KEY,
+        getPreferredLocations());
+
+    assertIterableEquals(expectedPartitions, PARTITIONER.generatePartitions(readConfig));
+    assertEquals(250, getDataSetCount(readConfig));
+  }
+
+  @Test
   void testCompoundWithNestedField() {
+    assumeTrue(isAtLeastSevenDotZero());
     ReadConfig readConfig = createReadConfig(
         "compoundWithNested",
         PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_LIST_CONFIG,
