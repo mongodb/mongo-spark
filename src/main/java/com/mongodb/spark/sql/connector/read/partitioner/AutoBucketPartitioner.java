@@ -41,7 +41,7 @@ import org.jetbrains.annotations.VisibleForTesting;
 /**
  * Auto Bucket Partitioner
  *
- * <p>A $sample based partitioner that provides support for all collection types.
+ * <p>A sample based partitioner that provides support for all collection types.
  * Supports partitioning across single or multiple fields, including nested fields.
  *
  * <p>The logic for the partitioner is as follows:</p>

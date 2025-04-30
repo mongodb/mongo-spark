@@ -69,7 +69,7 @@ public final class ReadConfig extends AbstractMongoConfig {
    * @see #PARTITIONER_CONFIG
    */
   public static final String PARTITIONER_DEFAULT =
-      "com.mongodb.spark.sql.connector.read.partitioner.SamplePartitioner";
+      "com.mongodb.spark.sql.connector.read.partitioner.AutoBucketPartitioner";
 
   /**
    * The prefix for specific partitioner based configuration.

@@ -49,11 +49,7 @@ public class AutoBucketPartitionerTest extends PartitionerTestCase {
 
   @Override
   List<String> defaultReadConfigOptions() {
-    return asList(
-        ReadConfig.PARTITIONER_OPTIONS_PREFIX + PARTITION_CHUNK_SIZE_MB_CONFIG,
-        "1",
-        ReadConfig.PARTITIONER_OPTIONS_PREFIX + SamplePartitioner.SAMPLES_PER_PARTITION_CONFIG,
-        "10");
+    return asList(ReadConfig.PARTITIONER_OPTIONS_PREFIX + PARTITION_CHUNK_SIZE_MB_CONFIG, "1");
   }
 
   @Test
