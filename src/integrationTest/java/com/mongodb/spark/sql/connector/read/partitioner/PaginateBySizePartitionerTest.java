@@ -20,9 +20,9 @@ package com.mongodb.spark.sql.connector.read.partitioner;
 import static com.mongodb.spark.sql.connector.config.MongoConfig.COMMENT_CONFIG;
 import static com.mongodb.spark.sql.connector.config.ReadConfig.PARTITIONER_OPTIONS_PREFIX;
 import static com.mongodb.spark.sql.connector.read.partitioner.FieldPartitioner.PARTITION_FIELD_CONFIG;
+import static com.mongodb.spark.sql.connector.read.partitioner.PaginateBySizePartitioner.PARTITION_SIZE_MB_CONFIG;
 import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper.SINGLE_PARTITIONER;
 import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper.createPartitionPipeline;
-import static com.mongodb.spark.sql.connector.read.partitioner.SamplePartitioner.PARTITION_SIZE_MB_CONFIG;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
@@ -43,9 +43,7 @@ public class PaginateBySizePartitionerTest extends PartitionerTestCase {
 
   @Override
   List<String> defaultReadConfigOptions() {
-    return asList(
-        ReadConfig.PARTITIONER_OPTIONS_PREFIX + PaginateBySizePartitioner.PARTITION_SIZE_MB_CONFIG,
-        "1");
+    return asList(ReadConfig.PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG, "1");
   }
 
   @Test
