@@ -35,7 +35,7 @@ plugins {
     id("com.github.johnrengelman.shadow") version "7.0.0"
 }
 
-version = "10.5.0-SNAPSHOT"
+version = "10.5.0"
 group = "org.mongodb.spark"
 
 description = "The official MongoDB Apache Spark Connect Connector."
