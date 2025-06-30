@@ -21,12 +21,12 @@ export ORG_GRADLE_PROJECT_signingKey="${SIGNING_KEY}"
 export ORG_GRADLE_PROJECT_signingPassword=${SIGNING_PASSWORD}
 
 if [ "$RELEASE" == "true" ]; then
-  TASK="publishArchives"
+  TASK="publishArchives closeAndReleaseSonatypeStagingRepository"
 else
   TASK="publishSnapshots"
 fi
 
-SYSTEM_PROPERTIES="-Dorg.gradle.internal.publish.checksums.insecure=true -Dorg.gradle.internal.http.connectionTimeout=120000 -Dorg.gradle.internal.http.socketTimeout=120000"
+SYSTEM_PROPERTIES="-Dorg.gradle.internal.publish.checksums.insecure=true"
 
 ./gradlew -version
 ./gradlew ${SYSTEM_PROPERTIES} --stacktrace --info ${TASK} -DscalaVersion=2.12 -DsparkVersion=3.1.2
