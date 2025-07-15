@@ -23,6 +23,7 @@ import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableList;
 
 import com.mongodb.client.model.changestream.FullDocument;
+import com.mongodb.client.model.changestream.FullDocumentBeforeChange;
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
 import com.mongodb.spark.sql.connector.read.partitioner.Partitioner;
 import java.util.HashMap;
@@ -288,6 +289,35 @@ public final class ReadConfig extends AbstractMongoConfig {
 
   private static final String STREAM_LOOKUP_FULL_DOCUMENT_DEFAULT = FullDocument.DEFAULT.getValue();
 
+  /**
+   * Streaming full document <strong>before change</strong> configuration.
+   *
+   * <p>Determines what to return as the pre-image of the document during replace, update, or delete operations
+   * when using a MongoDB Change Stream.
+   *
+   * <p>Only applies if the MongoDB server is configured to capture pre-images.
+   * See: <a href="https://www.mongodb.com/docs/manual/changeStreams/#change-streams-with-document-pre--and-post-images">
+   * Change streams lookup full document before change</a> for further details.
+   *
+   * <p>Possible values:
+   * <ul>
+   *   <li><strong>"default"</strong> - Uses the server's default behavior for the <code>fullDocumentBeforeChange</code> field.</li>
+   *   <li><strong>"off"</strong> - Do not include the pre-image of the document in the change stream event.</li>
+   *   <li><strong>"whenAvailable"</strong> - Include the pre-image of the modified document if available; otherwise, omit it.</li>
+   *   <li><strong>"required"</strong> - Include the pre-image, and raise an error if it is not available.</li>
+   * </ul>
+   *
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: "default" - the server's default behavior for the <code>fullDocumentBeforeChange</code> field.
+   * @since 10.6
+   */
+  public static final String STREAM_LOOKUP_FULL_DOCUMENT_BEFORE_CHANGE_CONFIG =
+      "change.stream.lookup.full.document.before.change";
+
+  private static final String STREAM_LOOKUP_FULL_DOCUMENT_BEFORE_CHANGE_DEFAULT =
+      FullDocumentBeforeChange.DEFAULT.getValue();
+
   enum StreamingStartupMode {
     LATEST,
     TIMESTAMP;
@@ -487,6 +517,19 @@ public final class ReadConfig extends AbstractMongoConfig {
     try {
       return FullDocument.fromString(
           getOrDefault(STREAM_LOOKUP_FULL_DOCUMENT_CONFIG, STREAM_LOOKUP_FULL_DOCUMENT_DEFAULT));
+    } catch (IllegalArgumentException e) {
+      throw new ConfigException(e);
+    }
+  }
+
+  /** @return the stream full document before change configuration or 'default' if not set.
+   * @since 10.6
+   */
+  public FullDocumentBeforeChange getStreamFullDocumentBeforeChange() {
+    try {
+      return FullDocumentBeforeChange.fromString(getOrDefault(
+          STREAM_LOOKUP_FULL_DOCUMENT_BEFORE_CHANGE_CONFIG,
+          STREAM_LOOKUP_FULL_DOCUMENT_BEFORE_CHANGE_DEFAULT));
     } catch (IllegalArgumentException e) {
       throw new ConfigException(e);
     }
