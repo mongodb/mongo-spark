@@ -196,6 +196,7 @@ final class MongoContinuousPartitionReader implements ContinuousPartitionReader<
       }
       changeStreamIterable
           .fullDocument(readConfig.getStreamFullDocument())
+          .fullDocumentBeforeChange(readConfig.getStreamFullDocumentBeforeChange())
           .comment(readConfig.getComment());
       changeStreamIterable = lastOffset.applyToChangeStreamIterable(changeStreamIterable);
 
