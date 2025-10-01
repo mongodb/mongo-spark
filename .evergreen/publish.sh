@@ -10,8 +10,8 @@ set -o errexit  # Exit the script with error if any of the commands fail
 
 echo "Publishing"
 
-export JDK11="/opt/java/jdk11"
-export JAVA_HOME=$JDK11
+export JDK17="/opt/java/jdk17"
+export JAVA_HOME=$JDK17
 
 RELEASE=${RELEASE:false}
 
@@ -29,5 +29,4 @@ fi
 SYSTEM_PROPERTIES="-Dorg.gradle.internal.publish.checksums.insecure=true"
 
 ./gradlew -version
-./gradlew ${SYSTEM_PROPERTIES} --stacktrace --info ${TASK} -DscalaVersion=2.12 -DsparkVersion=3.1.2
-./gradlew ${SYSTEM_PROPERTIES} --stacktrace --info ${TASK} -DscalaVersion=2.13 -DsparkVersion=3.2.2
+./gradlew ${SYSTEM_PROPERTIES} --stacktrace --info ${TASK}
