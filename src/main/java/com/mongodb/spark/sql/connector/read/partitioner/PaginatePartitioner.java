@@ -107,6 +107,8 @@ abstract class PaginatePartitioner extends FieldPartitioner {
         boundaryPipeline.addAll(aggregationPipeline);
         boundaryPipeline.add(Aggregates.skip(numDocumentsPerPartition));
         boundaryPipeline.add(Aggregates.limit(1));
+        // $project at the end of the pipeline as per SERVER-49306.
+        // Ensures indexes can be utilized for the $skip stage
         boundaryPipeline.add(Aggregates.project(projection));
         return coll.aggregate(boundaryPipeline)
             .allowDiskUse(readConfig.getAggregationAllowDiskUse())
