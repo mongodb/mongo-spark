@@ -89,7 +89,6 @@ abstract class PaginatePartitioner extends FieldPartitioner {
           : Projections.fields(Projections.include(partitionField), Projections.excludeId());
 
       List<Bson> aggregationPipeline = new ArrayList<>(readConfig.getAggregationPipeline());
-      aggregationPipeline.add(Aggregates.project(projection));
       aggregationPipeline.add(Aggregates.sort(Sorts.ascending(partitionField)));
 
       BsonDocument boundary = readConfig.withCollection(coll -> {
@@ -108,6 +107,7 @@ abstract class PaginatePartitioner extends FieldPartitioner {
         boundaryPipeline.addAll(aggregationPipeline);
         boundaryPipeline.add(Aggregates.skip(numDocumentsPerPartition));
         boundaryPipeline.add(Aggregates.limit(1));
+        boundaryPipeline.add(Aggregates.project(projection));
         return coll.aggregate(boundaryPipeline)
             .allowDiskUse(readConfig.getAggregationAllowDiskUse())
             .comment(readConfig.getComment())
