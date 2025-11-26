@@ -241,7 +241,7 @@ class MongoSparkConnectorWriteTest extends MongoSparkConnectorTestCase {
     SparkSession spark = getOrCreateSparkSession();
 
     Dataset<Row> df = spark.read().json(WRITE_RESOURCES_JSON_PATH);
-    WriteConfig writeConfig = MongoConfig.writeConfig(asJava(spark.initialSessionOptions()))
+    WriteConfig writeConfig = MongoConfig.writeConfig(asJava(spark.conf().getAll()))
         .withOption(COMMENT_CONFIG, TEST_COMMENT);
 
     assertCommentsInProfile(
@@ -264,7 +264,7 @@ class MongoSparkConnectorWriteTest extends MongoSparkConnectorTestCase {
   void testLogCommentsInProfilerLogsStreamingWrites() {
     SparkSession spark = getOrCreateSparkSession();
 
-    WriteConfig writeConfig = MongoConfig.writeConfig(asJava(spark.initialSessionOptions()))
+    WriteConfig writeConfig = MongoConfig.writeConfig(asJava(spark.conf().getAll()))
         .withOption(COMMENT_CONFIG, TEST_COMMENT);
 
     assertCommentsInProfile(
