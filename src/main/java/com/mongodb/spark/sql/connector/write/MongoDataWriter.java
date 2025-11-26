@@ -18,6 +18,7 @@ package com.mongodb.spark.sql.connector.write;
 
 import static java.lang.String.format;
 
+import com.mongodb.MongoBulkWriteException;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.model.BulkWriteOptions;
 import com.mongodb.client.model.InsertOneModel;
@@ -186,18 +187,32 @@ final class MongoDataWriter implements DataWriter<InternalRow> {
   }
 
   private void writeModels() {
-    if (writeModelList.size() > 0) {
+    if (!writeModelList.isEmpty()) {
       LOGGER.debug(
           "Writing batch of {} operations to: {}. PartitionId: {}, TaskId: {}.",
           writeModelList.size(),
           writeConfig.getNamespace().getFullName(),
           partitionId,
           taskId);
-      getMongoClient()
-          .getDatabase(writeConfig.getDatabaseName())
-          .getCollection(writeConfig.getCollectionName(), BsonDocument.class)
-          .withWriteConcern(writeConfig.getWriteConcern())
-          .bulkWrite(writeModelList, bulkWriteOptions);
+
+      try {
+        getMongoClient()
+            .getDatabase(writeConfig.getDatabaseName())
+            .getCollection(writeConfig.getCollectionName(), BsonDocument.class)
+            .withWriteConcern(writeConfig.getWriteConcern())
+            .bulkWrite(writeModelList, bulkWriteOptions);
+      } catch (MongoBulkWriteException ex) {
+        if (writeConfig.ignoreDuplicatesOnInsert()
+            && ex.getWriteErrors().stream().allMatch(e -> e.getCode() == 11000)) {
+          LOGGER.info(
+              "Writing batch. PartitionId: {}, TaskId: {}. Duplicates found on insert and they were ignored as requested: {}",
+              partitionId,
+              taskId,
+              ex.getWriteErrors());
+        } else {
+          throw ex;
+        }
+      }
       writeModelList.clear();
     }
   }

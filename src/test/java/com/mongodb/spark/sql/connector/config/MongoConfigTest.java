@@ -160,6 +160,30 @@ public class MongoConfigTest {
   }
 
   @Test
+  void testWriteConfigIgnoreDuplicatesOnInsert() {
+    WriteConfig writeConfig = MongoConfig.createConfig(CONFIG_MAP).toWriteConfig();
+    // Default
+    assertFalse(writeConfig.ignoreDuplicatesOnInsert());
+    assertFalse(
+        writeConfig.withOption("ignoreDuplicatesOnInsert", "False").ignoreDuplicatesOnInsert());
+
+    // Missing other required settings
+    assertFalse(
+        writeConfig.withOption("ignoreDuplicatesOnInsert", "True").ignoreDuplicatesOnInsert());
+    assertFalse(writeConfig
+        .withOption("ignoreDuplicatesOnInsert", "True")
+        .withOption("ordered", "False")
+        .ignoreDuplicatesOnInsert());
+
+    // With all required settings
+    assertTrue(writeConfig
+        .withOption("ignoreDuplicatesOnInsert", "True")
+        .withOption("ordered", "False")
+        .withOption("operationType", "insert")
+        .ignoreDuplicatesOnInsert());
+  }
+
+  @Test
   void testMongoConfigOptionsParsing() {
     MongoConfig mongoConfig = MongoConfig.readConfig(OPTIONS_CONFIG_MAP);
 
