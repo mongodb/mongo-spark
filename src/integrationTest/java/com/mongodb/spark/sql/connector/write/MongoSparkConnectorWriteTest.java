@@ -17,10 +17,12 @@
 package com.mongodb.spark.sql.connector.write;
 
 import static com.mongodb.spark.sql.connector.config.MongoConfig.COMMENT_CONFIG;
+import static com.mongodb.spark.sql.connector.config.WriteConfig.IGNORE_DUPLICATES_ON_INSERT_CONFIG;
 import static com.mongodb.spark.sql.connector.interop.JavaScala.asJava;
 import static java.util.Arrays.asList;
 import static org.apache.spark.sql.types.DataTypes.createStructField;
 import static org.apache.spark.sql.types.DataTypes.createStructType;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -29,6 +31,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.mongodb.client.model.CountOptions;
 import com.mongodb.client.model.CreateCollectionOptions;
+import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.TimeSeriesGranularity;
 import com.mongodb.client.model.TimeSeriesOptions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
@@ -38,6 +41,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
+import org.apache.spark.SparkException;
 import org.apache.spark.sql.AnalysisException;
 import org.apache.spark.sql.DataFrameWriter;
 import org.apache.spark.sql.Dataset;
@@ -109,6 +113,83 @@ class MongoSparkConnectorWriteTest extends MongoSparkConnectorTestCase {
         .save();
     assertCollection(
         dataWithoutNulls.stream().map(BsonDocument::parse).collect(Collectors.toList()));
+  }
+
+  @Test
+  void testIgnoreDuplicates() {
+    // Given
+    List<String> dataWithDuplicates = asList(
+        "{'_id': 1, 'name': 'Bilbo Baggins'}",
+        "{'_id': 2, 'name': 'Gandalf'}",
+        "{'_id': 1, 'name': 'Bilbo Baggins'}",
+        "{'_id': 3, 'name': 'Thorin'}",
+        "{'_id': 2, 'name': 'Gandalf'}",
+        "{'_id': 4, 'name': 'Balin'}",
+        "{'_id': 3, 'name': 'Thorin'}",
+        "{'_id': 5, 'name': 'Kíli'}",
+        "{'_id': 5, 'name': 'Balin'}",
+        "{'_id': 6, 'name': 'Bombur'}");
+
+    List<String> dataWithoutDuplicates = asList(
+        "{'_id': 1, 'name': 'Bilbo Baggins'}",
+        "{'_id': 2, 'name': 'Gandalf'}",
+        "{'_id': 3, 'name': 'Thorin'}",
+        "{'_id': 4, 'name': 'Balin'}",
+        "{'_id': 5, 'name': 'Kíli'}",
+        "{'_id': 6, 'name': 'Bombur'}");
+
+    SparkSession spark = getOrCreateSparkSession();
+
+    DataFrameWriter<Row> dfw = spark
+        .read()
+        .json(spark.createDataset(dataWithDuplicates, Encoders.STRING()))
+        .write()
+        .format("mongodb")
+        .option(WriteConfig.MAX_BATCH_SIZE_CONFIG, 4)
+        .mode("Append")
+        .option(WriteConfig.OPERATION_TYPE_CONFIG, "insert")
+        .option(IGNORE_DUPLICATES_ON_INSERT_CONFIG, "true");
+
+    // Then using ordered inserts with ignore duplicates it throws an error
+    assertThrows(SparkException.class, dfw::save);
+
+    // Then using unordered inserts with ignore duplicates it does not throw
+    getCollection().deleteMany(BsonDocument.parse("{}"));
+    assertDoesNotThrow(
+        () -> dfw.option(WriteConfig.ORDERED_BULK_OPERATION_CONFIG, false).save());
+    assertCollection(
+        dataWithoutDuplicates.stream().map(BsonDocument::parse).collect(Collectors.toList()));
+
+    // Given a collection with unique names index
+    getCollection().deleteMany(BsonDocument.parse("{}"));
+    getCollection().createIndex(BsonDocument.parse("{name: 1}"), new IndexOptions().unique(true));
+
+    List<String> dataWithDuplicatesNoIds = asList(
+        "{'name': 'Bilbo Baggins'}",
+        "{'name': 'Gandalf'}",
+        "{'name': 'Bilbo Baggins'}",
+        "{'name': 'Thorin'}",
+        "{'name': 'Gandalf'}",
+        "{'name': 'Balin'}",
+        "{'name': 'Thorin'}",
+        "{'name': 'Kíli'}",
+        "{'name': 'Balin'}",
+        "{'name': 'Bombur'}");
+
+    DataFrameWriter<Row> dfwNoIds = spark
+        .read()
+        .json(spark.createDataset(dataWithDuplicatesNoIds, Encoders.STRING()))
+        .write()
+        .format("mongodb")
+        .option(WriteConfig.MAX_BATCH_SIZE_CONFIG, 4)
+        .option(WriteConfig.OPERATION_TYPE_CONFIG, "insert")
+        .option(WriteConfig.ORDERED_BULK_OPERATION_CONFIG, false)
+        .option(IGNORE_DUPLICATES_ON_INSERT_CONFIG, "true")
+        .mode("Append");
+
+    // Then using unordered inserts with ignore duplicates does not throw
+    assertDoesNotThrow(() -> dfwNoIds.save());
+    assertEquals(6, getCollection().countDocuments());
   }
 
   @Test
