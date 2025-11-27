@@ -246,7 +246,7 @@ public final class WriteConfig extends AbstractMongoConfig {
   /**
    * Ignore duplicate values when inserting.
    *
-   * <p><strong>Note:</strong> requires <em></em>unordered inserts</em> to be configured otherwise this configuration is ignored.</p>
+   * <p><strong>Note:</strong> requires <em>unordered inserts</em> to be configured otherwise this configuration is ignored.</p>
    *
    * <p>Configuration: {@value}
    *
@@ -339,7 +339,7 @@ public final class WriteConfig extends AbstractMongoConfig {
   }
 
   /**
-   * @return the true if ignoring duplicates on insert and operation mode is 'insert' and the bulk write is unordered.
+   * @return true if ignoring duplicates on insert and operation mode is 'insert' and the bulk write is unordered.
    * @since 10.6
    * @see #getOperationType()
    * @see #isOrdered()
