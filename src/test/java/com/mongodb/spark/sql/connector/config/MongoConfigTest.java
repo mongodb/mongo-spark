@@ -126,6 +126,18 @@ public class MongoConfigTest {
     writeConfig = writeConfig.withOption(
         WriteConfig.WRITE_PREFIX + WriteConfig.WRITE_CONCERN_W_CONFIG, "region1");
     assertEquals(new WriteConcern("region1"), writeConfig.getWriteConcern());
+
+    writeConfig = MongoConfig.createConfig(CONFIG_MAP).toWriteConfig();
+    writeConfig.withOption(MongoConfig.CONNECTION_STRING_CONFIG, "mongodb://localhost/");
+    assertEquals(WriteConcern.ACKNOWLEDGED, writeConfig.getWriteConcern());
+
+    writeConfig = writeConfig.withOption(
+        MongoConfig.CONNECTION_STRING_CONFIG, "mongodb://localhost/?w=majority");
+    assertEquals(WriteConcern.MAJORITY, writeConfig.getWriteConcern());
+
+    // Explicit configuration beats connection string
+    writeConfig = writeConfig.withOption(WriteConfig.WRITE_CONCERN_W_CONFIG, "3");
+    assertEquals(3, writeConfig.getWriteConcern().getW());
   }
 
   @Test
