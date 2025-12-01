@@ -15,7 +15,7 @@
  */
 
 import java.io.ByteArrayOutputStream
-import java.net.URI
+import java.time.Duration
 
 buildscript {
     repositories {
@@ -33,9 +33,10 @@ plugins {
     id("com.github.spotbugs") version "4.7.9"
     id("com.diffplug.spotless") version "6.19.0"
     id("com.github.johnrengelman.shadow") version "7.0.0"
+    id("io.github.gradle-nexus.publish-plugin") version "2.0.0"
 }
 
-version = "10.5.0-SNAPSHOT"
+version = "10.5.1-SNAPSHOT"
 group = "org.mongodb.spark"
 
 description = "The official MongoDB Apache Spark Connect Connector."
@@ -319,19 +320,30 @@ publishing {
             }
         }
     }
+}
 
+nexusPublishing {
     repositories {
-        maven {
-            val snapshotsRepoUrl = URI("https://oss.sonatype.org/content/repositories/snapshots/")
-            val releasesRepoUrl = URI("https://oss.sonatype.org/service/local/staging/deploy/maven2/")
-            url = if (version.toString().endsWith("SNAPSHOT")) snapshotsRepoUrl else releasesRepoUrl
-            credentials {
-                val nexusUsername: String? by project
-                val nexusPassword: String? by project
-                username = nexusUsername ?: ""
-                password = nexusPassword ?: ""
-            }
+        sonatype {
+            val nexusUsername: String? by project
+            val nexusPassword: String? by project
+            username.set(nexusUsername ?: "")
+            password.set(nexusPassword ?: "")
+
+            // central portal URLs
+            nexusUrl.set(uri("https://ossrh-staging-api.central.sonatype.com/service/local/"))
+            snapshotRepositoryUrl.set(uri("https://central.sonatype.com/repository/maven-snapshots/"))
         }
+    }
+
+    connectTimeout.set(Duration.ofMinutes(5))
+    clientTimeout.set(Duration.ofMinutes(30))
+
+    transitionCheckOptions {
+        // Maven Central can take a long time on its compliance checks.
+        // Set the timeout for waiting for the repository to close to a comfortable 50 minutes.
+        maxRetries.set(300)
+        delayBetween.set(Duration.ofSeconds(10))
     }
 }
 

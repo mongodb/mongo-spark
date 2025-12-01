@@ -211,14 +211,7 @@ functions:
       params:
         script: |
           ${PREPARE_SHELL}
-          cd "$MONGO_ORCHESTRATION_HOME"
-          # source the mongo-orchestration virtualenv if it exists
-          if [ -f venv/bin/activate ]; then
-            . venv/bin/activate
-          elif [ -f venv/Scripts/activate ]; then
-            . venv/Scripts/activate
-          fi
-          mongo-orchestration stop
+          sh ${DRIVERS_TOOLS}/.evergreen/stop-orchestration.sh || true
 
   "cleanup":
     - command: shell.exec
@@ -394,10 +387,6 @@ axes:
   - id: "version"
     display_name: "MongoDB Version"
     values:
-      - id: "4.0"
-        display_name: "4.0"
-        variables:
-          VERSION: "4.0"
       - id: "4.4"
         display_name: "4.4"
         variables:
@@ -485,7 +474,7 @@ buildvariants:
       - name: "integration-test-task"
 
   - matrix_name: "integration-tests-2-13"
-    matrix_spec: { scala: "2.13", spark: ["3.2.4", "3.5.1"], version: ["4.0", "7.0", "latest"], topology: "replicaset" }
+    matrix_spec: { scala: "2.13", spark: ["3.2.4", "3.5.1"], version: ["4.4", "7.0", "latest"], topology: "replicaset" }
     display_name: "Integration tests: ${scala} ${spark} ${version} ${topology}"
     tags: ["integration-test"]
     tasks:

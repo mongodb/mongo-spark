@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.bson.BsonDocument;
-import org.bson.BsonInt32;
 import org.bson.conversions.Bson;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
@@ -105,8 +104,7 @@ public final class SamplePartitioner extends FieldPartitioner {
       count = readConfig.withCollection(coll ->
           coll.countDocuments(matchQuery, new CountOptions().comment(readConfig.getComment())));
     }
-    double avgObjSizeInBytes =
-        storageStats.get("avgObjSize", new BsonInt32(0)).asNumber().doubleValue();
+    double avgObjSizeInBytes = PartitionerHelper.averageDocumentSize(storageStats);
     double numDocumentsPerPartition = Math.floor(partitionSizeInBytes / avgObjSizeInBytes);
 
     if (numDocumentsPerPartition >= count) {

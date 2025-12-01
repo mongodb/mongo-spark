@@ -101,6 +101,10 @@ public class MongoSparkConnectorTestCase {
     return getMaxWireVersion() >= 12;
   }
 
+  public boolean isAtLeastSevenDotZero() {
+    return getMaxWireVersion() >= 21;
+  }
+
   private int getMaxWireVersion() {
     MongoClient mongoClient = HELPER.getMongoClient();
     ClusterType clusterType = mongoClient.getClusterDescription().getType();
@@ -239,6 +243,10 @@ public class MongoSparkConnectorTestCase {
 
   public SparkContext getOrCreateSparkContext(final SparkConf sparkConfig) {
     return HELPER.getOrCreateSparkContext(sparkConfig);
+  }
+
+  public SparkContext createSparkContext(final SparkConf sparkConfig) {
+    return HELPER.getOrCreateSparkContext(sparkConfig, true);
   }
 
   public void retryAssertion(final Runnable assertion) {
