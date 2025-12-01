@@ -290,7 +290,7 @@ public final class ReadConfig extends AbstractMongoConfig {
   private static final String STREAM_LOOKUP_FULL_DOCUMENT_DEFAULT = FullDocument.DEFAULT.getValue();
 
   /**
-   * Streaming full document <b>before change</b> configuration.
+   * Streaming full document <strong>before change</strong> configuration.
    *
    * <p>Determines what to return as the pre-image of the document during replace, update, or delete operations
    * when using a MongoDB Change Stream.
@@ -301,15 +301,15 @@ public final class ReadConfig extends AbstractMongoConfig {
    *
    * <p>Possible values:
    * <ul>
-   *   <li><b>"default"</b> – Uses the server's default behavior for the <code>fullDocumentBeforeChange</code> field.</li>
-   *   <li><b>"off"</b> – Do not include the pre-image of the document in the change stream event.</li>
-   *   <li><b>"whenAvailable"</b> – Include the pre-image of the modified document if available; otherwise, omit it.</li>
-   *   <li><b>"required"</b> – Include the pre-image, and raise an error if it is not available.</li>
+   *   <li><strong>"default"</strong> - Uses the server's default behavior for the <code>fullDocumentBeforeChange</code> field.</li>
+   *   <li><strong>"off"</strong> - Do not include the pre-image of the document in the change stream event.</li>
+   *   <li><strong>"whenAvailable"</strong> - Include the pre-image of the modified document if available; otherwise, omit it.</li>
+   *   <li><strong>"required"</strong> - Include the pre-image, and raise an error if it is not available.</li>
    * </ul>
    *
    * <p>Configuration: {@value}
    *
-   * <p>Default: "default" – the server's default behavior for the <code>fullDocumentBeforeChange</code> field.
+   * <p>Default: "default" - the server's default behavior for the <code>fullDocumentBeforeChange</code> field.
    */
   public static final String STREAM_LOOKUP_FULL_DOCUMENT_BEFORE_CHANGE_CONFIG =
       "change.stream.lookup.full.document.before.change";
