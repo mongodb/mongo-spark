@@ -36,7 +36,7 @@ import org.bson.conversions.Bson;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.VisibleForTesting;
 
-public class ExpressionConverter {
+public final class ExpressionConverter {
   private final StructType schema;
 
   public ExpressionConverter(final StructType schema) {
