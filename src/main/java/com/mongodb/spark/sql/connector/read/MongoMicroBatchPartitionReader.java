@@ -185,6 +185,7 @@ final class MongoMicroBatchPartitionReader implements PartitionReader<InternalRo
       }
       changeStreamIterable
           .fullDocument(readConfig.getStreamFullDocument())
+          .fullDocumentBeforeChange(readConfig.getStreamFullDocumentBeforeChange())
           .comment(readConfig.getComment());
       if (partition.getStartOffsetTimestamp().getTime() >= 0) {
         changeStreamIterable.startAtOperationTime(partition.getStartOffsetTimestamp());

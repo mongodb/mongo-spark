@@ -17,20 +17,27 @@
 
 package com.mongodb.spark.sql.connector;
 
+import static com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorHelper.CATALOG;
+import static com.mongodb.spark.sql.connector.schema.ConverterHelper.TIMESTAMP_NTZ_TYPE;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.mongodb.spark.sql.connector.beans.BoxedBean;
 import com.mongodb.spark.sql.connector.beans.ComplexBean;
 import com.mongodb.spark.sql.connector.beans.DateTimeBean;
 import com.mongodb.spark.sql.connector.beans.PrimitiveBean;
+import com.mongodb.spark.sql.connector.config.WriteConfig;
+import com.mongodb.spark.sql.connector.config.WriteConfig.TruncateMode;
 import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,8 +46,12 @@ import java.util.concurrent.TimeUnit;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoder;
 import org.apache.spark.sql.Encoders;
+import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class RoundTripTest extends MongoSparkConnectorTestCase {
 
@@ -68,8 +79,9 @@ public class RoundTripTest extends MongoSparkConnectorTestCase {
     assertIterableEquals(dataSetOriginal, dataSetMongo);
   }
 
-  @Test
-  void testBoxedBean() {
+  @ParameterizedTest
+  @EnumSource(TruncateMode.class)
+  void testBoxedBean(final TruncateMode mode) {
     // Given
     List<BoxedBean> dataSetOriginal =
         singletonList(new BoxedBean((byte) 1, (short) 2, 3, 4L, 5.0f, 6.0, true));
@@ -79,7 +91,12 @@ public class RoundTripTest extends MongoSparkConnectorTestCase {
     Encoder<BoxedBean> encoder = Encoders.bean(BoxedBean.class);
 
     Dataset<BoxedBean> dataset = spark.createDataset(dataSetOriginal, encoder);
-    dataset.write().format("mongodb").mode("Overwrite").save();
+    dataset
+        .write()
+        .format("mongodb")
+        .mode("Overwrite")
+        .option(WriteConfig.TRUNCATE_MODE_CONFIG, mode.name())
+        .save();
 
     // Then
     List<BoxedBean> dataSetMongo = spark
@@ -92,24 +109,29 @@ public class RoundTripTest extends MongoSparkConnectorTestCase {
     assertIterableEquals(dataSetOriginal, dataSetMongo);
   }
 
-  @Test
-  void testDateTimeBean() {
+  @ParameterizedTest()
+  @ValueSource(strings = {"true", "false"})
+  void testDateTimeBean(final String java8DateTimeAPI) {
+    assumeTrue(TIMESTAMP_NTZ_TYPE != null);
     TimeZone original = TimeZone.getDefault();
     try {
-      TimeZone.setDefault(TimeZone.getTimeZone(ZoneOffset.UTC));
+      TimeZone.setDefault(TimeZone.getTimeZone(UTC));
 
       // Given
       long oneHour = TimeUnit.MILLISECONDS.convert(1, TimeUnit.HOURS);
       long oneDay = oneHour * 24;
 
+      Instant epoch = Instant.EPOCH;
       List<DateTimeBean> dataSetOriginal = singletonList(new DateTimeBean(
           new Date(oneDay * 365),
           new Timestamp(oneDay + oneHour),
           LocalDate.of(2000, 1, 1),
-          Instant.EPOCH));
+          epoch,
+          LocalDateTime.ofInstant(epoch, UTC)));
 
       // when
-      SparkSession spark = getOrCreateSparkSession();
+      SparkSession spark = getOrCreateSparkSession(
+          getSparkConf().set("spark.sql.datetime.java8API.enabled", java8DateTimeAPI));
       Encoder<DateTimeBean> encoder = Encoders.bean(DateTimeBean.class);
 
       Dataset<DateTimeBean> dataset = spark.createDataset(dataSetOriginal, encoder);
@@ -161,5 +183,33 @@ public class RoundTripTest extends MongoSparkConnectorTestCase {
         .as(encoder)
         .collectAsList();
     assertIterableEquals(dataSetOriginal, dataSetMongo);
+  }
+
+  @Test
+  void testCatalogAccessAndDelete() {
+    List<BoxedBean> dataSetOriginal = asList(
+        new BoxedBean((byte) 1, (short) 2, 0, 4L, 5.0f, 6.0, true),
+        new BoxedBean((byte) 1, (short) 2, 1, 4L, 5.0f, 6.0, true),
+        new BoxedBean((byte) 1, (short) 2, 2, 4L, 5.0f, 6.0, true),
+        new BoxedBean((byte) 1, (short) 2, 3, 4L, 5.0f, 6.0, false),
+        new BoxedBean((byte) 1, (short) 2, 4, 4L, 5.0f, 6.0, false),
+        new BoxedBean((byte) 1, (short) 2, 5, 4L, 5.0f, 6.0, false));
+
+    SparkSession spark = getOrCreateSparkSession();
+    Encoder<BoxedBean> encoder = Encoders.bean(BoxedBean.class);
+    spark
+        .createDataset(dataSetOriginal, encoder)
+        .write()
+        .format("mongodb")
+        .mode("Overwrite")
+        .save();
+
+    String tableName = CATALOG + "." + HELPER.getDatabaseName() + "." + HELPER.getCollectionName();
+    List<Row> rows = spark.sql("select * from " + tableName).collectAsList();
+    assertEquals(6, rows.size());
+
+    spark.sql("delete from " + tableName + " where booleanField = false and intField > 3");
+    rows = spark.sql("select * from " + tableName).collectAsList();
+    assertEquals(4, rows.size());
   }
 }

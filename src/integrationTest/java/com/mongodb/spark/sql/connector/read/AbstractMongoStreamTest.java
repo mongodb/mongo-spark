@@ -39,6 +39,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.ChangeStreamPreAndPostImagesOptions;
+import com.mongodb.client.model.CreateCollectionOptions;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.InsertManyOptions;
 import com.mongodb.client.model.Updates;
@@ -54,6 +56,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiConsumer;
@@ -302,6 +305,60 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
                     .filter(c -> c.get(c.fieldIndex("a")).equals("b"))
                     .count(),
                 msg)));
+  }
+
+  @Test
+  void testStreamFullDocumentBeforeChange() {
+    assumeTrue(supportsChangeStreams());
+    assumeTrue(isAtLeastSixDotZero());
+
+    CollectionsConfig.Type collectionsConfigType = CollectionsConfig.Type.SINGLE;
+    testIdentifier = computeTestIdentifier("FullDocBeforeChange", collectionsConfigType);
+
+    testStreamingQuery(
+        createMongoConfig(collectionsConfigType)
+            .withOption(
+                ReadConfig.READ_PREFIX
+                    + ReadConfig.STREAM_LOOKUP_FULL_DOCUMENT_BEFORE_CHANGE_CONFIG,
+                "required"),
+        DOCUMENT_BEFORE_CHANGE_SCHEMA,
+        withSourceDb(
+            "Create the collection",
+            (msg, db) -> db.createCollection(
+                collectionName(),
+                new CreateCollectionOptions()
+                    .changeStreamPreAndPostImagesOptions(
+                        new ChangeStreamPreAndPostImagesOptions(true)))),
+        withSource("inserting 0-25", (msg, coll) -> coll.insertMany(createDocuments(0, 25))),
+        withMemorySink("Expected to see 25 documents", (msg, ds) -> {
+          List<Row> rows = ds.collectAsList();
+          assertEquals(25, rows.size(), msg);
+          assertTrue(
+              rows.stream()
+                  .map(r -> r.getString(r.fieldIndex("fullDocumentBeforeChange")))
+                  .allMatch(Objects::isNull),
+              msg);
+        }),
+        withSource(
+            "Updating all",
+            (msg, coll) ->
+                coll.updateMany(new BsonDocument(), Updates.set("a", new BsonString("a")))),
+        withMemorySink(
+            "Expecting to see 50 documents and the last 25 have fullDocumentBeforeChange",
+            (msg, ds) -> {
+              List<Row> rows = ds.collectAsList();
+              assertEquals(50, rows.size());
+              assertTrue(
+                  rows.subList(0, 24).stream()
+                      .map(r -> r.getString(r.fieldIndex("fullDocumentBeforeChange")))
+                      .allMatch(Objects::isNull),
+                  msg);
+              assertTrue(
+                  rows.subList(25, 50).stream()
+                      .map(r -> r.getString(r.fieldIndex("fullDocumentBeforeChange")))
+                      .noneMatch(Objects::isNull),
+                  msg);
+            }));
   }
 
   @ParameterizedTest
@@ -706,6 +763,11 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
       createStructField("operationType", DataTypes.StringType, false),
       createStructField("clusterTime", DataTypes.StringType, false),
       createStructField("fullDocument", DataTypes.StringType, true)));
+
+  private static final StructType DOCUMENT_BEFORE_CHANGE_SCHEMA = createStructType(asList(
+      createStructField("operationType", DataTypes.StringType, false),
+      createStructField("clusterTime", DataTypes.StringType, false),
+      createStructField("fullDocumentBeforeChange", DataTypes.StringType, true)));
 
   @SafeVarargs
   private final void testStreamingQuery(
