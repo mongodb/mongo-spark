@@ -31,9 +31,12 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.mongodb.client.model.CountOptions;
 import com.mongodb.client.model.CreateCollectionOptions;
+import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.TimeSeriesGranularity;
 import com.mongodb.client.model.TimeSeriesOptions;
+import com.mongodb.client.model.ValidationLevel;
+import com.mongodb.client.model.ValidationOptions;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorTestCase;
@@ -160,8 +163,48 @@ class MongoSparkConnectorWriteTest extends MongoSparkConnectorTestCase {
     assertCollection(
         dataWithoutDuplicates.stream().map(BsonDocument::parse).collect(Collectors.toList()));
 
+    // Test ignore duplicates still errors if there is a validation error
+
+    // Given
+    List<String> dataWithDuplicatesSomeMissingAges = asList(
+        "{'_id': 1, 'name': 'Bilbo Baggins', 'age': 50}",
+        "{'_id': 2, 'name': 'Gandalf', 'age': 1000}",
+        "{'_id': 1, 'name': 'Bilbo Baggins', 'age': 50}",
+        "{'_id': 3, 'name': 'Thorin', 'age': 195}",
+        "{'_id': 2, 'name': 'Gandalf', 'age': 1000}",
+        "{'_id': 4, 'name': 'Balin'}",
+        "{'_id': 3, 'name': 'Thorin'}",
+        "{'_id': 5, 'name': 'Kíli', 'age': 77}",
+        "{'_id': 5, 'name': 'Balin', 'age': 178}");
+
+    getCollection().drop();
+    getDatabase()
+        .createCollection(
+            getCollectionName(),
+            new CreateCollectionOptions()
+                .validationOptions(new ValidationOptions()
+                    .validator(Filters.gte("age", 10))
+                    .validationLevel(ValidationLevel.STRICT)));
+
+    DataFrameWriter<Row> dfwCollectionHasValidation = spark
+        .read()
+        .json(spark.createDataset(dataWithDuplicatesSomeMissingAges, Encoders.STRING()))
+        .write()
+        .format("mongodb")
+        .option(WriteConfig.MAX_BATCH_SIZE_CONFIG, 4)
+        .mode("Append")
+        .option(WriteConfig.ORDERED_BULK_OPERATION_CONFIG, false)
+        .option(WriteConfig.OPERATION_TYPE_CONFIG, "insert")
+        .option(IGNORE_DUPLICATES_ON_INSERT_CONFIG, "true");
+
+    // Then using unordered inserts with ignore duplicates it still throws an error due to
+    // validation
+    // failures
+    assertThrows(SparkException.class, dfwCollectionHasValidation::save);
+
     // Given a collection with unique names index
-    getCollection().deleteMany(BsonDocument.parse("{}"));
+    getCollection().drop();
+    getDatabase().createCollection(getCollectionName());
     getCollection().createIndex(BsonDocument.parse("{name: 1}"), new IndexOptions().unique(true));
 
     List<String> dataWithDuplicatesNoIds = asList(
