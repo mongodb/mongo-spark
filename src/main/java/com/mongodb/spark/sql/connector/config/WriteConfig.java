@@ -243,6 +243,25 @@ public final class WriteConfig extends AbstractMongoConfig {
 
   private static final boolean IGNORE_NULL_VALUES_DEFAULT = false;
 
+  /**
+   * Ignore duplicate values when inserting.
+   *
+   * <p><strong>Note:</strong> requires <em>unordered inserts</em> to be configured otherwise this configuration is ignored.</p>
+   *
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: {@value IGNORE_DUPLICATES_ON_INSERT_DEFAULT}
+   *
+   * <p>If true, and doing unordered bulk inserts duplicate key exceptions will be ignored.
+   *
+   * @since 10.6
+   * @see #getOperationType()
+   * @see #isOrdered()
+   */
+  public static final String IGNORE_DUPLICATES_ON_INSERT_CONFIG = "ignoreDuplicatesOnInsert";
+
+  private static final boolean IGNORE_DUPLICATES_ON_INSERT_DEFAULT = false;
+
   private final WriteConcern writeConcern;
   private final OperationType operationType;
 
@@ -317,6 +336,29 @@ public final class WriteConfig extends AbstractMongoConfig {
    */
   public boolean ignoreNullValues() {
     return getBoolean(IGNORE_NULL_VALUES_CONFIG, IGNORE_NULL_VALUES_DEFAULT);
+  }
+
+  /**
+   * @return true if ignoring duplicates on insert and operation mode is 'insert' and the bulk write is unordered.
+   * @since 10.6
+   * @see #getOperationType()
+   * @see #isOrdered()
+   */
+  public boolean ignoreDuplicatesOnInsert() {
+    boolean ignoreDuplicatesOnInsert =
+        getBoolean(IGNORE_DUPLICATES_ON_INSERT_CONFIG, IGNORE_DUPLICATES_ON_INSERT_DEFAULT);
+    boolean allowIgnoreDuplicatesOnInserts =
+        ignoreDuplicatesOnInsert && !isOrdered() && getOperationType() == OperationType.INSERT;
+    if (ignoreDuplicatesOnInsert && !allowIgnoreDuplicatesOnInserts) {
+      LOGGER.warn(
+          "{}: is configured but requires unordered inserts. Current settings: {} = {} and {} = {}.",
+          IGNORE_DUPLICATES_ON_INSERT_CONFIG,
+          ORDERED_BULK_OPERATION_CONFIG,
+          isOrdered(),
+          OPERATION_TYPE_CONFIG,
+          getOperationType());
+    }
+    return allowIgnoreDuplicatesOnInserts;
   }
 
   @Override
