@@ -356,7 +356,7 @@ public final class WriteConfig extends AbstractMongoConfig {
           ORDERED_BULK_OPERATION_CONFIG,
           isOrdered(),
           OPERATION_TYPE_CONFIG,
-          operationType);
+          getOperationType());
     }
     return allowIgnoreDuplicatesOnInserts;
   }
