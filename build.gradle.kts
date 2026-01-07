@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-import java.io.ByteArrayOutputStream
+import com.github.spotbugs.snom.Confidence
+import com.github.spotbugs.snom.Effort
+import com.github.spotbugs.snom.SpotBugsTask
 import java.time.Duration
 
 buildscript {
@@ -25,34 +27,28 @@ buildscript {
 
 plugins {
     idea
-    `java-library`
+    java
     `maven-publish`
     signing
     checkstyle
     id("com.github.gmazzo.buildconfig") version "3.0.2"
-    id("com.github.spotbugs") version "4.7.9"
+    id("com.github.spotbugs") version "6.4.2"
     id("com.diffplug.spotless") version "6.19.0"
-    id("com.github.johnrengelman.shadow") version "7.0.0"
+    id("com.github.johnrengelman.shadow") version "8.1.1"
     id("io.github.gradle-nexus.publish-plugin") version "2.0.0"
 }
 
-version = "10.6.1-SNAPSHOT"
+version = "11.0.0-SNAPSHOT"
 group = "org.mongodb.spark"
 
 description = "The official MongoDB Apache Spark Connect Connector."
-
-java {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
-}
 
 repositories {
     mavenCentral()
 }
 
-// Usage: ./gradlew -DscalaVersion=2.12 -DsparkVersion=3.1.4
-val scalaVersion = System.getProperty("scalaVersion", "2.13")
-val sparkVersion = System.getProperty("sparkVersion", "3.5.1")
+val scalaVersion = "2.13"
+val sparkVersion = "4.0.1"
 
 extra.apply {
     set("annotationsVersion", "22.0.0")
@@ -66,14 +62,13 @@ extra.apply {
     set("mockitoVersion", "3.12.4")
 
     // Integration test dependencies
-    set("commons-lang3", "3.12.0")
+    set("commons-lang3", "3.18.0")
 }
 
 sourceSets {
     main {
         java {
-            val scalaInteropSrcDir = if (scalaVersion == "2.12") "java_scala_212" else "java_scala_213"
-            srcDirs("src/main/java", "src/main/$scalaInteropSrcDir")
+            srcDirs("src/main/java", "src/main/java_scala_213")
         }
     }
 }
@@ -97,20 +92,15 @@ dependencies {
     testImplementation("org.apache.spark:spark-streaming_$scalaVersion:$sparkVersion")
 
     // Unit Tests
-    testImplementation(platform("org.junit:junit-bom:5.8.1"))
+    testImplementation(platform("org.junit:junit-bom:5.13.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.mockito:mockito-junit-jupiter:${project.extra["mockitoVersion"]}")
     testImplementation("org.apiguardian:apiguardian-api:1.1.2") // https://github.com/gradle/gradle/issues/18627
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
     // Integration Tests
     testImplementation("org.apache.commons:commons-lang3:${project.extra["commons-lang3"]}")
     testImplementation("org.jetbrains:annotations:${project.extra["annotationsVersion"]}")
-}
-
-val defaultJdkVersion: Int = 11
-
-java {
-    toolchain.languageVersion.set(JavaLanguageVersion.of(defaultJdkVersion))
 }
 
 tasks.withType<JavaCompile> {
@@ -121,22 +111,29 @@ tasks.withType<JavaCompile> {
 // ===========================
 //     Build Config
 // ===========================
+// Gets the git version
 val gitVersion: String by lazy {
-    val describeStdOut = ByteArrayOutputStream()
-    exec {
-        commandLine = listOf("git", "describe", "--tags", "--always", "--dirty")
-        standardOutput = describeStdOut
-    }
-    describeStdOut.toString().substring(1).trim()
+    providers
+        .exec {
+            isIgnoreExitValue = true
+            commandLine("git", "describe", "--tags", "--always", "--dirty")
+        }
+        .standardOutput
+        .asText
+        .map { it.trim().removePrefix("r") }
+        .getOrElse("UNKNOWN")
 }
 
 val gitDiffNameOnly: String by lazy {
-    val describeStdOut = ByteArrayOutputStream()
-    exec {
-        commandLine = listOf("git", "diff", "--name-only")
-        standardOutput = describeStdOut
-    }
-    describeStdOut.toString().replaceIndent(" - ")
+    providers
+        .exec {
+            isIgnoreExitValue = true
+            commandLine("git", "diff", "--name-only")
+        }
+        .standardOutput
+        .asText
+        .map { it.trim().replaceIndent("-") }
+        .getOrElse(" ")
 }
 
 buildConfig {
@@ -156,7 +153,7 @@ sourceSets.create("integrationTest") {
     runtimeClasspath += output + compileClasspath + sourceSets["test"].runtimeClasspath
 }
 
-tasks.create("integrationTest", Test::class.java) {
+tasks.register<Test>("integrationTest") {
     description = "Runs the integration tests"
     group = "verification"
     testClassesDirs = sourceSets["integrationTest"].output.classesDirs
@@ -173,13 +170,7 @@ tasks.withType<Test> {
         events("passed", "skipped", "failed")
     }
 
-    val javaVersion: Int = (project.findProperty("javaVersion") as String? ?: defaultJdkVersion.toString()).toInt()
     logger.info("Running tests using JDK$javaVersion")
-    javaLauncher.set(
-        javaToolchains.launcherFor {
-            languageVersion.set(JavaLanguageVersion.of(javaVersion))
-        },
-    )
 
     systemProperties(mapOf("org.mongodb.test.uri" to System.getProperty("org.mongodb.test.uri", "")))
 
@@ -190,6 +181,11 @@ tasks.withType<Test> {
             executable = javaExecutablesPath.absolutePath
         }
     }
+    // Allow Spark to use reflection internally
+    jvmArgs(
+        "--add-opens=java.base/sun.util.calendar=ALL-UNNAMED",
+        "--add-opens=java.base/sun.security.action=ALL-UNNAMED",
+    )
 
     addTestListener(object : TestListener {
         override fun beforeTest(testDescriptor: TestDescriptor?) {}
@@ -226,14 +222,14 @@ checkstyle {
 spotbugs {
     excludeFilter.set(project.file("config/spotbugs/exclude.xml"))
     showProgress.set(true)
-    setReportLevel("high")
-    setEffort("max")
+    reportLevel.set(Confidence.HIGH)
+    effort.set(Effort.MAX)
 }
 
-tasks.withType<com.github.spotbugs.snom.SpotBugsTask> {
-    enabled = baseName.equals("main")
-    reports.maybeCreate("html").isEnabled = !project.hasProperty("xmlReports.enabled")
-    reports.maybeCreate("xml").isEnabled = project.hasProperty("xmlReports.enabled")
+tasks.withType<SpotBugsTask> {
+    enabled = getBaseName().equals("main", ignoreCase = true)
+    reports.maybeCreate("html").getRequired().set(!project.hasProperty("xmlReports.enabled"))
+    reports.maybeCreate("xml").getRequired().set(project.hasProperty("xmlReports.enabled"))
 }
 
 // Spotless is used to lint and reformat source files.
@@ -359,7 +355,8 @@ tasks.javadoc {
     if (JavaVersion.current().isJava9Compatible) {
         doclet.addBooleanOption("html5", true)
     }
-    doclet.links("http://docs.oracle.com/javase/8/docs/api/")
+    doclet.addStringOption("Xdoclint:-missing", "-quiet")
+    doclet.links("http://docs.oracle.com/javase/17/docs/api/")
     doclet.links("https://spark.apache.org/docs/latest/api/java/")
 }
 
