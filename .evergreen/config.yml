@@ -262,7 +262,7 @@ functions:
         working_dir: "src"
         script: |
           ${PREPARE_SHELL}
-          SCALA_VERSION="${SCALA}" SPARK_VERSION="${SPARK}" .evergreen/run-static-checks.sh
+          .evergreen/run-static-checks.sh
 
   "run unit tests":
     - command: shell.exec
@@ -326,15 +326,6 @@ post:
 variables:
   - &run-on
     run_on: "ubuntu2004-small"
-  - &exclude-spec
-    # Scala 2.12 only works with 3.1.3 spark
-    # Scala 2.13 doesn't work on 3.1.3 spark
-    exclude_spec:
-      - { scala: "2.12", spark: "3.2.4" }
-      - { scala: "2.12", spark: "3.3.4" }
-      - { scala: "2.12", spark: "3.4.2" }
-      - { scala: "2.12", spark: "3.5.1" }
-      - { scala: "2.13", spark: "3.1.3" }
 
 tasks:
   - name: "static-checks-task"
@@ -391,10 +382,10 @@ axes:
         display_name: "4.4"
         variables:
           VERSION: "4.4"
-      - id: "7.0"
-        display_name: "7.0"
+      - id: "8.0"
+        display_name: "8.0"
         variables:
-          VERSION: "7.0"
+          VERSION: "8.0"
       - id: "latest"
         display_name: "latest"
         variables:
@@ -412,76 +403,41 @@ axes:
         variables:
           TOPOLOGY: "sharded_cluster"
 
-  - id: "scala"
-    display_name: "Scala"
-    values:
-      - id: "2.12"
-        display_name: "Scala 2.12"
-        variables:
-          SCALA: "2.12"
-      - id: "2.13"
-        display_name: "Scala 2.13"
-        variables:
-          SCALA: "2.13"
-
   - id: "spark"
     display_name: "Spark"
     values:
-      - id: "3.1.3"
-        display_name: "Spark 3.1.3"
+      - id: "4.0.1"
+        display_name: "Spark 4.0.1"
         variables:
-          SPARK: "3.1.3"
-      - id: "3.2.4"
-        display_name: "Spark 3.2.4"
+          SPARK: "4.0.1"
+      - id: "4.1.0"
+        display_name: "Spark 4.1.0"
         variables:
-          SPARK: "3.2.4"
-      - id: "3.3.4"
-        display_name: "Spark 3.3.4"
-        variables:
-          SPARK: "3.3.4"
-      - id: "3.4.2"
-        display_name: "Spark 3.4.2"
-        variables:
-          SPARK: "3.4.2"
-      - id: "3.5.1"
-        display_name: "Spark 3.5.1"
-        variables:
-          SPARK: "3.5.1"
+          SPARK: "4.1.0"
 
 buildvariants:
 
-  - matrix_name: "static-checks"
-    matrix_spec: { scala: "*", spark: "*" }
-    display_name: "Static checks: ${scala} ${spark}"
-    <<: *exclude-spec
+  - name: "static-checks"
+    display_name: "Static checks"
     tags: ["static-check"]
     tasks:
       - name: "static-checks-task"
 
-  - matrix_name: "unit-tests"
-    matrix_spec: { scala: "*", spark: "*" }
-    <<: *exclude-spec
-    display_name: "Units tests: ${scala} ${spark}"
+  - name: "unit-tests"
+    display_name: "Units tests"
     tags: ["unit-test"]
     tasks:
       - name: "unit-test-task"
 
-  - matrix_name: "integration-tests-2-12"
-    matrix_spec: { scala: "2.12", spark: "3.1.3", version: ["7.0"], topology: "replicaset"}
-    display_name: "Integration tests: ${scala} ${spark} ${version} ${topology}"
-    tags: ["integration-test"]
-    tasks:
-      - name: "integration-test-task"
-
   - matrix_name: "integration-tests-2-13"
-    matrix_spec: { scala: "2.13", spark: ["3.2.4", "3.5.1"], version: ["4.4", "7.0", "latest"], topology: "replicaset" }
-    display_name: "Integration tests: ${scala} ${spark} ${version} ${topology}"
+    matrix_spec: { version: ["4.4", "8.0", "latest"], topology: "replicaset" }
+    display_name: "Integration tests: ${version} ${topology}"
     tags: ["integration-test"]
     tasks:
       - name: "integration-test-task"
 
   - matrix_name: "integration-tests-2-13-sharded"
-    matrix_spec: { scala: "2.13", spark: [ "3.2.4", "3.5.1" ], version: ["4.4", "7.0", "latest" ], topology: "sharded" }
+    matrix_spec: { version: ["4.4", "8.0", "latest" ], spark: [ "4.0.1", "4.1.0" ], topology: "sharded" }
     display_name: "Integration tests: ${scala} ${spark} ${version} ${topology}"
     tags: [ "sharded-integration-test" ]
     tasks:

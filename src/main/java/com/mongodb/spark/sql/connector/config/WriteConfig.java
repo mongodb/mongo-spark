@@ -298,7 +298,6 @@ public final class WriteConfig extends AbstractMongoConfig {
 
   private static final boolean IGNORE_NULL_VALUES_DEFAULT = false;
 
-
   /**
    * Ignore duplicate values when inserting.
    *
