@@ -173,8 +173,8 @@ public class MongoSparkConnectorHelper
   synchronized void resetSparkContext() {
     if (sparkContext != null) {
       sparkContext.stop();
-      SparkSession.clearActiveSession();
-      SparkSession.clearDefaultSession();
+      SparkSession.setActiveSession(null);
+      SparkSession.setDefaultSession(null);
     }
     sparkContext = null;
   }
@@ -229,8 +229,8 @@ public class MongoSparkConnectorHelper
             format(template, "00000", "_10000", "00000", 1, ""))
         .getByteBuffer()
         .limit();
-    String sampleString =
-        RandomStringUtils.randomAlphabetic(totalDocumentSize - sampleDataWithEmptySampleStringSize);
+    String sampleString = RandomStringUtils.insecure()
+        .nextAlphabetic(totalDocumentSize - sampleDataWithEmptySampleStringSize);
 
     List<BsonDocument> sampleDocuments = IntStream.range(0, numberOfDocuments)
         .boxed()

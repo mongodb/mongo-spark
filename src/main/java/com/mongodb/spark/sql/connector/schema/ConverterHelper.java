@@ -41,27 +41,8 @@ public final class ConverterHelper {
     return outputExtendedJson ? EXTENDED_JSON_WRITER_SETTINGS : RELAXED_JSON_WRITER_SETTINGS;
   }
 
-  /**
-   * The {{TimestampNTZType}} if available or null
-   *
-   * <p>Only available in Spark 3.4+
-   * <p>TODO: SPARK-450 remove code for Spark 4.0
-   */
-  public static final DataType TIMESTAMP_NTZ_TYPE;
-
-  static {
-    DataType timestampNTZType;
-    try {
-      timestampNTZType =
-          (DataType) DataTypes.class.getDeclaredField("TimestampNTZType").get(DataType.class);
-    } catch (IllegalAccessException | NoSuchFieldException e) {
-      timestampNTZType = null;
-    }
-    TIMESTAMP_NTZ_TYPE = timestampNTZType;
-  }
-
   static boolean isTimestampNTZ(final DataType dataType) {
-    return TIMESTAMP_NTZ_TYPE != null && TIMESTAMP_NTZ_TYPE.acceptsType(dataType);
+    return DataTypes.TimestampNTZType.acceptsType(dataType);
   }
 
   private static final JsonWriterSettings RELAXED_JSON_WRITER_SETTINGS =

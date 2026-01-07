@@ -87,6 +87,7 @@
         <module name="JavadocMethod">
             <property name="scope" value="public"/>
             <property name="allowUndeclaredRTE" value="true"/>
+            <property name="suppressLoadErrors" value="true"/>
         </module>
         <!--<module name="JavadocVariable"/>-->
         <!--<module name="JavadocStyle"/>-->
