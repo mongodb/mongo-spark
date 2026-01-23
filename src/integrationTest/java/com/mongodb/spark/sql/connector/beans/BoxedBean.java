@@ -28,6 +28,7 @@ public class BoxedBean implements Serializable {
   private Float floatField;
   private Double doubleField;
   private Boolean booleanField;
+  private String stringField;
 
   public BoxedBean() {}
 
@@ -46,6 +47,25 @@ public class BoxedBean implements Serializable {
     this.floatField = floatField;
     this.doubleField = doubleField;
     this.booleanField = booleanField;
+  }
+
+  public BoxedBean(
+      final Byte byteField,
+      final Short shortField,
+      final Integer intField,
+      final Long longField,
+      final Float floatField,
+      final Double doubleField,
+      final Boolean booleanField,
+      final String stringField) {
+    this.byteField = byteField;
+    this.shortField = shortField;
+    this.intField = intField;
+    this.longField = longField;
+    this.floatField = floatField;
+    this.doubleField = doubleField;
+    this.booleanField = booleanField;
+    this.stringField = stringField;
   }
 
   public Byte getByteField() {
@@ -104,6 +124,14 @@ public class BoxedBean implements Serializable {
     this.booleanField = booleanField;
   }
 
+  public String getStringField() {
+    return stringField;
+  }
+
+  public void setStringField(final String stringField) {
+    this.stringField = stringField;
+  }
+
   @Override
   public boolean equals(final Object o) {
     if (this == o) {
@@ -119,13 +147,21 @@ public class BoxedBean implements Serializable {
         && Objects.equals(longField, boxedBean.longField)
         && Objects.equals(floatField, boxedBean.floatField)
         && Objects.equals(doubleField, boxedBean.doubleField)
-        && Objects.equals(booleanField, boxedBean.booleanField);
+        && Objects.equals(booleanField, boxedBean.booleanField)
+        && Objects.equals(stringField, boxedBean.stringField);
   }
 
   @Override
   public int hashCode() {
     return Objects.hash(
-        byteField, shortField, intField, longField, floatField, doubleField, booleanField);
+        byteField,
+        shortField,
+        intField,
+        longField,
+        floatField,
+        doubleField,
+        booleanField,
+        stringField);
   }
 
   @Override
@@ -137,6 +173,7 @@ public class BoxedBean implements Serializable {
         + longField + ", floatField="
         + floatField + ", doubleField="
         + doubleField + ", booleanField="
-        + booleanField + '}';
+        + booleanField + ", stringField='"
+        + stringField + '\'' + '}';
   }
 }

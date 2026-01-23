@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import static org.junit.jupiter.params.provider.Arguments.of;
 
 import com.mongodb.client.model.CreateCollectionOptions;
 import com.mongodb.client.model.TimeSeriesGranularity;
@@ -43,6 +44,7 @@ import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.spark.SparkException;
 import org.apache.spark.api.java.function.MapFunction;
 import org.apache.spark.sql.Column;
@@ -57,6 +59,9 @@ import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 import org.bson.BsonDocument;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class MongoBatchTest extends MongoSparkConnectorTestCase {
   private static BsonDocument fromRowDefault(final Row row) {
@@ -779,5 +784,63 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
 
   private List<BsonDocument> toBsonDocuments(final Dataset<String> dataset) {
     return dataset.toJavaRDD().map(BsonDocument::parse).collect();
+  }
+
+  private static Stream<Arguments> testFilterMatchLiterals() {
+    Column nameCol = new Column("name");
+    return Stream.of(
+        of(
+            nameCol.contains("\\"),
+            asList("meta_\\E.*_meta", "meta_.*\\Q_meta", "meta_\\E.*\\Q_meta", "test\\nest")),
+        of(
+            nameCol.contains(".*"),
+            asList(
+                "pattern_.*_pattern", "meta_\\E.*_meta", "meta_.*\\Q_meta", "meta_\\E.*\\Q_meta")),
+        of(nameCol.contains("\\E.*"), asList("meta_\\E.*_meta", "meta_\\E.*\\Q_meta")),
+        of(nameCol.contains(".*\\Q"), asList("meta_.*\\Q_meta", "meta_\\E.*\\Q_meta")),
+        of(nameCol.contains("\\E.*\\Q"), asList("meta_\\E.*\\Q_meta")),
+        of(nameCol.contains("._"), asList("dot_._dot")),
+        of(nameCol.contains("[ae]"), asList("test_[ae]_test")),
+        of(nameCol.startsWith("meta_\\E"), asList("meta_\\E.*_meta", "meta_\\E.*\\Q_meta")),
+        of(nameCol.startsWith("meta_.*\\Q"), asList("meta_.*\\Q_meta")),
+        of(nameCol.startsWith("meta_\\E.*\\Q"), asList("meta_\\E.*\\Q_meta")),
+        of(nameCol.startsWith("dot_."), asList("dot_._dot")),
+        of(nameCol.startsWith("test_[ae]"), asList("test_[ae]_test")),
+        of(nameCol.startsWith("pattern_.*"), asList("pattern_.*_pattern")),
+        of(nameCol.startsWith("test\\n"), asList("test\\nest")),
+        of(nameCol.endsWith("\\Q_meta"), asList("meta_.*\\Q_meta", "meta_\\E.*\\Q_meta")),
+        of(nameCol.endsWith("\\E.*\\Q_meta"), asList("meta_\\E.*\\Q_meta")),
+        of(nameCol.endsWith("._dot"), asList("dot_._dot")),
+        of(nameCol.endsWith("[ae]_test"), asList("test_[ae]_test")),
+        of(nameCol.endsWith(".*_pattern"), asList("pattern_.*_pattern")),
+        of(nameCol.endsWith("\\nest"), asList("test\\nest")));
+  }
+
+  @ParameterizedTest
+  @MethodSource("testFilterMatchLiterals")
+  void testReadsFiltersMatchLiterals(final Column filter, final List<String> expectedMatches) {
+    SparkSession spark = getOrCreateSparkSession();
+    List<BsonDocument> collectionData = asList(
+        BsonDocument.parse("{_id: 1, name: 'apple'}"),
+        BsonDocument.parse("{_id: 2, name: 'dot_._dot'}"),
+        BsonDocument.parse("{_id: 3, name: 'pattern_.*_pattern'}"),
+        BsonDocument.parse("{_id: 4, name: 'meta_\\\\E.*_meta'}"),
+        BsonDocument.parse("{_id: 5, name: 'meta_.*\\\\Q_meta'}"),
+        BsonDocument.parse("{_id: 6, name: 'meta_\\\\E.*\\\\Q_meta'}"),
+        BsonDocument.parse("{_id: 7, name: 'test\\\\nest'}"),
+        BsonDocument.parse("{_id: 8, name: 'test_[ae]_test'}"));
+    getCollection().insertMany(collectionData);
+
+    Dataset<Row> ds = spark.read().format("mongodb").load();
+    Dataset<Row> filtered = ds.filter(filter);
+
+    List<String> results = filtered
+        .map((MapFunction<Row, String>) r -> r.getString(r.fieldIndex("name")), Encoders.STRING())
+        .collectAsList();
+
+    assertIterableEquals(
+        expectedMatches,
+        results,
+        results.toString() + " did not match expected " + expectedMatches);
   }
 }
