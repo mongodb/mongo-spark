@@ -39,7 +39,7 @@ import org.apache.spark.sql.util.CaseInsensitiveStringMap;
  * <p>Also registers a shortname for use via the services api: {@code
  * spark.read().format("mongodb").load(); }
  */
-public final class MongoTableProvider implements TableProvider, DataSourceRegister {
+public class MongoTableProvider implements TableProvider, DataSourceRegister {
 
   /** Construct a new instance */
   public MongoTableProvider() {}
