@@ -181,6 +181,7 @@ tasks.withType<Test> {
             executable = javaExecutablesPath.absolutePath
         }
     }
+    // Allow Spark to use reflection internally
     jvmArgs(
         "--add-opens=java.base/sun.util.calendar=ALL-UNNAMED",
         "--add-opens=java.base/sun.security.action=ALL-UNNAMED",
@@ -354,7 +355,8 @@ tasks.javadoc {
     if (JavaVersion.current().isJava9Compatible) {
         doclet.addBooleanOption("html5", true)
     }
-    doclet.links("http://docs.oracle.com/javase/8/docs/api/")
+    doclet.addStringOption("Xdoclint:-missing", "-quiet")
+    doclet.links("http://docs.oracle.com/javase/17/docs/api/")
     doclet.links("https://spark.apache.org/docs/latest/api/java/")
 }
 

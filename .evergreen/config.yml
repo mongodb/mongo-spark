@@ -411,9 +411,9 @@ axes:
         variables:
           SPARK: "4.0.1"
       - id: "4.1.0"
-        display_name: "Spark 4.1.0"
+        display_name: "Spark 4.1.1"
         variables:
-          SPARK: "4.1.0"
+          SPARK: "4.1.1"
 
 buildvariants:
 
@@ -437,8 +437,8 @@ buildvariants:
       - name: "integration-test-task"
 
   - matrix_name: "integration-tests-2-13-sharded"
-    matrix_spec: { version: ["4.4", "8.0", "latest" ], spark: [ "4.0.1", "4.1.0" ], topology: "sharded" }
-    display_name: "Integration tests: ${scala} ${spark} ${version} ${topology}"
+    matrix_spec: { version: ["4.4", "8.0", "latest" ], spark: "*", topology: "sharded" }
+    display_name: "Integration tests: ${spark} ${version} ${topology}"
     tags: [ "sharded-integration-test" ]
     tasks:
       - name: "sharded-integration-test-task"
