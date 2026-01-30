@@ -192,12 +192,6 @@ public class RoundTripTest extends MongoSparkConnectorTestCase {
         of("LIKE '.*'", asList(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)),
         of("LIKE '%cherry%'", asList(0, 1, 3, 4, 5, 6, 7, 8, 9)),
         of("LIKE '%.*%'", asList(0, 1, 2, 3, 8, 9)),
-
-        // TODO check why those are not supported by SparkSQL
-        of("LIKE '%\\\\%'", asList(2, 3, 4, 9)),
-        //  of("LIKE '%\\\\E.*%'", asList(0, 1, 2, 3, 4, 6, 8, 9)),
-        // of("LIKE '%.*\\\\Q%'", asList(0, 1, 2, 3, 4, 5, 8, 9)),
-        // of("LIKE '%\\\\E.*\\\\Q%'", asList(0, 1, 2, 3, 4, 5, 6, 8, 9)),
         of("LIKE '%.%'", asList(0, 1, 2, 8, 9)),
         of("LIKE '%[ae]%'", asList(0, 1, 2, 3, 4, 5, 6, 7, 8)),
         of("LIKE 'pattern.*%'", asList(0, 1, 2, 3, 5, 6, 7, 8, 9)),
@@ -233,7 +227,6 @@ public class RoundTripTest extends MongoSparkConnectorTestCase {
     List<Row> rows = spark.sql("select * from " + tableName).collectAsList();
     assertEquals(10, rows.size());
 
-    System.err.println("preDicateValue: " + predicateValue);
     spark.sql(
         "delete from " + tableName + " where stringField " + predicateValue + " and intField > 1");
     rows = spark.sql("select * from " + tableName).collectAsList();

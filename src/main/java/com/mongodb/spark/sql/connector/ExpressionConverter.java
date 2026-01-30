@@ -192,7 +192,7 @@ public final class ExpressionConverter {
     return new FilterAndPipelineStage(filter, null);
   }
 
-  private static String escapeRegex(String input) {
+  private static String escapeRegex(final String input) {
     return Pattern.quote(input);
   }
 
