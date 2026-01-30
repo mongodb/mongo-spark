@@ -190,9 +190,8 @@ public class RoundTripTest extends MongoSparkConnectorTestCase {
   private static Stream<Arguments> testCatalogAccessAndDelete() {
     // Spark's LikeSimplification optimizer skips patterns containing escape characters (backslash).
     // These stay as LIKE expressions which cannot be translated to V2 Predicate API (which only
-    // supports
-    // StringContains/StartsWith/EndsWith). DELETE requires all filters pushable, so these fail.
-    // For example: LIKE '%\\%' is not supported, but LIKE '%cherry%' is.
+    // supports StringContains/StartsWith/EndsWith). DELETE requires all filters pushable, so these
+    // fail. For example: LIKE '%\\%' is not supported, but LIKE '%cherry%' is.
     return Stream.of(
         of("LIKE '.*'", asList(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)),
         of("LIKE '%cherry%'", asList(0, 1, 3, 4, 5, 6, 7, 8, 9)),
