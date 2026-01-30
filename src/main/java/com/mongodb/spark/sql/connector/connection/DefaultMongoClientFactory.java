@@ -26,7 +26,9 @@ import com.mongodb.spark.sql.connector.config.ReadConfig;
 import java.util.Objects;
 import org.jetbrains.annotations.ApiStatus;
 
-/** The default MongoClientFactory implementation. */
+/**
+ * The default MongoClientFactory implementation.
+ */
 @ApiStatus.Internal
 public final class DefaultMongoClientFactory implements MongoClientFactory {
   private final MongoConfig config;
