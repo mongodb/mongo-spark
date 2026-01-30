@@ -18,13 +18,11 @@
 package com.mongodb.spark.sql.connector;
 
 import static com.mongodb.spark.sql.connector.mongodb.MongoSparkConnectorHelper.CATALOG;
-import static com.mongodb.spark.sql.connector.schema.ConverterHelper.TIMESTAMP_NTZ_TYPE;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.junit.jupiter.params.provider.Arguments.of;
 
 import com.mongodb.spark.sql.connector.beans.BoxedBean;
@@ -117,7 +115,6 @@ public class RoundTripTest extends MongoSparkConnectorTestCase {
   @ParameterizedTest()
   @ValueSource(strings = {"true", "false"})
   void testDateTimeBean(final String java8DateTimeAPI) {
-    assumeTrue(TIMESTAMP_NTZ_TYPE != null);
     TimeZone original = TimeZone.getDefault();
     try {
       TimeZone.setDefault(TimeZone.getTimeZone(UTC));

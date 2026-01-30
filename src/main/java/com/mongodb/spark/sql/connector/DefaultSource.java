@@ -14,7 +14,14 @@
  * limitations under the License.
  *
  */
-@ApiStatus.Internal
-package com.mongodb.spark.sql.connector.interop;
+package com.mongodb.spark.sql.connector;
 
-import org.jetbrains.annotations.ApiStatus;
+/**
+ * The DefaultSource implementation enabling lookup to {@code spark.read.format("mongodb")}
+ * and {@code spark.write.format("mongodb")} with Spark 4.x
+ *
+ * @since 11.0.0
+ */
+public final class DefaultSource extends MongoTableProvider {
+  // empty class
+}

@@ -696,7 +696,7 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
     getCollection().drop();
     getCollection().insertMany(collectionData);
 
-    ReadConfig readConfig = MongoConfig.readConfig(asJava(spark.initialSessionOptions()))
+    ReadConfig readConfig = MongoConfig.readConfig(asJava(spark.conf().getAll()))
         .withOption(COMMENT_CONFIG, TEST_COMMENT);
 
     assertCommentsInProfile(
