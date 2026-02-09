@@ -27,6 +27,7 @@ import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.spark.sql.Column;
 import org.apache.spark.sql.sources.And;
@@ -172,20 +173,27 @@ public final class ExpressionConverter {
     } else if (filter instanceof StringContains) {
       StringContains stringContains = (StringContains) filter;
       String fieldName = unquoteFieldName(stringContains.attribute());
+      String literalValue = escapeRegex(stringContains.value());
       return new FilterAndPipelineStage(
-          filter, Filters.regex(fieldName, format(".*%s.*", stringContains.value())));
+          filter, Filters.regex(fieldName, format(".*%s.*", literalValue)));
     } else if (filter instanceof StringEndsWith) {
       StringEndsWith stringEndsWith = (StringEndsWith) filter;
       String fieldName = unquoteFieldName(stringEndsWith.attribute());
+      String literalValue = escapeRegex(stringEndsWith.value());
       return new FilterAndPipelineStage(
-          filter, Filters.regex(fieldName, format(".*%s$", stringEndsWith.value())));
+          filter, Filters.regex(fieldName, format(".*%s$", literalValue)));
     } else if (filter instanceof StringStartsWith) {
       StringStartsWith stringStartsWith = (StringStartsWith) filter;
       String fieldName = unquoteFieldName(stringStartsWith.attribute());
+      String literalValue = escapeRegex(stringStartsWith.value());
       return new FilterAndPipelineStage(
-          filter, Filters.regex(fieldName, format("^%s.*", stringStartsWith.value())));
+          filter, Filters.regex(fieldName, format("^%s.*", literalValue)));
     }
     return new FilterAndPipelineStage(filter, null);
+  }
+
+  private static String escapeRegex(final String input) {
+    return Pattern.quote(input);
   }
 
   @VisibleForTesting

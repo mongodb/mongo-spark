@@ -23,6 +23,7 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
+import static org.junit.jupiter.params.provider.Arguments.of;
 
 import com.mongodb.spark.sql.connector.beans.BoxedBean;
 import com.mongodb.spark.sql.connector.beans.ComplexBean;
@@ -41,6 +42,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoder;
 import org.apache.spark.sql.Encoders;
@@ -48,7 +51,9 @@ import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 public class RoundTripTest extends MongoSparkConnectorTestCase {
@@ -182,15 +187,36 @@ public class RoundTripTest extends MongoSparkConnectorTestCase {
     assertIterableEquals(dataSetOriginal, dataSetMongo);
   }
 
-  @Test
-  void testCatalogAccessAndDelete() {
+  private static Stream<Arguments> testCatalogAccessAndDelete() {
+    // Spark's LikeSimplification optimizer skips patterns containing escape characters (backslash).
+    // These stay as LIKE expressions which cannot be translated to V2 Predicate API (which only
+    // supports StringContains/StartsWith/EndsWith). DELETE requires all filters pushable, so these
+    // fail. For example: LIKE '%\\%' is not supported, but LIKE '%cherry%' is.
+    return Stream.of(
+        of("LIKE '.*'", asList(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)),
+        of("LIKE '%cherry%'", asList(0, 1, 3, 4, 5, 6, 7, 8, 9)),
+        of("LIKE '%.*%'", asList(0, 1, 2, 3, 8, 9)),
+        of("LIKE '%.%'", asList(0, 1, 2, 8, 9)),
+        of("LIKE '%[ae]%'", asList(0, 1, 2, 3, 4, 5, 6, 7, 8)),
+        of("LIKE 'pattern.*%'", asList(0, 1, 2, 3, 5, 6, 7, 8, 9)),
+        of("LIKE '%.*pattern'", asList(0, 1, 2, 3, 5, 6, 7, 8, 9)));
+  }
+
+  @ParameterizedTest
+  @MethodSource
+  void testCatalogAccessAndDelete(
+      final String predicateValue, final List<Integer> expectedIntFields) {
     List<BoxedBean> dataSetOriginal = asList(
-        new BoxedBean((byte) 1, (short) 2, 0, 4L, 5.0f, 6.0, true),
-        new BoxedBean((byte) 1, (short) 2, 1, 4L, 5.0f, 6.0, true),
-        new BoxedBean((byte) 1, (short) 2, 2, 4L, 5.0f, 6.0, true),
-        new BoxedBean((byte) 1, (short) 2, 3, 4L, 5.0f, 6.0, false),
-        new BoxedBean((byte) 1, (short) 2, 4, 4L, 5.0f, 6.0, false),
-        new BoxedBean((byte) 1, (short) 2, 5, 4L, 5.0f, 6.0, false));
+        new BoxedBean((byte) 1, (short) 2, 0, 4L, 5.0f, 6.0, true, "apple"),
+        new BoxedBean((byte) 1, (short) 2, 1, 4L, 5.0f, 6.0, true, "banana"),
+        new BoxedBean((byte) 1, (short) 2, 2, 4L, 5.0f, 6.0, true, "cherry"),
+        new BoxedBean((byte) 1, (short) 2, 3, 4L, 5.0f, 6.0, true, "dot_._dot"),
+        new BoxedBean((byte) 1, (short) 2, 9, 4L, 5.0f, 6.0, false, "b_[ae]_b"),
+        new BoxedBean((byte) 1, (short) 2, 4, 4L, 5.0f, 6.0, false, "pattern.*pattern"),
+        new BoxedBean((byte) 1, (short) 2, 5, 4L, 5.0f, 6.0, false, "meta_\\E.*_meta"),
+        new BoxedBean((byte) 1, (short) 2, 6, 4L, 5.0f, 6.0, false, "meta_.*\\Q_meta"),
+        new BoxedBean((byte) 1, (short) 2, 7, 4L, 5.0f, 6.0, false, "meta_\\E.*\\Q_meta"),
+        new BoxedBean((byte) 1, (short) 2, 8, 4L, 5.0f, 6.0, false, "test\\nest"));
 
     SparkSession spark = getOrCreateSparkSession();
     Encoder<BoxedBean> encoder = Encoders.bean(BoxedBean.class);
@@ -203,10 +229,20 @@ public class RoundTripTest extends MongoSparkConnectorTestCase {
 
     String tableName = CATALOG + "." + HELPER.getDatabaseName() + "." + HELPER.getCollectionName();
     List<Row> rows = spark.sql("select * from " + tableName).collectAsList();
-    assertEquals(6, rows.size());
+    assertEquals(10, rows.size());
 
-    spark.sql("delete from " + tableName + " where booleanField = false and intField > 3");
+    spark.sql(
+        "delete from " + tableName + " where stringField " + predicateValue + " and intField > 1");
     rows = spark.sql("select * from " + tableName).collectAsList();
-    assertEquals(4, rows.size());
+
+    List<Integer> actualIntFields = rows.stream()
+        .map(r -> r.getInt(r.fieldIndex("intField")))
+        .sorted()
+        .collect(Collectors.toList());
+
+    assertIterableEquals(
+        expectedIntFields,
+        actualIntFields,
+        "Expected " + expectedIntFields + " but found " + actualIntFields);
   }
 }
