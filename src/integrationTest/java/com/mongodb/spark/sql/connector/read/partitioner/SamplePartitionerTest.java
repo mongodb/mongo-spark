@@ -59,6 +59,14 @@ public class SamplePartitionerTest extends PartitionerTestCase {
   }
 
   @Test
+  void testEmptyCollection() {
+    ReadConfig readConfig = createReadConfig("empty");
+    getDatabase().createCollection("empty");
+    List<MongoInputPartition> partitions = PARTITIONER.generatePartitions(readConfig);
+    assertIterableEquals(SINGLE_PARTITIONER.generatePartitions(readConfig), partitions);
+  }
+
+  @Test
   void testFewerRecordsThanData() {
     ReadConfig readConfig = createReadConfig(
         "few", ReadConfig.PARTITIONER_OPTIONS_PREFIX + PARTITION_SIZE_MB_CONFIG, "4");
