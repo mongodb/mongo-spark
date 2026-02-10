@@ -172,7 +172,7 @@ public final class BsonDocumentToRowConverter implements Serializable {
   @VisibleForTesting
   Object convertBsonValue(
       final String fieldName, final DataType dataType, final BsonValue bsonValue) {
-    LOGGER.info("converting bson to value: {} {} {}", fieldName, dataType, bsonValue);
+    LOGGER.trace("converting bson to value: {} {} {}", fieldName, dataType, bsonValue);
     try {
       if (bsonValue.isNull()) {
         return null;
