@@ -50,6 +50,15 @@ public class ShardedPartitionerTest extends PartitionerTestCase {
   }
 
   @Test
+  void testEmptyCollection() {
+    assumeTrue(isSharded());
+    ReadConfig readConfig = createReadConfig("empty");
+    shardCollection(readConfig.getNamespace(), "{_id: 1}");
+    List<MongoInputPartition> partitions = PARTITIONER.generatePartitions(readConfig);
+    assertIterableEquals(SINGLE_PARTITIONER.generatePartitions(readConfig), partitions);
+  }
+
+  @Test
   void testPartitionsTheCollectionAsExpected() {
     assumeTrue(isSharded());
     ReadConfig readConfig = createReadConfig("partitionsAsExpected");
