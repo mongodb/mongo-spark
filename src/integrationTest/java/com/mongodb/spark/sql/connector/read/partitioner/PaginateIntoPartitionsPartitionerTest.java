@@ -54,6 +54,14 @@ public class PaginateIntoPartitionsPartitionerTest extends PartitionerTestCase {
   }
 
   @Test
+  void testEmptyCollection() {
+    ReadConfig readConfig = createReadConfig("empty");
+    getDatabase().createCollection("empty");
+    List<MongoInputPartition> partitions = PARTITIONER.generatePartitions(readConfig);
+    assertIterableEquals(SINGLE_PARTITIONER.generatePartitions(readConfig), partitions);
+  }
+
+  @Test
   void testSingleResultData() {
     ReadConfig readConfig = createReadConfig(
         "single",

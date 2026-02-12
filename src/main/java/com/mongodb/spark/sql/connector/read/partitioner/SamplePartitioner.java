@@ -96,16 +96,25 @@ public final class SamplePartitioner extends FieldPartitioner {
       return SINGLE_PARTITIONER.generatePartitions(readConfig);
     }
 
-    BsonDocument matchQuery = PartitionerHelper.matchQuery(readConfig.getAggregationPipeline());
+    double avgObjSizeInBytes = PartitionerHelper.averageDocumentSize(storageStats);
+    double numDocumentsPerPartition =
+        Math.round(Math.floor(partitionSizeInBytes / avgObjSizeInBytes));
+
+    if (numDocumentsPerPartition == 0) {
+      LOGGER.info(
+          "Calculated number of documents per partition is 0. Returning a single partition");
+      return SINGLE_PARTITIONER.generatePartitions(readConfig);
+    }
+
+    BsonDocument usersCollectionFilter =
+        PartitionerHelper.matchQuery(readConfig.getAggregationPipeline());
     long count;
-    if (matchQuery.isEmpty() && storageStats.containsKey("count")) {
+    if (usersCollectionFilter.isEmpty() && storageStats.containsKey("count")) {
       count = storageStats.getNumber("count").longValue();
     } else {
-      count = readConfig.withCollection(coll ->
-          coll.countDocuments(matchQuery, new CountOptions().comment(readConfig.getComment())));
+      count = readConfig.withCollection(coll -> coll.countDocuments(
+          usersCollectionFilter, new CountOptions().comment(readConfig.getComment())));
     }
-    double avgObjSizeInBytes = PartitionerHelper.averageDocumentSize(storageStats);
-    double numDocumentsPerPartition = Math.floor(partitionSizeInBytes / avgObjSizeInBytes);
 
     if (numDocumentsPerPartition >= count) {
       LOGGER.info(
@@ -120,7 +129,7 @@ public final class SamplePartitioner extends FieldPartitioner {
         ? Projections.include(partitionField)
         : Projections.fields(Projections.include(partitionField), Projections.excludeId());
     List<BsonDocument> samples = readConfig.withCollection(coll -> coll.aggregate(asList(
-            Aggregates.match(matchQuery),
+            Aggregates.match(usersCollectionFilter),
             Aggregates.sample(numberOfSamples),
             Aggregates.project(projection),
             Aggregates.sort(Sorts.ascending(partitionField))))
