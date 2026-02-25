@@ -25,6 +25,7 @@ import com.mongodb.spark.sql.connector.read.MongoInputPartition;
 import java.util.ArrayList;
 import java.util.List;
 import org.bson.BsonDocument;
+import org.bson.BsonValue;
 import org.bson.conversions.Bson;
 import org.jetbrains.annotations.ApiStatus;
 
@@ -78,6 +79,7 @@ abstract class PaginatePartitioner extends FieldPartitioner {
       final long count,
       final int numDocumentsPerPartition,
       final ReadConfig readConfig) {
+    ValueLoader valueLoader = new ValueLoader(partitionField);
 
     // Calculate partition ranges
     int numberOfPartitions = (int) Math.ceil(count / (double) numDocumentsPerPartition);
@@ -99,8 +101,9 @@ abstract class PaginatePartitioner extends FieldPartitioner {
         if (!upperBounds.isEmpty()) {
           BsonDocument previous = upperBounds.get(upperBounds.size() - 1);
           BsonDocument matchFilter = new BsonDocument();
-          if (previous.containsKey(partitionField)) {
-            matchFilter.put(partitionField, new BsonDocument("$gte", previous.get(partitionField)));
+          BsonValue value = valueLoader.apply(previous);
+          if (value != null) {
+            matchFilter.put(partitionField, new BsonDocument("$gte", value));
           }
           boundaryPipeline.add(Aggregates.match(matchFilter));
         }
