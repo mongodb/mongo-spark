@@ -178,6 +178,9 @@ public final class PartitionerHelper {
     }
     double size = storageStats.getNumber("size", new BsonInt32(0)).doubleValue();
     double count = storageStats.getNumber("count", new BsonInt32(0)).doubleValue();
+    if (count == 0) {
+      return 0;
+    }
     return Math.floor(size / count);
   }
 

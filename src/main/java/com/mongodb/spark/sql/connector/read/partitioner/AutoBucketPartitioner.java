@@ -164,14 +164,7 @@ public final class AutoBucketPartitioner implements Partitioner {
     }
 
     double avgObjSizeInBytes = PartitionerHelper.averageDocumentSize(storageStats);
-    double numDocumentsPerPartition =
-        Math.round(Math.floor(partitionSizeInBytes / avgObjSizeInBytes));
-
-    if (numDocumentsPerPartition == 0) {
-      LOGGER.info(
-          "Calculated number of documents per partition is 0. Returning a single partition");
-      return SINGLE_PARTITIONER.generatePartitions(readConfig);
-    }
+    double numDocumentsPerPartition = Math.floor(partitionSizeInBytes / avgObjSizeInBytes);
 
     BsonDocument usersCollectionFilter =
         PartitionerHelper.matchQuery(readConfig.getAggregationPipeline());
