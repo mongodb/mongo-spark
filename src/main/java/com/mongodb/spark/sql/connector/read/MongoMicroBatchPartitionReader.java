@@ -69,6 +69,7 @@ final class MongoMicroBatchPartitionReader implements PartitionReader<InternalRo
    * @param bsonDocumentToRowConverter the converter from {@link BsonDocument} to {@link
    *     InternalRow}
    * @param readConfig the read configuration for reading from the partition
+   * @param resumeTokenStore the resume token store when limiting responses using max rows.
    */
   MongoMicroBatchPartitionReader(
       final MongoMicroBatchInputPartition partition,
