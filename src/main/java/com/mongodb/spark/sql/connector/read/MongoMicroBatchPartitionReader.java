@@ -54,6 +54,10 @@ final class MongoMicroBatchPartitionReader implements PartitionReader<InternalRo
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
   private final ReadConfig readConfig;
   private final MongoClient mongoClient;
+  private final MicroBatchResumeTokenStore resumeTokenStore;
+  private final boolean rateLimited;
+  private long batchMaxRows;
+  private BsonDocument lastResumeToken;
   private volatile boolean closed = false;
   private MongoChangeStreamCursor<BsonDocument> changeStreamCursor;
   private InternalRow currentRow;
@@ -69,12 +73,16 @@ final class MongoMicroBatchPartitionReader implements PartitionReader<InternalRo
   MongoMicroBatchPartitionReader(
       final MongoMicroBatchInputPartition partition,
       final BsonDocumentToRowConverter bsonDocumentToRowConverter,
-      final ReadConfig readConfig) {
+      final ReadConfig readConfig,
+      final MicroBatchResumeTokenStore resumeTokenStore) {
 
     this.partition = partition;
     this.bsonDocumentToRowConverter = bsonDocumentToRowConverter;
     this.readConfig = readConfig;
     this.mongoClient = readConfig.getMongoClient();
+    this.batchMaxRows = readConfig.getMicroBatchMaxRows();
+    this.resumeTokenStore = resumeTokenStore;
+    this.rateLimited = resumeTokenStore != null;
     LOGGER.info(
         "Creating partition reader for: PartitionId: {} with Schema: {}",
         partition.getPartitionId(),
@@ -102,10 +110,18 @@ final class MongoMicroBatchPartitionReader implements PartitionReader<InternalRo
     BsonDocument next;
 
     do {
+      if (batchMaxRows <= 0) {
+        break;
+      }
+
       try {
         currentRow = null;
         next = cursor.tryNext();
         if (next != null) {
+          if (rateLimited) {
+            lastResumeToken = cursor.getResumeToken();
+          }
+
           if (readConfig.streamPublishFullDocumentOnly()) {
             next = next.getDocument(FULL_DOCUMENT, new BsonDocument());
           }
@@ -115,6 +131,7 @@ final class MongoMicroBatchPartitionReader implements PartitionReader<InternalRo
               bsonDocumentToRowConverter.toInternalRow(next);
           if (internalRowOptional.isPresent()) {
             currentRow = internalRowOptional.get();
+            batchMaxRows--;
             return true;
           }
         }
@@ -139,6 +156,11 @@ final class MongoMicroBatchPartitionReader implements PartitionReader<InternalRo
   public void close() {
     if (!closed) {
       closed = true;
+
+      if (rateLimited && lastResumeToken != null) {
+        resumeTokenStore.storeResumeToken(partition.getPartitionId(), lastResumeToken);
+      }
+
       if (changeStreamCursor != null) {
         LOGGER.debug("Closing cursor for partitionId: {}", partition.getPartitionId());
         try {
@@ -169,11 +191,16 @@ final class MongoMicroBatchPartitionReader implements PartitionReader<InternalRo
       List<BsonDocument> pipeline = new ArrayList<>();
       pipeline.add(Aggregates.match(Filters.lt("clusterTime", partition.getEndOffsetTimestamp()))
           .toBsonDocument());
+      if (rateLimited) {
+        pipeline.add(Aggregates.match(Filters.ne("ns.coll", resumeTokenStore.getCollectionName()))
+            .toBsonDocument());
+      }
       if (readConfig.streamPublishFullDocumentOnly()) {
         pipeline.add(Aggregates.match(Filters.exists(FULL_DOCUMENT)).toBsonDocument());
       }
       pipeline.addAll(partition.getPipeline());
       ChangeStreamIterable<Document> changeStreamIterable;
+
       if (readConfig.getCollectionsConfig().getType() == CollectionsConfig.Type.SINGLE) {
         changeStreamIterable = mongoClient
             .getDatabase(readConfig.getDatabaseName())
@@ -187,7 +214,15 @@ final class MongoMicroBatchPartitionReader implements PartitionReader<InternalRo
           .fullDocument(readConfig.getStreamFullDocument())
           .fullDocumentBeforeChange(readConfig.getStreamFullDocumentBeforeChange())
           .comment(readConfig.getComment());
-      if (partition.getStartOffsetTimestamp().getTime() >= 0) {
+
+      if (rateLimited) {
+        Optional<BsonDocument> savedResumeToken = resumeTokenStore.getLatestResumeToken();
+        if (savedResumeToken.isPresent()) {
+          changeStreamIterable.startAfter(savedResumeToken.get());
+        } else if (partition.getStartOffsetTimestamp().getTime() >= 0) {
+          changeStreamIterable.startAtOperationTime(partition.getStartOffsetTimestamp());
+        }
+      } else if (partition.getStartOffsetTimestamp().getTime() >= 0) {
         changeStreamIterable.startAtOperationTime(partition.getStartOffsetTimestamp());
       }
 
