@@ -18,6 +18,7 @@ package com.mongodb.spark.sql.connector.read;
 
 import static java.lang.String.format;
 
+import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.ReplaceOptions;
@@ -26,6 +27,8 @@ import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import java.io.Serializable;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import org.bson.BsonDateTime;
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
@@ -58,7 +61,7 @@ final class MicroBatchResumeTokenStore implements Serializable {
   MicroBatchResumeTokenStore(final ReadConfig readConfig, final String checkpointLocation) {
     this.readConfig = readConfig;
     this.collectionName = readConfig.getMicroBatchMaxRowsOffsetCollection();
-    this.checkpointHash = Integer.toHexString(checkpointLocation.hashCode());
+    this.checkpointHash = Long.toHexString(hash64(checkpointLocation));
   }
 
   String getCollectionName() {
@@ -66,41 +69,30 @@ final class MicroBatchResumeTokenStore implements Serializable {
   }
 
   void storeResumeToken(final int partitionId, final BsonDocument resumeToken) {
-    try {
-      getCollection()
-          .replaceOne(
-              Filters.and(
-                  Filters.eq(CHECKPOINT_HASH_FIELD, checkpointHash),
-                  Filters.eq(PARTITION_ID_FIELD, partitionId)),
-              new BsonDocument()
-                  .append(CHECKPOINT_HASH_FIELD, new BsonString(checkpointHash))
-                  .append(PARTITION_ID_FIELD, new BsonInt32(partitionId))
-                  .append(RESUME_TOKEN_FIELD, resumeToken)
-                  .append(TIMESTAMP_FIELD, new BsonDateTime(System.currentTimeMillis())),
-              new ReplaceOptions().upsert(true));
-    } catch (RuntimeException e) {
-      throw new MongoSparkException(
-          format(
-              "Failed to persist resume token for partition %d. Ensure the user has permissions to read / write to '%s.%s'",
-              partitionId, readConfig.getDatabaseName(), collectionName),
-          e);
-    }
+    withCollection(
+        coll -> coll.replaceOne(
+            Filters.and(
+                Filters.eq(CHECKPOINT_HASH_FIELD, checkpointHash),
+                Filters.eq(PARTITION_ID_FIELD, partitionId)),
+            new BsonDocument()
+                .append(CHECKPOINT_HASH_FIELD, new BsonString(checkpointHash))
+                .append(PARTITION_ID_FIELD, new BsonInt32(partitionId))
+                .append(RESUME_TOKEN_FIELD, resumeToken)
+                .append(TIMESTAMP_FIELD, new BsonDateTime(System.currentTimeMillis())),
+            new ReplaceOptions().upsert(true)),
+        () -> format(
+            "Failed to persist resume token for partition %d. Ensure the user has permissions to read / write to '%s.%s'",
+            partitionId, readConfig.getDatabaseName(), collectionName));
   }
 
   Optional<BsonDocument> getLatestResumeToken() {
-    BsonDocument result = null;
-    try {
-      result = getCollection()
-          .find(Filters.eq(CHECKPOINT_HASH_FIELD, checkpointHash))
-          .sort(Sorts.descending(TIMESTAMP_FIELD))
-          .first();
-    } catch (RuntimeException e) {
-      throw new MongoSparkException(
-          format(
-              "Failed to get latest resume token. Ensure the user has permissions to read / write to '%s.%s'",
-              readConfig.getDatabaseName(), collectionName),
-          e);
-    }
+    BsonDocument result = withCollection(
+        coll -> coll.find(Filters.eq(CHECKPOINT_HASH_FIELD, checkpointHash))
+            .sort(Sorts.descending(TIMESTAMP_FIELD))
+            .first(),
+        () -> format(
+            "Failed to get latest resume token. Ensure the user has permissions to read / write to '%s.%s'",
+            readConfig.getDatabaseName(), collectionName));
     if (result == null) {
       return Optional.empty();
     }
@@ -108,21 +100,33 @@ final class MicroBatchResumeTokenStore implements Serializable {
   }
 
   void cleanup() {
-    try {
-      getCollection().deleteMany(Filters.eq(CHECKPOINT_HASH_FIELD, checkpointHash));
+    withCollection(
+        coll -> coll.deleteMany(Filters.eq(CHECKPOINT_HASH_FIELD, checkpointHash)),
+        () -> format(
+            "Failed to cleanup data from '%s.%s'. All fields matching: {\"%s\": %s} can be removed.",
+            readConfig.getDatabaseName(), collectionName, CHECKPOINT_HASH_FIELD, checkpointHash));
+  }
+
+  private <T> T withCollection(
+      final Function<MongoCollection<BsonDocument>, T> function,
+      final Supplier<String> exceptionMessageSupplier) {
+    try (MongoClient client = readConfig.getMongoClient()) {
+      return function.apply(client
+          .getDatabase(readConfig.getDatabaseName())
+          .getCollection(getCollectionName(), BsonDocument.class));
     } catch (RuntimeException e) {
-      throw new MongoSparkException(
-          format(
-              "Failed to cleanup data from '%s.%s'. All fields matching: {\"%s\": %s} can be removed.",
-              readConfig.getDatabaseName(), collectionName, CHECKPOINT_HASH_FIELD, checkpointHash),
-          e);
+      throw new MongoSparkException(exceptionMessageSupplier.get(), e);
     }
   }
 
-  private MongoCollection<BsonDocument> getCollection() {
-    return readConfig
-        .getMongoClient()
-        .getDatabase(readConfig.getDatabaseName())
-        .getCollection(collectionName, BsonDocument.class);
+  /** FNV-1a 64-bit hash. */
+  private static long hash64(final String input) {
+    long fnvPrime = 0x100000001b3L;
+    long hash = 0xcbf29ce484222325L; // FNV offset basis 64-bit
+    for (int i = 0; i < input.length(); i++) {
+      hash ^= input.charAt(i);
+      hash *= fnvPrime;
+    }
+    return hash;
   }
 }
