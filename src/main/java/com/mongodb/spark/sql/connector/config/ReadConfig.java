@@ -352,7 +352,7 @@ public final class ReadConfig extends AbstractMongoConfig {
    *
    * <p>Configuration: {@value}
    *
-   * <p>Default: {@value STREAMING_STARTUP_MODE_DEFAULT}
+   * <p>Default: {@code latest}
    */
   public static final String STREAMING_STARTUP_MODE_CONFIG = "change.stream.startup.mode";
 
