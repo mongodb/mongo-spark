@@ -158,21 +158,21 @@ final class MongoMicroBatchPartitionReader implements PartitionReader<InternalRo
     if (!closed) {
       closed = true;
       try {
-          if (rateLimited && lastResumeToken != null) {
-              resumeTokenStore.storeResumeToken(partition.getPartitionId(), lastResumeToken);
-          }
+        if (rateLimited && lastResumeToken != null) {
+          resumeTokenStore.storeResumeToken(partition.getPartitionId(), lastResumeToken);
+        }
       } finally {
-          if (changeStreamCursor != null) {
-              LOGGER.debug("Closing cursor for partitionId: {}", partition.getPartitionId());
-              try {
-                  changeStreamCursor.close();
-              } catch (Exception e) {
-                  // Ignore
-              } finally {
-                  changeStreamCursor = null;
-              }
+        if (changeStreamCursor != null) {
+          LOGGER.debug("Closing cursor for partitionId: {}", partition.getPartitionId());
+          try {
+            changeStreamCursor.close();
+          } catch (Exception e) {
+            // Ignore
+          } finally {
+            changeStreamCursor = null;
           }
-          mongoClient.close();
+        }
+        mongoClient.close();
       }
     }
   }
