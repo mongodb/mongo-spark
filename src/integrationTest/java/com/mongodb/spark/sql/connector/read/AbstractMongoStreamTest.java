@@ -96,10 +96,7 @@ import org.opentest4j.AssertionFailedError;
  * return immediately perhaps waiting for the stream to complete.
  */
 abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
-  /*
-   *
-   */
-  private static final String MEMORY = "memory";
+  static final String MEMORY = "memory";
 
   /*
    * The MongoDB sink is only used to test streaming writes.
@@ -111,6 +108,15 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
   abstract Trigger getTrigger();
 
   private String testIdentifier;
+
+  public String getTestIdentifier() {
+    return testIdentifier;
+  }
+
+  public AbstractMongoStreamTest setTestIdentifier(final String testIdentifier) {
+    this.testIdentifier = testIdentifier;
+    return this;
+  }
 
   @ParameterizedTest
   @ValueSource(strings = {"SINGLE", "MULTIPLE", "ALL"})
@@ -759,7 +765,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
 
   private static final StructType IGNORE_SCHEMA = createStructType(emptyList());
 
-  private static final StructType DEFAULT_SCHEMA = createStructType(asList(
+  static final StructType DEFAULT_SCHEMA = createStructType(asList(
       createStructField("operationType", DataTypes.StringType, false),
       createStructField("clusterTime", DataTypes.StringType, false),
       createStructField("fullDocument", DataTypes.StringType, true)));
@@ -812,7 +818,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
   }
 
   @SafeVarargs
-  private final void testStreamingQuery(
+  final void testStreamingQuery(
       final String writeFormat,
       final MongoConfig mongoConfig,
       final StructType schema,
@@ -944,7 +950,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     }
   }
 
-  private Consumer<MongoConfig> withSource(
+  Consumer<MongoConfig> withSource(
       @Nullable final String msg,
       final BiConsumer<String, MongoCollection<BsonDocument>> biConsumer) {
     return mongoConfig -> {
@@ -987,7 +993,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     };
   }
 
-  private Consumer<MongoConfig> withMemorySink(
+  Consumer<MongoConfig> withMemorySink(
       final String msg, final BiConsumer<String, Dataset<Row>> biConsumer) {
     return mongoConfig -> {
       LOGGER.info("<- With memory sink: " + msg);
@@ -995,7 +1001,7 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     };
   }
 
-  private MongoConfig createMongoConfig(final CollectionsConfig.Type collectionsConfigType) {
+  MongoConfig createMongoConfig(final CollectionsConfig.Type collectionsConfigType) {
     Map<String, String> options = new HashMap<>();
     Arrays.stream(getSparkConf().getAllWithPrefix(MongoConfig.PREFIX))
         .forEach(t -> options.put(MongoConfig.PREFIX + t._1(), t._2()));
@@ -1022,16 +1028,16 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     return MongoConfig.createConfig(options);
   }
 
-  private static String computeTestIdentifier(
+  static String computeTestIdentifier(
       final String testIdentifierStart, final CollectionsConfig.Type collectionsConfigType) {
     return testIdentifierStart + "_" + collectionsConfigType;
   }
 
-  private String collectionName() {
+  String collectionName() {
     return collectionPrefix() + "Source" + testIdentifier;
   }
 
-  private List<BsonDocument> createDocuments(final int startInclusive, final int endExclusive) {
+  List<BsonDocument> createDocuments(final int startInclusive, final int endExclusive) {
     return createDocuments(
         startInclusive,
         endExclusive,
@@ -1065,13 +1071,19 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
       BsonDocument.parse("{_id: 4, name: 'Timothy Berners-Lee', address: {street: null}}")));
 
   static class StreamingEventsListener extends StreamingQueryListener {
+    private final List<Long> batchInputRows = new ArrayList<>();
     private QueryTerminatedEvent queryTerminatedEvent;
 
     @Override
     public void onQueryStarted(final QueryStartedEvent event) {}
 
     @Override
-    public void onQueryProgress(final QueryProgressEvent event) {}
+    public void onQueryProgress(final QueryProgressEvent event) {
+      long numInputRows = event.progress().numInputRows();
+      if (numInputRows > 0) {
+        batchInputRows.add(numInputRows);
+      }
+    }
 
     @Override
     public void onQueryTerminated(final QueryTerminatedEvent event) {
@@ -1081,6 +1093,10 @@ abstract class AbstractMongoStreamTest extends MongoSparkConnectorTestCase {
     @Nullable
     public QueryTerminatedEvent getQueryTerminatedEvent() {
       return queryTerminatedEvent;
+    }
+
+    public List<Long> getBatchInputRows() {
+      return unmodifiableList(batchInputRows);
     }
   }
 }

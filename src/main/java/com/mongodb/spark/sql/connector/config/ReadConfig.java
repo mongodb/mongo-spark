@@ -349,6 +349,10 @@ public final class ReadConfig extends AbstractMongoConfig {
    *   <li>'timestamp' actuates 'change.stream.startup.mode.timestamp.*' properties." If no such
    *       properties are configured, then 'timestamp' is equivalent to 'latest'.
    * </ul>
+   *
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: {@value STREAMING_STARTUP_MODE_DEFAULT}
    */
   public static final String STREAMING_STARTUP_MODE_CONFIG = "change.stream.startup.mode";
 
@@ -371,6 +375,8 @@ public final class ReadConfig extends AbstractMongoConfig {
    *
    * <p>See <a
    * href="https://www.mongodb.com/docs/current/reference/operator/aggregation/changeStream">changeStreams</a>.
+   *
+   * <p>Configuration: {@value}
    */
   public static final String STREAMING_STARTUP_MODE_TIMESTAMP_START_AT_OPERATION_TIME_CONFIG =
       "change.stream.startup.mode.timestamp.start.at.operation.time";
@@ -386,19 +392,60 @@ public final class ReadConfig extends AbstractMongoConfig {
    *
    * <p>Actuated only if using micro batch streams.
    *
-   * <p>Default: {@value STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_DEFAULT}
-   *
    * <p>Warning: Splitting up into multiple partitions, removes any guarantees of processing the
    * change events in as happens order. Therefore, care should be taken to ensure partitioning and
    * processing won't cause data inconsistencies downstream.
    *
    * <p>See <a href="https://www.mongodb.com/docs/manual/reference/bson-types/#timestamps">bson
    * timestamp</a>.
+   *
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: {@value STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_DEFAULT}
    */
   public static final String STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_CONFIG =
       "change.stream.micro.batch.max.partition.count";
 
   static final int STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_DEFAULT = 1;
+
+  /**
+   * Configures the maximum number of rows per micro batch.
+   *
+   * <p>Provides an alternative for time based micro partitions, useful for extremely high volume collections.
+   *
+   * <p>Actuated only if using micro batch streams.
+   *
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: As many rows as possible (Long.MAX_VALUE).
+   */
+  public static final String STREAM_MICRO_BATCH_MAX_ROWS_CONFIG =
+      "change.stream.micro.batch.max.rows";
+
+  static final long STREAM_MICRO_BATCH_MAX_ROWS_DEFAULT = Long.MAX_VALUE;
+
+  /**
+   * Configures the name of the sidecar collection used to persist resume tokens when
+   * {@value STREAM_MICRO_BATCH_MAX_ROWS_CONFIG} is set.
+   *
+   * <p>The sidecar collection is created in the source database and stores resume tokens
+   * that allow the Executor to communicate its actual stop position back to the Driver
+   * between micro batches. Each stream instance is scoped by a hash of the checkpoint
+   * location, which prevents collisions when multiple streams read from the same database.
+   *
+   * <p>This configuration is useful when the connector's MongoDB user does not have
+   * permission to create collections, allowing a DBA to pre-create the collection and
+   * grant access.
+   *
+   * <p>Configuration: {@value}
+   *
+   * <p>Default: {@value STREAM_MICRO_BATCH_MAX_ROWS_OFFSET_COLLECTION_DEFAULT}
+   */
+  public static final String STREAM_MICRO_BATCH_MAX_ROWS_OFFSET_COLLECTION_CONFIG =
+      "change.stream.micro.batch.max.rows.offset.collection";
+
+  static final String STREAM_MICRO_BATCH_MAX_ROWS_OFFSET_COLLECTION_DEFAULT =
+      "__spark_resume_tokens";
 
   /**
    * Output extended JSON for any String types.
@@ -584,7 +631,39 @@ public final class ReadConfig extends AbstractMongoConfig {
   public int getMicroBatchMaxPartitionCount() {
     return getInt(
         STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_CONFIG,
-        STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_DEFAULT);
+        STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_DEFAULT,
+        v -> v > 0,
+        v -> format(
+            "'%s' must be a positive integer, got: %d",
+            STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_CONFIG, v));
+  }
+
+  /** @return the micro batch max rows */
+  public long getMicroBatchMaxRows() {
+    long value = getLong(
+        STREAM_MICRO_BATCH_MAX_ROWS_CONFIG,
+        STREAM_MICRO_BATCH_MAX_ROWS_DEFAULT,
+        v -> v > 0,
+        v ->
+            format("'%s' must be a positive long, got: %d", STREAM_MICRO_BATCH_MAX_ROWS_CONFIG, v));
+    if (value < Long.MAX_VALUE && getMicroBatchMaxPartitionCount() != 1) {
+      throw new ConfigException(format(
+          "'%s' requires '%s' to be 1, got: %d",
+          STREAM_MICRO_BATCH_MAX_ROWS_CONFIG,
+          STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_CONFIG,
+          getMicroBatchMaxPartitionCount()));
+    }
+    return value;
+  }
+
+  /** @return the micro batch max rows offset collection name */
+  public String getMicroBatchMaxRowsOffsetCollection() {
+    return getOrDefault(
+        STREAM_MICRO_BATCH_MAX_ROWS_OFFSET_COLLECTION_CONFIG,
+        STREAM_MICRO_BATCH_MAX_ROWS_OFFSET_COLLECTION_DEFAULT,
+        v -> !v.trim().isEmpty(),
+        v ->
+            format("'%s' must not be empty", STREAM_MICRO_BATCH_MAX_ROWS_OFFSET_COLLECTION_CONFIG));
   }
 
   /**

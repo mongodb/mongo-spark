@@ -23,11 +23,15 @@ import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.schema.BsonDocumentToRowConverter;
 import com.mongodb.spark.sql.connector.schema.InferSchema;
 import java.time.Instant;
+import java.util.Optional;
 import org.apache.spark.sql.connector.read.InputPartition;
 import org.apache.spark.sql.connector.read.PartitionReaderFactory;
 import org.apache.spark.sql.connector.read.streaming.MicroBatchStream;
 import org.apache.spark.sql.connector.read.streaming.Offset;
+import org.apache.spark.sql.connector.read.streaming.ReadLimit;
+import org.apache.spark.sql.connector.read.streaming.SupportsAdmissionControl;
 import org.apache.spark.sql.types.StructType;
+import org.bson.BsonDocument;
 import org.bson.BsonTimestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,13 +47,16 @@ import org.slf4j.LoggerFactory;
  *
  * <p>Uses seconds since epoch offsets to create boundaries between partitions.
  */
-final class MongoMicroBatchStream implements MicroBatchStream {
+final class MongoMicroBatchStream implements SupportsAdmissionControl, MicroBatchStream {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(MongoMicroBatchStream.class);
   private final StructType schema;
   private final MongoOffsetStore mongoOffsetStore;
   private final ReadConfig readConfig;
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
+  private final long batchMaxRows;
+  private final boolean rateLimited;
+  private final MicroBatchResumeTokenStore resumeTokenStore;
   private volatile Long lastTime = Instant.now().getEpochSecond();
 
   /**
@@ -71,26 +78,36 @@ final class MongoMicroBatchStream implements MicroBatchStream {
         new MongoOffsetStore(checkpointLocation, MongoOffset.getInitialOffset(readConfig));
     this.readConfig = readConfig;
     this.bsonDocumentToRowConverter = new BsonDocumentToRowConverter(schema, readConfig);
+    this.batchMaxRows = readConfig.getMicroBatchMaxRows();
+    this.rateLimited = batchMaxRows > 0 && batchMaxRows < Long.MAX_VALUE;
+
+    if (rateLimited) {
+      this.resumeTokenStore = new MicroBatchResumeTokenStore(readConfig, checkpointLocation);
+    } else {
+      this.resumeTokenStore = null;
+    }
+  }
+
+  MicroBatchResumeTokenStore getResumeTokenStore() {
+    return resumeTokenStore;
   }
 
   @Override
   public Offset latestOffset() {
-    long now = Instant.now().getEpochSecond();
-    if (lastTime < now) {
-      lastTime = now;
-    }
-    return new BsonTimestampOffset(new BsonTimestamp(lastTime.intValue(), 0));
+    return computeLatestOffset();
   }
 
   @Override
   public InputPartition[] planInputPartitions(final Offset start, final Offset end) {
+    LOGGER.debug("MicroBatchStream plan: {} - {}", start, end);
     return generateMicroBatchPartitions(
         schema, readConfig, (BsonTimestampOffset) start, (BsonTimestampOffset) end);
   }
 
   @Override
   public PartitionReaderFactory createReaderFactory() {
-    return new MongoMicroBatchPartitionReaderFactory(bsonDocumentToRowConverter, readConfig);
+    return new MongoMicroBatchPartitionReaderFactory(
+        bsonDocumentToRowConverter, readConfig, resumeTokenStore);
   }
 
   @Override
@@ -105,12 +122,48 @@ final class MongoMicroBatchStream implements MicroBatchStream {
 
   @Override
   public void commit(final Offset end) {
-    LOGGER.info("MicroBatchStream commit: {}", end);
+    LOGGER.debug("MicroBatchStream commit: {}", end);
     mongoOffsetStore.updateOffset((MongoOffset) end);
   }
 
   @Override
   public void stop() {
     LOGGER.info("MicroBatchStream stopped.");
+    if (resumeTokenStore != null) {
+      resumeTokenStore.cleanup();
+    }
+  }
+
+  @Override
+  public ReadLimit getDefaultReadLimit() {
+    if (rateLimited) {
+      return ReadLimit.maxRows(batchMaxRows);
+    }
+    return ReadLimit.allAvailable();
+  }
+
+  @Override
+  public Offset latestOffset(final Offset startOffset, final ReadLimit limit) {
+    return computeLatestOffset();
+  }
+
+  private Offset computeLatestOffset() {
+    long now = Instant.now().getEpochSecond();
+    if (lastTime < now) {
+      lastTime = now;
+    }
+    return new BsonTimestampOffset(new BsonTimestamp(lastTime.intValue(), 0));
+  }
+
+  @Override
+  public Offset reportLatestOffset() {
+    if (resumeTokenStore != null) {
+      Optional<BsonDocument> resumeToken = resumeTokenStore.getLatestResumeToken();
+      if (resumeToken.isPresent()) {
+        return new ResumeTokenBasedOffset(resumeToken.get());
+      }
+    }
+    long now = Instant.now().getEpochSecond();
+    return new BsonTimestampOffset(new BsonTimestamp((int) now, 0));
   }
 }
