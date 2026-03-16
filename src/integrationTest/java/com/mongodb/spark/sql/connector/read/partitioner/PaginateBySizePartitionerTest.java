@@ -155,6 +155,49 @@ public class PaginateBySizePartitionerTest extends PartitionerTestCase {
   }
 
   @Test
+  void testUsingAlternativeNestedPartitionField() {
+    ReadConfig readConfig = createReadConfig(
+        "altNestedPartitionFiled",
+        PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_CONFIG,
+        "nested.pk");
+    loadComplexSampleData(51, 5, readConfig);
+
+    List<MongoInputPartition> expectedPartitions = asList(
+        new MongoInputPartition(
+            0,
+            createPartitionPipeline(
+                BsonDocument.parse("{'nested.pk': {$lt: '_10010'}}"), emptyList()),
+            getPreferredLocations()),
+        new MongoInputPartition(
+            1,
+            createPartitionPipeline(
+                BsonDocument.parse("{'nested.pk': {$gte: '_10010', $lt: '_10020'}}"), emptyList()),
+            getPreferredLocations()),
+        new MongoInputPartition(
+            2,
+            createPartitionPipeline(
+                BsonDocument.parse("{'nested.pk': {$gte: '_10020', $lt: '_10030'}}"), emptyList()),
+            getPreferredLocations()),
+        new MongoInputPartition(
+            3,
+            createPartitionPipeline(
+                BsonDocument.parse("{'nested.pk': {$gte: '_10030', $lt: '_10040'}}"), emptyList()),
+            getPreferredLocations()),
+        new MongoInputPartition(
+            4,
+            createPartitionPipeline(
+                BsonDocument.parse("{'nested.pk': {$gte: '_10040', $lt: '_10050'}}"), emptyList()),
+            getPreferredLocations()),
+        new MongoInputPartition(
+            5,
+            createPartitionPipeline(
+                BsonDocument.parse("{'nested.pk': {$gte: '_10050'}}"), emptyList()),
+            getPreferredLocations()));
+
+    assertPartitioner(PARTITIONER, expectedPartitions, readConfig);
+  }
+
+  @Test
   void testUsingPartitionFieldThatContainsDuplicates() {
     ReadConfig readConfig =
         createReadConfig("dups", PARTITIONER_OPTIONS_PREFIX + PARTITION_FIELD_CONFIG, "dups");
