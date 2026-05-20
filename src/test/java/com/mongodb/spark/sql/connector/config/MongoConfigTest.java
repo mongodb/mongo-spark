@@ -462,6 +462,95 @@ public class MongoConfigTest {
     assertThrows(ConfigException.class, () -> mongoConfig.getDouble("string", 1.0));
   }
 
+  @Test
+  void testReadConfigMicroBatchMaxPartitionCount() {
+    ReadConfig readConfig = MongoConfig.readConfig(CONFIG_MAP);
+
+    // Default
+    assertEquals(1, readConfig.getMicroBatchMaxPartitionCount());
+
+    // Custom value
+    readConfig =
+        readConfig.withOption(ReadConfig.STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_CONFIG, "4");
+    assertEquals(4, readConfig.getMicroBatchMaxPartitionCount());
+
+    // Non-numeric value
+    ReadConfig nonNumeric =
+        readConfig.withOption(ReadConfig.STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_CONFIG, "abc");
+    assertThrows(ConfigException.class, nonNumeric::getMicroBatchMaxPartitionCount);
+
+    // Negative value
+    ReadConfig negative =
+        readConfig.withOption(ReadConfig.STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_CONFIG, "-1");
+    assertThrows(ConfigException.class, negative::getMicroBatchMaxPartitionCount);
+
+    // Zero value
+    ReadConfig zero =
+        readConfig.withOption(ReadConfig.STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_CONFIG, "0");
+    assertThrows(ConfigException.class, zero::getMicroBatchMaxPartitionCount);
+  }
+
+  @Test
+  void testReadConfigMicroBatchMaxRows() {
+    ReadConfig readConfig = MongoConfig.readConfig(CONFIG_MAP);
+
+    // Default
+    assertEquals(Long.MAX_VALUE, readConfig.getMicroBatchMaxRows());
+
+    // Custom value
+    readConfig = readConfig.withOption(ReadConfig.STREAM_MICRO_BATCH_MAX_ROWS_CONFIG, "100");
+    assertEquals(100L, readConfig.getMicroBatchMaxRows());
+
+    // Single partition is fine
+    ReadConfig singlePartition = readConfig
+        .withOption(ReadConfig.STREAM_MICRO_BATCH_MAX_ROWS_CONFIG, "100")
+        .withOption(ReadConfig.STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_CONFIG, "1");
+    assertEquals(100L, singlePartition.getMicroBatchMaxRows());
+
+    // Non-numeric value
+    ReadConfig nonNumeric =
+        readConfig.withOption(ReadConfig.STREAM_MICRO_BATCH_MAX_ROWS_CONFIG, "abc");
+    assertThrows(ConfigException.class, nonNumeric::getMicroBatchMaxRows);
+
+    // Negative value
+    ReadConfig negative =
+        readConfig.withOption(ReadConfig.STREAM_MICRO_BATCH_MAX_ROWS_CONFIG, "-1");
+    assertThrows(ConfigException.class, negative::getMicroBatchMaxRows);
+
+    // Zero value
+    ReadConfig zero = readConfig.withOption(ReadConfig.STREAM_MICRO_BATCH_MAX_ROWS_CONFIG, "0");
+    assertThrows(ConfigException.class, zero::getMicroBatchMaxRows);
+
+    // Requires single partition
+    ReadConfig multiPartition = readConfig
+        .withOption(ReadConfig.STREAM_MICRO_BATCH_MAX_ROWS_CONFIG, "100")
+        .withOption(ReadConfig.STREAM_MICRO_BATCH_MAX_PARTITION_COUNT_CONFIG, "4");
+    assertThrows(ConfigException.class, multiPartition::getMicroBatchMaxRows);
+  }
+
+  @Test
+  void testReadConfigMicroBatchMaxRowsOffsetCollection() {
+    ReadConfig readConfig = MongoConfig.readConfig(CONFIG_MAP);
+
+    // Default
+    assertEquals("__spark_resume_tokens", readConfig.getMicroBatchMaxRowsOffsetCollection());
+
+    // Custom value
+    readConfig = readConfig.withOption(
+        ReadConfig.STREAM_MICRO_BATCH_MAX_ROWS_OFFSET_COLLECTION_CONFIG, "my_resume_tokens");
+    assertEquals("my_resume_tokens", readConfig.getMicroBatchMaxRowsOffsetCollection());
+
+    // Empty string
+    ReadConfig empty =
+        readConfig.withOption(ReadConfig.STREAM_MICRO_BATCH_MAX_ROWS_OFFSET_COLLECTION_CONFIG, "");
+    assertThrows(ConfigException.class, empty::getMicroBatchMaxRowsOffsetCollection);
+
+    // Whitespace only
+    ReadConfig whitespace = readConfig.withOption(
+        ReadConfig.STREAM_MICRO_BATCH_MAX_ROWS_OFFSET_COLLECTION_CONFIG, "   ");
+    assertThrows(ConfigException.class, whitespace::getMicroBatchMaxRowsOffsetCollection);
+  }
+
   private static Stream<MongoConfig> optionsMapConfigs() {
     MongoConfig simpleMongoConfig = MongoConfig.createConfig(OPTIONS_CONFIG_MAP);
     return Stream.of(simpleMongoConfig.toReadConfig(), simpleMongoConfig.toWriteConfig());

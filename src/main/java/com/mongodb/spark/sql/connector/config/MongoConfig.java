@@ -30,6 +30,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.spark.sql.connector.read.Scan;
 import org.apache.spark.sql.connector.write.WriteBuilder;
@@ -333,6 +335,28 @@ public interface MongoConfig extends Serializable {
   }
 
   /**
+   * Returns the value to which the specified key is mapped, or {@code defaultValue} if this config
+   * contains no mapping for the key. The value is validated using the provided predicate.
+   *
+   * @param key the key whose associated value is to be returned
+   * @param defaultValue the default mapping for the config
+   * @param validator the predicate to validate the value
+   * @param errorMessage a function that accepts the resolved value and returns the error message if
+   *     validation fails
+   * @return the string value to which the specified key is mapped, or {@code defaultValue} if there
+   *     is no mapping for the key. The key match is case-insensitive.
+   * @throws ConfigException if validation fails
+   */
+  default String getOrDefault(
+      final String key,
+      final String defaultValue,
+      final Predicate<String> validator,
+      final Function<String, String> errorMessage) {
+    String value = getOrDefault(key, defaultValue);
+    return Assertions.validateConfig(value, validator, () -> errorMessage.apply(value));
+  }
+
+  /**
    * Returns the boolean value to which the specified key is mapped, or {@code defaultValue} if
    * there is no mapping for the key.
    *
@@ -376,6 +400,29 @@ public interface MongoConfig extends Serializable {
   }
 
   /**
+   * Returns the int value to which the specified key is mapped, or {@code defaultValue} if there is
+   * no mapping for the key. The value is validated using the provided predicate.
+   *
+   * @param key the key whose associated value is to be returned
+   * @param defaultValue the default mapping for the config
+   * @param validator the predicate to validate the value
+   * @param errorMessage a function that accepts the resolved value and returns the error message if
+   *     validation fails
+   * @return the integer value to which the specified key is mapped, or {@code defaultValue} if
+   *     there is no mapping for the key. The key match is case-insensitive.
+   * @throws ConfigException if the specified key cannot be converted into a valid int or if
+   *     validation fails
+   */
+  default int getInt(
+      final String key,
+      final int defaultValue,
+      final Predicate<Integer> validator,
+      final Function<Integer, String> errorMessage) {
+    int value = getInt(key, defaultValue);
+    return Assertions.validateConfig(value, validator, () -> errorMessage.apply(value));
+  }
+
+  /**
    * Returns the long value to which the specified key is mapped, or {@code defaultValue} if there
    * is no mapping for the key.
    *
@@ -392,6 +439,29 @@ public interface MongoConfig extends Serializable {
         : Assertions.validateConfig(
             () -> Long.parseLong(value),
             () -> format("%s did not contain a valid long, got: %s", key, value));
+  }
+
+  /**
+   * Returns the long value to which the specified key is mapped, or {@code defaultValue} if there
+   * is no mapping for the key. The value is validated using the provided predicate.
+   *
+   * @param key the key whose associated value is to be returned
+   * @param defaultValue the default mapping for the config
+   * @param validator the predicate to validate the value
+   * @param errorMessage a function that accepts the resolved value and returns the error message if
+   *     validation fails
+   * @return the long value to which the specified key is mapped, or {@code defaultValue} if there
+   *     is no mapping for the key. The key match is case-insensitive.
+   * @throws ConfigException if the specified key cannot be converted into a valid long or if
+   *     validation fails
+   */
+  default long getLong(
+      final String key,
+      final long defaultValue,
+      final Predicate<Long> validator,
+      final Function<Long, String> errorMessage) {
+    long value = getLong(key, defaultValue);
+    return Assertions.validateConfig(value, validator, () -> errorMessage.apply(value));
   }
 
   /**

@@ -33,17 +33,22 @@ final class MongoMicroBatchPartitionReaderFactory implements PartitionReaderFact
   private static final long serialVersionUID = 1L;
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
   private final ReadConfig readConfig;
+  private final MicroBatchResumeTokenStore resumeTokenStore;
 
   /**
    * Construct a new instance
    *
    * @param bsonDocumentToRowConverter the bson document to internal row converter
    * @param readConfig the read configuration
+   * @param resumeTokenStore the resume token store, or null if rate limiting is not enabled
    */
   MongoMicroBatchPartitionReaderFactory(
-      final BsonDocumentToRowConverter bsonDocumentToRowConverter, final ReadConfig readConfig) {
+      final BsonDocumentToRowConverter bsonDocumentToRowConverter,
+      final ReadConfig readConfig,
+      final MicroBatchResumeTokenStore resumeTokenStore) {
     this.bsonDocumentToRowConverter = bsonDocumentToRowConverter;
     this.readConfig = readConfig;
+    this.resumeTokenStore = resumeTokenStore;
   }
 
   @Override
@@ -54,6 +59,9 @@ final class MongoMicroBatchPartitionReaderFactory implements PartitionReaderFact
             "Unsupported InputPartition type, a MongoMicroBatchInputPartition instance is required. Got: %s",
             partition.getClass()));
     return new MongoMicroBatchPartitionReader(
-        (MongoMicroBatchInputPartition) partition, bsonDocumentToRowConverter, readConfig);
+        (MongoMicroBatchInputPartition) partition,
+        bsonDocumentToRowConverter,
+        readConfig,
+        resumeTokenStore);
   }
 }
