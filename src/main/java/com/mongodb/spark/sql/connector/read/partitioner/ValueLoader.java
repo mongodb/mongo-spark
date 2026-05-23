@@ -1,3 +1,20 @@
+/*
+ * Copyright 2008-present MongoDB, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 package com.mongodb.spark.sql.connector.read.partitioner;
 
 import java.util.function.Function;
@@ -6,8 +23,13 @@ import org.bson.BsonValue;
 
 /**
  * Allows loading values from nested documents if the partition field is a dotted path.
- * For example, if the partition field is `a.b.c`, this will attempt to load the value from the nested document `a.b` and return the value of `c`.
- * If the path does not exist or if any part of the path is an array, it will fall back to the original behavior of loading the value from the top-level document using the full partition field as the key.
+ *
+ * <p>For example, if the partition field is {@code a.b.c}, this will attempt to load the value
+ * from the nested document {@code a.b} and return the value of {@code c}.
+ *
+ * <p>If the path does not exist or if any part of the path is an array, it will fall back to the
+ * original behavior of loading the value from the top-level document using the full partition field
+ * as the key.
  */
 class ValueLoader implements Function<BsonDocument, BsonValue> {
   private static final char DOT = '.';
@@ -23,7 +45,7 @@ class ValueLoader implements Function<BsonDocument, BsonValue> {
   /**
    * partitionField.split("\\.") should switch to fastpath non-regex split.
    */
-  private static String[] getPartitionField(String partitionField) {
+  private static String[] getPartitionField(final String partitionField) {
     try {
       return partitionField.indexOf(DOT) > 0
           ? partitionField.split(DOT_REGEX)
