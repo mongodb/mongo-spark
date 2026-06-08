@@ -18,6 +18,7 @@
 package com.mongodb.spark.sql.connector.assertions;
 
 import com.mongodb.spark.sql.connector.exceptions.ConfigException;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -99,6 +100,26 @@ public final class Assertions {
       return valueSupplier.get();
     } catch (RuntimeException ex) {
       throw new ConfigException(errorMessageSupplier.get(), ex);
+    }
+  }
+
+  /**
+   * Checks the validity of a value, providing the caught exception to the error message function.
+   *
+   * @param valueSupplier the supplier of the value
+   * @param errorMessageFunction a function that receives the caught exception and returns the error
+   *     message
+   * @param <T> the type of the value being checked
+   * @return the value or throw a {@code ConfigException} if the supplier throws an exception
+   * @throws ConfigException if the supplier throws an exception
+   */
+  public static <T> T validateConfig(
+      final Supplier<T> valueSupplier,
+      final Function<RuntimeException, String> errorMessageFunction) {
+    try {
+      return valueSupplier.get();
+    } catch (RuntimeException ex) {
+      throw new ConfigException(errorMessageFunction.apply(ex), ex);
     }
   }
 
