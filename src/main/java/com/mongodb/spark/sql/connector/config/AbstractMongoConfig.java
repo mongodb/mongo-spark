@@ -361,7 +361,7 @@ abstract class AbstractMongoConfig implements MongoConfig {
       String rawConnectionString = options.get(prefix + MongoConfig.CONNECTION_STRING_CONFIG);
       ConnectionString connectionString = Assertions.validateConfig(
           () -> new ConnectionString(rawConnectionString),
-          () -> format("Invalid connection string: '%s'", rawConnectionString));
+          ex -> format("Invalid connection string: %s", ex.getMessage()));
       String databaseName = connectionString.getDatabase();
       if (databaseName != null) {
         usageSpecificOptions.put(DATABASE_NAME_CONFIG, databaseName);
