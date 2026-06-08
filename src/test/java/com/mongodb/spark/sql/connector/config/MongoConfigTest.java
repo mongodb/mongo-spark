@@ -37,6 +37,7 @@ import org.apache.spark.sql.types.StructType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class MongoConfigTest {
 
@@ -331,6 +332,34 @@ public class MongoConfigTest {
     MongoConfig simpleConfig = assertDoesNotThrow(() -> MongoConfig.createConfig(options));
     assertThrows(ConfigException.class, simpleConfig::toReadConfig);
     assertThrows(ConfigException.class, simpleConfig::toWriteConfig);
+  }
+
+  @ParameterizedTest(name = "[{index}] {0}")
+  @ValueSource(
+      strings = {
+        "mongodb://user_name:s3cr3t@host:NOT_A_PORT/db",
+        "mongodb+srv://user_name:s3cr3t@host1,host2/db",
+        "mongodb://user_name:s3cr3t@host/?readPreference=BOGUS",
+        "mongodb://user_name:s3cr3t@/db",
+        "mongodb://user_name:s3cr3t@p@ss@host/db",
+        "mongodb://user_name:s3cr3t@[::1/db"
+      })
+  void credentialsShouldNotBeLeakedInExceptionMessages(final String input) {
+    Map<String, String> options = new HashMap<>(OPTIONS_CONFIG_MAP);
+    options.put(MongoConfig.PREFIX + MongoConfig.CONNECTION_STRING_CONFIG, input);
+    ConfigException ex = assertThrows(ConfigException.class, () -> MongoConfig.readConfig(options));
+    String message = ex.getMessage();
+    String causeMessage = ex.getCause() != null ? ex.getCause().getMessage() : "";
+    assertFalse(
+        message.contains("user_name"), "Exception message should not contain username: " + message);
+    assertFalse(
+        message.contains("s3cr3t"), "Exception message should not contain password: " + message);
+    assertFalse(
+        causeMessage.contains("user_name"),
+        "Cause message should not contain username: " + causeMessage);
+    assertFalse(
+        causeMessage.contains("s3cr3t"),
+        "Cause message should not contain password: " + causeMessage);
   }
 
   @Test
