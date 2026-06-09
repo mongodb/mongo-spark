@@ -29,5 +29,5 @@ fi
 SYSTEM_PROPERTIES="-Dorg.gradle.internal.publish.checksums.insecure=true"
 
 ./gradlew -version
-./gradlew ${SYSTEM_PROPERTIES} --stacktrace --info ${TASK} -DscalaVersion=2.12 -DsparkVersion=3.1.2
-./gradlew ${SYSTEM_PROPERTIES} --stacktrace --info ${TASK} -DscalaVersion=2.13 -DsparkVersion=3.2.2
+./gradlew ${SYSTEM_PROPERTIES} --stacktrace --info ${TASK} -DscalaVersion=2.12 -DsparkVersion=3.5.8
+./gradlew ${SYSTEM_PROPERTIES} --stacktrace --info ${TASK} -DscalaVersion=2.13 -DsparkVersion=3.5.8

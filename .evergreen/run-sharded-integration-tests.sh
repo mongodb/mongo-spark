@@ -9,7 +9,7 @@ set -o errexit  # Exit the script with error if any of the commands fail
 # SPARK_VERSION   The spark version to test against
 MONGODB_URI=${MONGODB_URI:-}
 SCALA_VERSION=${SCALA_VERSION:-2.12}
-SPARK_VERSION=${SPARK_VERSION:-3.1.2}
+SPARK_VERSION=${SPARK_VERSION:-3.5.8}
 
 export JAVA_HOME="/opt/java/jdk11"
 
