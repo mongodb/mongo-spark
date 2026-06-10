@@ -65,6 +65,8 @@ abstract class FieldPartitioner implements Partitioner {
       final List<BsonDocument> upperBounds,
       final ReadConfig readConfig) {
 
+    ValueLoader valueLoader = new ValueLoader(partitionField);
+
     Set<BsonDocument> upperBoundSet = new HashSet<>(upperBounds);
     if (upperBounds.size() != upperBoundSet.size()) {
       throw new ConfigException(format(
@@ -82,7 +84,7 @@ abstract class FieldPartitioner implements Partitioner {
 
           BsonDocument matchFilter = new BsonDocument();
           if (previous != null) {
-            matchFilter.put(partitionField, new BsonDocument("$gte", previous.get(partitionField)));
+            matchFilter.put(partitionField, new BsonDocument("$gte", valueLoader.apply(previous)));
           }
 
           if (current != null) {
@@ -90,7 +92,7 @@ abstract class FieldPartitioner implements Partitioner {
                 partitionField,
                 matchFilter
                     .getDocument(partitionField, new BsonDocument())
-                    .append("$lt", current.get(partitionField)));
+                    .append("$lt", valueLoader.apply(current)));
           }
 
           return new MongoInputPartition(
