@@ -17,6 +17,7 @@
 
 package com.mongodb.spark.sql.connector.read.partitioner;
 
+import static com.mongodb.spark.sql.connector.config.ReadConfig.PARTITIONER_OPTIONS_PREFIX;
 import static com.mongodb.spark.sql.connector.read.partitioner.PartitionerHelper.SINGLE_PARTITIONER;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -24,6 +25,7 @@ import static java.util.Collections.singletonList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -32,6 +34,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
 import com.mongodb.spark.sql.connector.exceptions.MongoSparkException;
 import com.mongodb.spark.sql.connector.read.MongoInputPartition;
+import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.bson.BsonDocument;
@@ -66,6 +69,56 @@ public class ShardedPartitionerTest extends PartitionerTestCase {
     loadSampleData(100, 10, readConfig);
 
     assertPartitioner(readConfig);
+  }
+
+  @Test
+  void testShufflesPartitionsWhenEnabled() {
+    assumeTrue(isSharded());
+    ReadConfig readConfig = createReadConfig("shuffle");
+    shardCollection(readConfig.getNamespace(), "{_id: 1}");
+    loadSampleData(100, 10, readConfig);
+
+    List<MongoInputPartition> ordered = PARTITIONER.generatePartitions(readConfig);
+    assumeTrue(ordered.size() > 1, "Shuffling requires more than one partition to be observable");
+
+    List<MongoInputPartition> shuffled = PARTITIONER.generatePartitions(readConfig.withOption(
+        PARTITIONER_OPTIONS_PREFIX + ShardedPartitioner.SHUFFLE_CONFIG, "true"));
+
+    // The same partitions are produced, just in a different order.
+    assertEquals(new HashSet<>(ordered), new HashSet<>(shuffled));
+    assertNotEquals(ordered, shuffled);
+  }
+
+  @Test
+  void testShufflingWithASeedIsDeterministic() {
+    assumeTrue(isSharded());
+    ReadConfig readConfig = createReadConfig(
+        "shuffleSeed",
+        PARTITIONER_OPTIONS_PREFIX + ShardedPartitioner.SHUFFLE_CONFIG,
+        "true",
+        PARTITIONER_OPTIONS_PREFIX + ShardedPartitioner.SHUFFLE_SEED_CONFIG,
+        "42");
+    shardCollection(readConfig.getNamespace(), "{_id: 1}");
+    loadSampleData(100, 10, readConfig);
+
+    List<MongoInputPartition> firstRun = PARTITIONER.generatePartitions(readConfig);
+    List<MongoInputPartition> secondRun = PARTITIONER.generatePartitions(readConfig);
+    assertEquals(firstRun, secondRun);
+  }
+
+  @Test
+  void testThrowsExceptionWithAnInvalidShuffleSeed() {
+    assumeTrue(isSharded());
+    ReadConfig readConfig = createReadConfig(
+        "shuffleInvalidSeed",
+        PARTITIONER_OPTIONS_PREFIX + ShardedPartitioner.SHUFFLE_CONFIG,
+        "true",
+        PARTITIONER_OPTIONS_PREFIX + ShardedPartitioner.SHUFFLE_SEED_CONFIG,
+        "not-a-long");
+    shardCollection(readConfig.getNamespace(), "{_id: 1}");
+    loadSampleData(100, 10, readConfig);
+
+    assertThrows(MongoSparkException.class, () -> PARTITIONER.generatePartitions(readConfig));
   }
 
   @Test
