@@ -26,7 +26,12 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import com.mongodb.spark.sql.connector.config.CollectionsConfig;
 import com.mongodb.spark.sql.connector.config.MongoConfig;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.spark.sql.Row;
 import org.apache.spark.sql.streaming.Trigger;
+import org.bson.BsonDocument;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -80,5 +85,53 @@ public class MongoMicroBatchStreamTest extends AbstractMongoStreamTest {
               "Batch had %d input rows, exceeding maxRows=%d. All batches: %s",
               batchSize, maxRows, batchSizes));
     }
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"SINGLE", "MULTIPLE", "ALL"})
+  void testStreamBatchMaxRowsNoLossOrDuplicates(final String collectionsConfigModeStr) {
+    assumeTrue(supportsChangeStreams());
+
+    CollectionsConfig.Type collectionsConfigType =
+        CollectionsConfig.Type.valueOf(collectionsConfigModeStr);
+    setTestIdentifier(computeTestIdentifier("BatchMaxRowsNoDups", collectionsConfigType));
+
+    int maxRows = 49;
+    int totalDocs = 50;
+    String testId = getTestIdentifier();
+
+    Set<String> expectedIds =
+        IntStream.range(0, totalDocs).mapToObj(i -> testId + "-" + i).collect(Collectors.toSet());
+
+    MongoConfig mongoConfig = createMongoConfig(collectionsConfigType)
+        .withOption(READ_PREFIX + STREAM_MICRO_BATCH_MAX_ROWS_CONFIG, String.valueOf(maxRows));
+    testStreamingQuery(
+        MEMORY,
+        mongoConfig,
+        DEFAULT_SCHEMA,
+        null,
+        null,
+        withSource(
+            "inserting 0-" + totalDocs,
+            (msg, coll) -> coll.insertMany(createDocuments(0, totalDocs))),
+        withMemorySink(
+            "All " + totalDocs + " documents should arrive with no duplicates", (msg, ds) -> {
+              List<Row> rows = ds.collectAsList();
+              assertEquals(totalDocs, rows.size(), msg + " — wrong total count");
+
+              Set<String> actualIds = rows.stream()
+                  .map(r -> r.getString(r.fieldIndex("fullDocument")))
+                  .map(json -> BsonDocument.parse(json).getString("_id").getValue())
+                  .collect(Collectors.toSet());
+
+              assertEquals(
+                  totalDocs,
+                  actualIds.size(),
+                  String.format(
+                      "%s — found %d unique IDs out of %d rows (duplicates detected)",
+                      msg, actualIds.size(), rows.size()));
+
+              assertEquals(expectedIds, actualIds, msg + " — missing or unexpected document IDs");
+            }));
   }
 }
