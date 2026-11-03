@@ -181,7 +181,7 @@ public final class ExpressionConverter {
       String fieldName = unquoteFieldName(stringEndsWith.attribute());
       String literalValue = escapeRegex(stringEndsWith.value());
       return new FilterAndPipelineStage(
-          filter, Filters.regex(fieldName, format(".*%s$", literalValue)));
+          filter, Filters.regex(fieldName, format(".*%s\\z", literalValue)));
     } else if (filter instanceof StringStartsWith) {
       StringStartsWith stringStartsWith = (StringStartsWith) filter;
       String fieldName = unquoteFieldName(stringStartsWith.attribute());

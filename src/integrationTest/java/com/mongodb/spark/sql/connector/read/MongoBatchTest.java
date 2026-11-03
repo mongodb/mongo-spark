@@ -813,7 +813,8 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
         of(nameCol.endsWith("._dot"), asList("dot_._dot")),
         of(nameCol.endsWith("[ae]_test"), asList("test_[ae]_test")),
         of(nameCol.endsWith(".*_pattern"), asList("pattern_.*_pattern")),
-        of(nameCol.endsWith("\\nest"), asList("test\\nest")));
+        of(nameCol.endsWith("\\nest"), asList("test\\nest")),
+        of(nameCol.endsWith("line_end"), asList("line_end")));
   }
 
   @ParameterizedTest
@@ -828,7 +829,9 @@ class MongoBatchTest extends MongoSparkConnectorTestCase {
         BsonDocument.parse("{_id: 5, name: 'meta_.*\\\\Q_meta'}"),
         BsonDocument.parse("{_id: 6, name: 'meta_\\\\E.*\\\\Q_meta'}"),
         BsonDocument.parse("{_id: 7, name: 'test\\\\nest'}"),
-        BsonDocument.parse("{_id: 8, name: 'test_[ae]_test'}"));
+        BsonDocument.parse("{_id: 8, name: 'test_[ae]_test'}"),
+        BsonDocument.parse("{_id: 9, name: 'line_end'}"),
+        BsonDocument.parse("{_id: 10, name: 'line_end\\n'}"));
     getCollection().insertMany(collectionData);
 
     Dataset<Row> ds = spark.read().format("mongodb").load();
