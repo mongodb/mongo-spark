@@ -33,6 +33,7 @@ final class MongoBatch implements Batch {
   private final StructType schema;
   private final ReadConfig readConfig;
   private final BsonDocumentToRowConverter bsonDocumentToRowConverter;
+  private InputPartition[] inputPartitions;
 
   /**
    * Construct a new instance
@@ -46,10 +47,18 @@ final class MongoBatch implements Batch {
     this.bsonDocumentToRowConverter = new BsonDocumentToRowConverter(schema, readConfig);
   }
 
-  /** Returns a list of partitions that split the collection into parts */
+  /**
+   * Returns a list of partitions that split the collection into parts.
+   *
+   * <p>The partitions are generated once and reused, as Spark may plan the same scan more than once
+   * (for example when a write nests another write of the same data).
+   */
   @Override
-  public InputPartition[] planInputPartitions() {
-    return generateMongoBatchPartitions(schema, readConfig);
+  public synchronized InputPartition[] planInputPartitions() {
+    if (inputPartitions == null) {
+      inputPartitions = generateMongoBatchPartitions(schema, readConfig);
+    }
+    return inputPartitions;
   }
 
   /** Returns a factory to create a {@link PartitionReader} for each {@link InputPartition}. */
