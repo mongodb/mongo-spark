@@ -38,10 +38,11 @@ import org.bson.BsonValue;
 /** Partitioner helper class, contains various utility methods used by the partitioner instances. */
 public final class PartitionerHelper {
 
+  // On sharded collections $collStats returns one document per shard, so the stats are summed.
   private static final List<BsonDocument> COLL_STATS_AGGREGATION_PIPELINE = asList(
       BsonDocument.parse("{'$collStats': {'storageStats': { } } }"),
       BsonDocument.parse(
-          "{'$project': {'size': '$storageStats.size', 'count': '$storageStats.count' } }"));
+          "{'$group': {'_id': null, 'size': {'$sum': '$storageStats.size'}, 'count': {'$sum': '$storageStats.count'} } }"));
   private static final List<BsonDocument> COLL_STATS_DATA_FEDERATION_AGGREGATION_PIPELINE = asList(
       BsonDocument.parse("{'$collStats': {'count': { } } }"),
       BsonDocument.parse(

@@ -20,6 +20,7 @@ package com.mongodb.spark.sql.connector.read.partitioner;
 import static com.mongodb.spark.sql.connector.config.MongoConfig.COMMENT_CONFIG;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.mongodb.client.MongoCollection;
 import com.mongodb.spark.sql.connector.config.ReadConfig;
@@ -40,6 +41,18 @@ public class PartitionerHelperTest extends MongoSparkConnectorTestCase {
       coll.deleteOne(new BsonDocument());
     });
     assertEquals(0, PartitionerHelper.storageStats(readConfig).getNumber("size").intValue());
+  }
+
+  @Test
+  void testCollStatsSumsAllShards() {
+    assumeTrue(isSharded());
+    ReadConfig readConfig = getMongoConfig().toReadConfig();
+    readConfig.doWithCollection(MongoCollection::drop);
+    shardCollection(readConfig.getNamespace(), "{_id: 'hashed'}");
+    loadSampleData(1000, 1, readConfig);
+
+    BsonDocument storageStats = PartitionerHelper.storageStats(readConfig);
+    assertEquals(1000, storageStats.getNumber("count").intValue());
   }
 
   @Test
