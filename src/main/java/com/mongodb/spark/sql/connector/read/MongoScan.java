@@ -32,6 +32,7 @@ import org.apache.spark.sql.types.StructType;
 final class MongoScan implements Scan {
   private final StructType schema;
   private final ReadConfig readConfig;
+  private MongoBatch batch;
 
   /**
    * Construct a new instance
@@ -70,13 +71,16 @@ final class MongoScan implements Scan {
    * collections are {@linkplain ReadConfig#getCollectionsConfig() configured} to be {@linkplain Scan scanned}.
    */
   @Override
-  public Batch toBatch() {
+  public synchronized Batch toBatch() {
     if (readConfig.getCollectionsConfig().getType() != CollectionsConfig.Type.SINGLE) {
       throw new ConfigException(format(
           "The connector is configured to access %s, which is not supported by batch queries",
           readConfig.getNamespaceDescription()));
     }
-    return new MongoBatch(schema, readConfig);
+    if (batch == null) {
+      batch = new MongoBatch(schema, readConfig);
+    }
+    return batch;
   }
 
   /**
