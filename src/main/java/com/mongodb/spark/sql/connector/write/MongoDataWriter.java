@@ -30,14 +30,22 @@ import com.mongodb.client.model.WriteModel;
 import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.exceptions.DataException;
 import com.mongodb.spark.sql.connector.schema.RowToBsonDocumentConverter;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.write.DataWriter;
 import org.apache.spark.sql.connector.write.WriterCommitMessage;
 import org.apache.spark.sql.types.StructType;
 import org.bson.BsonDocument;
+import org.bson.BsonObjectId;
 import org.bson.BsonValue;
+import org.bson.Document;
+import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,8 +58,11 @@ final class MongoDataWriter implements DataWriter<InternalRow> {
 
   private final WriteConfig writeConfig;
   private final long epochId;
+  private final String queryId;
   private final BulkWriteOptions bulkWriteOptions;
   private final List<WriteModel<BsonDocument>> writeModelList = new ArrayList<>();
+  private long rowOrdinal;
+  private Boolean timeSeries;
 
   private MongoClient mongoClient;
 
@@ -62,19 +73,24 @@ final class MongoDataWriter implements DataWriter<InternalRow> {
    * @param taskId The task id returned by {@link org.apache.spark.TaskContext#taskAttemptId()}.
    * @param schema the schema for the writer
    * @param writeConfig the MongoDB write configuration
+   * @param epochId the streaming epoch, or {@code -1} for a batch write
+   * @param queryId the Spark write query id. Retries of one query share it. A new {@code save()}
+   *     does not.
    */
   MongoDataWriter(
       final int partitionId,
       final long taskId,
       final StructType schema,
       final WriteConfig writeConfig,
-      final long epochId) {
+      final long epochId,
+      final String queryId) {
     this.partitionId = partitionId;
     this.taskId = taskId;
     this.rowToBsonDocumentConverter = new RowToBsonDocumentConverter(
         schema, writeConfig.convertJson(), writeConfig.ignoreNullValues());
     this.writeConfig = writeConfig;
     this.epochId = epochId;
+    this.queryId = queryId;
     this.bulkWriteOptions =
         new BulkWriteOptions().ordered(writeConfig.isOrdered()).comment(writeConfig.getComment());
   }
@@ -90,7 +106,8 @@ final class MongoDataWriter implements DataWriter<InternalRow> {
   @Override
   public void write(final InternalRow row) {
     BsonDocument bsonDocument = rowToBsonDocumentConverter.fromRow(row);
-    writeModelList.add(getWriteModel(bsonDocument));
+    writeModelList.add(getWriteModel(bsonDocument, rowOrdinal));
+    rowOrdinal++;
     if (writeModelList.size() >= writeConfig.getMaxBatchSize()) {
       writeModels();
     }
@@ -111,14 +128,19 @@ final class MongoDataWriter implements DataWriter<InternalRow> {
   }
 
   /**
-   * Aborts the write.
+   * Aborts this attempt.
    *
-   * <p>Note: Data is not cleaned up and will require manual cleaning.
+   * <p>Append writes are left in place. A speculative attempt can share document ids with the
+   * attempt Spark keeps, so deleting here can remove the winner's documents. Overwrite attempts
+   * write a staging collection that the driver drops if the job fails.
    */
   @Override
   public void abort() {
     LOGGER.debug("Aborting write for: PartitionId: {}, TaskId: {}.", partitionId, taskId);
     releaseClient();
+    if (writeConfig.getCollectionName().startsWith(OverwriteStaging.COLLECTION_PREFIX)) {
+      return;
+    }
     throw new DataException(format(
         "Write aborted for: PartitionId: %s, TaskId: %s. "
             + "Manual data clean up may be required.",
@@ -131,7 +153,18 @@ final class MongoDataWriter implements DataWriter<InternalRow> {
     releaseClient();
   }
 
-  private WriteModel<BsonDocument> getWriteModel(final BsonDocument bsonDocument) {
+  private WriteModel<BsonDocument> getWriteModel(
+      final BsonDocument bsonDocument, final long ordinal) {
+    // taskId is excluded. Speculative attempts share the row and must converge on one document.
+    // A later save() has a different queryId, so it still inserts a new document.
+    // Time-series collections reject replace and update. Keep the server-generated id there.
+    if (!hasIdFields(bsonDocument) && documentIdIsTheOnlyIdField() && !isTimeSeries()) {
+      bsonDocument.append("_id", new BsonObjectId(generatedObjectId(ordinal)));
+      return new ReplaceOneModel<>(
+          new BsonDocument("_id", bsonDocument.get("_id")),
+          bsonDocument,
+          new ReplaceOptions().upsert(true));
+    }
     if (!hasIdFields(bsonDocument)) {
       return new InsertOneModel<>(bsonDocument);
     }
@@ -157,6 +190,37 @@ final class MongoDataWriter implements DataWriter<InternalRow> {
 
   private boolean hasIdFields(final BsonDocument bsonDocument) {
     return bsonDocument.keySet().containsAll(writeConfig.getIdFields());
+  }
+
+  private boolean documentIdIsTheOnlyIdField() {
+    List<String> idFields = writeConfig.getIdFields();
+    return idFields.size() == 1 && "_id".equals(idFields.get(0));
+  }
+
+  private boolean isTimeSeries() {
+    if (timeSeries == null) {
+      Document definition = getMongoClient()
+          .getDatabase(writeConfig.getDatabaseName())
+          .listCollections()
+          .filter(new Document("name", writeConfig.getCollectionName()))
+          .first();
+      timeSeries = definition != null && "timeseries".equals(definition.getString("type"));
+    }
+    return timeSeries;
+  }
+
+  private ObjectId generatedObjectId(final long ordinal) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      digest.update(queryId.getBytes(StandardCharsets.UTF_8));
+      digest.update((byte) 0);
+      digest.update(ByteBuffer.allocate(Long.BYTES).putLong(epochId).array());
+      digest.update(ByteBuffer.allocate(Integer.BYTES).putInt(partitionId).array());
+      digest.update(ByteBuffer.allocate(Long.BYTES).putLong(ordinal).array());
+      return new ObjectId(Arrays.copyOf(digest.digest(), 12));
+    } catch (NoSuchAlgorithmException e) {
+      throw new DataException("Unable to build a deterministic _id.", e);
+    }
   }
 
   private BsonDocument getIdFieldDocument(final BsonDocument bsonDocument) {

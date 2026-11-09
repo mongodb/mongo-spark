@@ -17,6 +17,7 @@
 package com.mongodb.spark.sql.connector.write;
 
 import com.mongodb.spark.sql.connector.config.WriteConfig;
+import java.util.Objects;
 import org.apache.spark.TaskContext;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.write.DataWriter;
@@ -27,19 +28,23 @@ import org.apache.spark.sql.types.StructType;
 /** The factory responsible for creating the write operations for the batch or streaming write. */
 final class MongoDataWriterFactory implements DataWriterFactory, StreamingDataWriterFactory {
 
-  static final long serialVersionUID = 1L;
+  static final long serialVersionUID = 2L;
   private final StructType schema;
   private final WriteConfig writeConfig;
+  private final String queryId;
 
   /**
    * Construct a new instance
    *
    * @param schema the schema for the writer
    * @param writeConfig the configuration for the write
+   * @param queryId the Spark write query id shared by every attempt of this write
    */
-  MongoDataWriterFactory(final StructType schema, final WriteConfig writeConfig) {
+  MongoDataWriterFactory(
+      final StructType schema, final WriteConfig writeConfig, final String queryId) {
     this.schema = schema;
     this.writeConfig = writeConfig;
+    this.queryId = Objects.requireNonNull(queryId, "queryId");
   }
 
   /**
@@ -50,7 +55,7 @@ final class MongoDataWriterFactory implements DataWriterFactory, StreamingDataWr
    */
   @Override
   public DataWriter<InternalRow> createWriter(final int partitionId, final long taskId) {
-    return new MongoDataWriter(partitionId, taskId, schema, writeConfig, -1);
+    return new MongoDataWriter(partitionId, taskId, schema, writeConfig, -1, queryId);
   }
 
   /**
@@ -64,6 +69,6 @@ final class MongoDataWriterFactory implements DataWriterFactory, StreamingDataWr
   @Override
   public DataWriter<InternalRow> createWriter(
       final int partitionId, final long taskId, final long epochId) {
-    return new MongoDataWriter(partitionId, taskId, schema, writeConfig, epochId);
+    return new MongoDataWriter(partitionId, taskId, schema, writeConfig, epochId, queryId);
   }
 }
