@@ -121,6 +121,9 @@ public final class WriteConfig extends AbstractMongoConfig {
   /**
    * Determines how to truncate a collection when using {@link org.apache.spark.sql.SaveMode#Overwrite}
    *
+   * <p>The mode is applied when the Spark job commits. Tasks first write a staging collection, so a
+   * failed job leaves the target collection unchanged.
+   *
    * @since 10.6
    */
   public enum TruncateMode {
@@ -160,7 +163,12 @@ public final class WriteConfig extends AbstractMongoConfig {
     }
 
     /**
-     * The truncation implementation for each different truncation type
+     * The immediate truncation for this mode.
+     *
+     * <p>Overwrite does not call this before tasks run. {@code drop} publishes by renaming a staging
+     * collection over the target. {@code truncate} deletes the target documents only after that
+     * staged copy is ready.
+     *
      * @param writeConfig the write config
      */
     public abstract void truncate(WriteConfig writeConfig);

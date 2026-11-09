@@ -37,6 +37,7 @@ final class MongoBatchWrite implements BatchWrite {
   private final LogicalWriteInfo info;
   private final WriteConfig writeConfig;
   private final boolean truncate;
+  private OverwriteStaging overwrite;
 
   /**
    * Construct a new instance
@@ -60,26 +61,25 @@ final class MongoBatchWrite implements BatchWrite {
    */
   @Override
   public DataWriterFactory createBatchWriterFactory(final PhysicalWriteInfo physicalWriteInfo) {
-    if (truncate) {
-      writeConfig.truncateMode().truncate(writeConfig);
-    }
-    return new MongoDataWriterFactory(info.schema(), writeConfig);
+    return writerFactory();
   }
 
   /**
-   * Logs the that the write has been committed
+   * Publishes a staged overwrite, if this write is replacing the target collection.
    *
    * @param messages WriterCommitMessage
    */
   @Override
   public void commit(final WriterCommitMessage[] messages) {
+    publishOverwrite();
     LOGGER.debug("Write committed for: {}, with {} task(s).", info.queryId(), messages.length);
   }
 
   /**
    * The write was aborted due to a failure.
    *
-   * <p>There is no automatic clean up, so the database state is undetermined.
+   * <p>A staged overwrite that has not yet been published is dropped. The target collection is left
+   * as it was.
    *
    * @param messages the WriterCommitMessages
    * @throws DataException with information regarding the failed write
@@ -88,7 +88,33 @@ final class MongoBatchWrite implements BatchWrite {
   public void abort(final WriterCommitMessage[] messages) {
     long tasksCompleted = Arrays.stream(messages).filter(Objects::nonNull).count();
     throw new DataException(format(
-        "Write aborted for: %s. %s/%s tasks completed.",
-        info.queryId(), tasksCompleted, messages.length));
+        "Write aborted for: %s. %s/%s tasks completed.%s",
+        info.queryId(), tasksCompleted, messages.length, discardOverwrite()));
+  }
+
+  private DataWriterFactory writerFactory() {
+    WriteConfig taskConfig = writeConfig;
+    if (truncate) {
+      overwrite = OverwriteStaging.prepare(writeConfig, info.queryId());
+      taskConfig = overwrite.stagedConfig();
+    }
+    return new MongoDataWriterFactory(info.schema(), taskConfig, info.queryId());
+  }
+
+  private void publishOverwrite() {
+    if (overwrite != null) {
+      overwrite.publish();
+      overwrite = null;
+    }
+  }
+
+  private String discardOverwrite() {
+    if (overwrite == null) {
+      return "";
+    }
+    overwrite.discard();
+    String message = overwrite.abortMessage();
+    overwrite = null;
+    return message;
   }
 }

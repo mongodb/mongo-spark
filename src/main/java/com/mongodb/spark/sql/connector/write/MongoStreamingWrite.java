@@ -19,7 +19,6 @@ package com.mongodb.spark.sql.connector.write;
 
 import static java.lang.String.format;
 
-import com.mongodb.client.MongoCollection;
 import com.mongodb.spark.sql.connector.config.WriteConfig;
 import com.mongodb.spark.sql.connector.exceptions.DataException;
 import java.util.Arrays;
@@ -38,6 +37,7 @@ final class MongoStreamingWrite implements StreamingWrite {
   private final LogicalWriteInfo info;
   private final WriteConfig writeConfig;
   private final boolean truncate;
+  private OverwriteStaging overwrite;
 
   /**
    * Construct a new instance
@@ -62,27 +62,41 @@ final class MongoStreamingWrite implements StreamingWrite {
   @Override
   public StreamingDataWriterFactory createStreamingWriterFactory(
       final PhysicalWriteInfo physicalWriteInfo) {
+    WriteConfig taskConfig = writeConfig;
     if (truncate) {
-      writeConfig.doWithCollection(MongoCollection::drop);
+      overwrite = OverwriteStaging.prepare(writeConfig, info.queryId());
+      taskConfig = overwrite.stagedConfig();
     }
-    return new MongoDataWriterFactory(info.schema(), writeConfig);
+    return new MongoDataWriterFactory(info.schema(), taskConfig, info.queryId());
   }
 
   /**
-   * Logs the that the write has been committed
+   * Publishes a staged overwrite for this epoch.
+   *
+   * <p>An epoch that commits without creating a writer factory is a no-op. Streaming queries do
+   * that for triggers that have nothing to write.
    *
    * @param epochId the epoch id for the write
    * @param messages WriterCommitMessages
    */
   @Override
   public void commit(final long epochId, final WriterCommitMessage[] messages) {
-    LOGGER.debug("Write committed for: {}, with {} task(s).", info.queryId(), messages.length);
+    if (overwrite != null) {
+      overwrite.publish();
+      overwrite = null;
+    }
+    LOGGER.debug(
+        "Write committed for: {}, with {} task(s). EpochId: {}.",
+        info.queryId(),
+        messages.length,
+        epochId);
   }
 
   /**
    * The write was aborted due to a failure.
    *
-   * <p>There is no automatic clean up, so the database state is undetermined.
+   * <p>A staged overwrite that has not yet been published is dropped. The target collection is left
+   * as it was.
    *
    * @param epochId the epoch id for the write
    * @param messages the WriterCommitMessages
@@ -90,9 +104,15 @@ final class MongoStreamingWrite implements StreamingWrite {
    */
   @Override
   public void abort(final long epochId, final WriterCommitMessage[] messages) {
+    String staged = "";
+    if (overwrite != null) {
+      overwrite.discard();
+      staged = overwrite.abortMessage();
+      overwrite = null;
+    }
     long tasksCompleted = Arrays.stream(messages).filter(Objects::nonNull).count();
     throw new DataException(format(
-        "Write aborted for: %s. %s/%s tasks completed. EpochId: %s",
-        info.queryId(), tasksCompleted, messages.length, epochId));
+        "Write aborted for: %s. %s/%s tasks completed. EpochId: %s.%s",
+        info.queryId(), tasksCompleted, messages.length, epochId, staged));
   }
 }
